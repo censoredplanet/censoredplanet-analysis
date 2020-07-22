@@ -75,10 +75,14 @@ def flatten_measurement(line):
     [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
   """
-  scan = json.loads(line)
-  pprint(scan)
-
   rows = []
+
+  try:
+    scan = json.loads(line)
+  except json.decoder.JSONDecodeError as e:
+    logging.error('%s', e)
+    return rows
+
   for result in scan['Results']:
     rows.append({
         'domain': scan['Keyword'],
@@ -88,14 +92,13 @@ def flatten_measurement(line):
         'end_time': result['EndTime'],
         'retries': scan['Retries'],
         'sent': result['Sent'],
-        'received': result['Received'],
-        'error': result['Error'],
+        'received': result.get('Received', ''),
+        'error': result.get('Error', ''),
         'blocked': scan['Blocked'],
         'success': result['Success'],
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
     })
-  pprint(rows)
   return rows
 
 
@@ -104,18 +107,19 @@ def run(argv=None, save_main_session=True):
   parser.add_argument(
       '--input',
       dest='input',
-      # default='gs://firehook-scans/echo/CP_Quack-echo-2018-07-27-15-20-11/results.json',
-      default='gs://firehook-dataflow-test/results-short.json',
+      default='gs://firehook-scans/echo/**/results.json',
+      #default='gs://firehook-scans/echo/CP_Quack-echo-2018-07-27-15-20-11/results.json',
+      #default='gs://firehook-dataflow-test/results-short*.json',
       help='Input file to process.')
   parser.add_argument(
       '--output',
       dest='output',
-      default='firehook-censoredplanet:test.example',
+      default='firehook-censoredplanet:echo_results.scan',
       help='Output file to write results to.')
   known_args, pipeline_args = parser.parse_known_args(argv)
   pipeline_args.extend([
       # DataflowRunner or DirectRunner
-      '--runner=DirectRunner',
+      '--runner=DataflowRunner',
       '--project=firehook-censoredplanet',
       '--region=us-east1',
       '--staging_location=gs://firehook-dataflow-test/staging',
