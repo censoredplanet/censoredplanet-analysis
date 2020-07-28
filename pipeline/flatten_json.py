@@ -2,16 +2,13 @@
 
 from __future__ import absolute_import
 
-import argparse
+import datetime
 import json
 import logging
-import datetime
 import re
 from pprint import pprint
 
 import apache_beam as beam
-from apache_beam.io import ReadFromText
-from apache_beam.io import WriteToText
 from apache_beam.io.gcp.internal.clients import bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -69,17 +66,13 @@ def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
     p: beam pipeline object
     gcs: GCSFileSystem object
     scan_type: one of "echo", "discard", "http", "https"
-    start_date: date object, only files at or after this date will be read
-    end_date: date object, only files before or after this date will be read
+    start_date: date object, only files after or at this date will be read
+    end_date: date object, only files at or before this date will be read
 
   Returns:
-    A PCollection<Pair<filename, line>>
-    of all the lines in the files keyed by filename.
-
-    (currently this is stil just a PCollection of lines)
+    A PCollection<KV<filename, line>>
+    of all the lines in the files keyed by filename
   """
-  #gcs_reader = GCSFileReader(gcs)
-
   filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
   filenames = (
       p
@@ -92,8 +85,11 @@ def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
       filenames
       | 'filter file dates' >> beam.Filter(between_dates, start_date, end_date))
 
+  # Shuffle so workers can parallelize
+  shuffled_names = filtered_names | 'filename shuffle' >> beam.Reshuffle()
+
   lines = (
-      filtered_names
+      shuffled_names
       | 'read lines' >> beam.FlatMap(lambda filename: gcs.open(filename)))
 
   return lines
@@ -105,15 +101,22 @@ def between_dates(filename, start_date, end_date):
   Args:
     filename: string of the format
     "gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json"
-    start_date: date object
-    end_date: date object
+    start_date: date object or None
+    end_date: date object or None
 
   Returns:
     boolean
   """
   date = datetime.date.fromisoformat(
       re.findall('\d\d\d\d-\d\d-\d\d', filename)[0])
-  return start_date <= date <= end_date
+  if start_date and end_date:
+    return start_date <= date <= end_date
+  elif start_date:
+    return start_date <= date
+  elif end_date:
+    date <= end_date
+  else:
+    return True
 
 
 def flatten_measurement(line):
@@ -138,10 +141,17 @@ def flatten_measurement(line):
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
-    logging.warn('JSONDecodeError: %s', e)
+    logging.warn('JSONDecodeError: %s\n%s\n', e, line)
     return rows
 
   for result in scan['Results']:
+    received = result.get('Received', '')
+    if isinstance(received, str):
+      received_flat = received
+    else:
+      # TODO figure out a better way to deal with the structure in http/https
+      received_flat = json.dumps(received)
+
     rows.append({
         'domain': scan['Keyword'],
         'ip': scan['Server'],
@@ -150,7 +160,7 @@ def flatten_measurement(line):
         'end_time': result['EndTime'],
         'retries': scan['Retries'],
         'sent': result['Sent'],
-        'received': result.get('Received', ''),
+        'received': received_flat,
         'error': result.get('Error', ''),
         'blocked': scan['Blocked'],
         'success': result['Success'],
@@ -168,7 +178,7 @@ def run(argv=None, save_main_session=True):
       '--region=us-east1',
       '--staging_location=gs://firehook-dataflow-test/staging',
       '--temp_location=gs://firehook-dataflow-test/temp',
-      '--job_name=flatten-json-https-job',
+      '--job_name=flatten-json-http2-shuffle-job',
   ]
   pipeline_options = PipelineOptions(pipeline_args)
   pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
@@ -177,13 +187,13 @@ def run(argv=None, save_main_session=True):
   with beam.Pipeline(options=pipeline_options) as p:
     scan_type = 'http'
 
-    start_date = datetime.date.fromisoformat('2020-05-07')
-    end_date = datetime.date.fromisoformat('2020-05-11')
+    lines = read_scan_text(p, gcs, scan_type)
 
-    lines = read_scan_text(
-        p, gcs, scan_type, start_date=start_date, end_date=end_date)
+    # Shuffle so workers can parallelize
+    shuffled_lines = lines | 'line shuffle' >> beam.Reshuffle()
 
-    rows = (lines | 'flatten json' >> (beam.FlatMap(flatten_measurement)))
+    rows = (
+        shuffled_lines | 'flatten json' >> (beam.FlatMap(flatten_measurement)))
 
     bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
 
@@ -192,8 +202,8 @@ def run(argv=None, save_main_session=True):
         schema=get_bigquery_schema(),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         # WRITE_TRUNCATE is slow when testing.
-        write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
-    #write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
+        #write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
+        write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
 
 
 if __name__ == '__main__':
