@@ -9,6 +9,7 @@ import re
 from pprint import pprint
 
 import apache_beam as beam
+from apache_beam.io import ReadFromText
 from apache_beam.io.gcp.internal.clients import bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -74,23 +75,21 @@ def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
     of all the lines in the files keyed by filename
   """
   filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
-  filenames = (
-      p
-      | 'enumerate files' >> beam.Create(
-          [m.metadata_list for m in gcs.match([filename_regex])])
-      | 'metadata_list to filepath' >> beam.FlatMap(
-          lambda metadata_list: [metadata.path for metadata in metadata_list]))
+  file_metadata = [m.metadata_list for m in gcs.match([filename_regex])][0]
+  filenames = [metadata.path for metadata in file_metadata]
+  filtered_filenames = [
+      filename for filename in filenames
+      if between_dates(filename, start_date, end_date)
+  ]
 
-  filtered_names = (
-      filenames
-      | 'filter file dates' >> beam.Filter(between_dates, start_date, end_date))
+  # ListOf PCollection<line>
+  read_files = [
+      p | 'read file ' + filename >> ReadFromText(filename)
+      for filename in filenames
+  ]
 
-  # Shuffle so workers can parallelize
-  shuffled_names = filtered_names | 'filename shuffle' >> beam.Reshuffle()
-
-  lines = (
-      shuffled_names
-      | 'read lines' >> beam.FlatMap(lambda filename: gcs.open(filename)))
+  # PCollection<String>
+  lines = (read_files | beam.Flatten())
 
   return lines
 
@@ -110,7 +109,7 @@ def between_dates(filename, start_date, end_date):
   date = datetime.date.fromisoformat(
       re.findall('\d\d\d\d-\d\d-\d\d', filename)[0])
   if start_date and end_date:
-    return start_date <= date <= end_date
+    return start_date <= date and date <= end_date
   elif start_date:
     return start_date <= date
   elif end_date:
@@ -123,6 +122,7 @@ def flatten_measurement(line):
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
+    filename: a filepath string
     line: a json string describing a censored planet measurement. example
     {'Keyword': 'test.com,
      'Server': '1.2.3.4',
@@ -178,7 +178,7 @@ def run(argv=None, save_main_session=True):
       '--region=us-east1',
       '--staging_location=gs://firehook-dataflow-test/staging',
       '--temp_location=gs://firehook-dataflow-test/temp',
-      '--job_name=flatten-json-http2-shuffle-job',
+      '--job_name=flatten-json-http-not-shuffled-job',
   ]
   pipeline_options = PipelineOptions(pipeline_args)
   pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
@@ -189,13 +189,9 @@ def run(argv=None, save_main_session=True):
 
     lines = read_scan_text(p, gcs, scan_type)
 
-    # Shuffle so workers can parallelize
-    shuffled_lines = lines | 'line shuffle' >> beam.Reshuffle()
+    rows = (lines | 'flatten json' >> (beam.FlatMap(flatten_measurement)))
 
-    rows = (
-        shuffled_lines | 'flatten json' >> (beam.FlatMap(flatten_measurement)))
-
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
+    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
 
     rows | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
