@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from pprint import pprint
+from typing import Optional, Tuple, Dict
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
@@ -45,7 +46,7 @@ bigquery_schema = {
 """
 
 
-def get_bigquery_schema():
+def get_bigquery_schema() -> bigquery.TableSchema:
   """Return a beam bigquery schema for the output table."""
   table_schema = bigquery.TableSchema()
 
@@ -60,7 +61,11 @@ def get_bigquery_schema():
   return table_schema
 
 
-def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
+def read_scan_text(p: beam.Pipeline,
+                   gcs: GCSFileSystem,
+                   scan_type: str,
+                   start_date: Optional[datetime.date] = None,
+                   end_date: Optional[datetime.date] = None):
   """Read in the given json files for a date segment.
 
   Args:
@@ -71,7 +76,7 @@ def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
     end_date: date object, only files at or before this date will be read
 
   Returns:
-    A PCollection<KV<filename, line>>
+    A PCollection[Tuple[filename, line]]
     of all the lines in the files keyed by filename
   """
   filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
@@ -82,19 +87,40 @@ def read_scan_text(p, gcs, scan_type, start_date=None, end_date=None):
       if between_dates(filename, start_date, end_date)
   ]
 
-  # ListOf PCollection<line>
-  read_files = [
-      p | 'read file ' + filename >> ReadFromText(filename)
-      for filename in filenames
+  # List[PCollection[line]]
+  multiple_file_lines = [
+      p
+      | 'read file ' + filename >> ReadFromText(filename)
+      for filename in filtered_filenames
   ]
 
-  # PCollection<String>
-  lines = (read_files | beam.Flatten())
+  # List[PCollection[Tuple[filename,line]]]
+  multiple_file_lines_with_filenames = []
+  for (file_lines, filename) in zip(multiple_file_lines, filtered_filenames):
+    step_name = 'annotate_filename ' + filename
 
+    # PCollection[Tuple[filename,line]]
+    file_lines_with_filenames = (
+        file_lines | step_name >> beam.Map(
+            make_tuple, filename).with_output_types(Tuple[str, str]))
+
+    multiple_file_lines_with_filenames.append(file_lines_with_filenames)
+
+  # PCollection[Tuple[filename,line]]
+  lines = (
+      tuple(multiple_file_lines_with_filenames)
+      | beam.Flatten().with_output_types(Tuple[str, str]))
   return lines
 
 
-def between_dates(filename, start_date, end_date):
+def make_tuple(line: str, filename: str) -> Tuple[str, str]:
+  """Helper method for making a tuple from two args."""
+  return (filename, line)
+
+
+def between_dates(filename: str,
+                  start_date: Optional[datetime.date] = None,
+                  end_date: Optional[datetime.date] = None) -> bool:
   """Return true if a filename is between (or matches either of) two dates.
 
   Args:
@@ -107,18 +133,18 @@ def between_dates(filename, start_date, end_date):
     boolean
   """
   date = datetime.date.fromisoformat(
-      re.findall('\d\d\d\d-\d\d-\d\d', filename)[0])
+      re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0])
   if start_date and end_date:
-    return start_date <= date and date <= end_date
+    return start_date <= date <= end_date
   elif start_date:
     return start_date <= date
   elif end_date:
-    date <= end_date
+    return date <= end_date
   else:
     return True
 
 
-def flatten_measurement(line):
+def flatten_measurement(filename: str, line: str):
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -141,7 +167,7 @@ def flatten_measurement(line):
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
-    logging.warn('JSONDecodeError: %s\n%s\n', e, line)
+    logging.error('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
     return rows
 
   for result in scan['Results']:
@@ -170,28 +196,33 @@ def flatten_measurement(line):
   return rows
 
 
-def run(argv=None, save_main_session=True):
-  pipeline_args = [
+def run():
+  pipeline_options = PipelineOptions(
       # DataflowRunner or DirectRunner
-      '--runner=DataflowRunner',
-      '--project=firehook-censoredplanet',
-      '--region=us-east1',
-      '--staging_location=gs://firehook-dataflow-test/staging',
-      '--temp_location=gs://firehook-dataflow-test/temp',
-      '--job_name=flatten-json-http-not-shuffled-job',
-  ]
-  pipeline_options = PipelineOptions(pipeline_args)
-  pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
-  gcs = GCSFileSystem(PipelineOptions(pipeline_args))
+      runner='DataflowRunner',
+      project='firehook-censoredplanet',
+      region='us-east1',
+      staging_location='gs://firehook-dataflow-test/staging',
+      temp_location='gs://firehook-dataflow-test/temp',
+      job_name='flatten-json-http-not-shuffled-job',
+      runtime_type_check=False  # slow in prod
+  )
+  pipeline_options.view_as(SetupOptions).save_main_session = True
+  gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
     scan_type = 'http'
 
+    # PCollection[Tuple[filename,line]]
     lines = read_scan_text(p, gcs, scan_type)
 
-    rows = (lines | 'flatten json' >> (beam.FlatMap(flatten_measurement)))
+    # PCollection[Dict[column_name,field_value]]
+    rows = (
+        lines | 'flatten json' >>
+        beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
+    )
 
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
+    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
 
     rows | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
