@@ -13,10 +13,14 @@ import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.io.gcp.internal.clients import bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
+from apache_beam.io.gcp.gcsio import GcsIO
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+from ip_metadata import IpMetadata
+
 bigquery_schema = {
+    # Columns from Censored Planet data
     'domain': 'string',
     'ip': 'string',
     'date': 'date',
@@ -29,20 +33,20 @@ bigquery_schema = {
     'blocked': 'boolean',
     'success': 'boolean',
     'fail_sanity': 'boolean',
-    'stateful_block': 'boolean'
+    'stateful_block': 'boolean',
+    # Columns added from CAIDA data
+    'netblock': 'string',
+    'asn': 'integer',
+    'as_name': 'string',
+    'as_full_name': 'string',
+    'country': 'string',
 }
 # Future fields
 """
     'row_number', 'integer',
     'domain_category': 'string',
-    'netblock': 'string',
-    'asn': 'string',
-    'as_name': 'string',
-    'as_full_name': 'string',
     'as_traffic': 'integer',
     'as_class': 'string',
-    'country': 'string',
-
 """
 
 
@@ -196,6 +200,28 @@ def flatten_measurement(filename: str, line: str):
   return rows
 
 
+def add_ip_metadata(row, ip_metadata):
+  """Add Autonymous System metadata for a given ip in a row.
+
+  Args:
+    row: a dict containing individual roundtrip information
+    ex {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+
+  Returns:
+    the same dict with additional key/values added.
+  """
+  (netblock, asn, as_name, as_full_name,
+   country) = ip_metadata.lookup(row['ip'])
+  row.update({
+      'netblock': netblock,
+      'asn': asn,
+      'as_name': as_name,
+      'as_full_name': as_full_name,
+      'country': country,
+  })
+  return row
+
+
 def run():
   pipeline_options = PipelineOptions(
       # DataflowRunner or DirectRunner
@@ -207,14 +233,18 @@ def run():
       job_name='flatten-json-http-not-shuffled-job',
       runtime_type_check=False  # slow in prod
   )
-  pipeline_options.view_as(SetupOptions).save_main_session = True
+  #pipeline_options.view_as(SetupOptions).save_main_session = True
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
     scan_type = 'http'
 
+    start_date = datetime.date.fromisoformat('2020-05-07')
+    end_date = datetime.date.fromisoformat('2020-05-11')
+
     # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(p, gcs, scan_type)
+    lines = read_scan_text(
+        p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
     # PCollection[Dict[column_name,field_value]]
     rows = (
@@ -222,14 +252,19 @@ def run():
         beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
     )
 
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
+    ip_metadata = IpMetadata(gcs, start_date)
 
-    rows | 'Write' >> beam.io.WriteToBigQuery(
+    rows_with_ip_info = (
+        rows
+        | 'add as metadata' >> beam.Map(
+            add_ip_metadata, ip_metadata).with_output_types(Dict[str, str]))
+
+    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
+
+    rows_with_ip_info | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
         schema=get_bigquery_schema(),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-        # WRITE_TRUNCATE is slow when testing.
-        #write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND)
         write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
 
 
