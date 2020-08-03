@@ -233,7 +233,7 @@ def run():
       job_name='flatten-json-http-not-shuffled-job',
       runtime_type_check=False  # slow in prod
   )
-  #pipeline_options.view_as(SetupOptions).save_main_session = True
+  pipeline_options.view_as(SetupOptions).save_main_session = True
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
