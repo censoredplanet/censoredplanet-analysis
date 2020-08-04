@@ -37,6 +37,9 @@ class IpMetadata(object):
     Returns:
       Tuple(netblock, asn, as_name, as_full_name, country)
       ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "US")
+
+    Raises
+      KeyError
     """
     rnode = self.asn_db.search_best(ip)
 
@@ -44,7 +47,7 @@ class IpMetadata(object):
       asn = rnode.data["asn"]
       netblock = rnode.data["netblock"]
     else:
-      return KeyError("Missing IP %s at %s", ip, self.date)
+      raise KeyError("Missing IP %s at %s", ip, self.date)
 
     as_name, as_full_name, country = self.as_to_org_map[str(asn)]
 

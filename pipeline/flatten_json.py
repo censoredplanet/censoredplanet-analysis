@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, List
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
@@ -16,8 +16,6 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.io.gcp.gcsio import GcsIO
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-
-from ip_metadata import IpMetadata
 
 bigquery_schema = {
     # Columns from Censored Planet data
@@ -148,7 +146,7 @@ def between_dates(filename: str,
     return True
 
 
-def flatten_measurement(filename: str, line: str):
+def flatten_measurement(filename: str, line: str) -> Tuple[str, Dict[str, str]]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -160,11 +158,12 @@ def flatten_measurement(filename: str, line: str):
                  {'Success': false}]}
 
   Returns:
-    an array of dicts containing individual roundtrip information
-    [{'column_name': field_value}]
+    An array of dicts containing individual roundtrip information
+    Keyed by YYYY-MM-dd date string
+    [(date, {'column_name': field_value})]
     example
-    [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-     {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
+    [('2020-01-01', {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true})
+     ('2020-01-02', {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true})]
   """
   rows = []
 
@@ -182,10 +181,11 @@ def flatten_measurement(filename: str, line: str):
       # TODO figure out a better way to deal with the structure in http/https
       received_flat = json.dumps(received)
 
-    rows.append({
+    date = result['StartTime'][:10]
+    row = {
         'domain': scan['Keyword'],
         'ip': scan['Server'],
-        'date': result['StartTime'][:10],
+        'date': date,
         'start_time': result['StartTime'],
         'end_time': result['EndTime'],
         'retries': scan['Retries'],
@@ -196,30 +196,50 @@ def flatten_measurement(filename: str, line: str):
         'success': result['Success'],
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
-    })
+    }
+    rows.append((date, row))
   return rows
 
 
-def add_ip_metadata(row, ip_metadata):
-  """Add Autonymous System metadata for a given ip in a row.
+def add_ip_metadata(date, rows, gcs=None) -> Tuple[str, List[Dict[str, str]]]:
+  """Add Autonymous System metadata for ips in the given rows.
 
   Args:
-    row: a dict containing individual roundtrip information
-    ex {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    date: a 'YYYYMMDD' date key
+    rows: a list of dicts containing individual roundtrip information
+    ex [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
+    gcs: GCSFileSystem
 
   Returns:
-    the same dict with additional key/values added.
+    a Tuple(date, list of the same row dicts with additional key/values added)
   """
-  (netblock, asn, as_name, as_full_name,
-   country) = ip_metadata.lookup(row['ip'])
-  row.update({
-      'netblock': netblock,
-      'asn': asn,
-      'as_name': as_name,
-      'as_full_name': as_full_name,
-      'country': country,
-  })
-  return row
+  # this needs to be imported here
+  # since this local class will be used on remote workers
+  from metadata.ip_metadata import IpMetadata
+
+  ip_metadata = IpMetadata(gcs, date)
+  new_rows = []
+
+  for row in rows:
+    new_row = {}
+    new_row.update(row)
+
+    try:
+      (netblock, asn, as_name, as_full_name,
+       country) = ip_metadata.lookup(row['ip'])
+      new_row.update({
+          'netblock': netblock,
+          'asn': asn,
+          'as_name': as_name,
+          'as_full_name': as_full_name,
+          'country': country,
+      })
+    except KeyError as e:
+      logging.error('KeyError: %s\n', e)
+
+    new_rows.append(new_row)
+
+  return (date, new_rows)
 
 
 def run():
@@ -230,9 +250,9 @@ def run():
       region='us-east1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name='flatten-json-http-not-shuffled-job',
-      runtime_type_check=False  # slow in prod
-  )
+      job_name='flatten-json-http-not-shuffled-job3',
+      runtime_type_check=False,  # slow in prod
+      setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
   gcs = GCSFileSystem(pipeline_options)
 
@@ -246,22 +266,35 @@ def run():
     lines = read_scan_text(
         p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
-    # PCollection[Dict[column_name,field_value]]
+    # PCollection[Tuple[date,Dict[column_name,field_value]]]
     rows = (
-        lines | 'flatten json' >>
-        beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
-    )
+        lines | 'flatten json' >> beam.FlatMapTuple(
+            flatten_measurement).with_output_types(Tuple[str, Dict[str, str]]))
 
-    ip_metadata = IpMetadata(gcs, start_date)
+    # PCollection[Tuple[date,List[Dict[column_name,field_value]]]]
+    grouped_rows = (
+        rows | 'group by dates' >> beam.GroupByKey().with_output_types(
+            Tuple[str, List[Dict[str, str]]]))
 
-    rows_with_ip_info = (
-        rows
-        | 'add as metadata' >> beam.Map(
-            add_ip_metadata, ip_metadata).with_output_types(Dict[str, str]))
+    # Put GCS in a one-element pcollection so we can pass it remotely.
+    gcs_pcoll = p | 'Create GCS Singleton' >> beam.Create([gcs])
+
+    # PCollection[Tuple[date,List[Dict[column_name,field_value]]]]
+    grouped_rows_with_metadata = (
+        grouped_rows
+        | 'add metadata' >> beam.MapTuple(
+            add_ip_metadata, gcs=beam.pvalue.AsSingleton(
+                gcs_pcoll)).with_output_types(Tuple[str, List[Dict[str, str]]]))
+
+    # PCollection[Dict[column_name,field_value]]
+    rows_with_metadata = (
+        grouped_rows_with_metadata
+        | 'flatten rows' >> beam.FlatMapTuple(
+            lambda date, rows: rows).with_output_types(Dict[str, str]))
 
     bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
 
-    rows_with_ip_info | 'Write' >> beam.io.WriteToBigQuery(
+    rows_with_metadata | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
         schema=get_bigquery_schema(),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
