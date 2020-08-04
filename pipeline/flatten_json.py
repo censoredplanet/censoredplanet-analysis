@@ -214,7 +214,7 @@ def add_ip_metadata(date, rows, gcs=None) -> Tuple[str, List[Dict[str, str]]]:
     a Tuple(date, list of the same row dicts with additional key/values added)
   """
   # this needs to be imported here
-  # since this local class will be used on remote workers
+  # since this function will be called on remote workers
   from metadata.ip_metadata import IpMetadata
 
   ip_metadata = IpMetadata(gcs, date)
@@ -250,7 +250,7 @@ def run():
       region='us-east1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name='flatten-json-http-not-shuffled-job3',
+      job_name='flatten-json-http-not-shuffled-job-pyasn-re',
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True

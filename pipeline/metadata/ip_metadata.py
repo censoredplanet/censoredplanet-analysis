@@ -1,13 +1,11 @@
-"""TODO(laplante): DO NOT SUBMIT without one-line documentation for classify_ips.
-
-TODO(laplante): DO NOT SUBMIT without a detailed description of classify_ips.
-"""
+"""IP Metadata is a class to add network metadata to IPs."""
 
 import csv
 import datetime
 from pprint import pprint
+import re
 from typing import Tuple, Dict
-import radix
+import pyasn
 
 CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
 
@@ -41,20 +39,17 @@ class IpMetadata(object):
     Raises
       KeyError
     """
-    rnode = self.asn_db.search_best(ip)
+    asn, netblock = self.asn_db.lookup(ip)
 
-    if rnode:
-      asn = rnode.data["asn"]
-      netblock = rnode.data["netblock"]
-    else:
+    if not asn:
       raise KeyError("Missing IP %s at %s", ip, self.date)
 
     as_name, as_full_name, country = self.as_to_org_map[str(asn)]
 
     return (netblock, asn, as_name, as_full_name, country)
 
-  def get_asn_db(self, date: datetime.date) -> radix.Radix:
-    """Creates an ASN radix for a given date.
+  def get_asn_db(self, date: datetime.date) -> pyasn.pyasn:
+    """Creates an ASN db for a given date.
 
     Args:
       date: the historical date to initialize the asn database for
@@ -67,18 +62,23 @@ class IpMetadata(object):
     filename = "routeviews-rv2-20180727-1200.pfx2as"
     filepath = CLOUD_DATA_LOCATION + "routeviews/" + filename
     routeview = self.gcs.open(filepath).read()
-    routeview_content = routeview.decode("utf-8").split("\n")[:-1]
+    routeview_content = routeview.decode("utf-8")
 
-    rtree = radix.Radix()
+    # CAIDA file lines are stored in the format
+    # 1.0.0.0\t24\t13335
+    # but pyasn wants lines in the format
+    # 1.0.0.0/24\t13335
+    fixed_routeview_content = re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3",
+                                     routeview_content)
 
-    for entry in routeview_content:
-      (ip, mask, asns) = entry.split("\t")
-      asn = asns.replace("_", ",").split(",")[0]
-      rnode = rtree.add(ip, int(mask))
-      rnode.data["asn"] = int(asn)
-      rnode.data["netblock"] = ip + "/" + mask
+    # ipasn_string arg does not yet exist in pyasn 1.6.0b1,
+    # so we need to write a local file.
+    local_filename = "/tmp/" + filename
+    f = open(local_filename, mode="w+")
+    f.write(fixed_routeview_content)
+    f.close()
 
-    return rtree
+    return pyasn.pyasn(local_filename)
 
   def get_org_name_to_country_map(self) -> Dict[str, Tuple[str, str]]:
     """Reads in and returns a mapping of AS org short names to country info.
