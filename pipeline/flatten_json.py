@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict, List
+from typing import Optional, Tuple, Dict, List, Any
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
@@ -63,11 +63,12 @@ def get_bigquery_schema() -> bigquery.TableSchema:
   return table_schema
 
 
-def read_scan_text(p: beam.Pipeline,
-                   gcs: GCSFileSystem,
-                   scan_type: str,
-                   start_date: Optional[datetime.date] = None,
-                   end_date: Optional[datetime.date] = None):
+def read_scan_text(
+    p: beam.Pipeline,
+    gcs: GCSFileSystem,
+    scan_type: str,
+    start_date: Optional[datetime.date] = None,
+    end_date: Optional[datetime.date] = None) -> beam.pvalue.PCollection:
   """Read in the given json files for a date segment.
 
   Args:
@@ -146,7 +147,77 @@ def between_dates(filename: str,
     return True
 
 
-def flatten_measurement(filename: str, line: str) -> Tuple[str, Dict[str, str]]:
+def add_metadata(
+    rows: beam.pvalue.PCollection[Dict[str, str]],
+    p: beam.Pipeline,
+    gcs: GCSFileSystem,
+) -> beam.pvalue.PCollection[Dict[str, Any]]:
+  """Add ip metadata to a collection of roundtrip rows.
+
+  Args:
+    rows: beam.PCollection[Dict[column_name, field_value]]
+    p: beam pipeline object
+    gcs: gcs: GCSFileSystem object
+
+  Returns:
+    PCollection[Dict[column_name, field_value]]
+    The same rows as above with with additional metadata columns added.
+  """
+
+  # PCollection[Tuple[date,ip]]
+  ips_and_dates = (
+      rows
+      | 'get ips and dates' >> beam.Map(make_date_ip_key).with_output_types(
+          Tuple[str, str]))
+
+  deduped_ips_and_dates = ips_and_dates | 'dedup' >> beam.Distinct()
+
+  # PCollection[Tuple[date,List[ip]]]
+  grouped_ips_by_dates = (
+      deduped_ips_and_dates | 'group by date' >>
+      beam.GroupByKey().with_output_types(Tuple[str, List[str]]))
+
+  # Put GCS in a one-element pcollection so we can pass it remotely.
+  gcs_pcoll = p | 'Create GCS Singleton' >> beam.Create([gcs])
+
+  # PCollection[Dict[column_name,field_value]]
+  ips_with_metadata = (
+      grouped_ips_by_dates
+      | 'get ip metadata' >> beam.FlatMapTuple(
+          add_ip_metadata,
+          gcs=beam.pvalue.AsSingleton(gcs_pcoll)).with_output_types(
+              Tuple[Tuple[str, str], Dict[str, str]]))
+
+  # TODO over the whole dataset this will get too big
+  ips_dict = ips_with_metadata | 'ip dict' >> beam.combiners.ToDict()
+
+  # PCollection[Dict[column_name,field_value]]
+  rows_with_metadata = (
+      rows
+      | 'append metadata to rows' >> beam.Map(
+          append_metadata, ip_dict=beam.pvalue.AsSingleton(
+              ips_dict)).with_output_types(Dict[str, Any]))
+
+  return rows_with_metadata
+
+
+def make_date_ip_key(row: Dict[str, str]) -> Tuple[str, str]:
+  return (row['date'], row['ip'])
+
+
+def append_metadata(
+    row: Dict[str, str], ip_dict: Dict[Tuple[str, str],
+                                       Dict[str, Any]]) -> Dict[str, Any]:
+  key = make_date_ip_key(row)
+  metadata = ip_dict[key]
+
+  new_row: Dict[str, Any] = {}
+  new_row.update(row)
+  new_row.update(metadata)
+  return new_row
+
+
+def flatten_measurement(filename: str, line: str) -> List[Dict[str, str]]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -159,13 +230,12 @@ def flatten_measurement(filename: str, line: str) -> Tuple[str, Dict[str, str]]:
 
   Returns:
     An array of dicts containing individual roundtrip information
-    Keyed by YYYY-MM-dd date string
-    [(date, {'column_name': field_value})]
+    [{'column_name': field_value}]
     example
-    [('2020-01-01', {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true})
-     ('2020-01-02', {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true})]
+    [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+     {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
   """
-  rows = []
+  rows: List[Dict[str, str]] = []
 
   try:
     scan = json.loads(line)
@@ -197,49 +267,49 @@ def flatten_measurement(filename: str, line: str) -> Tuple[str, Dict[str, str]]:
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
     }
-    rows.append((date, row))
+    rows.append(row)
   return rows
 
 
-def add_ip_metadata(date, rows, gcs=None) -> Tuple[str, List[Dict[str, str]]]:
+def add_ip_metadata(date: str,
+                    ips: List[str],
+                    gcs=None) -> List[Tuple[Tuple[str, str], Dict[str, Any]]]:
   """Add Autonymous System metadata for ips in the given rows.
 
   Args:
     date: a 'YYYYMMDD' date key
-    rows: a list of dicts containing individual roundtrip information
-    ex [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
-    gcs: GCSFileSystem
+    rows: a list of ips
 
   Returns:
-    a Tuple(date, list of the same row dicts with additional key/values added)
+    List of ((date, ip), metadata_dict)
   """
   # this needs to be imported here
   # since this function will be called on remote workers
   from metadata.ip_metadata import IpMetadata
 
   ip_metadata = IpMetadata(gcs, date)
-  new_rows = []
+  metadata_list = []
 
-  for row in rows:
-    new_row = {}
-    new_row.update(row)
+  for ip in ips:
+    metadata_key = (date, ip)
 
     try:
-      (netblock, asn, as_name, as_full_name,
-       country) = ip_metadata.lookup(row['ip'])
-      new_row.update({
+      (netblock, asn, as_name, as_full_name, country) = ip_metadata.lookup(ip)
+      metadata_values = {
           'netblock': netblock,
           'asn': asn,
           'as_name': as_name,
           'as_full_name': as_full_name,
           'country': country,
-      })
+      }
+
     except KeyError as e:
       logging.error('KeyError: %s\n', e)
+      metadata_values = {}  # values are missing, but entry should still exist
 
-    new_rows.append(new_row)
+    metadata_list.append((metadata_key, metadata_values))
 
-  return (date, new_rows)
+  return metadata_list
 
 
 def run():
@@ -266,31 +336,13 @@ def run():
     lines = read_scan_text(
         p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
-    # PCollection[Tuple[date,Dict[column_name,field_value]]]
-    rows = (
-        lines | 'flatten json' >> beam.FlatMapTuple(
-            flatten_measurement).with_output_types(Tuple[str, Dict[str, str]]))
-
-    # PCollection[Tuple[date,List[Dict[column_name,field_value]]]]
-    grouped_rows = (
-        rows | 'group by dates' >> beam.GroupByKey().with_output_types(
-            Tuple[str, List[Dict[str, str]]]))
-
-    # Put GCS in a one-element pcollection so we can pass it remotely.
-    gcs_pcoll = p | 'Create GCS Singleton' >> beam.Create([gcs])
-
-    # PCollection[Tuple[date,List[Dict[column_name,field_value]]]]
-    grouped_rows_with_metadata = (
-        grouped_rows
-        | 'add metadata' >> beam.MapTuple(
-            add_ip_metadata, gcs=beam.pvalue.AsSingleton(
-                gcs_pcoll)).with_output_types(Tuple[str, List[Dict[str, str]]]))
-
     # PCollection[Dict[column_name,field_value]]
-    rows_with_metadata = (
-        grouped_rows_with_metadata
-        | 'flatten rows' >> beam.FlatMapTuple(
-            lambda date, rows: rows).with_output_types(Dict[str, str]))
+    rows = (
+        lines | 'flatten json' >>
+        beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
+    )
+
+    rows_with_metadata = add_metadata(rows, p, gcs)
 
     bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
 

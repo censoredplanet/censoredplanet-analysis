@@ -12,7 +12,7 @@ CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
 
 class IpMetadata(object):
 
-  def __init__(self, gcs, date: datetime.date):
+  def __init__(self, gcs, date: str):
     """...
 
     Args:
