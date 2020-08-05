@@ -11,9 +11,10 @@ CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
 
 
 class IpMetadata(object):
+  """A lookup table which contains network metadata about IPs."""
 
   def __init__(self, gcs, date: str):
-    """...
+    """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
       gcs: GCSFileSystem

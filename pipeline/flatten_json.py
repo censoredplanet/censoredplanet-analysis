@@ -16,6 +16,9 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+IP_METADATA_PCOLLECTION_NAME = 'metadata'
+ROWS_PCOLLECION_NAME = 'rows'
+
 bigquery_schema = {
     # Columns from Censored Planet data
     'domain': 'string',
@@ -45,9 +48,6 @@ bigquery_schema = {
     'as_traffic': 'integer',
     'as_class': 'string',
 """
-
-IP_METADATA_PCOLLECTION_NAME = 'metadata'
-ROWS_PCOLLECION_NAME = 'rows'
 
 
 def get_bigquery_schema() -> bigquery.TableSchema:
@@ -149,6 +149,58 @@ def between_dates(filename: str,
     return True
 
 
+def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
+  """Flatten a measurement string into several roundtrip rows.
+
+  Args:
+    filename: a filepath string
+    line: a json string describing a censored planet measurement. example
+    {'Keyword': 'test.com,
+     'Server': '1.2.3.4',
+     'Results': [{'Success': true},
+                 {'Success': false}]}
+
+  Yields:
+    Dicts containing individual roundtrip information
+    {'column_name': field_value}
+    examples:
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+  """
+
+  try:
+    scan = json.loads(line)
+  except json.decoder.JSONDecodeError as e:
+    logging.error('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
+    return
+
+  for result in scan['Results']:
+    received = result.get('Received', '')
+    if isinstance(received, str):
+      received_flat = received
+    else:
+      # TODO figure out a better way to deal with the structure in http/https
+      received_flat = json.dumps(received)
+
+    date = result['StartTime'][:10]
+    row = {
+        'domain': scan['Keyword'],
+        'ip': scan['Server'],
+        'date': date,
+        'start_time': result['StartTime'],
+        'end_time': result['EndTime'],
+        'retries': scan['Retries'],
+        'sent': result['Sent'],
+        'received': received_flat,
+        'error': result.get('Error', ''),
+        'blocked': scan['Blocked'],
+        'success': result['Success'],
+        'fail_sanity': scan['FailSanity'],
+        'stateful_block': scan['StatefulBlock'],
+    }
+    yield row
+
+
 def add_metadata(
     rows: beam.pvalue.PCollection[Dict[str, str]],
     p: beam.Pipeline,
@@ -210,103 +262,9 @@ def add_metadata(
   return rows_with_metadata
 
 
-def merge_metadata_with_rows(
-    key: Tuple[str, str],
-    value: Dict[str, List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
-  # pyformat: disable
-  """Merge a list of rows with their corrosponding metadata information.
-
-  Args:
-    key: A (date,ip) tuple that we joined on. This is thrown away.
-    value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
-               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
-      where ipmetadata is a dict of the format {column_name, value}
-       {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
-      and row is a dict of the format {column_name, value}
-       {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
-
-  Yields:
-    row dict {column_name, value} containing both row and metadata cols/values
-  """
-  # pyformat: enable
-  ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
-  rows = value[ROWS_PCOLLECION_NAME]
-
-  for row in rows:
-    new_row: Dict[str, Any] = {}
-    new_row.update(row)
-    new_row.update(ip_metadata)
-    yield new_row
-
-
 def make_date_ip_key(row: Dict[str, str]) -> Tuple[str, str]:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
-
-
-def append_metadata(
-    row: Dict[str, str], ip_dict: Dict[Tuple[str, str],
-                                       Dict[str, Any]]) -> Dict[str, Any]:
-  key = make_date_ip_key(row)
-  metadata = ip_dict[key]
-
-  new_row: Dict[str, Any] = {}
-  new_row.update(row)
-  new_row.update(metadata)
-  return new_row
-
-
-def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
-  """Flatten a measurement string into several roundtrip rows.
-
-  Args:
-    filename: a filepath string
-    line: a json string describing a censored planet measurement. example
-    {'Keyword': 'test.com,
-     'Server': '1.2.3.4',
-     'Results': [{'Success': true},
-                 {'Success': false}]}
-
-  Yields:
-    Dicts containing individual roundtrip information
-    {'column_name': field_value}
-    examples:
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-  """
-
-  try:
-    scan = json.loads(line)
-  except json.decoder.JSONDecodeError as e:
-    logging.error('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
-    return
-
-  for result in scan['Results']:
-    received = result.get('Received', '')
-    if isinstance(received, str):
-      received_flat = received
-    else:
-      # TODO figure out a better way to deal with the structure in http/https
-      received_flat = json.dumps(received)
-
-    date = result['StartTime'][:10]
-    row = {
-        'domain': scan['Keyword'],
-        'ip': scan['Server'],
-        'date': date,
-        'start_time': result['StartTime'],
-        'end_time': result['EndTime'],
-        'retries': scan['Retries'],
-        'sent': result['Sent'],
-        'received': received_flat,
-        'error': result.get('Error', ''),
-        'blocked': scan['Blocked'],
-        'success': result['Success'],
-        'fail_sanity': scan['FailSanity'],
-        'stateful_block': scan['StatefulBlock'],
-    }
-    yield row
 
 
 def add_ip_metadata(
@@ -348,6 +306,36 @@ def add_ip_metadata(
       metadata_values = {}  # values are missing, but entry should still exist
 
     yield (metadata_key, metadata_values)
+
+
+def merge_metadata_with_rows(
+    key: Tuple[str, str],
+    value: Dict[str, List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
+  # pyformat: disable
+  """Merge a list of rows with their corrosponding metadata information.
+
+  Args:
+    key: A (date,ip) tuple that we joined on. This is thrown away.
+    value: A two-element dict
+      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
+               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
+      where ipmetadata is a dict of the format {column_name, value}
+       {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
+      and row is a dict of the format {column_name, value}
+       {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
+
+  Yields:
+    row dict {column_name, value} containing both row and metadata cols/values
+  """
+  # pyformat: enable
+  ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+  rows = value[ROWS_PCOLLECION_NAME]
+
+  for row in rows:
+    new_row: Dict[str, Any] = {}
+    new_row.update(row)
+    new_row.update(ip_metadata)
+    yield new_row
 
 
 def run(scan_type):
