@@ -46,6 +46,9 @@ bigquery_schema = {
     'as_class': 'string',
 """
 
+IP_METADATA_PCOLLECTION_NAME = 'metadata'
+ROWS_PCOLLECION_NAME = 'rows'
+
 
 def get_bigquery_schema() -> bigquery.TableSchema:
   """Return a beam bigquery schema for the output table."""
@@ -111,7 +114,7 @@ def read_scan_text(
   # PCollection[Tuple[filename,line]]
   lines = (
       tuple(multiple_file_lines_with_filenames)
-      | beam.Flatten().with_output_types(Tuple[str, str]))
+      | 'flatten lines' >> beam.Flatten().with_output_types(Tuple[str, str]))
   return lines
 
 
@@ -163,11 +166,15 @@ def add_metadata(
     The same rows as above with with additional metadata columns added.
   """
 
-  # PCollection[Tuple[date,ip]]
-  ips_and_dates = (
+  # PCollection[Tuple[Tuple[date,ip],Dict[column_name,value]]]
+  rows_keyed_by_ip_and_date = (
       rows
-      | 'get ips and dates' >> beam.Map(make_date_ip_key).with_output_types(
-          Tuple[str, str]))
+      | 'key by ips and dates' >>
+      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+          Tuple[Tuple[str, str], Dict[str, str]]))
+
+  # PCollection[Tuple[date,ip]]
+  ips_and_dates = (rows_keyed_by_ip_and_date | 'get keys' >> beam.Keys())
 
   deduped_ips_and_dates = ips_and_dates | 'dedup' >> beam.Distinct()
 
@@ -179,7 +186,7 @@ def add_metadata(
   # Put GCS in a one-element pcollection so we can pass it remotely.
   gcs_pcoll = p | 'Create GCS Singleton' >> beam.Create([gcs])
 
-  # PCollection[Dict[column_name,field_value]]
+  # PCollection[Tuple[Tuple[date,ip],Dict[column_name,field_value]]]
   ips_with_metadata = (
       grouped_ips_by_dates
       | 'get ip metadata' >> beam.FlatMapTuple(
@@ -187,20 +194,54 @@ def add_metadata(
           gcs=beam.pvalue.AsSingleton(gcs_pcoll)).with_output_types(
               Tuple[Tuple[str, str], Dict[str, str]]))
 
-  # TODO over the whole dataset this will get too big
-  ips_dict = ips_with_metadata | 'ip dict' >> beam.combiners.ToDict()
+  # PCollection[Tuple[Tuple[date,ip],
+  #                   Dict[input_name,List[Dict[column_name, value]]]]]
+  grouped_metadata_and_rows = (({
+      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+  }) | 'group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Dict[column_name,field_value]]
   rows_with_metadata = (
-      rows
-      | 'append metadata to rows' >> beam.Map(
-          append_metadata, ip_dict=beam.pvalue.AsSingleton(
-              ips_dict)).with_output_types(Dict[str, Any]))
+      grouped_metadata_and_rows
+      | 'merge metadata with rows' >> beam.FlatMapTuple(
+          merge_metadata_with_rows).with_output_types(Dict[str, Any]))
 
   return rows_with_metadata
 
 
+def merge_metadata_with_rows(
+    key: Tuple[str, str],
+    value: Dict[str, List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
+  # pyformat: disable
+  """Merge a list of rows with their corrosponding metadata information.
+
+  Args:
+    key: A (date,ip) tuple that we joined on. This is thrown away.
+    value: A two-element dict
+      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
+               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
+      where ipmetadata is a dict of the format {column_name, value}
+       {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
+      and row is a dict of the format {column_name, value}
+       {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
+
+  Yields:
+    row dict {column_name, value} containing both row and metadata cols/values
+  """
+  # pyformat: enable
+  ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+  rows = value[ROWS_PCOLLECION_NAME]
+
+  for row in rows:
+    new_row: Dict[str, Any] = {}
+    new_row.update(row)
+    new_row.update(ip_metadata)
+    yield new_row
+
+
 def make_date_ip_key(row: Dict[str, str]) -> Tuple[str, str]:
+  """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
 
 
@@ -309,7 +350,7 @@ def add_ip_metadata(
     yield (metadata_key, metadata_values)
 
 
-def run():
+def run(scan_type):
   pipeline_options = PipelineOptions(
       # DataflowRunner or DirectRunner
       runner='DataflowRunner',
@@ -317,21 +358,15 @@ def run():
       region='us-east1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name='flatten-json-http-not-shuffled-job-pyasn-re',
+      job_name=scan_type + '-flatten-add-metadata',
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
-    scan_type = 'http'
-
-    start_date = datetime.date.fromisoformat('2020-05-07')
-    end_date = datetime.date.fromisoformat('2020-05-11')
-
     # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(
-        p, gcs, scan_type, start_date=start_date, end_date=end_date)
+    lines = read_scan_text(p, gcs, scan_type)
 
     # PCollection[Dict[column_name,field_value]]
     rows = (
@@ -342,7 +377,7 @@ def run():
     # PCollection[Dict[column_name,field_value]]
     rows_with_metadata = add_metadata(rows, p, gcs)
 
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
+    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
 
     rows_with_metadata | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
@@ -353,4 +388,8 @@ def run():
 
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)
-  run()
+
+  run('echo')
+  run('discard')
+  run('http')
+  run('https')

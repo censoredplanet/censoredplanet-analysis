@@ -36,13 +36,13 @@ class IpMetadata(object):
       Tuple(netblock, asn, as_name, as_full_name, country)
       ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "US")
 
-    Raises
-      KeyError
+    Raises:
+      KeyError: when ip metadata can't be found
     """
     asn, netblock = self.asn_db.lookup(ip)
 
     if not asn:
-      raise KeyError("Missing IP %s at %s", ip, self.date)
+      raise KeyError("Missing IP {} at {}".format(ip, self.date))
 
     as_name, as_full_name, country = self.as_to_org_map[str(asn)]
 
