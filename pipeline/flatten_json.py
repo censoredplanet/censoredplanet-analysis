@@ -7,13 +7,12 @@ import json
 import logging
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict, List, Any
+from typing import Optional, Tuple, Dict, List, Any, Iterator
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
 from apache_beam.io.gcp.internal.clients import bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
-from apache_beam.io.gcp.gcsio import GcsIO
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -217,7 +216,7 @@ def append_metadata(
   return new_row
 
 
-def flatten_measurement(filename: str, line: str) -> List[Dict[str, str]]:
+def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -228,20 +227,19 @@ def flatten_measurement(filename: str, line: str) -> List[Dict[str, str]]:
      'Results': [{'Success': true},
                  {'Success': false}]}
 
-  Returns:
-    An array of dicts containing individual roundtrip information
-    [{'column_name': field_value}]
-    example
-    [{'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-     {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}]
+  Yields:
+    Dicts containing individual roundtrip information
+    {'column_name': field_value}
+    examples:
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
   """
-  rows: List[Dict[str, str]] = []
 
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
     logging.error('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
-    return rows
+    return
 
   for result in scan['Results']:
     received = result.get('Received', '')
@@ -267,28 +265,29 @@ def flatten_measurement(filename: str, line: str) -> List[Dict[str, str]]:
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
     }
-    rows.append(row)
-  return rows
+    yield row
 
 
-def add_ip_metadata(date: str,
-                    ips: List[str],
-                    gcs=None) -> List[Tuple[Tuple[str, str], Dict[str, Any]]]:
+def add_ip_metadata(
+    date: str,
+    ips: List[str],
+    gcs=None) -> Iterator[Tuple[Tuple[str, str], Dict[str, Any]]]:
   """Add Autonymous System metadata for ips in the given rows.
 
   Args:
     date: a 'YYYYMMDD' date key
-    rows: a list of ips
+    ips: a list of ips
+    gcs: GCSFileSystem object
 
-  Returns:
-    List of ((date, ip), metadata_dict)
+  Yields:
+    Tuples ((date, ip), metadata_dict)
+    where metadata_dict is a Dict[column_name, values]
   """
   # this needs to be imported here
   # since this function will be called on remote workers
   from metadata.ip_metadata import IpMetadata
 
   ip_metadata = IpMetadata(gcs, date)
-  metadata_list = []
 
   for ip in ips:
     metadata_key = (date, ip)
@@ -307,9 +306,7 @@ def add_ip_metadata(date: str,
       logging.error('KeyError: %s\n', e)
       metadata_values = {}  # values are missing, but entry should still exist
 
-    metadata_list.append((metadata_key, metadata_values))
-
-  return metadata_list
+    yield (metadata_key, metadata_values)
 
 
 def run():
@@ -342,6 +339,7 @@ def run():
         beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
     )
 
+    # PCollection[Dict[column_name,field_value]]
     rows_with_metadata = add_metadata(rows, p, gcs)
 
     bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
