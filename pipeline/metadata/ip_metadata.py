@@ -7,20 +7,20 @@ import re
 from typing import Tuple, Dict
 import pyasn
 
+from apache_beam.io.filesystems import FileSystems
+
 CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
 
 
 class IpMetadata(object):
   """A lookup table which contains network metadata about IPs."""
 
-  def __init__(self, gcs, date: str):
+  def __init__(self, date: str):
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
-      gcs: GCSFileSystem
       date: the historical date to initialize the asn database for
     """
-    self.gcs = gcs
     self.date = date
 
     org_to_country_map = self.get_org_name_to_country_map()
@@ -58,28 +58,31 @@ class IpMetadata(object):
     Returns:
       pyasn database object
     """
-    # TODO: read in zipped?
     # filename = "routeviews-rv2-" + date.strftime("%Y%m%d") + ".pfx2as"
-    filename = "routeviews-rv2-20180727-1200.pfx2as"
+    filename = "routeviews-rv2-20180727-1200.pfx2as.gz"
     filepath = CLOUD_DATA_LOCATION + "routeviews/" + filename
-    routeview = self.gcs.open(filepath).read()
-    routeview_content = routeview.decode("utf-8")
-
-    # CAIDA file lines are stored in the format
-    # 1.0.0.0\t24\t13335
-    # but pyasn wants lines in the format
-    # 1.0.0.0/24\t13335
-    fixed_routeview_content = re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3",
-                                     routeview_content)
+    f = FileSystems.open(filepath)
 
     # ipasn_string arg does not yet exist in pyasn 1.6.0b1,
     # so we need to write a local file.
-    local_filename = "/tmp/" + filename
-    f = open(local_filename, mode="w+")
-    f.write(fixed_routeview_content)
+    tmp_filename = "/tmp/routeview" + date + ".pfx2as"
+    tmp_file = open(tmp_filename, mode="w+")
+
+    line = f.readline()
+    while line:
+      # CAIDA file lines are stored in the format
+      # 1.0.0.0\t24\t13335
+      # but pyasn wants lines in the format
+      # 1.0.0.0/24\t13335
+      decoded_line = line.decode("utf-8")
+      formatted_line = re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", decoded_line)
+      tmp_file.write(formatted_line)
+
+      line = f.readline()
+    tmp_file.close()
     f.close()
 
-    return pyasn.pyasn(local_filename)
+    return pyasn.pyasn(tmp_filename)
 
   def get_org_name_to_country_map(self) -> Dict[str, Tuple[str, str]]:
     """Reads in and returns a mapping of AS org short names to country info.
@@ -88,9 +91,8 @@ class IpMetadata(object):
       Dict {as_name -> ("readable name", country_code)}
       ex: {"8X8INC-ARIN": ("8x8, Inc.","US")}
     """
-
-    orgid2country = self.gcs.open(
-        CLOUD_DATA_LOCATION + "as-organizations/as-org2countryinfo.txt").read()
+    filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2countryinfo.txt"
+    orgid2country = FileSystems.open(filepath).read()
     orgid2country_content = orgid2country.decode("utf-8").split("\n")[:-1]
     org_country_data = list(csv.reader(orgid2country_content, delimiter="|"))
 
@@ -112,9 +114,8 @@ class IpMetadata(object):
       Dict {asn -> (asn_name, readable_name, country)}
       ex {"204867" : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
     """
-
-    as2orgid = self.gcs.open(CLOUD_DATA_LOCATION +
-                             "as-organizations/as-org2info.txt").read()
+    filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2info.txt"
+    as2orgid = FileSystems.open(filepath).read()
     as2orgid_content = as2orgid.decode("utf-8").split("\n")[:-1]
     org_id_data = list(csv.reader(as2orgid_content, delimiter="|"))
 

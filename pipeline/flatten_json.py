@@ -10,7 +10,6 @@ from pprint import pprint
 from typing import Optional, Tuple, Dict, List, Any, Iterator
 
 import apache_beam as beam
-from apache_beam.io import ReadFromText
 from apache_beam.io.gcp.internal.clients import bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -95,7 +94,7 @@ def read_scan_text(
   # List[PCollection[line]]
   multiple_file_lines = [
       p
-      | 'read file ' + filename >> ReadFromText(filename)
+      | 'read file ' + filename >> beam.io.ReadFromText(filename)
       for filename in filtered_filenames
   ]
 
@@ -203,15 +202,11 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
 
 def add_metadata(
     rows: beam.pvalue.PCollection[Dict[str, str]],
-    p: beam.Pipeline,
-    gcs: GCSFileSystem,
 ) -> beam.pvalue.PCollection[Dict[str, Any]]:
   """Add ip metadata to a collection of roundtrip rows.
 
   Args:
     rows: beam.PCollection[Dict[column_name, field_value]]
-    p: beam pipeline object
-    gcs: gcs: GCSFileSystem object
 
   Returns:
     PCollection[Dict[column_name, field_value]]
@@ -235,16 +230,12 @@ def add_metadata(
       deduped_ips_and_dates | 'group by date' >>
       beam.GroupByKey().with_output_types(Tuple[str, List[str]]))
 
-  # Put GCS in a one-element pcollection so we can pass it remotely.
-  gcs_pcoll = p | 'Create GCS Singleton' >> beam.Create([gcs])
-
   # PCollection[Tuple[Tuple[date,ip],Dict[column_name,field_value]]]
   ips_with_metadata = (
       grouped_ips_by_dates
-      | 'get ip metadata' >> beam.FlatMapTuple(
-          add_ip_metadata,
-          gcs=beam.pvalue.AsSingleton(gcs_pcoll)).with_output_types(
-              Tuple[Tuple[str, str], Dict[str, str]]))
+      |
+      'get ip metadata' >> beam.FlatMapTuple(add_ip_metadata).with_output_types(
+          Tuple[Tuple[str, str], Dict[str, str]]))
 
   # PCollection[Tuple[Tuple[date,ip],
   #                   Dict[input_name,List[Dict[column_name, value]]]]]
@@ -269,14 +260,12 @@ def make_date_ip_key(row: Dict[str, str]) -> Tuple[str, str]:
 
 def add_ip_metadata(
     date: str,
-    ips: List[str],
-    gcs=None) -> Iterator[Tuple[Tuple[str, str], Dict[str, Any]]]:
+    ips: List[str]) -> Iterator[Tuple[Tuple[str, str], Dict[str, Any]]]:
   """Add Autonymous System metadata for ips in the given rows.
 
   Args:
     date: a 'YYYYMMDD' date key
     ips: a list of ips
-    gcs: GCSFileSystem object
 
   Yields:
     Tuples ((date, ip), metadata_dict)
@@ -286,7 +275,7 @@ def add_ip_metadata(
   # since this function will be called on remote workers
   from metadata.ip_metadata import IpMetadata
 
-  ip_metadata = IpMetadata(gcs, date)
+  ip_metadata = IpMetadata(date)
 
   for ip in ips:
     metadata_key = (date, ip)
@@ -353,8 +342,12 @@ def run(scan_type):
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
+    start_date = datetime.date.fromisoformat('2020-05-07')
+    end_date = datetime.date.fromisoformat('2020-05-11')
+
     # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(p, gcs, scan_type)
+    lines = read_scan_text(
+        p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
     # PCollection[Dict[column_name,field_value]]
     rows = (
@@ -363,9 +356,9 @@ def run(scan_type):
     )
 
     # PCollection[Dict[column_name,field_value]]
-    rows_with_metadata = add_metadata(rows, p, gcs)
+    rows_with_metadata = add_metadata(rows)
 
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan'
+    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
 
     rows_with_metadata | 'Write' >> beam.io.WriteToBigQuery(
         bigquery_table,
@@ -377,7 +370,7 @@ def run(scan_type):
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)
 
-  run('echo')
-  run('discard')
+  #run('echo')
+  #run('discard')
   run('http')
-  run('https')
+  #run('https')
