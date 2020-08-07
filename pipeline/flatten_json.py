@@ -50,6 +50,7 @@ bigquery_schema = {
     'asn': 'integer',
     'as_name': 'string',
     'as_full_name': 'string',
+    'as_class': 'string',
     'country': 'string',
 }
 # Future fields
@@ -57,7 +58,6 @@ bigquery_schema = {
     'row_number', 'integer',
     'domain_category': 'string',
     'as_traffic': 'integer',
-    'as_class': 'string',
 """
 
 
@@ -213,7 +213,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
 
 
 def add_metadata(
-    rows: beam.pvalue.PCollection[Row],) -> beam.pvalue.PCollection[Row]:
+    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Add ip metadata to a collection of roundtrip rows.
 
   Args:
@@ -273,7 +273,7 @@ def add_ip_metadata(date: str,
   """Add Autonymous System metadata for ips in the given rows.
 
   Args:
-    date: a 'YYYYMMDD' date key
+    date: a 'YYYY-MM-DD' date key
     ips: a list of ips
 
   Yields:
@@ -290,12 +290,14 @@ def add_ip_metadata(date: str,
     metadata_key = (date, ip)
 
     try:
-      (netblock, asn, as_name, as_full_name, country) = ip_metadata.lookup(ip)
+      (netblock, asn, as_name, as_full_name, as_type,
+       country) = ip_metadata.lookup(ip)
       metadata_values = {
           'netblock': netblock,
           'asn': asn,
           'as_name': as_name,
           'as_full_name': as_full_name,
+          'as_class': as_type,
           'country': country,
       }
 
@@ -343,15 +345,25 @@ def run(scan_type):
       region='us-east1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name=scan_type + '-flatten-add-metadata',
+      job_name=scan_type + '-flatten-add-metadata-get',
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
+
+    from metadata.ip_metadata import IpMetadata
+    ip_metadata = IpMetadata('2018-07-27')
+    metadata = ip_metadata.lookup('1.1.1.1')
+    pprint(metadata)
+
+    start_date = datetime.date.fromisoformat('2018-07-27')
+    end_date = datetime.date.fromisoformat('2018-08-27')
+
     # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(p, gcs, scan_type)
+    lines = read_scan_text(
+        p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
     # PCollection[Row]
     rows = (
@@ -373,7 +385,7 @@ def run(scan_type):
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)
 
-  run('echo')
-  run('discard')
+  #run('echo')
+  #run('discard')
   run('http')
-  run('https')
+  #run('https')

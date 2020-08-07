@@ -2,9 +2,10 @@
 
 import csv
 import datetime
+import logging
 from pprint import pprint
 import re
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 import pyasn
 
 from apache_beam.io.filesystems import FileSystems
@@ -25,17 +26,21 @@ class IpMetadata(object):
 
     org_to_country_map = self.get_org_name_to_country_map()
     self.as_to_org_map = self.get_as_to_org_map(org_to_country_map)
+    self.as_to_type_map = self.get_as_to_type_map()
     self.asn_db = self.get_asn_db(date)
 
-  def lookup(self, ip: str) -> Tuple[str, int, str, str, str]:
+  def lookup(
+      self, ip: str
+  ) -> Tuple[str, int, str, Optional[str], Optional[str], Optional[str]]:
     """Lookup metadata infomation about an IP.
 
     Args:
       ip: string of the format 1.1.1.1 (ipv4 only)
 
     Returns:
-      Tuple(netblock, asn, as_name, as_full_name, country)
-      ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "US")
+      Tuple(netblock, asn, as_name, as_full_name, as_type, country)
+      ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "Content", "US")
+      The final 3 fields may be None
 
     Raises:
       KeyError: when ip metadata can't be found
@@ -46,8 +51,9 @@ class IpMetadata(object):
       raise KeyError("Missing IP {} at {}".format(ip, self.date))
 
     as_name, as_full_name, country = self.as_to_org_map[str(asn)]
+    as_type = self.as_to_type_map.get(str(asn), None)
 
-    return (netblock, asn, as_name, as_full_name, country)
+    return (netblock, asn, as_name, as_full_name, as_type, country)
 
   def get_asn_db(self, date: str) -> pyasn.pyasn:
     """Creates an ASN db for a given date.
@@ -105,7 +111,7 @@ class IpMetadata(object):
     orgid2country_content = orgid2country.decode("utf-8").split("\n")[:-1]
     org_country_data = list(csv.reader(orgid2country_content, delimiter="|"))
 
-    org_name_to_country_map = {}
+    org_name_to_country_map: Dict[str, Tuple[str, str]] = {}
     for line in org_country_data:
       org_id, changed_date, org_name, country, source = line
       org_name_to_country_map[org_id] = (org_name, country)
@@ -113,7 +119,8 @@ class IpMetadata(object):
     return org_name_to_country_map
 
   def get_as_to_org_map(
-      self, org_id_to_country_map) -> Dict[str, Tuple[str, str, str]]:
+      self, org_id_to_country_map: Dict[str, Tuple[str, str]]
+  ) -> Dict[str, Tuple[str, Optional[str], Optional[str]]]:
     """Reads in and returns a mapping of ASNs to organization info.
 
     Args:
@@ -122,16 +129,41 @@ class IpMetadata(object):
     Returns:
       Dict {asn -> (asn_name, readable_name, country)}
       ex {"204867" : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
+      The final 2 fields may be None
     """
     filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2info.txt"
     as2orgid = FileSystems.open(filepath).read()
     as2orgid_content = as2orgid.decode("utf-8").split("\n")[:-1]
     org_id_data = list(csv.reader(as2orgid_content, delimiter="|"))
 
-    asn_to_org_info_map = {}
+    asn_to_org_info_map: Dict[str, Tuple[str, Optional[str],
+                                         Optional[str]]] = {}
     for line in org_id_data:
       asn, changed_date, asn_name, org_id, opaque_id, source = line
-      readable_name, country = org_id_to_country_map[org_id]
-      asn_to_org_info_map[asn] = (asn_name, readable_name, country)
+      try:
+        readable_name, country = org_id_to_country_map[org_id]
+        asn_to_org_info_map[asn] = (asn_name, readable_name, country)
+      except KeyError as e:
+        logging.error("Missing org country info for asn", asn, e)
+        asn_to_org_info_map[asn] = (asn_name, None, None)
 
     return asn_to_org_info_map
+
+  def get_as_to_type_map(self) -> Dict[str, str]:
+    """Reads in and returns a mapping of ASNs to org type info.
+
+    Returns:
+      Dict {asn -> network_type}
+      ex {"398243" : "Enterprise", "13335": "Content", "4": "Transit/Access"}
+    """
+    filepath = CLOUD_DATA_LOCATION + "as-classifications/as2types.txt"
+    as2type = FileSystems.open(filepath).read()
+    as2type_content = as2type.decode("utf-8").split("\n")[:-1]
+    type_data = list(csv.reader(as2type_content, delimiter="|"))
+
+    as_to_type_map: Dict[str, str] = {}
+    for line in type_data:
+      asn, source, org_type = line
+      as_to_type_map[asn] = org_type
+
+    return as_to_type_map
