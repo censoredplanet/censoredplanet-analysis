@@ -15,6 +15,18 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+# Custom Types
+#
+# All or part of a scan row to be written to bigquery
+# ex (only scan data): {'domain': 'test.com', 'ip': '1.2.3.4', 'success' true}
+# ex (only ip metadata): {'asn': 13335, 'as_name': 'CLOUDFLAREINC'}
+# ex (both): {'domain': 'test.com', 'ip': '1.2.3.4', 'asn': 13335}
+Row = Dict[str, Any]
+#
+# A key containing a date and IP
+# ex: ("2020-01-01", '1.2.3.4')
+DateIpKey = Tuple[str, str]
+
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
@@ -148,7 +160,7 @@ def between_dates(filename: str,
     return True
 
 
-def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
+def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -201,26 +213,25 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Dict[str, str]]:
 
 
 def add_metadata(
-    rows: beam.pvalue.PCollection[Dict[str, str]],
-) -> beam.pvalue.PCollection[Dict[str, Any]]:
+    rows: beam.pvalue.PCollection[Row],) -> beam.pvalue.PCollection[Row]:
   """Add ip metadata to a collection of roundtrip rows.
 
   Args:
-    rows: beam.PCollection[Dict[column_name, field_value]]
+    rows: beam.PCollection[Row]
 
   Returns:
-    PCollection[Dict[column_name, field_value]]
+    PCollection[Row]
     The same rows as above with with additional metadata columns added.
   """
 
-  # PCollection[Tuple[Tuple[date,ip],Dict[column_name,value]]]
+  # PCollection[Tuple[DateIpKey,Row]]
   rows_keyed_by_ip_and_date = (
       rows
       | 'key by ips and dates' >>
       beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-          Tuple[Tuple[str, str], Dict[str, str]]))
+          Tuple[DateIpKey, Row]))
 
-  # PCollection[Tuple[date,ip]]
+  # PCollection[DateIpKey]
   ips_and_dates = (rows_keyed_by_ip_and_date | 'get keys' >> beam.Keys())
 
   deduped_ips_and_dates = ips_and_dates | 'dedup' >> beam.Distinct()
@@ -230,37 +241,35 @@ def add_metadata(
       deduped_ips_and_dates | 'group by date' >>
       beam.GroupByKey().with_output_types(Tuple[str, List[str]]))
 
-  # PCollection[Tuple[Tuple[date,ip],Dict[column_name,field_value]]]
+  # PCollection[Tuple[DateIpKey,Row]]
   ips_with_metadata = (
       grouped_ips_by_dates
       |
       'get ip metadata' >> beam.FlatMapTuple(add_ip_metadata).with_output_types(
-          Tuple[Tuple[str, str], Dict[str, str]]))
+          Tuple[DateIpKey, Row]))
 
-  # PCollection[Tuple[Tuple[date,ip],
-  #                   Dict[input_name,List[Dict[column_name, value]]]]]
+  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
   grouped_metadata_and_rows = (({
       IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
       ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
   }) | 'group by keys' >> beam.CoGroupByKey())
 
-  # PCollection[Dict[column_name,field_value]]
+  # PCollection[Row]
   rows_with_metadata = (
       grouped_metadata_and_rows
-      | 'merge metadata with rows' >> beam.FlatMapTuple(
-          merge_metadata_with_rows).with_output_types(Dict[str, Any]))
+      | 'merge metadata with rows' >>
+      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
 
   return rows_with_metadata
 
 
-def make_date_ip_key(row: Dict[str, str]) -> Tuple[str, str]:
+def make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
 
 
-def add_ip_metadata(
-    date: str,
-    ips: List[str]) -> Iterator[Tuple[Tuple[str, str], Dict[str, Any]]]:
+def add_ip_metadata(date: str,
+                    ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
   """Add Autonymous System metadata for ips in the given rows.
 
   Args:
@@ -268,8 +277,8 @@ def add_ip_metadata(
     ips: a list of ips
 
   Yields:
-    Tuples ((date, ip), metadata_dict)
-    where metadata_dict is a Dict[column_name, values]
+    Tuples (DateIpKey, metadata_dict)
+    where metadata_dict is a row Dict[column_name, values]
   """
   # this needs to be imported here
   # since this function will be called on remote workers
@@ -297,14 +306,13 @@ def add_ip_metadata(
     yield (metadata_key, metadata_values)
 
 
-def merge_metadata_with_rows(
-    key: Tuple[str, str],
-    value: Dict[str, List[Dict[str, Any]]]) -> Iterator[Dict[str, Any]]:
+def merge_metadata_with_rows(key: DateIpKey,
+                             value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corrosponding metadata information.
 
   Args:
-    key: A (date,ip) tuple that we joined on. This is thrown away.
+    key: The DateIpKey tuple that we joined on. This is thrown away.
     value: A two-element dict
       {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
                ROWS_PCOLLECION_NAME: Many element list containing row dicts}
@@ -321,7 +329,7 @@ def merge_metadata_with_rows(
   rows = value[ROWS_PCOLLECION_NAME]
 
   for row in rows:
-    new_row: Dict[str, Any] = {}
+    new_row: Row = {}
     new_row.update(row)
     new_row.update(ip_metadata)
     yield new_row
@@ -345,13 +353,12 @@ def run(scan_type):
     # PCollection[Tuple[filename,line]]
     lines = read_scan_text(p, gcs, scan_type)
 
-    # PCollection[Dict[column_name,field_value]]
+    # PCollection[Row]
     rows = (
         lines | 'flatten json' >>
-        beam.FlatMapTuple(flatten_measurement).with_output_types(Dict[str, str])
-    )
+        beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
 
-    # PCollection[Dict[column_name,field_value]]
+    # PCollection[Row]
     rows_with_metadata = add_metadata(rows)
 
     bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
