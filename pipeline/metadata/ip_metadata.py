@@ -19,7 +19,7 @@ class IpMetadata(object):
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
-      date: the historical date to initialize the asn database for
+      date: the "YYYY-MM-DD" date string to initialize the asn database to
     """
     self.date = date
 
@@ -49,18 +49,27 @@ class IpMetadata(object):
 
     return (netblock, asn, as_name, as_full_name, country)
 
-  def get_asn_db(self, date: datetime.date) -> pyasn.pyasn:
+  def get_asn_db(self, date: str) -> pyasn.pyasn:
     """Creates an ASN db for a given date.
 
     Args:
-      date: the historical date to initialize the asn database for
+      date: "YYYY-MM-DD" date string to initialize the database to
 
     Returns:
       pyasn database object
+
+    Raises:
+      FileNotFoundError: when no matching routeview file is found
     """
-    # filename = "routeviews-rv2-" + date.strftime("%Y%m%d") + ".pfx2as"
-    filename = "routeviews-rv2-20180727-1200.pfx2as.gz"
-    filepath = CLOUD_DATA_LOCATION + "routeviews/" + filename
+    formatted_date = date.replace("-", "")
+    file_pattern = "routeviews-rv2-" + formatted_date + "*.pfx2as.gz"
+    filepath_pattern = CLOUD_DATA_LOCATION + "routeviews/" + file_pattern
+    match = FileSystems.match([filepath_pattern], limits=[1])
+
+    if len(match) == 0:
+      raise FileNotFoundError(file_pattern)
+
+    filepath = match[0].metadata_list[0].path
     f = FileSystems.open(filepath)
 
     # ipasn_string arg does not yet exist in pyasn 1.6.0b1,

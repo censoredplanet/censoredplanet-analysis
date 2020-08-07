@@ -342,12 +342,8 @@ def run(scan_type):
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
-    start_date = datetime.date.fromisoformat('2020-05-07')
-    end_date = datetime.date.fromisoformat('2020-05-11')
-
     # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(
-        p, gcs, scan_type, start_date=start_date, end_date=end_date)
+    lines = read_scan_text(p, gcs, scan_type)
 
     # PCollection[Dict[column_name,field_value]]
     rows = (
@@ -370,7 +366,7 @@ def run(scan_type):
 if __name__ == '__main__':
   logging.getLogger().setLevel(logging.INFO)
 
-  #run('echo')
-  #run('discard')
+  run('echo')
+  run('discard')
   run('http')
-  #run('https')
+  run('https')
