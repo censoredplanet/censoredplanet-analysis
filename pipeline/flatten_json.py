@@ -182,7 +182,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
-    logging.error('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
+    logging.warn('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
     return
 
   for result in scan['Results']:
@@ -302,7 +302,7 @@ def add_ip_metadata(date: str,
       }
 
     except KeyError as e:
-      logging.error('KeyError: %s\n', e)
+      logging.warn('KeyError: %s\n', e)
       metadata_values = {}  # values are missing, but entry should still exist
 
     yield (metadata_key, metadata_values)
@@ -345,7 +345,7 @@ def run(scan_type):
       region='us-east1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name=scan_type + '-flatten-add-metadata-get',
+      job_name=scan_type + '-flatten-add-metadata',
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
@@ -354,10 +354,6 @@ def run(scan_type):
   with beam.Pipeline(options=pipeline_options) as p:
 
     from metadata.ip_metadata import IpMetadata
-    ip_metadata = IpMetadata('2018-07-27')
-    metadata = ip_metadata.lookup('1.1.1.1')
-    pprint(metadata)
-
     start_date = datetime.date.fromisoformat('2018-07-27')
     end_date = datetime.date.fromisoformat('2018-08-27')
 

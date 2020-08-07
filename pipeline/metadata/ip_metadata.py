@@ -31,7 +31,8 @@ class IpMetadata(object):
 
   def lookup(
       self, ip: str
-  ) -> Tuple[str, int, str, Optional[str], Optional[str], Optional[str]]:
+  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
+             Optional[str]]:
     """Lookup metadata infomation about an IP.
 
     Args:
@@ -40,17 +41,23 @@ class IpMetadata(object):
     Returns:
       Tuple(netblock, asn, as_name, as_full_name, as_type, country)
       ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "Content", "US")
-      The final 3 fields may be None
+      The final 4 fields may be None
 
     Raises:
-      KeyError: when ip metadata can't be found
+      KeyError: when the IP's ASN can't be found
     """
     asn, netblock = self.asn_db.lookup(ip)
 
     if not asn:
       raise KeyError("Missing IP {} at {}".format(ip, self.date))
 
-    as_name, as_full_name, country = self.as_to_org_map[str(asn)]
+    if str(asn) not in self.as_to_org_map:
+      logging.warn("Missing asn %s in org name map", asn)
+    as_name, as_full_name, country = self.as_to_org_map.get(
+        str(asn), (None, None, None))
+
+    if str(asn) not in self.as_to_type_map:
+      logging.warn("Missing asn %s in type map", asn)
     as_type = self.as_to_type_map.get(str(asn), None)
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
@@ -144,7 +151,7 @@ class IpMetadata(object):
         readable_name, country = org_id_to_country_map[org_id]
         asn_to_org_info_map[asn] = (asn_name, readable_name, country)
       except KeyError as e:
-        logging.error("Missing org country info for asn", asn, e)
+        logging.warn("Missing org country info for asn", asn, e)
         asn_to_org_info_map[asn] = (asn_name, None, None)
 
     return asn_to_org_info_map
