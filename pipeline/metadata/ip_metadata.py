@@ -79,11 +79,11 @@ class IpMetadata(object):
     filepath_pattern = CLOUD_DATA_LOCATION + "routeviews/" + file_pattern
     match = FileSystems.match([filepath_pattern], limits=[1])
 
-    if len(match) == 0:
-      raise FileNotFoundError(file_pattern)
-
-    filepath = match[0].metadata_list[0].path
-    f = FileSystems.open(filepath)
+    try:
+      filepath = match[0].metadata_list[0].path
+      f = FileSystems.open(filepath)
+    except IndexError:
+      raise FileNotFoundError(filepath_pattern)
 
     # ipasn_string arg does not yet exist in pyasn 1.6.0b1,
     # so we need to write a local file.
