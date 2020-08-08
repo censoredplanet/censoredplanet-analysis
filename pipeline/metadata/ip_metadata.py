@@ -51,14 +51,14 @@ class IpMetadata(object):
     if not asn:
       raise KeyError("Missing IP {} at {}".format(ip, self.date))
 
-    if str(asn) not in self.as_to_org_map:
+    if asn not in self.as_to_org_map:
       logging.warn("Missing asn %s in org name map", asn)
     as_name, as_full_name, country = self.as_to_org_map.get(
-        str(asn), (None, None, None))
+        asn, (None, None, None))
 
-    if str(asn) not in self.as_to_type_map:
+    if asn not in self.as_to_type_map:
       logging.warn("Missing asn %s in type map", asn)
-    as_type = self.as_to_type_map.get(str(asn), None)
+    as_type = self.as_to_type_map.get(asn, None)
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
 
@@ -127,7 +127,7 @@ class IpMetadata(object):
 
   def get_as_to_org_map(
       self, org_id_to_country_map: Dict[str, Tuple[str, str]]
-  ) -> Dict[str, Tuple[str, Optional[str], Optional[str]]]:
+  ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
     """Reads in and returns a mapping of ASNs to organization info.
 
     Args:
@@ -135,7 +135,7 @@ class IpMetadata(object):
 
     Returns:
       Dict {asn -> (asn_name, readable_name, country)}
-      ex {"204867" : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
+      ex {204867 : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
       The final 2 fields may be None
     """
     filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2info.txt"
@@ -143,34 +143,34 @@ class IpMetadata(object):
     as2orgid_content = as2orgid.decode("utf-8").split("\n")[:-1]
     org_id_data = list(csv.reader(as2orgid_content, delimiter="|"))
 
-    asn_to_org_info_map: Dict[str, Tuple[str, Optional[str],
+    asn_to_org_info_map: Dict[int, Tuple[str, Optional[str],
                                          Optional[str]]] = {}
     for line in org_id_data:
       asn, changed_date, asn_name, org_id, opaque_id, source = line
       try:
         readable_name, country = org_id_to_country_map[org_id]
-        asn_to_org_info_map[asn] = (asn_name, readable_name, country)
+        asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
       except KeyError as e:
         logging.warn("Missing org country info for asn", asn, e)
-        asn_to_org_info_map[asn] = (asn_name, None, None)
+        asn_to_org_info_map[int(asn)] = (asn_name, None, None)
 
     return asn_to_org_info_map
 
-  def get_as_to_type_map(self) -> Dict[str, str]:
+  def get_as_to_type_map(self) -> Dict[int, str]:
     """Reads in and returns a mapping of ASNs to org type info.
 
     Returns:
       Dict {asn -> network_type}
-      ex {"398243" : "Enterprise", "13335": "Content", "4": "Transit/Access"}
+      ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
     """
     filepath = CLOUD_DATA_LOCATION + "as-classifications/as2types.txt"
     as2type = FileSystems.open(filepath).read()
     as2type_content = as2type.decode("utf-8").split("\n")[:-1]
     type_data = list(csv.reader(as2type_content, delimiter="|"))
 
-    as_to_type_map: Dict[str, str] = {}
+    as_to_type_map: Dict[int, str] = {}
     for line in type_data:
       asn, source, org_type = line
-      as_to_type_map[asn] = org_type
+      as_to_type_map[int(asn)] = org_type
 
     return as_to_type_map
