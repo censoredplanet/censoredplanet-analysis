@@ -103,28 +103,25 @@ def read_scan_text(
       if between_dates(filename, start_date, end_date)
   ]
 
-  # List[PCollection[line]]
-  multiple_file_lines = [
-      p
-      | 'read file ' + filename >> beam.io.ReadFromText(filename)
-      for filename in filtered_filenames
-  ]
-
   # List[PCollection[Tuple[filename,line]]]
-  multiple_file_lines_with_filenames = []
-  for (file_lines, filename) in zip(multiple_file_lines, filtered_filenames):
+  line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
+
+  for filename in filtered_filenames:
+    # PCollection[line]
+    lines = p | 'read file ' + filename >> beam.io.ReadFromText(filename)
+
     step_name = 'annotate_filename ' + filename
 
     # PCollection[Tuple[filename,line]]
-    file_lines_with_filenames = (
-        file_lines | step_name >> beam.Map(
-            make_tuple, filename).with_output_types(Tuple[str, str]))
+    lines_with_filenames = (
+        lines | step_name >> beam.Map(make_tuple, filename).with_output_types(
+            Tuple[str, str]))
 
-    multiple_file_lines_with_filenames.append(file_lines_with_filenames)
+    line_pcollections_per_file.append(lines_with_filenames)
 
   # PCollection[Tuple[filename,line]]
   lines = (
-      tuple(multiple_file_lines_with_filenames)
+      tuple(line_pcollections_per_file)
       | 'flatten lines' >> beam.Flatten().with_output_types(Tuple[str, str]))
   return lines
 
@@ -352,10 +349,8 @@ def run(scan_type):
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
-
-    from metadata.ip_metadata import IpMetadata
-    start_date = datetime.date.fromisoformat('2018-07-27')
-    end_date = datetime.date.fromisoformat('2018-08-27')
+    start_date = datetime.date.fromisoformat('2020-05-04')
+    end_date = datetime.date.fromisoformat('2020-05-11')
 
     # PCollection[Tuple[filename,line]]
     lines = read_scan_text(
@@ -383,5 +378,5 @@ if __name__ == '__main__':
 
   #run('echo')
   #run('discard')
-  run('http')
-  #run('https')
+  #run('http')
+  run('https')
