@@ -30,7 +30,6 @@ https://pantheon.corp.google.com/functions/list?project=firehook-censoredplanet
 import io
 import os
 import tarfile
-from pprint import pprint
 
 from google.cloud import storage
 
@@ -140,7 +139,6 @@ def decompress_all_missing_files():
 
   Used for backfilling data.
   """
-
   compressed_files = get_all_compressed_filenames()
   uncompressed_files = get_all_uncompressed_filepaths()
   new_files = get_missing_compressed_files(compressed_files, uncompressed_files)
@@ -148,7 +146,6 @@ def decompress_all_missing_files():
   files_with_extensions = [filename + '.tar.gz' for filename in new_files]
 
   for filename in files_with_extensions:
-    #pprint(filename)
     decompress_file(filename)
 
 
