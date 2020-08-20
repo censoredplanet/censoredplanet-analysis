@@ -1,12 +1,9 @@
-# to use this script run
-# python3 caida_routeviews/bulk_download.py
-
 import subprocess
 import pandas as pd
 from datetime import datetime
 
 
-def run():
+def download_manual_routeviews():
   # 2018-07-27 is the earliest scan file date
   datelist = pd.date_range(start="2018-07-27", end=datetime.today().isoformat())
 
@@ -35,4 +32,4 @@ def run():
 
 
 if __name__ == "__main__":
-  run()
+  download_manual_routeviews()
