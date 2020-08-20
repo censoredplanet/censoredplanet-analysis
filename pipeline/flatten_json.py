@@ -33,7 +33,7 @@ ROWS_PCOLLECION_NAME = 'rows'
 SCAN_TABLE_NAME = 'scan'
 SOURCE_TABLE_NAME = 'source_data'
 
-bigquery_schema = {
+SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
     'domain': 'string',
     'ip': 'string',
@@ -63,12 +63,21 @@ bigquery_schema = {
     'as_traffic': 'integer',
 """
 
+SOURCE_BIGQUERY_SCHEMA = {'source': 'string'}
 
-def get_bigquery_schema() -> bigquery.TableSchema:
-  """Return a beam bigquery schema for the output table."""
+
+def get_bigquery_schema(field_types: Dict[str, str]) -> bigquery.TableSchema:
+  """Return a beam bigquery schema for the output table.
+
+  Args:
+    field_types: dict of {'field_name': 'column_type'}
+
+  Returns:
+    A bigquery table schema
+  """
   table_schema = bigquery.TableSchema()
 
-  for (name, field_type) in bigquery_schema.items():
+  for (name, field_type) in field_types.items():
 
     field_schema = bigquery.TableFieldSchema()
     field_schema.name = name
@@ -85,7 +94,8 @@ def read_scan_text(
     scan_type: str,
     start_date: Optional[datetime.date] = None,
     end_date: Optional[datetime.date] = None
-) -> beam.pvalue.PCollection[Tuple[str, str]]:
+) -> Tuple[beam.pvalue.PCollection[Tuple[str, str]],
+           beam.pvalue.PCollection[Row]]:
   """Read in the given json files for a date segment.
 
   Args:
@@ -96,8 +106,9 @@ def read_scan_text(
     end_date: date object, only files at or before this date will be read
 
   Returns:
-    A PCollection[Tuple[filename, line]]
-    of all the lines in the files keyed by filename
+    A PCollection[Tuple[filename, line]] of all the lines in the files keyed by
+    filename
+    and a PCollection[Tuple['source',filename]] of all the files used as input.
   """
   filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
   file_metadata = [m.metadata_list for m in gcs.match([filename_regex])][0]
@@ -106,6 +117,13 @@ def read_scan_text(
       filename for filename in filenames
       if between_dates(filename, start_date, end_date)
   ]
+
+  # Format as dicts for bigquery write.
+  source_names = [{'source': filename} for filename in filtered_filenames]
+  # PCollection[Row]
+  source_names_collection = (
+      p
+      | 'source_filenames' >> beam.Create(source_names).with_output_types(Row))
 
   # List[PCollection[Tuple[filename,line]]]
   line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
@@ -127,7 +145,7 @@ def read_scan_text(
   lines = (
       tuple(line_pcollections_per_file)
       | 'flatten lines' >> beam.Flatten().with_output_types(Tuple[str, str]))
-  return lines
+  return (lines, source_names_collection)
 
 
 def make_tuple(line: str, filename: str) -> Tuple[str, str]:
@@ -312,7 +330,7 @@ def add_ip_metadata(date: str,
 def merge_metadata_with_rows(key: DateIpKey,
                              value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
-  """Merge a list of rows with their corrosponding metadata information.
+  """Merge a list of rows with their corresponding metadata information.
 
   Args:
     key: The DateIpKey tuple that we joined on. This is thrown away.
@@ -338,12 +356,14 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
-def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
-                      incremental_load: str, env: str):
-  """Write out row data to a bigquery table.
+def write_to_bigquery(rows: beam.pvalue.PCollection[Row],
+                      sources: beam.pvalue.PCollection[Row], scan_type: str,
+                      incremental_load: bool, env: str):
+  """Write out row and source data to a bigquery table.
 
   Args:
     rows: PCollection[Row] of data to write.
+    sources: PCollection[Row] of data to write.
     scan_type: one of "echo", "discard", "http", "https"
     incremental_load: boolean. If true, only load the latest new data, if false
       reload all data. (Currently only full is implemented)
@@ -353,19 +373,34 @@ def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
     Exception: if any arguments are invalid.
   """
   if env == 'dev':
-    table_name = SCAN_TABLE_NAME + '_test'
+    scan_table_name = SCAN_TABLE_NAME + '_test'
+    source_table_name = SOURCE_TABLE_NAME + '_test'
   elif env == 'prod':
-    table_name = SCAN_TABLE_NAME
+    scan_table_name = SCAN_TABLE_NAME
+    source_table_name = SOURCE_TABLE_NAME
   else:
     raise Exception('Invalid env: ' + env)
 
-  bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.' + table_name
+  table_name_prefix = 'firehook-censoredplanet:' + scan_type + '_results.'
+  scan_bigquery_table = table_name_prefix + scan_table_name
+  source_bigquery_table = table_name_prefix + source_table_name
 
-  rows | 'Write' >> beam.io.WriteToBigQuery(
-      bigquery_table,
-      schema=get_bigquery_schema(),
+  if incremental_load:
+    write_mode = beam.io.BigQueryDisposition.WRITE_APPEND
+  else:
+    write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
+
+  rows | 'Write Scans' >> beam.io.WriteToBigQuery(
+      scan_bigquery_table,
+      schema=get_bigquery_schema(SCAN_BIGQUERY_SCHEMA),
       create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-      write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
+      write_disposition=write_mode)
+
+  sources | 'Write Sources' >> beam.io.WriteToBigQuery(
+      source_bigquery_table,
+      schema=get_bigquery_schema(SOURCE_BIGQUERY_SCHEMA),
+      create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+      write_disposition=write_mode)
 
 
 def run_beam_pipeline(scan_type: str,
@@ -403,9 +438,9 @@ def run_beam_pipeline(scan_type: str,
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
-
-    # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(
+    # lines - PCollection[Tuple[filename,line]]
+    # source_filenames - PCollection[Row]
+    (lines, source_filenames) = read_scan_text(
         p, gcs, scan_type, start_date=start_date, end_date=end_date)
 
     # PCollection[Row]
@@ -416,14 +451,18 @@ def run_beam_pipeline(scan_type: str,
     # PCollection[Row]
     rows_with_metadata = add_metadata(rows)
 
-    write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
+    write_to_bigquery(rows_with_metadata, source_filenames, scan_type,
+                      incremental_load, env)
 
 
 if __name__ == '__main__':
-  start_day = datetime.date.fromisoformat('2020-08-01')
-  end_day = datetime.date.fromisoformat('2020-08-15')
+  #start_day = datetime.date.fromisoformat('2020-08-01')
+  #end_day = datetime.date.fromisoformat('2020-08-15')
+  start_day = None
+  end_day = None
 
-  #run_beam_pipeline('echo', start_date=start_day, end_date=end_day)
-  #run_beam_pipeline('discard', start_date=start_day, end_date=end_day)
-  #run_beam_pipeline('http', start_date=start_day, end_date=end_day)
-  run_beam_pipeline('https', start_date=start_day, end_date=end_day)
+  run_beam_pipeline('echo', env='prod', start_date=start_day, end_date=end_day)
+  run_beam_pipeline(
+      'discard', env='prod', start_date=start_day, end_date=end_day)
+  run_beam_pipeline('http', env='prod', start_date=start_day, end_date=end_day)
+  run_beam_pipeline('https', env='prod', start_date=start_day, end_date=end_day)
