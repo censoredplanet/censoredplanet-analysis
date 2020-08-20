@@ -30,6 +30,9 @@ DateIpKey = Tuple[str, str]
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
+SCAN_TABLE_NAME = 'scans'
+SOURCE_TABLE_NAME = 'source_data'
+
 bigquery_schema = {
     # Columns from Censored Planet data
     'domain': 'string',
@@ -81,7 +84,8 @@ def read_scan_text(
     gcs: GCSFileSystem,
     scan_type: str,
     start_date: Optional[datetime.date] = None,
-    end_date: Optional[datetime.date] = None) -> beam.pvalue.PCollection:
+    end_date: Optional[datetime.date] = None
+) -> beam.pvalue.PCollection[Tuple[str, str]]:
   """Read in the given json files for a date segment.
 
   Args:
@@ -334,7 +338,57 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
-def run(scan_type):
+def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
+                      incremental_load: str, env: str):
+  """Write out row data to a bigquery table.
+
+  Args:
+    rows: PCollection[Row] of data to write.
+    scan_type: one of "echo", "discard", "http", "https"
+    incremental_load: boolean. If true, only load the latest new data, if false
+      reload all data. (Currently only full is implemented)
+    env: one of 'prod' or 'dev. Determines which tables to write to.
+
+  Raises:
+    Exception: if any arguments are invalid.
+  """
+  if env == 'dev':
+    table_name = SCAN_TABLE_NAME
+  elif env == 'prod':
+    table_name = SCAN_TABLE_NAME + '_test'
+  else:
+    raise Exception('Invalid env: ' + env)
+
+  bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.' + table_name
+
+  rows | 'Write' >> beam.io.WriteToBigQuery(
+      bigquery_table,
+      schema=get_bigquery_schema(),
+      create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+      write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
+
+
+def run_beam_pipeline(scan_type: str,
+                      incremental_load: bool = False,
+                      env: str = 'dev',
+                      start_date: Optional[datetime.date] = None,
+                      end_date: Optional[datetime.date] = None):
+  """Run an apache beam pipeline to load json data into bigquery.
+
+  Args:
+    scan_type: one of "echo", "discard", "http", "https"
+    incremental_load: boolean. If true, only load the latest new data, if false
+      reload all data. (Currently only full is implemented)
+    env: one of 'prod' or 'dev. Determines which tables to write to.
+    start_date: date object, only files after or at this date will be read.
+      Mostly only used during development.
+    end_date: date object, only files at or before this date will be read.
+      Mostly only used during development.
+
+  Raises:
+    Exception: if any arguments are invalid or the pipeline fails.
+  """
+  logging.getLogger().setLevel(logging.INFO)
   pipeline_options = PipelineOptions(
       # DataflowRunner or DirectRunner
       runner='DataflowRunner',
@@ -349,8 +403,6 @@ def run(scan_type):
   gcs = GCSFileSystem(pipeline_options)
 
   with beam.Pipeline(options=pipeline_options) as p:
-    start_date = datetime.date.fromisoformat('2020-05-04')
-    end_date = datetime.date.fromisoformat('2020-05-11')
 
     # PCollection[Tuple[filename,line]]
     lines = read_scan_text(
@@ -364,19 +416,14 @@ def run(scan_type):
     # PCollection[Row]
     rows_with_metadata = add_metadata(rows)
 
-    bigquery_table = 'firehook-censoredplanet:' + scan_type + '_results.scan_test'
-
-    rows_with_metadata | 'Write' >> beam.io.WriteToBigQuery(
-        bigquery_table,
-        schema=get_bigquery_schema(),
-        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-        write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE)
+    write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
 
 
 if __name__ == '__main__':
-  logging.getLogger().setLevel(logging.INFO)
+  start_day = datetime.date.fromisoformat('2020-08-01')
+  end_day = datetime.date.fromisoformat('2020-08-15')
 
-  #run('echo')
-  #run('discard')
-  #run('http')
-  run('https')
+  #run_beam_pipeline('echo', start_date=start_day, end_date=end_day)
+  #run_beam_pipeline('discard', start_date=start_day, end_date=end_day)
+  #run_beam_pipeline('http', start_date=start_day, end_date=end_day)
+  run_beam_pipeline('https', start_date=start_day, end_date=end_day)
