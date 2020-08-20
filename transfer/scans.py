@@ -1,5 +1,10 @@
 """Data transfer job to copy over all scan.tar.gz files.
 
+Runs daily and transfers all files created that day in the
+gs://censoredplanetscanspublic bucket into the
+gs://firehook-censoredplanetscanspublic bucket.
+
+
 To update this data transfer job edit this file.
 
 Then go to
