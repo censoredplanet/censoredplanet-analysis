@@ -30,7 +30,7 @@ DateIpKey = Tuple[str, str]
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
-SCAN_TABLE_NAME = 'scans'
+SCAN_TABLE_NAME = 'scan'
 SOURCE_TABLE_NAME = 'source_data'
 
 bigquery_schema = {
@@ -353,9 +353,9 @@ def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
     Exception: if any arguments are invalid.
   """
   if env == 'dev':
-    table_name = SCAN_TABLE_NAME
-  elif env == 'prod':
     table_name = SCAN_TABLE_NAME + '_test'
+  elif env == 'prod':
+    table_name = SCAN_TABLE_NAME
   else:
     raise Exception('Invalid env: ' + env)
 
