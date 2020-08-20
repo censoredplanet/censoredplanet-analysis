@@ -8,6 +8,7 @@ import logging
 import re
 from pprint import pprint
 from typing import Optional, Tuple, Dict, List, Any, Iterator
+import uuid
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery
@@ -48,6 +49,7 @@ SCAN_BIGQUERY_SCHEMA = {
     'success': 'boolean',
     'fail_sanity': 'boolean',
     'stateful_block': 'boolean',
+    'measurement_id': 'string',
     # Columns added from CAIDA data
     'netblock': 'string',
     'asn': 'integer',
@@ -58,7 +60,6 @@ SCAN_BIGQUERY_SCHEMA = {
 }
 # Future fields
 """
-    'row_number', 'integer',
     'domain_category': 'string',
     'as_traffic': 'integer',
 """
@@ -204,6 +205,9 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     logging.warn('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
     return
 
+  # Add a unique id per-measurement so individual retry rows can be reassembled
+  random_measurement_id = uuid.uuid4().hex
+
   for result in scan['Results']:
     received = result.get('Received', '')
     if isinstance(received, str):
@@ -227,6 +231,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         'success': result['Success'],
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
+        'measurement_id': random_measurement_id,
     }
     yield row
 
@@ -425,13 +430,12 @@ def run_beam_pipeline(scan_type: str,
   """
   logging.getLogger().setLevel(logging.INFO)
   pipeline_options = PipelineOptions(
-      # DataflowRunner or DirectRunner
       runner='DataflowRunner',
       project='firehook-censoredplanet',
-      region='us-east1',
+      region='us-west1',
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name=scan_type + '-flatten-add-metadata',
+      job_name=scan_type + '-flatten-add-metadata-' + env,
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
@@ -456,13 +460,13 @@ def run_beam_pipeline(scan_type: str,
 
 
 if __name__ == '__main__':
-  #start_day = datetime.date.fromisoformat('2020-08-01')
-  #end_day = datetime.date.fromisoformat('2020-08-15')
-  start_day = None
-  end_day = None
+  start_day = datetime.date.fromisoformat('2020-08-01')
+  end_day = datetime.date.fromisoformat('2020-08-15')
+  #start_day = None
+  #end_day = None
 
-  run_beam_pipeline('echo', env='prod', start_date=start_day, end_date=end_day)
-  run_beam_pipeline(
-      'discard', env='prod', start_date=start_day, end_date=end_day)
-  run_beam_pipeline('http', env='prod', start_date=start_day, end_date=end_day)
-  run_beam_pipeline('https', env='prod', start_date=start_day, end_date=end_day)
+  #run_beam_pipeline('echo', env='prod', start_date=start_day, end_date=end_day)
+  #run_beam_pipeline(
+  #    'discard', env='prod', start_date=start_day, end_date=end_day)
+  #run_beam_pipeline('http', env='prod', start_date=start_day, end_date=end_day)
+  run_beam_pipeline('https', start_date=start_day, end_date=end_day)
