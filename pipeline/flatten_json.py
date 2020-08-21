@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import concurrent
 import datetime
 import json
 import logging
@@ -65,6 +66,15 @@ SCAN_BIGQUERY_SCHEMA = {
 """
 
 SOURCE_BIGQUERY_SCHEMA = {'source': 'string'}
+
+# Mapping of each scan type to the zone to run its pipeline in.
+# This adds more parallelization when running all pipelines.
+SCAN_TYPES_TO_ZONES = {
+    'https': 'us-east1',  # https has the most data, so it gets the best zone.
+    'http': 'us-east4',
+    'echo': 'us-west1',
+    'discard': 'us-central1',
+}
 
 
 def get_bigquery_schema(field_types: Dict[str, str]) -> bigquery.TableSchema:
@@ -408,11 +418,9 @@ def write_to_bigquery(rows: beam.pvalue.PCollection[Row],
       write_disposition=write_mode)
 
 
-def run_beam_pipeline(scan_type: str,
-                      incremental_load: bool = False,
-                      env: str = 'dev',
-                      start_date: Optional[datetime.date] = None,
-                      end_date: Optional[datetime.date] = None):
+def run_beam_pipeline(scan_type: str, incremental_load: bool, env: str,
+                      start_date: Optional[datetime.date],
+                      end_date: Optional[datetime.date]):
   """Run an apache beam pipeline to load json data into bigquery.
 
   Args:
@@ -429,13 +437,18 @@ def run_beam_pipeline(scan_type: str,
     Exception: if any arguments are invalid or the pipeline fails.
   """
   logging.getLogger().setLevel(logging.INFO)
+
+  job_name = scan_type + '-flatten-add-metadata-' + env
+  if incremental_load:
+    job_name = job_name + '-incremental'
+
   pipeline_options = PipelineOptions(
       runner='DataflowRunner',
       project='firehook-censoredplanet',
-      region='us-west1',
+      region=SCAN_TYPES_TO_ZONES[scan_type],
       staging_location='gs://firehook-dataflow-test/staging',
       temp_location='gs://firehook-dataflow-test/temp',
-      job_name=scan_type + '-flatten-add-metadata-' + env,
+      job_name=job_name,
       runtime_type_check=False,  # slow in prod
       setup_file='./setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
@@ -459,14 +472,62 @@ def run_beam_pipeline(scan_type: str,
                       incremental_load, env)
 
 
-if __name__ == '__main__':
-  start_day = datetime.date.fromisoformat('2020-08-01')
-  end_day = datetime.date.fromisoformat('2020-08-15')
-  #start_day = None
-  #end_day = None
+def run_all_scan_types(incremental_load: bool,
+                       env: str,
+                       start_date: Optional[datetime.date] = None,
+                       end_date: Optional[datetime.date] = None):
+  """Runs the beam pipeline for all scan types in parallel.
 
-  #run_beam_pipeline('echo', env='prod', start_date=start_day, end_date=end_day)
-  #run_beam_pipeline(
-  #    'discard', env='prod', start_date=start_day, end_date=end_day)
-  #run_beam_pipeline('http', env='prod', start_date=start_day, end_date=end_day)
-  run_beam_pipeline('https', start_date=start_day, end_date=end_day)
+  Args:
+    incremental_load: boolean. If true, only load the latest new data, if false
+      reload all data. (Currently only full is implemented)
+    env: one of 'prod' or 'dev. Determines which tables to write to.
+    start_date: date object, only files after or at this date will be read.
+      Mostly only used during development.
+    end_date: date object, only files at or before this date will be read.
+      Mostly only used during development.
+
+  Returns:
+    True on success
+
+  Raises:
+    Exception: if any of the pipelines fail or don't finish.
+  """
+  scan_types = SCAN_TYPES_TO_ZONES.keys()
+
+  with concurrent.futures.ThreadPoolExecutor() as pool:
+    futures = []
+    for scan_type in scan_types:
+      future = pool.submit(run_beam_pipeline, scan_type, incremental_load, env,
+                           start_date, end_date)
+      futures.append(future)
+
+    finished, pending = concurrent.futures.wait(
+        futures, return_when=concurrent.futures.FIRST_EXCEPTION)
+
+    if len(finished) != len(scan_types):
+      raise Exception('Some pipelines failed to finish: ', pending,
+                      'finished: ', finished)
+
+    for finished_future in finished:
+      ex = finished_future.exception()
+      if ex:
+        raise ex
+    return True
+
+
+def run_dev(incremental_load: bool):
+  # dev only needs to load a week of data for testing.
+  end_day = datetime.date.today()
+  start_day = end_day - datetime.timedelta(days=7)
+  run_all_scan_types(
+      incremental_load, 'dev', start_date=start_day, end_date=end_day)
+
+
+def run_prod(incremental_load: bool):
+  run_all_scan_types(incremental_load, 'prod')
+
+
+if __name__ == '__main__':
+  run_dev(False)
+  #run_prod(False)
