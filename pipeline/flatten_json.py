@@ -505,14 +505,16 @@ def run_all_scan_types(incremental_load: bool,
     finished, pending = concurrent.futures.wait(
         futures, return_when=concurrent.futures.FIRST_EXCEPTION)
 
-    if len(finished) != len(scan_types):
+    exceptions = [
+        future.exception() for future in finished if future.exception()
+    ]
+    if exceptions:
+      # If there were any exceptions just raise the first one.
+      raise exceptions[0]
+
+    if pending:
       raise Exception('Some pipelines failed to finish: ', pending,
                       'finished: ', finished)
-
-    for finished_future in finished:
-      ex = finished_future.exception()
-      if ex:
-        raise ex
     return True
 
 
