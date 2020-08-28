@@ -1,4 +1,9 @@
-"""Beam pipeline for converting json scan files into bigquery tables."""
+"""Beam pipeline for converting json scan files into bigquery tables.
+
+To re-run the full beam pipeline manually (and blow away any old tables) run
+
+python main.py
+"""
 
 from __future__ import absolute_import
 
@@ -561,19 +566,22 @@ def run_beam_pipeline(scan_type: str, incremental_load: bool, env: str,
     logging.info('No new files to load incrementally')
     return
 
-  with beam.Pipeline(options=pipeline_options) as p:
-    # PCollection[Tuple[filename,line]]
-    lines = read_scan_text(p, new_filenames)
+  p = beam.Pipeline(options=pipeline_options)
 
-    # PCollection[Row]
-    rows = (
-        lines | 'flatten json' >>
-        beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
+  # PCollection[Tuple[filename,line]]
+  lines = read_scan_text(p, new_filenames)
 
-    # PCollection[Row]
-    rows_with_metadata = add_metadata(rows)
+  # PCollection[Row]
+  rows = (
+      lines | 'flatten json' >>
+      beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
 
-    write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
+  # PCollection[Row]
+  rows_with_metadata = add_metadata(rows)
+
+  write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
+
+  p.run()
 
 
 def run_all_scan_types(incremental_load: bool,
@@ -642,21 +650,21 @@ def run_dev(scan_type: str, incremental_load: bool):
   start_day = end_day - datetime.timedelta(days=7)
 
   if scan_type == 'all':
-    run_all_scan_types(
-        incremental_load, 'dev', start_date=start_day, end_date=end_day)
+    run_all_scan_types(incremental_load, 'dev', start_day, end_day)
   else:
-    run_beam_pipeline(
-        scan_type,
-        incremental_load,
-        'dev',
-        start_date=start_day,
-        end_date=end_day)
+    run_beam_pipeline(scan_type, incremental_load, 'dev', start_day, end_day)
 
 
-def run_prod(incremental_load: bool):
-  run_all_scan_types(incremental_load, 'prod')
+def fully_reload_prod():
+  """Reload all prod data."""
+  run_all_scan_types(False, 'prod')
+
+
+def incrementally_process_scans():
+  """Incrementally load any new prod data."""
+  run_all_scan_types(True, 'prod')
 
 
 if __name__ == '__main__':
-  run_dev('http', True)
-  #run_prod(False)
+  fully_reload_prod()
+  # incrementally_process_scans()

@@ -1,3 +1,5 @@
+"""Dependency setup for beam workers."""
+
 import setuptools
 
 setuptools.setup(

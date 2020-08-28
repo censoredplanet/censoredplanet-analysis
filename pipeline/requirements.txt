@@ -1,0 +1,5 @@
+apache-beam==2.22.0
+apache-beam[gcp]==2.22.0
+google-apitools==0.5.31
+google-cloud-bigquery==1.24.0
+google-cloud-storage==1.30.0
