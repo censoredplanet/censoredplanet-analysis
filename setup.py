@@ -1,4 +1,4 @@
-"""Dependency setup for beam workers."""
+"""Dependency setup for beam."""
 
 import setuptools
 
@@ -9,5 +9,4 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     url='https://github.com/Jigsaw-Code/censoredplanet-analysis',
     author='Sarah Laplante',
-    author_email='laplante@google.com',
-)
+    author_email='laplante@google.com')

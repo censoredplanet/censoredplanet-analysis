@@ -2,7 +2,7 @@
 
 To re-run the full beam pipeline manually (and blow away any old tables) run
 
-python main.py
+python pipeline/main.py
 """
 
 from __future__ import absolute_import
@@ -566,22 +566,19 @@ def run_beam_pipeline(scan_type: str, incremental_load: bool, env: str,
     logging.info('No new files to load incrementally')
     return
 
-  p = beam.Pipeline(options=pipeline_options)
+  with beam.Pipeline(options=pipeline_options) as p:
+    # PCollection[Tuple[filename,line]]
+    lines = read_scan_text(p, new_filenames)
 
-  # PCollection[Tuple[filename,line]]
-  lines = read_scan_text(p, new_filenames)
+    # PCollection[Row]
+    rows = (
+        lines | 'flatten json' >>
+        beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
 
-  # PCollection[Row]
-  rows = (
-      lines | 'flatten json' >>
-      beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
+    # PCollection[Row]
+    rows_with_metadata = add_metadata(rows)
 
-  # PCollection[Row]
-  rows_with_metadata = add_metadata(rows)
-
-  write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
-
-  p.run()
+    write_to_bigquery(rows_with_metadata, scan_type, incremental_load, env)
 
 
 def run_all_scan_types(incremental_load: bool,
@@ -660,11 +657,14 @@ def fully_reload_prod():
   run_all_scan_types(False, 'prod')
 
 
-def incrementally_process_scans():
+def incrementally_process_prod():
   """Incrementally load any new prod data."""
   run_all_scan_types(True, 'prod')
 
 
 if __name__ == '__main__':
+  # Uncomment whichever flow you want to run manually
+
   fully_reload_prod()
-  # incrementally_process_scans()
+  # run_dev('http', True)
+  # incrementally_process_prod()

@@ -12,19 +12,6 @@ They should be decompressed into scan type specific directories like
 gs://firehook-scans/discard/CP_Quack-discard-2018-07-28-03-11-21/results.json
 or
 gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41.tar.gz
-
-
-To deploy this cloud function run
-
-gcloud functions deploy decompress_scans \
-  --runtime python37 \
-  --region us-east1 \
-  --project firehook-censoredplanet \
-  --trigger-resource firehook-censoredplanetscanspublic \
-  --trigger-event google.storage.object.finalize
-
-View deployed functions at
-https://pantheon.corp.google.com/functions/list?project=firehook-censoredplanet
 """
 
 import io
@@ -50,20 +37,6 @@ scan_type_identifiers = {
     'Quack-https-': 'https',
     'Quack-http-': 'http'
 }
-
-
-def decompress_scans(event, context):
-  """Decompress files on cloud storage creates.
-
-  Called by the cloud function.
-
-  Args:
-    event: a dictionary of info on the triggering event
-      format https://cloud.google.com/storage/docs/json_api/v1/objects#resource
-    context: metadata on the triggering event
-  """
-  tar_name = event['name']
-  decompress_file(tar_name)
 
 
 def decompress_file(tar_name):
@@ -146,11 +119,15 @@ def decompress_all_missing_files():
 
   files_with_extensions = [filename + '.tar.gz' for filename in new_files]
 
+  if not files_with_extensions:
+    pprint('no new scan files to decompress')
+
   for filename in files_with_extensions:
-    pprint(filename)
+    pprint(('decompressing file: ', filename))
     decompress_file(filename)
+    pprint(('decompressed file: ', filename))
 
 
 if __name__ == '__main__':
-  # Called manually
+  # Called manually when running a backfill.
   decompress_all_missing_files()

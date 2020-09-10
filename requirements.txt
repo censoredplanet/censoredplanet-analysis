@@ -3,3 +3,7 @@ apache-beam[gcp]==2.22.0
 google-apitools==0.5.31
 google-cloud-bigquery==1.24.0
 google-cloud-storage==1.30.0
+# specify resumable-media version to avoid dependency issue
+google-resumable-media==0.6.0
+pyasn==1.6.0b1
+requests==2.24.0

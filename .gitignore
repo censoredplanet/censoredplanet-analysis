@@ -2,3 +2,5 @@ data/caida/routeviews/*
 all_dates.csv
 all_ips.csv
 env/
+**/__pycache__/*
+**/*egg-info/*
