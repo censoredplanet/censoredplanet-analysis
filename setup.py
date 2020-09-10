@@ -11,15 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Dependency setup for beam."""
+"""Dependency setup for beam remote workers."""
 
 import setuptools
+
+with open('requirements.txt') as f:
+  required = f.read().splitlines()
 
 setuptools.setup(
     name='censoredplanet-analysis',
     version='0.0.1',
-    install_requires=['pyasn==1.6.0b1'],
+    install_requires=required,
     packages=setuptools.find_packages(),
     url='https://github.com/Jigsaw-Code/censoredplanet-analysis',
     author='Sarah Laplante',
