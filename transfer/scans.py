@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Data transfer job to copy over all scan.tar.gz files.
 
 Runs daily and transfers all files created that day in the
@@ -22,7 +21,7 @@ gs://firehook-censoredplanetscanspublic bucket.
 To update this data transfer job edit this file.
 
 Then go to
-https://pantheon.corp.google.com/transfer/cloud?project=firehook-censoredplanet
+https://console.cloud.google.com/transfer/cloud
 and delete any existing daily scheduled jobs named
 "Transfer scan data from UMich to Firehook".
 
