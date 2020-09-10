@@ -17,13 +17,14 @@ There are two main top-level pieces
 
 `python transfer/scans.py`
 
-which sets up a daily data transfer job from the Censored Planet cloud bucket to
-an internal bucket.
+This sets up a daily data transfer job to copy scan files from the Censored
+Planet cloud bucket to an internal bucket.
 
 `python main.py`
 
-Which does some additional daily data processing and runs an daily incremental
-Apache Beam pipeline over the data.
+This does some additional daily data processing and runs an daily incremental
+Apache Beam pipeline over the data. It is run via a Docker container on a GCE
+machine.
 
 ## Running manually
 
@@ -36,15 +37,15 @@ existing tables.
 
 `python transfer/routeviews/main.py`
 
-Will transfer in the latest missing CAIDA routeview files.
+Transfers in the latest missing CAIDA routeview files.
 
 `python transfer/routeviews/bulk_download.py`
 
-Will transfer in all CAIDA routeview files from a certain date. This is used for
+Transfers in all CAIDA routeview files from a certain date. This is used for
 backfilling data.
 
-`python transfer/decompress_files`
+`python transfer/decompress_files.py`
 
-Will decompress any Censored Planet scan files which have been transfered into
-the project but are still compressed. This can also be used as a backfill tool
-for missing files.
+Decompresses any Censored Planet scan files which have been transfered into the
+project but are still compressed. This can also be used as a backfill tool for
+missing files.
