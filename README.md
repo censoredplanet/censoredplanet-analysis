@@ -11,14 +11,40 @@ devoted Google Cloud project to run in. It is not reccomended to run yourself,
 (please contact us if this is your use case) but the code is made available for
 anyone who wants to understand how the data pipeline works.
 
+## Running as an automated pipeline
+
 There are two main top-level pieces
 
-`transfer/scans.py`
+`python transfer/scans.py`
 
 which sets up a daily data transfer job from the Censored Planet cloud bucket to
 an internal bucket.
 
-`main.py`
+`python main.py`
 
-Which does some additional data processing and runs an Apache Beam pipeline over
-the data.
+Which does some additional daily data processing and runs an daily incremental
+Apache Beam pipeline over the data.
+
+## Running manually
+
+Individual pieces of the pipeline can be run manually.
+
+`python pipeline main.py`
+
+Runs the full Apache Beam pipeline. This will re-process all data and rebuild
+existing tables.
+
+`python transfer/routeviews/main.py`
+
+Will transfer in the latest missing CAIDA routeview files.
+
+`python transfer/routeviews/bulk_download.py`
+
+Will transfer in all CAIDA routeview files from a certain date. This is used for
+backfilling data.
+
+`python transfer/decompress_files`
+
+Will decompress any Censored Planet scan files which have been transfered into
+the project but are still compressed. This can also be used as a backfill tool
+for missing files.
