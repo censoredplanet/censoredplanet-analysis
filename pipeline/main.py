@@ -15,11 +15,12 @@
 
 To re-run the full beam pipeline manually (and blow away any old tables) run
 
-python pipeline/main.py
+python pipeline/main.py --env=prod --incremental=False
 """
 
 from __future__ import absolute_import
 
+import argparse
 import concurrent
 import datetime
 import json
@@ -436,8 +437,8 @@ def add_ip_metadata(date: str,
     Tuples (DateIpKey, metadata_dict)
     where metadata_dict is a row Dict[column_name, values]
   """
-  # this needs to be imported here
-  # since this function will be called on remote workers
+  # This class needs to be imported here
+  # since this function will be called on remote workers.
   from metadata.ip_metadata import IpMetadata
 
   ip_metadata = IpMetadata(date)
@@ -665,19 +666,28 @@ def run_dev(scan_type: str, incremental_load: bool):
     run_beam_pipeline(scan_type, incremental_load, 'dev', start_day, end_day)
 
 
-def fully_reload_prod():
-  """Reload all prod data."""
-  run_all_scan_types(False, 'prod')
-
-
-def incrementally_process_prod():
-  """Incrementally load any new prod data."""
-  run_all_scan_types(True, 'prod')
-
-
 if __name__ == '__main__':
-  # Uncomment whichever flow you want to run manually
+  parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
+  parser.add_argument(
+      '--incremental',
+      type=bool,
+      default=True,
+      help='Whether to run only over the latest files')
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to run over prod or dev data')
+  parser.add_argument(
+      '--scan_type',
+      type=str,
+      default='echo',
+      choices=['all'] + list(SCAN_TYPES_TO_ZONES.keys()),
+      help='Which type of scan to run over')
+  args = parser.parse_args()
 
-  fully_reload_prod()
-  # run_dev('http', True)
-  # incrementally_process_prod()
+  if args.env == 'dev':
+    run_dev(args.scan_type, args.incremental)
+  elif args.env == 'prod':
+    run_all_scan_types(args.incremental, 'prod')
