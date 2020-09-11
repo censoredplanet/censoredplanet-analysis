@@ -53,8 +53,9 @@ docker run -it \
 firehook-censoredplanet
 """
 # pyformat: enable
+import subprocess
+import os
 
-from pipeline.main import incrementally_process_prod
 from transfer.decompress_files.main import decompress_all_missing_files
 from transfer.routeviews.main import transfer_routeviews
 
@@ -62,8 +63,20 @@ from transfer.routeviews.main import transfer_routeviews
 def run():
   decompress_all_missing_files()
   transfer_routeviews()
-  incrementally_process_prod()
+
+  # This is a very weird hack.
+  # We execute the beam pipeline as a seperate process
+  # because beam really doesn't like it when the main file for a pileline
+  # execution is not the same file the pipeline run call is made in.
+  # It requires all the files to be packaged up and installed on the workers
+  # which in our case requires packaging up many google cloud packages
+  # which is slow (hangs basic worker machines) and wasteful.
+  subprocess.run(
+      ['python3', 'pipeline/main.py', '--incremental=True', '--env=prod'],
+      check=True,
+      stdout=subprocess.PIPE,
+      cwd=os.getcwd())
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   run()

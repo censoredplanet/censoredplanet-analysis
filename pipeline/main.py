@@ -546,7 +546,7 @@ def get_pipeline_options(scan_type: str, incremental_load: bool,
       temp_location='gs://firehook-dataflow-test/temp',
       job_name=job_name,
       runtime_type_check=False,  # slow in prod
-      setup_file='./setup.py')
+      setup_file='./pipeline/setup.py')
   pipeline_options.view_as(SetupOptions).save_main_session = True
 
   return pipeline_options
