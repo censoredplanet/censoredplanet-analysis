@@ -30,12 +30,12 @@ machine.
 
 Individual pieces of the pipeline can be run manually.
 
-`python pipeline/main.py`
+`python pipeline/main.py --env=prod --incremental=False`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing tables.
 
-`python transfer/routeviews/main.py --env=prod --incremental=False`
+`python transfer/routeviews/main.py`
 
 Transfers in the latest missing CAIDA routeview files.
 
