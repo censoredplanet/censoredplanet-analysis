@@ -30,7 +30,7 @@ machine.
 
 Individual pieces of the pipeline can be run manually.
 
-`python pipeline/main.py --env=prod --incremental=False`
+`python pipeline/main.py --env=prod --full`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing tables.

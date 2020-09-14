@@ -670,10 +670,10 @@ def run_dev(scan_type: str, incremental_load: bool):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
   parser.add_argument(
-      '--incremental',
-      type=bool,
-      default=True,
-      help='Whether to run only over the latest files')
+      '--full',
+      action='store_true',
+      default=False,
+      help='Run over all files and not just the latest (rebuilds tables)')
   parser.add_argument(
       '--env',
       type=str,
@@ -688,7 +688,9 @@ if __name__ == '__main__':
       help='Which type of scan to run over')
   args = parser.parse_args()
 
+  incremental = not args.full
+
   if args.env == 'dev':
-    run_dev(args.scan_type, args.incremental)
+    run_dev(args.scan_type, incremental)
   elif args.env == 'prod':
-    run_all_scan_types(args.incremental, 'prod')
+    run_all_scan_types(incremental, 'prod')

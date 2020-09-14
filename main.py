@@ -74,10 +74,9 @@ def job():
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run(
-      ['python3', 'pipeline/main.py', '--incremental=True', '--env=prod'],
-      check=True,
-      stdout=subprocess.PIPE)
+  subprocess.run(['python3', 'pipeline/main.py', '--env=prod'],
+                 check=True,
+                 stdout=subprocess.PIPE)
 
 
 if __name__ == '__main__':
@@ -86,4 +85,5 @@ if __name__ == '__main__':
   while True:
     schedule.run_pending()
     wait = schedule.idle_seconds()
+    print('Waiting {} seconds until the next run'.format(wait))
     time.sleep(wait)
