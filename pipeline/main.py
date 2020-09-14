@@ -334,7 +334,8 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
-    logging.warn('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename, line)
+    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+                    line)
     return
 
   # Add a unique id per-measurement so individual retry rows can be reassembled
@@ -459,7 +460,7 @@ def add_ip_metadata(date: str,
       }
 
     except KeyError as e:
-      logging.warn('KeyError: %s\n', e)
+      logging.warning('KeyError: %s\n', e)
       metadata_values = {}  # values are missing, but entry should still exist
 
     yield (metadata_key, metadata_values)

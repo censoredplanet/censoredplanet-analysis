@@ -11,20 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """IP Metadata is a class to add network metadata to IPs."""
 
 import csv
-import datetime
 import logging
+import os
 from pprint import pprint
 import re
-from typing import Tuple, Dict, Optional
-import pyasn
+from typing import Dict, List, Optional, Tuple
 
 from apache_beam.io.filesystems import FileSystems
+import pyasn
 
 CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
+
+# The as-org2info.txt file contains two tables
+# Comment lines with these headers divide the tables.
+ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
+AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
 
 class IpMetadata(object):
@@ -66,12 +70,12 @@ class IpMetadata(object):
       raise KeyError("Missing IP {} at {}".format(ip, self.date))
 
     if asn not in self.as_to_org_map:
-      logging.warn("Missing asn %s in org name map", asn)
+      logging.warning("Missing asn %s in org name map", asn)
     as_name, as_full_name, country = self.as_to_org_map.get(
         asn, (None, None, None))
 
     if asn not in self.as_to_type_map:
-      logging.warn("Missing asn %s in type map", asn)
+      logging.warning("Missing asn %s in type map", asn)
     as_type = self.as_to_type_map.get(asn, None)
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
@@ -118,7 +122,9 @@ class IpMetadata(object):
     tmp_file.close()
     f.close()
 
-    return pyasn.pyasn(tmp_filename)
+    as_db = pyasn.pyasn(tmp_filename)
+    os.remove(tmp_filename)
+    return as_db
 
   def get_org_name_to_country_map(self) -> Dict[str, Tuple[str, str]]:
     """Reads in and returns a mapping of AS org short names to country info.
@@ -127,10 +133,13 @@ class IpMetadata(object):
       Dict {as_name -> ("readable name", country_code)}
       ex: {"8X8INC-ARIN": ("8x8, Inc.","US")}
     """
-    filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2countryinfo.txt"
-    orgid2country = FileSystems.open(filepath).read()
-    orgid2country_content = orgid2country.decode("utf-8").split("\n")[:-1]
-    org_country_data = list(csv.reader(orgid2country_content, delimiter="|"))
+    filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
+    lines = self.read_gcs_compressed_file_as_list(filepath)
+
+    data_start_index = lines.index(ORG_TO_COUNTRY_HEADER) + 1
+    data_end_index = lines.index(AS_TO_ORG_HEADER)
+    org_country_lines = lines[data_start_index:data_end_index]
+    org_country_data = list(csv.reader(org_country_lines, delimiter="|"))
 
     org_name_to_country_map: Dict[str, Tuple[str, str]] = {}
     for line in org_country_data:
@@ -152,10 +161,12 @@ class IpMetadata(object):
       ex {204867 : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
       The final 2 fields may be None
     """
-    filepath = CLOUD_DATA_LOCATION + "as-organizations/as-org2info.txt"
-    as2orgid = FileSystems.open(filepath).read()
-    as2orgid_content = as2orgid.decode("utf-8").split("\n")[:-1]
-    org_id_data = list(csv.reader(as2orgid_content, delimiter="|"))
+    filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
+    lines = self.read_gcs_compressed_file_as_list(filepath)
+
+    data_start_index = lines.index(AS_TO_ORG_HEADER) + 1
+    as_to_org_lines = lines[data_start_index:]
+    org_id_data = list(csv.reader(as_to_org_lines, delimiter="|"))
 
     asn_to_org_info_map: Dict[int, Tuple[str, Optional[str],
                                          Optional[str]]] = {}
@@ -165,7 +176,7 @@ class IpMetadata(object):
         readable_name, country = org_id_to_country_map[org_id]
         asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
       except KeyError as e:
-        logging.warn("Missing org country info for asn", asn, e)
+        logging.warning("Missing org country info for asn %s %s", asn, e)
         asn_to_org_info_map[int(asn)] = (asn_name, None, None)
 
     return asn_to_org_info_map
@@ -177,10 +188,12 @@ class IpMetadata(object):
       Dict {asn -> network_type}
       ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
     """
-    filepath = CLOUD_DATA_LOCATION + "as-classifications/as2types.txt"
-    as2type = FileSystems.open(filepath).read()
-    as2type_content = as2type.decode("utf-8").split("\n")[:-1]
-    type_data = list(csv.reader(as2type_content, delimiter="|"))
+    filepath = CLOUD_DATA_LOCATION + "as-classifications/20200801.as2types.txt.gz"
+    lines = self.read_gcs_compressed_file_as_list(filepath)
+
+    # filter comments
+    data_lines = [line for line in lines if line[0] != "#"]
+    type_data = list(csv.reader(data_lines, delimiter="|"))
 
     as_to_type_map: Dict[int, str] = {}
     for line in type_data:
@@ -188,3 +201,28 @@ class IpMetadata(object):
       as_to_type_map[int(asn)] = org_type
 
     return as_to_type_map
+
+  def read_gcs_compressed_file_as_list(self, filepath: str) -> List[str]:
+    """Read in a compressed GCS file as a list of strings.
+
+    We have to read the whole file into memory because some operations
+    (removing comments, using only the second half of the file)
+    require being able to manipulate particular lines.
+
+    Args:
+      filepath: a path to a compressed file. ex
+        gs://censoredplanet_geolocation/caida/as-classifications/as2types.txt.gz
+
+    Returns:
+      A list of strings representing each line in the file
+    """
+    f = FileSystems.open(filepath)
+    lines = []
+
+    line = f.readline()
+    while line:
+      decoded_line = line.decode("utf-8").strip()
+      lines.append(decoded_line)
+      line = f.readline()
+
+    return lines
