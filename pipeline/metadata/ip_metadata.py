@@ -99,28 +99,25 @@ class IpMetadata(object):
 
     try:
       filepath = match[0].metadata_list[0].path
-      f = FileSystems.open(filepath)
+      lines = self.read_gcs_compressed_file_as_list(filepath)
     except IndexError:
       raise FileNotFoundError(filepath_pattern)
+
+    # CAIDA file lines are stored in the format
+    # 1.0.0.0\t24\t13335
+    # but pyasn wants lines in the format
+    # 1.0.0.0/24\t13335
+    formatted_lines = [
+        re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line) for line in lines
+    ]
 
     # ipasn_string arg does not yet exist in pyasn 1.6.0b1,
     # so we need to write a local file.
     tmp_filename = "/tmp/routeview" + date + ".pfx2as"
     tmp_file = open(tmp_filename, mode="w+")
-
-    line = f.readline()
-    while line:
-      # CAIDA file lines are stored in the format
-      # 1.0.0.0\t24\t13335
-      # but pyasn wants lines in the format
-      # 1.0.0.0/24\t13335
-      decoded_line = line.decode("utf-8")
-      formatted_line = re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", decoded_line)
-      tmp_file.write(formatted_line)
-
-      line = f.readline()
+    for line in formatted_lines:
+      tmp_file.write(line + "\n")
     tmp_file.close()
-    f.close()
 
     as_db = pyasn.pyasn(tmp_filename)
     os.remove(tmp_filename)
@@ -224,5 +221,6 @@ class IpMetadata(object):
       decoded_line = line.decode("utf-8").strip()
       lines.append(decoded_line)
       line = f.readline()
+    f.close()
 
     return lines
