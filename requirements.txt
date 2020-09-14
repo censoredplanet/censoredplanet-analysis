@@ -8,3 +8,4 @@ google-cloud-storage==1.30.0
 google-resumable-media==0.6.0
 pyasn==1.6.0b1
 requests==2.24.0
+schedule==0.6.0

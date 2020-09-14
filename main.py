@@ -54,13 +54,16 @@ firehook-censoredplanet
 """
 # pyformat: enable
 import subprocess
-import os
+import time
+
+import schedule
 
 from transfer.decompress_files.main import decompress_all_missing_files
 from transfer.routeviews.main import transfer_routeviews
 
 
-def run():
+def job():
+  """Steps of the pipeline to run nightly."""
   decompress_all_missing_files()
   transfer_routeviews()
 
@@ -68,15 +71,19 @@ def run():
   # We execute the beam pipeline as a seperate process
   # because beam really doesn't like it when the main file for a pileline
   # execution is not the same file the pipeline run call is made in.
-  # It requires all the files to be packaged up and installed on the workers
+  # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
   subprocess.run(
       ['python3', 'pipeline/main.py', '--incremental=True', '--env=prod'],
       check=True,
-      stdout=subprocess.PIPE,
-      cwd=os.getcwd())
+      stdout=subprocess.PIPE)
 
 
 if __name__ == '__main__':
-  run()
+  schedule.every().day.at('01:00').do(job)
+
+  while True:
+    schedule.run_pending()
+    wait = schedule.idle_seconds()
+    time.sleep(wait)
