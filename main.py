@@ -25,7 +25,7 @@ Run
 
 gcloud compute instances create-with-container firehook-censoredplanet \
 --container-image gcr.io/firehook-censoredplanet/pipeline:latest \
---machine-type n1-highmem-2 \
+--machine-type e2-highmem-4 \
 --service-account 654632410498-compute@developer.gserviceaccount.com \
 --scopes=bigquery,cloud-platform,default
 
@@ -69,7 +69,7 @@ def job():
 
   # This is a very weird hack.
   # We execute the beam pipeline as a seperate process
-  # because beam really doesn't like it when the main file for a pileline
+  # because beam really doesn't like it when the main file for a pipeline
   # execution is not the same file the pipeline run call is made in.
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
@@ -79,7 +79,7 @@ def job():
                  stdout=subprocess.PIPE)
 
 
-if __name__ == '__main__':
+def run():
   schedule.every().day.at('01:00').do(job)
 
   while True:
@@ -87,3 +87,7 @@ if __name__ == '__main__':
     wait = schedule.idle_seconds()
     print('Waiting {} seconds until the next run'.format(wait))
     time.sleep(wait)
+
+
+if __name__ == '__main__':
+  run()
