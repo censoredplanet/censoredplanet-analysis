@@ -214,11 +214,13 @@ def data_to_load(gcs: GCSFileSystem,
   filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
   file_metadata = [m.metadata_list for m in gcs.match([filename_regex])][0]
   filenames = [metadata.path for metadata in file_metadata]
+  file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
 
   filtered_filenames = [
-      filename for filename in filenames
+      filename for (filename, file_size) in zip(filenames, file_sizes)
       if (between_dates(filename, start_date, end_date) and
-          source_from_filename(filename) not in existing_sources)
+          source_from_filename(filename) not in existing_sources and
+          file_size != 0)
   ]
   return filtered_filenames
 
