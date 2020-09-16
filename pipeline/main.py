@@ -444,7 +444,7 @@ def add_ip_metadata(date: str,
   # since this function will be called on remote workers.
   from metadata.ip_metadata import IpMetadata
 
-  ip_metadata = IpMetadata(date)
+  ip_metadata = IpMetadata(date, allow_previous_day=True)
 
   for ip in ips:
     metadata_key = (date, ip)

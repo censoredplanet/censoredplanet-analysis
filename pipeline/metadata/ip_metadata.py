@@ -14,6 +14,7 @@
 """IP Metadata is a class to add network metadata to IPs."""
 
 import csv
+import datetime
 import logging
 import os
 from pprint import pprint
@@ -34,18 +35,31 @@ AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 class IpMetadata(object):
   """A lookup table which contains network metadata about IPs."""
 
-  def __init__(self, date: str):
+  def __init__(self, date: str, allow_previous_day=False):
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
       date: the "YYYY-MM-DD" date string to initialize the asn database to
+      allow_previous_day: If the given date's routeview file doesn't exist,
+        allow the one from the previous day instead. This is useful when
+        processing very recent data where the newest file may not yet exist.
+
+    Raises:
+      FileNotFoundError: when no matching routeview file is found
     """
     self.date = date
 
     org_to_country_map = self.get_org_name_to_country_map()
     self.as_to_org_map = self.get_as_to_org_map(org_to_country_map)
     self.as_to_type_map = self.get_as_to_type_map()
-    self.asn_db = self.get_asn_db(date)
+
+    try:
+      self.asn_db = self.get_asn_db(date)
+    except FileNotFoundError as ex:
+      if allow_previous_day:
+        self.asn_db = self.get_asn_db(self.previous_day(date))
+      else:
+        raise ex
 
   def lookup(
       self, ip: str
@@ -224,3 +238,16 @@ class IpMetadata(object):
     f.close()
 
     return lines
+
+  def previous_day(self, date: str) -> str:
+    """Given a date string return the date string of the day before.
+
+    Args:
+      date: "YYYY-MM-DD" string ex "2020-01-02"
+
+    Returns:
+      "YYYY-MM-DD" string ex "2020-01-01"
+    """
+    day = datetime.date.fromisoformat(date)
+    previous_day = day - datetime.timedelta(days=1)
+    return previous_day.isoformat()
