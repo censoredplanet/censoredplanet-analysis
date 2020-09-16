@@ -59,3 +59,9 @@ Runs queries to recreate any tables derived from the base tables.
 To run all tests run
 
 `python3 -m unittest`
+
+To typecheck all files install mypy and run
+
+`mypy ^env**/*.py`
+
+This produces some spurious errors because of missing types in dependencies
