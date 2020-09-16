@@ -53,3 +53,9 @@ existing tables.
 `python table/main.py`
 
 Runs queries to recreate any tables derived from the base tables.
+
+## Testing
+
+To run all tests run
+
+`python3 -m unittest`

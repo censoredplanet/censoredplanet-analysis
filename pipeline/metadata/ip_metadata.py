@@ -113,7 +113,7 @@ class IpMetadata(object):
 
     try:
       filepath = match[0].metadata_list[0].path
-      lines = self.read_gcs_compressed_file_as_list(filepath)
+      lines = self.read_compressed_file(filepath)
     except IndexError:
       raise FileNotFoundError(filepath_pattern)
 
@@ -145,7 +145,7 @@ class IpMetadata(object):
       ex: {"8X8INC-ARIN": ("8x8, Inc.","US")}
     """
     filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
-    lines = self.read_gcs_compressed_file_as_list(filepath)
+    lines = self.read_compressed_file(filepath)
 
     data_start_index = lines.index(ORG_TO_COUNTRY_HEADER) + 1
     data_end_index = lines.index(AS_TO_ORG_HEADER)
@@ -173,7 +173,7 @@ class IpMetadata(object):
       The final 2 fields may be None
     """
     filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
-    lines = self.read_gcs_compressed_file_as_list(filepath)
+    lines = self.read_compressed_file(filepath)
 
     data_start_index = lines.index(AS_TO_ORG_HEADER) + 1
     as_to_org_lines = lines[data_start_index:]
@@ -200,7 +200,7 @@ class IpMetadata(object):
       ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
     """
     filepath = CLOUD_DATA_LOCATION + "as-classifications/20200801.as2types.txt.gz"
-    lines = self.read_gcs_compressed_file_as_list(filepath)
+    lines = self.read_compressed_file(filepath)
 
     # filter comments
     data_lines = [line for line in lines if line[0] != "#"]
@@ -213,8 +213,9 @@ class IpMetadata(object):
 
     return as_to_type_map
 
-  def read_gcs_compressed_file_as_list(self, filepath: str) -> List[str]:
-    """Read in a compressed GCS file as a list of strings.
+  @staticmethod
+  def read_compressed_file(filepath: str) -> List[str]:
+    """Read in a compressed file as a list of strings.
 
     We have to read the whole file into memory because some operations
     (removing comments, using only the second half of the file)
@@ -239,7 +240,8 @@ class IpMetadata(object):
 
     return lines
 
-  def previous_day(self, date: str) -> str:
+  @staticmethod
+  def previous_day(date: str) -> str:
     """Given a date string return the date string of the day before.
 
     Args:
