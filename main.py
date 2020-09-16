@@ -58,6 +58,7 @@ import time
 
 import schedule
 
+from table.main import rebuild_all_tables
 from transfer.decompress_files.main import decompress_all_missing_files
 from transfer.routeviews.main import transfer_routeviews
 
@@ -77,6 +78,8 @@ def job():
   subprocess.run(['python3', 'pipeline/main.py', '--env=prod'],
                  check=True,
                  stdout=subprocess.PIPE)
+
+  rebuild_all_tables()
 
 
 def run():

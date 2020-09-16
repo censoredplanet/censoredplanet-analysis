@@ -30,11 +30,6 @@ machine.
 
 Individual pieces of the pipeline can be run manually.
 
-`python pipeline/main.py --env=prod --full`
-
-Runs the full Apache Beam pipeline. This will re-process all data and rebuild
-existing tables.
-
 `python transfer/routeviews/main.py`
 
 Transfers in the latest missing CAIDA routeview files.
@@ -49,3 +44,12 @@ backfilling data.
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool for
 missing files.
+
+`python pipeline/main.py --env=prod --full`
+
+Runs the full Apache Beam pipeline. This will re-process all data and rebuild
+existing tables.
+
+`python table/main.py`
+
+Runs queries to recreate any tables derived from the base tables.
