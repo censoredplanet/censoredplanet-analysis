@@ -21,6 +21,11 @@ CREATE TEMP FUNCTION CleanError(error string) AS (
     "port\\.[0-9]+", "port.[PORT]")
 );
 
+DROP TABLE IF EXISTS `firehook-censoredplanet.merged_results.cleaned_error_scans`;
+CREATE TABLE `firehook-censoredplanet.merged_results.cleaned_error_scans`
+PARTITION BY date
+CLUSTER BY source, country, domain, result
+as (
 WITH
   AllScans AS (
   SELECT
@@ -73,8 +78,8 @@ WITH
     as_full_name,
     netblock,
     as_class
-  FROM `firehook-censoredplanet.https_results.scan`)
-
+  FROM `firehook-censoredplanet.https_results.scan`
+)
 SELECT
   date,
   domain,
@@ -100,3 +105,4 @@ GROUP BY
   as_class,
   source,
   result
+);
