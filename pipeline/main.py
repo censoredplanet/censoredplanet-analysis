@@ -28,7 +28,7 @@ import logging
 import os
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict, List, Any, Iterator
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
 import uuid
 
 import apache_beam as beam
@@ -225,26 +225,6 @@ def data_to_load(gcs: GCSFileSystem,
   return filtered_filenames
 
 
-def format_datasources(p: beam.Pipeline,
-                       sources: List[str]) -> beam.pvalue.PCollection[Row]:
-  """Format source data as dicts for bigquery write.
-
-  Args:
-    p: beam pipeline object
-    sources: List of source strings.
-
-  Returns:
-    PCollection[Row] of sources to write to bigquery.
-  """
-  source_names = [{'source': source} for source in sources]
-  # PCollection[Row]
-  source_names_collection = (
-      p
-      | 'source_filenames' >> beam.Create(source_names).with_output_types(Row))
-
-  return source_names_collection
-
-
 def read_scan_text(
     p: beam.Pipeline,
     filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
@@ -392,14 +372,18 @@ def add_metadata(
           Tuple[DateIpKey, Row]))
 
   # PCollection[DateIpKey]
-  ips_and_dates = (rows_keyed_by_ip_and_date | 'get keys' >> beam.Keys())
+  ips_and_dates = (
+      rows_keyed_by_ip_and_date
+      | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
 
-  deduped_ips_and_dates = ips_and_dates | 'dedup' >> beam.Distinct()
+  # PCollection[DateIpKey]
+  deduped_ips_and_dates = (
+      ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
 
   # PCollection[Tuple[date,List[ip]]]
   grouped_ips_by_dates = (
       deduped_ips_and_dates | 'group by date' >>
-      beam.GroupByKey().with_output_types(Tuple[str, List[str]]))
+      beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
 
   # PCollection[Tuple[DateIpKey,Row]]
   ips_with_metadata = (
@@ -442,7 +426,14 @@ def add_ip_metadata(date: str,
   """
   # This class needs to be imported here
   # since this function will be called on remote workers.
-  from metadata.ip_metadata import IpMetadata
+  try:
+    # On workers we import relative to setup.py
+    from metadata.ip_metadata import IpMetadata
+  except ImportError:
+    # For tests we import relative to the top-level test call
+    # and we import a fake
+    logging.warning('Using a fake IpMetadata for testing')
+    from pipeline.metadata.fake_ip_metadata import FakeIpMetadata as IpMetadata
 
   ip_metadata = IpMetadata(date, allow_previous_day=True)
 
@@ -525,9 +516,10 @@ def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
       write_disposition=write_mode))
 
 
-def get_pipeline_options(scan_type: str, incremental_load: bool,
-                         env: str) -> PipelineOptions:
-  """Sets up pipeline options for a beam pipeline.
+def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
+  """Creates the job name for the beam pipeline.
+
+  Pipelines with the same name cannot run simultaneously.
 
   Args:
     scan_type: one of 'echo', 'discard', 'http', 'https'
@@ -535,12 +527,24 @@ def get_pipeline_options(scan_type: str, incremental_load: bool,
     env: one of 'prod' or 'dev.
 
   Returns:
-    PipelineOptions
+    A string like 'echo-flatten-add-metadata-prod-incremental'
   """
   job_name = scan_type + '-flatten-add-metadata-' + env
   if incremental_load:
     job_name = job_name + '-incremental'
+  return job_name
 
+
+def get_pipeline_options(scan_type: str, job_name: str) -> PipelineOptions:
+  """Sets up pipeline options for a beam pipeline.
+
+  Args:
+    scan_type: one of 'echo', 'discard', 'http', 'https'
+    job_name: a name for the dataflow job
+
+  Returns:
+    PipelineOptions
+  """
   pipeline_options = PipelineOptions(
       runner='DataflowRunner',
       project='firehook-censoredplanet',
@@ -574,7 +578,8 @@ def run_beam_pipeline(scan_type: str, incremental_load: bool, env: str,
     Exception: if any arguments are invalid or the pipeline fails.
   """
   logging.getLogger().setLevel(logging.INFO)
-  pipeline_options = get_pipeline_options(scan_type, incremental_load, env)
+  job_name = get_job_name(scan_type, incremental_load, env)
+  pipeline_options = get_pipeline_options(scan_type, job_name)
   gcs = GCSFileSystem(pipeline_options)
 
   new_filenames = data_to_load(gcs, scan_type, incremental_load, env,
