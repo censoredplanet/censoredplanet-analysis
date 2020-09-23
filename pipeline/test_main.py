@@ -111,30 +111,30 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_flatten_measurement(self):
     line = """{
-     "Server":"1.2.3.4",
-     "Keyword":"www.example.com",
-     "Retries":2,
-     "Results":[
-       {
-         "Sent":"GET / HTTP/1.1 Host: www.example.com",
-         "Received":"HTTP/1.1 403 Forbidden",
-         "Success":false,
-         "Error":"Incorrect echo response",
-         "StartTime":"2020-09-20T07:45:09.643770291-04:00",
-         "EndTime":"2020-09-20T07:45:10.088851843-04:00"
-       },
-       {
-         "Sent":"GET / HTTP/1.1 Host: www.example.com",
-         "Received": "HTTP/1.1 503 Service Unavailable",
-         "Success":false,
-         "Error":"Incorrect echo response",
-         "StartTime":"2020-09-20T07:45:16.170427683-04:00",
-         "EndTime":"2020-09-20T07:45:16.662093893-04:00"
-       }
-     ],
-     "Blocked":true,
-     "FailSanity":false,
-     "StatefulBlock":false
+      "Server":"1.2.3.4",
+      "Keyword":"www.example.com",
+      "Retries":1,
+      "Results":[
+        {
+          "Sent":"GET / HTTP/1.1 Host: www.example.com",
+          "Received":"HTTP/1.1 403 Forbidden",
+          "Success":false,
+          "Error":"Incorrect echo response",
+          "StartTime":"2020-09-20T07:45:09.643770291-04:00",
+          "EndTime":"2020-09-20T07:45:10.088851843-04:00"
+        },
+        {
+          "Sent":"GET / HTTP/1.1 Host: www.example.com",
+          "Received": "HTTP/1.1 503 Service Unavailable",
+          "Success":false,
+          "Error":"Incorrect echo response",
+          "StartTime":"2020-09-20T07:45:16.170427683-04:00",
+          "EndTime":"2020-09-20T07:45:16.662093893-04:00"
+        }
+      ],
+      "Blocked":true,
+      "FailSanity":false,
+      "StatefulBlock":false
     }"""
 
     expected_rows = [{
@@ -143,7 +143,7 @@ class PipelineMainTest(unittest.TestCase):
         'date': '2020-09-20',
         'start_time': '2020-09-20T07:45:09.643770291-04:00',
         'end_time': '2020-09-20T07:45:10.088851843-04:00',
-        'retries': 2,
+        'retries': 1,
         'sent': 'GET / HTTP/1.1 Host: www.example.com',
         'received': 'HTTP/1.1 403 Forbidden',
         'error': 'Incorrect echo response',
@@ -151,7 +151,7 @@ class PipelineMainTest(unittest.TestCase):
         'success': False,
         'fail_sanity': False,
         'stateful_block': False,
-        'measurement_id': 0,
+        'measurement_id': '',
         'source': 'CP_Quack-echo-2020-08-23-06-01-02',
     }, {
         'domain': 'www.example.com',
@@ -159,7 +159,7 @@ class PipelineMainTest(unittest.TestCase):
         'date': '2020-09-20',
         'start_time': '2020-09-20T07:45:16.170427683-04:00',
         'end_time': '2020-09-20T07:45:16.662093893-04:00',
-        'retries': 2,
+        'retries': 1,
         'sent': 'GET / HTTP/1.1 Host: www.example.com',
         'received': 'HTTP/1.1 503 Service Unavailable',
         'error': 'Incorrect echo response',
@@ -167,7 +167,7 @@ class PipelineMainTest(unittest.TestCase):
         'success': False,
         'fail_sanity': False,
         'stateful_block': False,
-        'measurement_id': 0,
+        'measurement_id': '',
         'source': 'CP_Quack-echo-2020-08-23-06-01-02',
     }]
 
@@ -179,12 +179,83 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
     # But they're randomly generated,
     # so we can't test them against the full expected rows.
-    rows[0]['measurement_id'] = 0
-    rows[1]['measurement_id'] = 0
+    rows[0]['measurement_id'] = ''
+    rows[1]['measurement_id'] = ''
 
     self.assertListEqual(rows, expected_rows)
 
-  # TODO add more flatten measurement tests for edge cases
+  def test_flatten_measurement_received_content(self):
+    # HTTP/HTTPS scans have a Received field with json content.
+    # Currently we expect this field to be flattened into a string.
+    line = """{
+      "Server":"184.50.171.225",
+      "Keyword":"www.csmonitor.com",
+      "Retries":0,
+      "Results":[
+        {
+         "Sent":"www.csmonitor.com",
+         "Received":{
+            "status_line":"301 Moved Permanently",
+            "headers":{
+               "Content-Length":["0"],
+               "Date":["Sun, 13 Sep 2020 05:10:58 GMT"],
+               "Location":["https://www.csmonitor.com/"],
+               "Server":["HTTP Proxy/1.0"]
+            },
+            "body":""
+         },
+         "Success":false,
+         "Error":"Incorrect web response: status lines don't match",
+         "StartTime":"2020-09-13T01:10:57.499263112-04:00",
+         "EndTime":"2020-09-13T01:10:58.077524926-04:00"
+        }
+      ],
+      "Blocked":true,
+      "FailSanity":false,
+      "StatefulBlock":false
+    }"""
+
+    recieved_substring = ('{"status_line": "301 Moved Permanently", '
+                          '"headers": {"Content-Length": ["0"], '
+                          '"Date": ["Sun, 13 Sep 2020 05:10:58 GMT"], '
+                          '"Location": ["https://www.csmonitor.com/"], '
+                          '"Server": ["HTTP Proxy/1.0"]}, "body": ""}')
+
+    expected_row = {
+        'domain': 'www.csmonitor.com',
+        'ip': '184.50.171.225',
+        'date': '2020-09-13',
+        'start_time': '2020-09-13T01:10:57.499263112-04:00',
+        'end_time': '2020-09-13T01:10:58.077524926-04:00',
+        'retries': 0,
+        'sent': 'www.csmonitor.com',
+        'received': recieved_substring,
+        'error': 'Incorrect web response: status lines don\'t match',
+        'blocked': True,
+        'success': False,
+        'fail_sanity': False,
+        'stateful_block': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-http-2020-09-13-01-02-07',
+    }
+    filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
+
+    row = list(main.flatten_measurement(filename, line))[0]
+    # We can't test the measurement id because it's random
+    row['measurement_id'] = ''
+    self.assertEqual(row, expected_row)
+
+  def test_flatten_measurement_invalid_json(self):
+    line = 'invalid json'
+
+    with self.assertLogs(level='WARNING') as cm:
+      rows = list(main.flatten_measurement('test_filename.json', line))
+      self.assertEqual(
+          cm.output[0], 'WARNING:root:JSONDecodeError: '
+          'Expecting value: line 1 column 1 (char 0)\n'
+          'Filename: test_filename.json\ninvalid json\n')
+
+    self.assertEqual(len(rows), 0)
 
   def test_add_metadata(self):
     rows = [{
