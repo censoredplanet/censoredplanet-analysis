@@ -18,25 +18,22 @@ Run as
 python3 tables/main.py
 """
 
+import glob
+
 from google.cloud import bigquery as cloud_bigquery
 
 client = cloud_bigquery.Client()
 
 
-def run_query(sql: str, destination_table: str):
-  job_config = cloud_bigquery.QueryJobConfig(
-      destination=destination_table,
-      allow_large_results=True,
-      create_disposition=cloud_bigquery.job.CreateDisposition.CREATE_IF_NEEDED,
-      write_disposition=cloud_bigquery.job.WriteDisposition.WRITE_TRUNCATE)
-  query_job = client.query(sql, job_config=job_config)
-  query_job.result()
+def run_query(filepath: str):
+  sql = open(filepath).read()
+  query_job = client.query(sql)
+  return query_job.result()
 
 
 def rebuild_all_tables():
-  # TODO refactor this process to be more structured once we have more scripts.
-  sql = open('table/queries/merged_scans.sql').read()
-  run_query(sql, 'firehook-censoredplanet.merged_results.cleaned_error_scans')
+  for filepath in glob.glob('table/queries/*.sql'):
+    run_query(filepath)
 
 
 if __name__ == '__main__':
