@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 r"""Decompress scan files automatically on create.
 
 Automatically decompress files in the gs://firehook-censoredplanetscanspublic/
@@ -30,8 +29,11 @@ gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41.tar.gz
 
 import io
 import os
-import tarfile
 from pprint import pprint
+import tarfile
+
+import requests
+from retry import retry
 
 from google.cloud import storage
 
@@ -53,8 +55,12 @@ scan_type_identifiers = {
 }
 
 
+@retry(requests.exceptions.ConnectionError, tries=3, delay=1)
 def decompress_file(tar_name):
   """Decompress a given scan file.
+
+  Downloads the file from GCS, decompresses in memory,
+  and uploads the decompressed version to a different location in GCS.
 
   Args:
     tar_name: filename like CP_Quack-discard-2020-08-17-08-41-15.tar.gz
