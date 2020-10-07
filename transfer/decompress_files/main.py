@@ -40,6 +40,8 @@ from google.cloud import storage
 COMPRESSED_BUCKET_NAME = 'firehook-censoredplanetscanspublic'
 UNCOMPRESSED_BUCKET_NAME = 'firehook-scans'
 
+timeout_5_minutes = 300
+
 client = storage.Client()
 compressed_bucket = client.get_bucket(COMPRESSED_BUCKET_NAME)
 uncompressed_bucket = client.get_bucket(UNCOMPRESSED_BUCKET_NAME)
@@ -76,7 +78,8 @@ def decompress_file(tar_name):
   if not scan_type:
     raise Exception("Couldn't determine scan type for filename " + tar_name)
 
-  input_blob = compressed_bucket.get_blob(tar_name).download_as_string()
+  input_blob = compressed_bucket.get_blob(tar_name).download_as_string(
+      timeout=timeout_5_minutes)
   tar = tarfile.open(fileobj=io.BytesIO(input_blob))
 
   for file_path in tar.getnames():
@@ -85,7 +88,8 @@ def decompress_file(tar_name):
     # skip directories
     if file_object:
       output_blob = uncompressed_bucket.blob(os.path.join(scan_type, file_path))
-      output_blob.upload_from_string(file_object.read())
+      output_blob.upload_from_string(
+          file_object.read(), timeout=timeout_5_minutes)
 
 
 def get_all_compressed_filenames():
