@@ -30,6 +30,8 @@ gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41.tar.gz
 import io
 import os
 from pprint import pprint
+import shutil
+import subprocess
 import tarfile
 
 import requests
@@ -37,12 +39,13 @@ from retry import retry
 
 from google.cloud import storage
 
+PROJECT_NAME = 'firehook-censoredplanet'
 COMPRESSED_BUCKET_NAME = 'firehook-censoredplanetscanspublic'
 UNCOMPRESSED_BUCKET_NAME = 'firehook-scans'
 
 timeout_5_minutes = 300
 
-client = storage.Client()
+client = storage.Client(project=PROJECT_NAME)
 compressed_bucket = client.get_bucket(COMPRESSED_BUCKET_NAME)
 uncompressed_bucket = client.get_bucket(UNCOMPRESSED_BUCKET_NAME)
 
@@ -78,18 +81,25 @@ def decompress_file(tar_name):
   if not scan_type:
     raise Exception("Couldn't determine scan type for filename " + tar_name)
 
-  input_blob = compressed_bucket.get_blob(tar_name).download_as_string(
-      timeout=timeout_5_minutes)
-  tar = tarfile.open(fileobj=io.BytesIO(input_blob))
+  tmp_filepath = os.path.join('/tmp', tar_name)
+  tar_folder = tar_name[:-7]  # remove the extensions
+  tmp_folder = os.path.join('/tmp', tar_folder)
 
-  for file_path in tar.getnames():
-    file_object = tar.extractfile(file_path)
+  compressed_bucket.get_blob(tar_name).download_to_filename(
+      tmp_filepath, timeout=timeout_5_minutes)
 
-    # skip directories
-    if file_object:
-      output_blob = uncompressed_bucket.blob(os.path.join(scan_type, file_path))
-      output_blob.upload_from_string(
-          file_object.read(), timeout=timeout_5_minutes)
+  subprocess.run(['tar', '-xf', tmp_filepath, '-C', '/tmp'], check=True)
+
+  for filename in os.listdir(tmp_folder):
+    filepath = os.path.join(tmp_folder, filename)
+
+    if os.path.isfile(filepath):
+      output_blob = uncompressed_bucket.blob(
+          os.path.join(scan_type, tar_folder, filename))
+      output_blob.upload_from_filename(filepath, timeout=timeout_5_minutes)
+
+  os.remove(tmp_filepath)
+  shutil.rmtree(tmp_folder)
 
 
 def get_all_compressed_filenames():
