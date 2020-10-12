@@ -27,12 +27,10 @@ or
 gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41.tar.gz
 """
 
-import io
 import os
 from pprint import pprint
 import shutil
 import subprocess
-import tarfile
 
 import requests
 from retry import retry
