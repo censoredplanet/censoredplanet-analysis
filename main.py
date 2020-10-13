@@ -25,7 +25,7 @@ Run
 
 gcloud compute instances create-with-container firehook-censoredplanet \
 --container-image gcr.io/firehook-censoredplanet/pipeline:latest \
---machine-type e2-highmem-4 \
+--machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 40GB \
 --service-account 654632410498-compute@developer.gserviceaccount.com \
 --scopes=bigquery,cloud-platform,default
 
@@ -83,6 +83,8 @@ def job():
 
 
 def run():
+  job()  # run once when starting to catch any new errors earlier
+
   schedule.every().day.at('04:00').do(job)
 
   while True:
