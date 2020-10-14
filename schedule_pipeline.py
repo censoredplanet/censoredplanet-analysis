@@ -58,9 +58,9 @@ import time
 
 import schedule
 
-from table.main import rebuild_all_tables
-from transfer.decompress_files.main import decompress_all_missing_files
-from transfer.routeviews.main import transfer_routeviews
+from mirror.decompress_files.decompress import decompress_all_missing_files
+from mirror.routeviews.update import transfer_routeviews
+from table.run_queries import rebuild_all_tables
 
 
 def job():
@@ -75,7 +75,7 @@ def job():
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run(['python3', 'pipeline/main.py', '--env=prod'],
+  subprocess.run(['python3', 'pipeline/beam_tables.py', '--env=prod'],
                  check=True,
                  stdout=subprocess.PIPE)
 
@@ -83,7 +83,7 @@ def job():
 
 
 def run():
-  job()  # run once when starting to catch any new errors earlier
+  job()  # run once when starting to catch any new errors when deploying
 
   schedule.every().day.at('04:00').do(job)
 

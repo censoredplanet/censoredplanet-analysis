@@ -15,42 +15,42 @@ anyone who wants to understand how the data pipeline works.
 
 There are two main top-level pieces
 
-`python transfer/scans.py`
+`python mirror/scans.py`
 
 This sets up a daily data transfer job to copy scan files from the Censored
 Planet cloud bucket to an internal bucket.
 
-`python main.py`
+`python schedule_pipeline.py`
 
-This does some additional daily data processing and runs an daily incremental
-Apache Beam pipeline over the data. It is run via a Docker container on a GCE
-machine.
+This does some additional daily data processing and schedules an daily
+incremental Apache Beam pipeline over the data. It is run via a Docker container
+on a GCE machine.
 
 ## Running manually
 
 Individual pieces of the pipeline can be run manually.
 
-`python transfer/routeviews/main.py`
+`python mirror/routeviews/update.py`
 
 Transfers in the latest missing CAIDA routeview files.
 
-`python transfer/routeviews/bulk_download.py`
+`python mirror/routeviews/bulk_download.py`
 
 Transfers in all CAIDA routeview files from a certain date. This is used for
 backfilling data.
 
-`python transfer/decompress_files/main.py`
+`python mirror/decompress_files/decompress.py`
 
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool for
 missing files.
 
-`python pipeline/main.py --env=prod --full`
+`python pipeline/beam_tables.py --env=prod --full`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing tables.
 
-`python table/main.py`
+`python table/run_queries.py`
 
 Runs queries to recreate any tables derived from the base tables.
 

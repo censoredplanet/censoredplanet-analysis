@@ -27,4 +27,4 @@ RUN pip install -r requirements.txt
 
 RUN apt-get update && apt-get install -y tar
 
-CMD python3 main.py
+CMD python3 schedule_pipeline.py
