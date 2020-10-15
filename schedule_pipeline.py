@@ -25,7 +25,7 @@ Run
 
 gcloud compute instances create-with-container firehook-censoredplanet \
 --container-image gcr.io/firehook-censoredplanet/pipeline:latest \
---machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 40GB \
+--machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 100GB \
 --service-account 654632410498-compute@developer.gserviceaccount.com \
 --scopes=bigquery,cloud-platform,default
 
