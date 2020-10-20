@@ -63,7 +63,7 @@ from mirror.routeviews.update import transfer_routeviews
 from table.run_queries import rebuild_all_tables
 
 
-def job():
+def run_pipeline():
   """Steps of the pipeline to run nightly."""
   decompress_all_missing_files()
   transfer_routeviews()
@@ -83,9 +83,9 @@ def job():
 
 
 def run():
-  job()  # run once when starting to catch any new errors when deploying
+  run_pipeline()  # run once when starting to catch new errors when deploying
 
-  schedule.every().day.at('04:00').do(job)
+  schedule.every().day.at('04:00').do(run_pipeline)
 
   while True:
     schedule.run_pending()
