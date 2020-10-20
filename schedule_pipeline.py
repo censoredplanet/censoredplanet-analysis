@@ -58,14 +58,14 @@ import time
 
 import schedule
 
-from mirror.decompress_files.decompress import decompress_all_missing_files
+from mirror.decompress_files.decompress import get_firehook_scanfile_decompressor
 from mirror.routeviews.update import transfer_routeviews
 from table.run_queries import rebuild_all_tables
 
 
 def run_pipeline():
   """Steps of the pipeline to run nightly."""
-  decompress_all_missing_files()
+  get_firehook_scanfile_decompressor().decompress_all_missing_files()
   transfer_routeviews()
 
   # This is a very weird hack.
