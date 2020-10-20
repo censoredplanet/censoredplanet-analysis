@@ -25,6 +25,4 @@ COPY . ./
 
 RUN pip install -r requirements.txt
 
-RUN apt-get update && apt-get install -y tar
-
 ENTRYPOINT python3 schedule_pipeline.py

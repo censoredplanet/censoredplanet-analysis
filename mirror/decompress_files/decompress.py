@@ -24,13 +24,13 @@ gs://firehook-censoredplanetscanspublic/CP_Satellite-2018-08-07-17-24-41.tar.gz
 They should be decompressed into scan type specific directories like
 gs://firehook-scans/discard/CP_Quack-discard-2018-07-28-03-11-21/results.json
 or
-gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41.tar.gz
+gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41/results.json
 """
 
 import os
 from pprint import pprint
 import shutil
-import subprocess
+import tarfile
 
 import requests
 from retry import retry
@@ -86,7 +86,8 @@ def decompress_file(tar_name):
   compressed_bucket.get_blob(tar_name).download_to_filename(
       tmp_filepath, timeout=timeout_5_minutes)
 
-  subprocess.run(['tar', '-xf', tmp_filepath, '-C', '/tmp'], check=True)
+  tfile = tarfile.open(tmp_filepath, 'r:gz')
+  tfile.extractall('/tmp')
 
   for filename in os.listdir(tmp_folder):
     filepath = os.path.join(tmp_folder, filename)
