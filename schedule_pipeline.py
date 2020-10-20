@@ -59,14 +59,14 @@ import time
 import schedule
 
 from mirror.decompress_files.decompress import get_firehook_scanfile_decompressor
-from mirror.routeviews.update import transfer_routeviews
+from mirror.routeviews.update import get_firehook_routeview_updater
 from table.run_queries import rebuild_all_tables
 
 
 def run_pipeline():
   """Steps of the pipeline to run nightly."""
   get_firehook_scanfile_decompressor().decompress_all_missing_files()
-  transfer_routeviews()
+  get_firehook_routeview_updater().transfer_routeviews()
 
   # This is a very weird hack.
   # We execute the beam pipeline as a seperate process
