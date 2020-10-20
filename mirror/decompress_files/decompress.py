@@ -74,7 +74,7 @@ class ScanfileDecompressor():
     self.uncompressed_bucket = self.client.get_bucket(uncompressed_bucket_name)
 
   @retry(requests.exceptions.ConnectionError, tries=3, delay=1)
-  def decompress_file(self, tar_name):
+  def _decompress_file(self, tar_name: str):
     """Decompress a given scan file.
 
     Downloads the file from GCS, decompresses in memory,
@@ -115,7 +115,7 @@ class ScanfileDecompressor():
     os.remove(tmp_filepath)
     shutil.rmtree(tmp_folder)
 
-  def get_all_compressed_filenames(self):
+  def _get_all_compressed_filenames(self):
     """Get a list of all compressed filenames, minus the file extension.
 
     Returns:
@@ -131,7 +131,7 @@ class ScanfileDecompressor():
     ]
     return filenames
 
-  def get_all_uncompressed_filepaths(self):
+  def _get_all_uncompressed_filepaths(self):
     """Get a list of all directories with uncompressed filenames.
 
     Returns:
@@ -147,7 +147,7 @@ class ScanfileDecompressor():
     path_ends = [os.path.split(path)[1] for path in paths]
     return path_ends
 
-  def get_missing_compressed_files(self, compressed_files, uncompressed_files):
+  def _get_missing_compressed_files(self, compressed_files, uncompressed_files):
     """Get all files in the compressed list that are not in the uncompressed list."""
     diff = set(compressed_files) - set(uncompressed_files)
     return list(diff)
@@ -157,10 +157,10 @@ class ScanfileDecompressor():
 
     Used for backfilling data.
     """
-    compressed_files = self.get_all_compressed_filenames()
-    uncompressed_files = self.get_all_uncompressed_filepaths()
-    new_files = self.get_missing_compressed_files(compressed_files,
-                                                  uncompressed_files)
+    compressed_files = self._get_all_compressed_filenames()
+    uncompressed_files = self._get_all_uncompressed_filepaths()
+    new_files = self._get_missing_compressed_files(compressed_files,
+                                                   uncompressed_files)
 
     files_with_extensions = [filename + '.tar.gz' for filename in new_files]
 
@@ -169,7 +169,7 @@ class ScanfileDecompressor():
 
     for filename in files_with_extensions:
       pprint(('decompressing file: ', filename))
-      self.decompress_file(filename)
+      self._decompress_file(filename)
       pprint(('decompressed file: ', filename))
 
 
