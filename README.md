@@ -23,7 +23,7 @@ Planet cloud bucket to an internal bucket.
 `python schedule_pipeline.py`
 
 This does some additional daily data processing and schedules an daily
-incremental Apache Beam pipeline over the data. It expexts to be run via a
+incremental Apache Beam pipeline over the data. It expects to be run via a
 Docker container on a GCE machine.
 
 `./deploy.sh prod`
@@ -47,12 +47,16 @@ decompress missing files.
 
 `python mirror/routeviews/update.py`
 
-Transfers in the latest missing CAIDA routeview files.
+Transfers in the latest missing CAIDA routeview files. (Can only mirror in data
+from the last 30 days of data.)
 
 `python mirror/routeviews/bulk_download.py`
 
 Transfers in all CAIDA routeview files from a certain date. This is used for
-backfilling data.
+backfilling data from older than 30 days.
+
+In all cases to fix missing or incorrect data simple delete the incorrect data
+from the google cloud bucket and re-run the appropriate script to re-mirror it.
 
 ### Processing Data
 
