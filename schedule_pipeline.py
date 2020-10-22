@@ -15,42 +15,8 @@
 # pyformat: disable
 r"""Orchestrate the pieces of the Censored Planet Data Pipeline.
 
-To deploy to GCE
-
-Build
-
-gcloud builds submit . --tag gcr.io/firehook-censoredplanet/pipeline
-
-Run
-
-gcloud compute instances create-with-container firehook-censoredplanet \
---container-image gcr.io/firehook-censoredplanet/pipeline:latest \
---machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 100GB \
---service-account 654632410498-compute@developer.gserviceaccount.com \
---scopes=bigquery,cloud-platform,default
-
-or (if container already exists)
-
-gcloud compute instances update-container firehook-censoredplanet \
---container-image gcr.io/firehook-censoredplanet/pipeline:latest
-
-
-To run locally
-
-Build
-
-docker build --tag firehook-censoredplanet .
-
-Run
-
-gcloud iam service-accounts keys create \
-~/.config/gcloud/654632410498-compute_credentials.json \
---iam-account 654632410498-compute@developer.gserviceaccount.com
-
-docker run -it \
--v $HOME/.config/gcloud:$HOME/.config/gcloud \
--e GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/654632410498-compute_credentials.json \
-firehook-censoredplanet
+This script is means to be run on a GCE machine.
+To deploy to GCE use the deploy.sh script.
 """
 # pyformat: enable
 import subprocess
