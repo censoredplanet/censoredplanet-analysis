@@ -23,8 +23,12 @@ Planet cloud bucket to an internal bucket.
 `python schedule_pipeline.py`
 
 This does some additional daily data processing and schedules an daily
-incremental Apache Beam pipeline over the data. It is run via a Docker container
-on a GCE machine.
+incremental Apache Beam pipeline over the data. It expexts to be run via a
+Docker container on a GCE machine.
+
+`./deploy.sh prod`
+
+Will deploy the main pipeline loop to a GCE machine
 
 ## Running manually
 
@@ -34,10 +38,6 @@ Individual pieces of the pipeline can be run manually.
 
 These scripts pull in a large amount of data from external datasources and
 mirror it in the correct locations in google cloud buckets.
-
-`python mirror/scans.py`
-
-Sets up a daily data transfer job to mirror in scan files from Censored Planet.
 
 `python mirror/decompress_files/decompress.py`
 

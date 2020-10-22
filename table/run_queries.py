@@ -15,7 +15,7 @@
 
 Run as
 
-python3 tables/main.py
+python3 tables/run_queries.py
 """
 
 import glob
