@@ -28,6 +28,7 @@ gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41/results.json
 """
 
 import os
+import pathlib
 from pprint import pprint
 import shutil
 import tarfile
@@ -127,7 +128,8 @@ class ScanfileDecompressor():
     blobs = list(self.client.list_blobs(self.compressed_bucket_name))
     # CP_Satellite-2020-08-16-17-07-54
     filenames = [  # remove both .tar and .gz
-        os.path.splitext(os.path.splitext(blob.name)[0])[0] for blob in blobs
+        pathlib.PurePosixPath(pathlib.PurePosixPath(blob.name).stem).stem
+        for blob in blobs
     ]
     return filenames
 
@@ -141,10 +143,12 @@ class ScanfileDecompressor():
     """
     # discard/CP_Quack-discard-2020-08-17-08-41-15/results.json
     blobs = list(self.client.list_blobs(self.uncompressed_bucket_name))
-    # discard/CP_Quack-discard-2020-08-17-08-41-15/
-    paths = [os.path.split(blob.name)[0] for blob in blobs]
     # CP_Quack-discard-2020-08-17-08-41-15/
-    path_ends = [os.path.split(path)[1] for path in paths]
+    path_ends = [
+        pathlib.PurePosixPath(blob.name).parts[1]
+        for blob in blobs
+        if len(pathlib.PurePosixPath(blob.name).parts) == 3
+    ]
     return path_ends
 
   def _get_missing_compressed_files(self, compressed_files, uncompressed_files):
