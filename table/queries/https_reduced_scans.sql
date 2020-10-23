@@ -21,7 +21,7 @@ CREATE TEMP FUNCTION CleanError(error string) AS (
     "port\\.[0-9]+", "port.[PORT]")
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.https.net_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.https_results.net_as`
 PARTITION BY date
 CLUSTER BY netblock
 AS (
@@ -33,8 +33,7 @@ AS (
   FROM `firehook-censoredplanet.https_results.scan`
 );
 
-
-CREATE OR REPLACE TABLE `firehook-censoredplanet.https.reduced_scans`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.https_results.reduced_scans`
 PARTITION BY date
 CLUSTER BY country, domain, netblock
 AS (
