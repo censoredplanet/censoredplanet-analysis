@@ -12,14 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.fortuna.net_as`
-PARTITION BY date
-CLUSTER BY netblock
-AS (
-  SELECT DISTINCT
-    date,
-    netblock,
-    asn,
-    as_full_name AS as_full_name
-  FROM `firehook-censoredplanet.https_results.scan`
-);
