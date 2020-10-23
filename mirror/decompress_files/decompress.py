@@ -27,6 +27,7 @@ or
 gs://firehook-scans/satellite/CP_Satellite-2018-08-07-17-24-41/results.json
 """
 
+import gzip
 import os
 import pathlib
 from pprint import pprint
@@ -102,16 +103,30 @@ class ScanfileDecompressor():
     self.compressed_bucket.get_blob(tar_name).download_to_filename(
         tmp_filepath, timeout=TIMEOUT_5_MINUTES)
 
+    # Un-gzip and untar the folder
     tfile = tarfile.open(tmp_filepath, 'r:gz')
     tfile.extractall('/tmp')
 
     for filename in os.listdir(tmp_folder):
-      filepath = os.path.join(tmp_folder, filename)
+      filepath_unzipped = os.path.join(tmp_folder, filename)
 
-      if os.path.isfile(filepath):
+      if os.path.isfile(filepath_unzipped):
+        # Re-gzip individual files, but do not re-tar
+
+        filename_zipped = filename + '.gz'
+        filepath_zipped = os.path.join(tmp_folder, filename_zipped)
+
+        unzipped_file = open(filepath_unzipped, 'rb')
+        rezipped_file = open(filepath_zipped, 'wb')
+
+        data = unzipped_file.read()
+        compressed_data = gzip.compress(data)
+        rezipped_file.write(compressed_data)
+
         output_blob = self.uncompressed_bucket.blob(
-            os.path.join(scan_type, tar_folder, filename))
-        output_blob.upload_from_filename(filepath, timeout=TIMEOUT_5_MINUTES)
+            os.path.join(scan_type, tar_folder, filename_zipped))
+        output_blob.upload_from_filename(
+            filepath_zipped, timeout=TIMEOUT_5_MINUTES)
 
     os.remove(tmp_filepath)
     shutil.rmtree(tmp_folder)

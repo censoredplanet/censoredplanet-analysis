@@ -71,7 +71,7 @@ class PipelineMainTest(unittest.TestCase):
   def test_read_scan_text(self):
     p = TestPipeline()
     pipeline = beam_tables.read_scan_text(
-        p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json'])
+        p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
 
     beam_test_util.assert_that(
         pipeline,

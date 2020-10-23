@@ -211,8 +211,14 @@ def data_to_load(gcs: GCSFileSystem,
   else:
     existing_sources = []
 
-  filename_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
-  file_metadata = [m.metadata_list for m in gcs.match([filename_regex])][0]
+  # Both zipped and unzipped data to be read in
+  zipped_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json.gz'
+  unzipped_regex = 'gs://firehook-scans/' + scan_type + '/**/results.json'
+
+  zipped_metadata = [m.metadata_list for m in gcs.match([zipped_regex])][0]
+  unzipped_metadata = [m.metadata_list for m in gcs.match([unzipped_regex])][0]
+  file_metadata = zipped_metadata + unzipped_metadata
+
   filenames = [metadata.path for metadata in file_metadata]
   file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
 
