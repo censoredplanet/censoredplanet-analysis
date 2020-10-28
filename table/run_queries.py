@@ -19,6 +19,7 @@ python3 tables/run_queries.py
 """
 
 import glob
+from pprint import pprint
 
 from google.cloud import bigquery as cloud_bigquery
 
@@ -33,7 +34,11 @@ def run_query(filepath: str):
 
 def rebuild_all_tables():
   for filepath in glob.glob('table/queries/*.sql'):
-    run_query(filepath)
+    try:
+      run_query(filepath)
+    except Exception as ex:
+      pprint(('Failed SQL query', filepath))
+      pprint(ex)
 
 
 if __name__ == '__main__':
