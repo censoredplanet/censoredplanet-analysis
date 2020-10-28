@@ -9,7 +9,11 @@ devoted Google Cloud project to run in. It is not recommended to run yourself,
 but the code is made available for anyone who wants to understand how the data
 pipeline works.
 
-## Running as an automated pipeline
+## System Diagram
+
+![System Diagram](system-diagram.png)
+
+## Running as an Automated Pipeline
 
 There are two main top-level pieces
 
@@ -28,7 +32,7 @@ Docker container on a GCE machine.
 
 Will deploy the main pipeline loop to a GCE machine
 
-## Running manually
+## Running Manually
 
 Individual pieces of the pipeline can be run manually.
 
