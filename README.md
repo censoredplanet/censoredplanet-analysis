@@ -1,16 +1,13 @@
-# censoredplanet-analysis
+# Censored Planet Data Analysis Pipeline
 
-Pipeline for analysing CensoredPlanet data.
-
-Take raw data from the
-[Censored Planet Observatory](https://censoredplanet.org/data/raw) and run it
+This pipeline takes raw data from the
+[Censored Planet Observatory](https://censoredplanet.org/data/raw) and runs it
 through a pipeline to create bigquery tables for easier data analysis.
 
 Because of the size of the data involved (many TB) this project requires a
-devoted Google Cloud project to run in. It is not reccomended to run yourself,
-(please contact us at jigsaw-censored-planet-analysis@googlegroups.com if this
-is your use case) but the code is made available for anyone who wants to
-understand how the data pipeline works.
+devoted Google Cloud project to run in. It is not recommended to run yourself,
+but the code is made available for anyone who wants to understand how the data
+pipeline works.
 
 ## Running as an automated pipeline
 
