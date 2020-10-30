@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CREATE OR REPLACE FUNCTION `firehook-censoredplanet`.https_results.CleanError(error STRING) AS (
+# This must be defined function and not a temp function
+# because it is disallowed to have a view creation after making a temp function
+# we don't actually want this function permenantly
+# so it is dropped at the end of this script.
+CREATE OR REPLACE FUNCTION `firehook-censoredplanet`.https_results.CleanErrorTemp(error STRING) AS (
   REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
     IF(error = "", "null", IFNULL(error, "null")),
     "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", "[IP]"),
@@ -42,7 +46,7 @@ AS (
     IF(domain != sent AND sent != "", sent, domain) AS domain,
     country,
     netblock,
-    `firehook-censoredplanet`.https_results.CleanError(error) AS result,
+    `firehook-censoredplanet`.https_results.CleanErrorTemp(error) AS result,
     count(1) AS count
   FROM `firehook-censoredplanet.https_results.scan`
   WHERE
@@ -68,4 +72,6 @@ AS (
   FROM `firehook-censoredplanet.https_results.reduced_scans`
   LEFT JOIN `firehook-censoredplanet.https_results.net_as`
   USING (date, netblock)
-)
+);
+
+DROP FUNCTION `firehook-censoredplanet`.https_results.CleanErrorTemp;
