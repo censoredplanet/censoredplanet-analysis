@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CREATE TEMP FUNCTION CleanError(error string) AS (
+CREATE OR REPLACE FUNCTION `firehook-censoredplanet`.https_results.CleanError(error STRING) AS (
   REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
     IF(error = "", "null", IFNULL(error, "null")),
     "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", "[IP]"),
@@ -42,10 +42,30 @@ AS (
     IF(domain != sent AND sent != "", sent, domain) AS domain,
     country,
     netblock,
-    CleanError(error) AS result,
+    `firehook-censoredplanet`.https_results.CleanError(error) AS result,
     count(1) AS count
   FROM `firehook-censoredplanet.https_results.scan`
   WHERE
     NOT SAFE.REGEXP_CONTAINS(error, "too many open files|address already in use|no route to host|connection refused|connect: connection timed out")
   GROUP BY date, country, domain, netblock, result
 );
+
+CREATE OR REPLACE VIEW `firehook-censoredplanet.https_results.reduced_scans_geolocated`
+OPTIONS(
+  friendly_name="Reduced Scan View",
+  description="a join of reduced scans with ASN info"
+)
+AS (
+  SELECT
+    date,
+    domain,
+    country,
+    netblock,
+    asn,
+    as_full_name AS as_name,
+    result,
+    count
+  FROM `firehook-censoredplanet.https_results.reduced_scans`
+  LEFT JOIN `firehook-censoredplanet.https_results.net_as`
+  USING (date, netblock)
+)

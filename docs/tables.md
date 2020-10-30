@@ -120,20 +120,27 @@ This table is created by the script
 
 ### Reduced Table
 
-These two tables are intended to be used together, they contain scan information
-in one table `reduced_scans` and AS information in another `net_as`.
+This table is actually a view joining two tables, in order to read over less
+data with every request.
 
-To use these tables together join on the `date` and `netblock` fields.
-
-These tables contain only HTTPS scan data.
+This table contains only HTTPS scan data.
 
 These tables are created by the script
 [https_reduced_scans.sql](../table/queries/https_reduced_scans.sql).
 
 #### Table names
 
+##### View
+
+- firehook-censoredplanet.https_results.reduced_scans_geolocated
+
+##### Joined Sub-tables
+
 - `firehook-censoredplanet.https.reduced_scans`
 - `firehook-censoredplanet.https.net_as`
+
+These two tables are joined on their `date` and `netblock` fields to create the
+view.
 
 #### Table Formats
 
@@ -145,14 +152,7 @@ Reduced Scans
 | domain     | STRING  | The domain being tested, eg. `example.com` |
 | country    | STRING  | Autonomous system country, eg. `US`  |
 | netblock   | STRING  | Netblock of the IP, eg. `1.1.1.0/24`  |
+| asn        | INTEGER | Autonomous system number, eg. `13335` |
+| as_name    | STRING  | Autonomous system long name, eg. `Cloudflare, Inc.` |
 | result     | STRING  | The source type, followed by the `: null` (meaning success) or error returned. eg. `HTTPS: null`, `HTTPS: Incorrect web response: status lines don't match` |
 | count      | INTEGER | How many measurements fit the exact pattern of this row? |
-
-Net AS
-
-| Field Name   | Type    | Contains |
-| ------------ | ------- | -------- |
-| date         | DATE    | Date that an individual measurement was taken |
-| netblock     | STRING  | Netblock of the IP, eg. `1.1.1.0/24` |
-| asn          | INTEGER | Autonomous system number, eg. `13335` |
-| as_full_name | STRING  | Autonomous system long name, eg. `Cloudflare, Inc.` |
