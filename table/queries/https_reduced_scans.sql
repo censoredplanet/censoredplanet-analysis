@@ -57,7 +57,7 @@ AS (
 CREATE OR REPLACE VIEW `firehook-censoredplanet.https_results.reduced_scans_geolocated`
 OPTIONS(
   friendly_name="Reduced Scan View",
-  description="a join of reduced scans with ASN info"
+  description="A join of reduced scans with ASN info."
 )
 AS (
   SELECT
