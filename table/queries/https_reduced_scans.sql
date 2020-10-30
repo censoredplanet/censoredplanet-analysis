@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This must be defined function and not a temp function
-# because it is disallowed to have a view creation after making a temp function
-# we don't actually want this function permenantly
-# so it is dropped at the end of this script.
-CREATE OR REPLACE FUNCTION `firehook-censoredplanet`.https_results.CleanErrorTemp(error STRING) AS (
+CREATE TEMP FUNCTION CleanError(error STRING) AS (
   REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
     IF(error = "", "null", IFNULL(error, "null")),
     "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", "[IP]"),
@@ -46,13 +42,17 @@ AS (
     IF(domain != sent AND sent != "", sent, domain) AS domain,
     country,
     netblock,
-    `firehook-censoredplanet`.https_results.CleanErrorTemp(error) AS result,
+    CleanError(error) AS result,
     count(1) AS count
   FROM `firehook-censoredplanet.https_results.scan`
   WHERE
     NOT SAFE.REGEXP_CONTAINS(error, "too many open files|address already in use|no route to host|connection refused|connect: connection timed out")
   GROUP BY date, country, domain, netblock, result
 );
+
+# Drop the temp function before creating the view
+# Since any temp functions in scope block view creation.
+DROP FUNCTION CleanError;
 
 CREATE OR REPLACE VIEW `firehook-censoredplanet.https_results.reduced_scans_geolocated`
 OPTIONS(
@@ -73,5 +73,3 @@ AS (
   LEFT JOIN `firehook-censoredplanet.https_results.net_as`
   USING (date, netblock)
 );
-
-DROP FUNCTION `firehook-censoredplanet`.https_results.CleanErrorTemp;
