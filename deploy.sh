@@ -50,7 +50,7 @@ elif [[ "${action}" == "prod" ]]; then
     # otherwise create new instance
     gcloud compute instances create-with-container ${project} \
     --container-image gcr.io/${project}/pipeline:latest \
-    --machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 100GB \
+    --machine-type e2-highmem-16 --zone us-east1-b --boot-disk-size 500GB \
     --service-account ${service_account_id}-compute@developer.gserviceaccount.com \
     --scopes=bigquery,cloud-platform,default
   fi
