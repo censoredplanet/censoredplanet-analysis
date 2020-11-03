@@ -494,6 +494,27 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
+def get_partition_params() -> Dict[str, Any]:
+  """Returns additional partitioning params to pass with the bigquery load.
+
+  Returns: A dict of query params
+
+  See
+  https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
+  https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table
+  """
+  partition_params = {
+      'timePartitioning': {
+          'type': 'DAY',
+          'field': 'date'
+      },
+      'clustering': {
+          'fields': ['country', 'asn']
+      }
+  }
+  return partition_params
+
+
 def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
                       incremental_load: bool, env: str):
   """Write out row to a bigquery table.
@@ -519,7 +540,9 @@ def write_to_bigquery(rows: beam.pvalue.PCollection[Row], scan_type: str,
       full_table_name,
       schema=get_bigquery_schema(SCAN_BIGQUERY_SCHEMA),
       create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-      write_disposition=write_mode))
+      write_disposition=write_mode,
+      method=beam.io.gcp.bigquery.WriteToBigQuery.Method.FILE_LOADS,
+      additional_bq_parameters=get_partition_params()))
 
 
 def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
