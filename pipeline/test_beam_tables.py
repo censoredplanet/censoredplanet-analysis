@@ -21,7 +21,9 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline import beam_tables
+from pipeline.beam_tables import IP_METADATA_PCOLLECTION_NAME
+from pipeline.beam_tables import ROWS_PCOLLECION_NAME
+from pipeline.beam_tables import ScanDataBeamPipelineRunner
 
 
 class PipelineMainTest(unittest.TestCase):
@@ -31,7 +33,7 @@ class PipelineMainTest(unittest.TestCase):
         'string_field': 'string',
     }
 
-    table_schema = beam_tables.get_bigquery_schema(test_field)
+    table_schema = ScanDataBeamPipelineRunner.get_bigquery_schema(test_field)
 
     expected_field_schema = beam_bigquery.TableFieldSchema()
     expected_field_schema.name = 'string_field'
@@ -44,33 +46,40 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(table_schema, expected_table_schema)
 
   def test_get_table_name(self):
+    project = 'firehook-censoredplanet'
+    table_name = 'scan'
+    dataset_suffix = '_results'
+
+    runner = ScanDataBeamPipelineRunner(project, table_name, dataset_suffix,
+                                        None, None, None, None)
+
     self.assertEqual(
-        beam_tables.get_table_name('echo', 'prod'),
+        runner.get_table_name('echo', 'prod'),
         'firehook-censoredplanet:echo_results.scan')
     self.assertEqual(
-        beam_tables.get_table_name('discard', 'dev'),
+        runner.get_table_name('discard', 'dev'),
         'firehook-censoredplanet:discard_results.scan_test')
     self.assertEqual(
-        beam_tables.get_table_name('http', 'prod'),
+        runner.get_table_name('http', 'prod'),
         'firehook-censoredplanet:http_results.scan')
     self.assertEqual(
-        beam_tables.get_table_name('https', 'dev'),
+        runner.get_table_name('https', 'dev'),
         'firehook-censoredplanet:https_results.scan_test')
 
   def test_source_from_filename(self):
     self.assertEqual(
-        beam_tables.source_from_filename(
+        ScanDataBeamPipelineRunner.source_from_filename(
             'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
         ), 'CP_Quack-echo-2020-08-23-06-01-02')
 
     self.assertEqual(
-        beam_tables.source_from_filename(
+        ScanDataBeamPipelineRunner.source_from_filename(
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
   def test_read_scan_text(self):
     p = TestPipeline()
-    pipeline = beam_tables.read_scan_text(
+    pipeline = ScanDataBeamPipelineRunner.read_scan_text(
         p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
 
     beam_test_util.assert_that(
@@ -83,36 +92,35 @@ class PipelineMainTest(unittest.TestCase):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-10'),
-                                  datetime.date.fromisoformat('2020-05-12')))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, datetime.date.fromisoformat('2020-05-10'),
+            datetime.date.fromisoformat('2020-05-12')))
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-11'),
-                                  datetime.date.fromisoformat('2020-05-11')))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, datetime.date.fromisoformat('2020-05-11'),
+            datetime.date.fromisoformat('2020-05-11')))
     self.assertTrue(
-        beam_tables.between_dates(filename, None,
-                                  datetime.date.fromisoformat('2020-05-12')))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, None, datetime.date.fromisoformat('2020-05-12')))
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-10'),
-                                  None))
-    self.assertTrue(beam_tables.between_dates(filename, None, None))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, datetime.date.fromisoformat('2020-05-10'), None))
+    self.assertTrue(
+        ScanDataBeamPipelineRunner.between_dates(filename, None, None))
 
   def test_not_between_dates(self):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertFalse(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-12'),
-                                  datetime.date.fromisoformat('2020-05-10')))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, datetime.date.fromisoformat('2020-05-12'),
+            datetime.date.fromisoformat('2020-05-10')))
     self.assertFalse(
-        beam_tables.between_dates(filename, None,
-                                  datetime.date.fromisoformat('2020-05-10')))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, None, datetime.date.fromisoformat('2020-05-10')))
     self.assertFalse(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-12'),
-                                  None))
+        ScanDataBeamPipelineRunner.between_dates(
+            filename, datetime.date.fromisoformat('2020-05-12'), None))
 
   def test_flatten_measurement(self):
     line = """{
@@ -177,7 +185,7 @@ class PipelineMainTest(unittest.TestCase):
     }]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-    rows = list(beam_tables.flatten_measurement(filename, line))
+    rows = list(ScanDataBeamPipelineRunner.flatten_measurement(filename, line))
     self.assertEqual(len(rows), 2)
 
     # Measurement ids should be the same
@@ -245,7 +253,8 @@ class PipelineMainTest(unittest.TestCase):
     }
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
-    row = list(beam_tables.flatten_measurement(filename, line))[0]
+    row = list(ScanDataBeamPipelineRunner.flatten_measurement(filename,
+                                                              line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -254,7 +263,9 @@ class PipelineMainTest(unittest.TestCase):
     line = 'invalid json'
 
     with self.assertLogs(level='WARNING') as cm:
-      rows = list(beam_tables.flatten_measurement('test_filename.json', line))
+      rows = list(
+          ScanDataBeamPipelineRunner.flatten_measurement(
+              'test_filename.json', line))
       self.assertEqual(
           cm.output[0], 'WARNING:root:JSONDecodeError: '
           'Expecting value: line 1 column 1 (char 0)\n'
@@ -288,7 +299,7 @@ class PipelineMainTest(unittest.TestCase):
     p = TestPipeline()
     rows = (p | beam.Create(rows))
 
-    rows_with_metadata = beam_tables.add_metadata(rows)
+    rows_with_metadata = ScanDataBeamPipelineRunner.add_metadata(rows)
     beam_test_util.assert_that(
         rows_with_metadata,
         beam_test_util.equal_to([{
@@ -340,11 +351,13 @@ class PipelineMainTest(unittest.TestCase):
   def test_make_date_ip_key(self):
     row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
     self.assertEqual(
-        beam_tables.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
+        ScanDataBeamPipelineRunner.make_date_ip_key(row),
+        ('2020-01-01', '1.2.3.4'))
 
   def test_add_ip_metadata(self):
     metadatas = list(
-        beam_tables.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+        ScanDataBeamPipelineRunner.add_ip_metadata('2020-01-01',
+                                                   ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1 = ('2020-01-01', '1.1.1.1')
     expected_value_1 = {
@@ -389,8 +402,8 @@ class PipelineMainTest(unittest.TestCase):
         'date': '2020-01-01',
     }]
     value = {
-        beam_tables.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
-        beam_tables.ROWS_PCOLLECION_NAME: rows
+        IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
+        ROWS_PCOLLECION_NAME: rows
     }
 
     expected_rows = [{
@@ -415,21 +428,22 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }]
 
-    rows_with_metadata = list(beam_tables.merge_metadata_with_rows(key, value))
+    rows_with_metadata = list(
+        ScanDataBeamPipelineRunner.merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
 
   def test_get_job_name(self):
     self.assertEqual(
-        beam_tables.get_job_name('echo', False, 'dev'),
+        ScanDataBeamPipelineRunner.get_job_name('echo', False, 'dev'),
         'echo-flatten-add-metadata-dev')
     self.assertEqual(
-        beam_tables.get_job_name('discard', True, 'dev'),
+        ScanDataBeamPipelineRunner.get_job_name('discard', True, 'dev'),
         'discard-flatten-add-metadata-dev-incremental')
     self.assertEqual(
-        beam_tables.get_job_name('http', False, 'prod'),
+        ScanDataBeamPipelineRunner.get_job_name('http', False, 'prod'),
         'http-flatten-add-metadata-prod')
     self.assertEqual(
-        beam_tables.get_job_name('https', True, 'prod'),
+        ScanDataBeamPipelineRunner.get_job_name('https', True, 'prod'),
         'https-flatten-add-metadata-prod-incremental')
 
 
