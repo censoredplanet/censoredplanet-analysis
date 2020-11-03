@@ -33,6 +33,7 @@ import pathlib
 from pprint import pprint
 import shutil
 import tarfile
+from typing import List
 
 import requests
 from retry import retry
@@ -78,10 +79,10 @@ class ScanfileUntarrer():
     self.untarred_bucket = self.client.get_bucket(untarred_bucket_name)
 
   @retry(requests.exceptions.ConnectionError, tries=3, delay=1)
-  def _untar_file(self, tar_name: str):
+  def _untar_file(self, tar_name: str) -> None:
     """Untar a given scan file.
 
-    Downloads the file from GCS, untars in memory,
+    Downloads the file from GCS, untars on disk,
     and uploads the untarred version to a different location in GCS.
 
     Args:
@@ -125,7 +126,7 @@ class ScanfileUntarrer():
     os.remove(tmp_filepath)
     shutil.rmtree(tmp_folder)
 
-  def _get_all_tarred_filenames(self):
+  def _get_all_tarred_filenames(self) -> List[str]:
     """Get a list of all tarred filenames, minus the file extension.
 
     Returns:
@@ -142,7 +143,7 @@ class ScanfileUntarrer():
     ]
     return filenames
 
-  def _get_all_untarred_filepaths(self):
+  def _get_all_untarred_filepaths(self) -> List[str]:
     """Get a list of all directories with untarredfilenames.
 
     Returns:
@@ -160,12 +161,13 @@ class ScanfileUntarrer():
     ]
     return path_ends
 
-  def _get_missing_tarred_files(self, tarred_files, untarred_files):
+  def _get_missing_tarred_files(self, tarred_files: List[str],
+                                untarred_files: List[str]) -> List[str]:
     """Get all files in the tarred list that are not in the untarred list."""
     diff = set(tarred_files) - set(untarred_files)
     return list(diff)
 
-  def untar_all_missing_files(self):
+  def untar_all_missing_files(self) -> None:
     """Untar all files that exist only in the tarred bucket.
 
     Used for backfilling data.
