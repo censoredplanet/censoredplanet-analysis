@@ -12,19 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import subprocess
-import pandas as pd
 from datetime import datetime
+
+from google.cloud import storage
+import httpio
+import pandas as pd
+import requests
+
+earliest_data = "2018-07-27"
 
 
 def download_manual_routeviews():
-  # 2018-07-27 is the earliest scan file date
-  datelist = pd.date_range(start="2018-07-27", end=datetime.today().isoformat())
+  datelist = pd.date_range(
+      start=earliest_data, end=datetime.today().isoformat())
+  client = storage.Client()
+  bucket = client.get_bucket("censoredplanet_geolocation")
 
   for date in datelist:
-    year, month, day = date.isoformat()[:10].split("-")
-    print(year, month, day)
-    path = "http://data.caida.org/datasets/routing/routeviews-prefix2as/" + year + "/" + month + "/"
+    print("checking date {}".format(date))
+
+    year = str(date.year)
+    month = str(date.month).zfill(2)
+    day = str(date.day).zfill(2)
+
+    path = "http://data.caida.org/datasets/routing/routeviews-prefix2as/{}/{}/".format(
+        year, month)
     # possible times are 0000 to 2200 in intervals of 200
     times = [
         "0000", "0200", "0400", "0600", "0800", "1000", "1200", "1400", "1600",
@@ -32,17 +44,24 @@ def download_manual_routeviews():
     ]
     for time in times:
       try:
-        filename = "routeviews-rv2-" + year + month + day + "-" + time + ".pfx2as.gz"
+        filename = "routeviews-rv2-{}{}{}-{}.pfx2as.gz".format(
+            year, month, day, time)
+        url = path + filename
+        cloud_filepath = "caida/routeviews/" + filename
 
-        print(path + filename)
+        # This call will fail for most urls,
+        # since we don't know which timestamp is correct.
+        # In that case we just move on to our next guess.
+        f = httpio.open(url)
 
-        subprocess.run(["wget", path + filename, "-P", "/tmp/"])
-        subprocess.run([
-            "gsutil", "cp", "/tmp/" + filename,
-            "gs://censoredplanet_geolocation/caida/routeviews/" + filename
-        ])
-      except:
-        pass
+        print("mirroring {} to {}".format(
+            url, "gs://censoredplanet_geolocation/" + cloud_filepath))
+
+        blob = bucket.blob(cloud_filepath)
+        blob.upload_from_file(f)
+      except requests.exceptions.HTTPError as ex:
+        if ex.response.status_code != 404:
+          raise ex
 
 
 if __name__ == "__main__":
