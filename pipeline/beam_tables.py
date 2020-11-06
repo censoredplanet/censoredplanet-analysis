@@ -458,20 +458,25 @@ class ScanDataBeamPipelineRunner():
       Tuples (DateIpKey, metadata_dict)
       where metadata_dict is a row Dict[column_name, values]
     """
+    ip_metadata = None
+
     # This class needs to be imported here
     # since this function will be called on remote workers.
     try:
       # On workers we import relative to setup.py
-      from metadata.ip_metadata import IpMetadata
+      from metadata.ip_metadata import get_firehook_ip_metadata_db
+
+      ip_metadata = get_firehook_ip_metadata_db(
+          datetime.date.fromisoformat(date), allow_previous_day=True)
 
     except ImportError:
       # For tests we import relative to the top-level test call
       # and we import a fake
       logging.warning('Using a fake IpMetadata for testing')
-      from pipeline.metadata.fake_ip_metadata import FakeIpMetadata as IpMetadata
+      from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 
-    ip_metadata = IpMetadata(
-        datetime.date.fromisoformat(date), allow_previous_day=True)
+      ip_metadata = FakeIpMetadata(
+          datetime.date.fromisoformat(date), allow_previous_day=True)
 
     for ip in ips:
       metadata_key = (date, ip)
