@@ -7,7 +7,7 @@ google-cloud-storage==1.30.0
 # Specify resumable-media version to avoid dependency conflict
 google-resumable-media==0.6.0
 httpio==0.3.0
-pyasn==1.6.0b1
+pyasn==1.6.1
 requests==2.24.0
 retry==0.9.2
 schedule==0.6.0

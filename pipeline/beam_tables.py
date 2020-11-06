@@ -470,7 +470,8 @@ class ScanDataBeamPipelineRunner():
       logging.warning('Using a fake IpMetadata for testing')
       from pipeline.metadata.fake_ip_metadata import FakeIpMetadata as IpMetadata
 
-    ip_metadata = IpMetadata(date, allow_previous_day=True)
+    ip_metadata = IpMetadata(
+        datetime.date.fromisoformat(date), allow_previous_day=True)
 
     for ip in ips:
       metadata_key = (date, ip)
