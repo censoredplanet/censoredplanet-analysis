@@ -94,9 +94,8 @@ def _parse_asn_db(f: Iterator[str]) -> pyasn.pyasn:
   # 1.0.0.0\t24\t13335
   # but pyasn wants lines in the format
   # 1.0.0.0/24\t13335
-  formatted_lines = [
-      re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line) for line in f
-  ]
+  formatted_lines = map(
+      lambda line: re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line), f)
   as_str = "\n".join(formatted_lines)
 
   asn_db = pyasn.pyasn(None, ipasn_string=as_str)
