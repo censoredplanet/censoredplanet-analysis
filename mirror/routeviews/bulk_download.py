@@ -19,16 +19,19 @@ import requests
 
 from google.cloud import storage
 
+OUTPUT_BUCKET = "censoredplanet_geolocation"
 
-def download_manual_routeviews():
-  start = datetime.date(2018, 7, 27)  # Date of earliest data
-  end = datetime.date.today()
+
+def download_manual_routeviews(bucket: str):
+  first_date = datetime.date(2018, 7, 27)  # Date of earliest data
+  last_date = datetime.date.today()
   datelist = [
-      start + datetime.timedelta(days=x) for x in range(0, (end - start).days)
+      first_date + datetime.timedelta(days=x)
+      for x in range(0, (last_date - first_date).days + 1)
   ]
 
   client = storage.Client()
-  bucket = client.get_bucket("censoredplanet_geolocation")
+  bucket = client.get_bucket(bucket)
 
   for date in datelist:
     print("checking date {}".format(date))
@@ -52,7 +55,7 @@ def download_manual_routeviews():
         f = httpio.open(url)
 
         print(
-            f"mirroring {url} to {'gs://censoredplanet_geolocation/' + cloud_filepath}"
+            f"mirroring {url} to gs://censoredplanet_geolocation/{cloud_filepath}"
         )
 
         blob = bucket.blob(cloud_filepath)
@@ -63,4 +66,4 @@ def download_manual_routeviews():
 
 
 if __name__ == "__main__":
-  download_manual_routeviews()
+  download_manual_routeviews(OUTPUT_BUCKET)
