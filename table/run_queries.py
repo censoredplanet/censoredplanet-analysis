@@ -27,8 +27,8 @@ client = cloud_bigquery.Client()
 
 
 def run_query(filepath: str):
-  sql = open(filepath).read()
-  query_job = client.query(sql)
+  with open(filepath) as sql:
+    query_job = client.query(sql.read())
   return query_job.result()
 
 
