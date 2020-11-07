@@ -35,18 +35,22 @@ import json
 
 import googleapiclient.discovery
 
+PROJECT_NAME = 'firehook-censoredplanet'
+SOURCE_BUCKET = 'censoredplanetscanspublic'
+SINK_BUCKET = 'firehook-censoredplanetscanspublic'
 
-def run():
+
+def setup_transfer_service(project_name: str, source_bucket: str,
+                           sink_bucket: str, start_date: datetime.date):
   storagetransfer = googleapiclient.discovery.build('storagetransfer', 'v1')
 
-  start_date = datetime.date.today()
   # Transfer any files created in the last day
   transfer_data_since = datetime.timedelta(days=1)
 
   transfer_job = {
       'description': 'Transfer scan data from UMich to Firehook',
       'status': 'ENABLED',
-      'projectId': 'firehook-censoredplanet',
+      'projectId': project_name,
       'schedule': {
           'scheduleStartDate': {
               'day': start_date.day,
@@ -57,10 +61,10 @@ def run():
       },
       'transferSpec': {
           'gcsDataSource': {
-              'bucketName': 'censoredplanetscanspublic'
+              'bucketName': source_bucket
           },
           'gcsDataSink': {
-              'bucketName': 'firehook-censoredplanetscanspublic'
+              'bucketName': sink_bucket
           },
           'objectConditions': {
               'maxTimeElapsedSinceLastModification':
@@ -74,8 +78,10 @@ def run():
   }
 
   result = storagetransfer.transferJobs().create(body=transfer_job).execute()
-  print('Returned transferJob: {}'.format(json.dumps(result, indent=4)))
+  print(f'Returned transferJob: {json.dumps(result, indent=4)}')
 
 
 if __name__ == '__main__':
-  run()
+  transfer_job_start = datetime.date.today()
+  setup_transfer_service(PROJECT_NAME, SOURCE_BUCKET, SINK_BUCKET,
+                         transfer_job_start)
