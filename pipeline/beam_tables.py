@@ -107,6 +107,336 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
+def get_bigquery_schema(
+    field_types: Dict[str, str]) -> beam_bigquery.TableSchema:
+  """Return a beam bigquery schema for the output table.
+
+  Args:
+    field_types: dict of {'field_name': 'column_type'}
+
+  Returns:
+    A bigquery table schema
+  """
+  table_schema = beam_bigquery.TableSchema()
+
+  for (name, field_type) in field_types.items():
+
+    field_schema = beam_bigquery.TableFieldSchema()
+    field_schema.name = name
+    field_schema.type = field_type
+    field_schema.mode = 'nullable'  # all fields are flat
+    table_schema.fields.append(field_schema)
+
+  return table_schema
+
+
+def source_from_filename(filepath: str) -> str:
+  """Get the source string from a scan filename.
+
+  Source represents the .tar.gz container which held this file.
+
+  Args:
+    filepath:
+    'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
+
+  Returns:
+    Just the 'CP_Quack-echo-2020-08-23-06-01-02' source
+  """
+  path = os.path.split(filepath)[0]
+  path_end = os.path.split(path)[1]
+  return path_end
+
+
+def make_tuple(line: str, filename: str) -> Tuple[str, str]:
+  """Helper method for making a tuple from two args."""
+  return (filename, line)
+
+
+def read_scan_text(
+    p: beam.Pipeline,
+    filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
+  """Read in all individual lines for the given data sources.
+
+  Args:
+    p: beam pipeline object
+    filenames: List of files to read from
+
+  Returns:
+    A PCollection[Tuple[filename, line]] of all the lines in the files keyed
+    by
+    filename
+  """
+  # List[PCollection[Tuple[filename,line]]]
+  line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
+
+  for filename in filenames:
+    # PCollection[line]
+    lines = p | 'read file ' + filename >> beam.io.ReadFromText(filename)
+
+    step_name = 'annotate filename ' + filename
+
+    # PCollection[Tuple[filename,line]]
+    lines_with_filenames = (
+        lines | step_name >> beam.Map(make_tuple, filename).with_output_types(
+            Tuple[str, str]))
+
+    line_pcollections_per_file.append(lines_with_filenames)
+
+  # PCollection[Tuple[filename,line]]
+  lines = (
+      tuple(line_pcollections_per_file)
+      | 'flatten lines' >> beam.Flatten(pipeline=p).with_output_types(
+          Tuple[str, str]))
+
+  return lines
+
+
+def between_dates(filename: str,
+                  start_date: Optional[datetime.date] = None,
+                  end_date: Optional[datetime.date] = None) -> bool:
+  """Return true if a filename is between (or matches either of) two dates.
+
+  Args:
+    filename: string of the format
+    "gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json"
+    start_date: date object or None
+    end_date: date object or None
+
+  Returns:
+    boolean
+  """
+  date = datetime.date.fromisoformat(
+      re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0])
+  if start_date and end_date:
+    return start_date <= date <= end_date
+  elif start_date:
+    return start_date <= date
+  elif end_date:
+    return date <= end_date
+  else:
+    return True
+
+
+def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
+  """Flatten a measurement string into several roundtrip rows.
+
+  Args:
+    filename: a filepath string
+    line: a json string describing a censored planet measurement. example
+    {'Keyword': 'test.com,
+     'Server': '1.2.3.4',
+     'Results': [{'Success': true},
+                 {'Success': false}]}
+
+  Yields:
+    Dicts containing individual roundtrip information
+    {'column_name': field_value}
+    examples:
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+  """
+
+  try:
+    scan = json.loads(line)
+  except json.decoder.JSONDecodeError as e:
+    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+                    line)
+    return
+
+  # Add a unique id per-measurement so single retry rows can be reassembled
+  random_measurement_id = uuid.uuid4().hex
+
+  for result in scan['Results']:
+    received = result.get('Received', '')
+    if isinstance(received, str):
+      received_flat = received
+    else:
+      # TODO figure out a better way to deal with the structure in http/https
+      received_flat = json.dumps(received)
+
+    date = result['StartTime'][:10]
+    row = {
+        'domain': scan['Keyword'],
+        'ip': scan['Server'],
+        'date': date,
+        'start_time': result['StartTime'],
+        'end_time': result['EndTime'],
+        'retries': scan['Retries'],
+        'sent': result['Sent'],
+        'received': received_flat,
+        'error': result.get('Error', ''),
+        'blocked': scan['Blocked'],
+        'success': result['Success'],
+        'fail_sanity': scan['FailSanity'],
+        'stateful_block': scan['StatefulBlock'],
+        'measurement_id': random_measurement_id,
+        'source': source_from_filename(filename),
+    }
+    yield row
+
+
+def make_date_ip_key(row: Row) -> DateIpKey:
+  """Makes a tuple key of the date and ip from a given row dict."""
+  return (row['date'], row['ip'])
+
+
+def add_metadata(
+    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+  """Add ip metadata to a collection of roundtrip rows.
+
+  Args:
+    rows: beam.PCollection[Row]
+
+  Returns:
+    PCollection[Row]
+    The same rows as above with with additional metadata columns added.
+  """
+
+  # PCollection[Tuple[DateIpKey,Row]]
+  rows_keyed_by_ip_and_date = (
+      rows
+      | 'key by ips and dates' >>
+      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+          Tuple[DateIpKey, Row]))
+
+  # PCollection[DateIpKey]
+  ips_and_dates = (
+      rows_keyed_by_ip_and_date
+      | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+
+  # PCollection[DateIpKey]
+  deduped_ips_and_dates = (
+      ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
+
+  # PCollection[Tuple[date,List[ip]]]
+  grouped_ips_by_dates = (
+      deduped_ips_and_dates | 'group by date' >>
+      beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
+
+  # PCollection[Tuple[DateIpKey,Row]]
+  ips_with_metadata = (
+      grouped_ips_by_dates
+      |
+      'get ip metadata' >> beam.FlatMapTuple(add_ip_metadata).with_output_types(
+          Tuple[DateIpKey, Row]))
+
+  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+  grouped_metadata_and_rows = (({
+      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+  }) | 'group by keys' >> beam.CoGroupByKey())
+
+  # PCollection[Row]
+  rows_with_metadata = (
+      grouped_metadata_and_rows
+      | 'merge metadata with rows' >>
+      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+
+  return rows_with_metadata
+
+
+def add_ip_metadata(date: str,
+                    ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+  """Add Autonymous System metadata for ips in the given rows.
+
+  Args:
+    date: a 'YYYY-MM-DD' date key
+    ips: a list of ips
+
+  Yields:
+    Tuples (DateIpKey, metadata_dict)
+    where metadata_dict is a row Dict[column_name, values]
+  """
+  ip_metadata = None
+
+  # This class needs to be imported here
+  # since this function will be called on remote workers.
+  try:
+    # On workers we import relative to setup.py
+    from metadata.ip_metadata import get_firehook_ip_metadata_db
+
+    ip_metadata = get_firehook_ip_metadata_db(
+        datetime.date.fromisoformat(date), allow_previous_day=True)
+
+  except ImportError:
+    # For tests we import relative to the top-level test call
+    # and we import a fake
+    logging.warning('Using a fake IpMetadata for testing')
+    from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
+
+    ip_metadata = FakeIpMetadata(
+        datetime.date.fromisoformat(date), allow_previous_day=True)
+
+  for ip in ips:
+    metadata_key = (date, ip)
+
+    try:
+      (netblock, asn, as_name, as_full_name, as_type,
+       country) = ip_metadata.lookup(ip)
+      metadata_values = {
+          'netblock': netblock,
+          'asn': asn,
+          'as_name': as_name,
+          'as_full_name': as_full_name,
+          'as_class': as_type,
+          'country': country,
+      }
+
+    except KeyError as e:
+      logging.warning('KeyError: %s\n', e)
+      metadata_values = {}  # values are missing, but entry should still exist
+
+    yield (metadata_key, metadata_values)
+
+
+def merge_metadata_with_rows(key: DateIpKey,
+                             value: Dict[str, List[Row]]) -> Iterator[Row]:
+  # pyformat: disable
+  """Merge a list of rows with their corresponding metadata information.
+
+  Args:
+    key: The DateIpKey tuple that we joined on. This is thrown away.
+    value: A two-element dict
+      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
+               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
+      where ipmetadata is a dict of the format {column_name, value}
+       {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
+      and row is a dict of the format {column_name, value}
+       {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
+
+  Yields:
+    row dict {column_name, value} containing both row and metadata cols/values
+  """
+  # pyformat: enable
+  ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+  rows = value[ROWS_PCOLLECION_NAME]
+
+  for row in rows:
+    new_row: Row = {}
+    new_row.update(row)
+    new_row.update(ip_metadata)
+    yield new_row
+
+
+def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
+  """Creates the job name for the beam pipeline.
+
+  Pipelines with the same name cannot run simultaneously.
+
+  Args:
+    scan_type: one of 'echo', 'discard', 'http', 'https'
+    incremental_load: boolean. whether the job is incremental.
+    env: one of 'prod' or 'dev.
+
+  Returns:
+    A string like 'echo-flatten-add-metadata-prod-incremental'
+  """
+  job_name = scan_type + '-flatten-add-metadata-' + env
+  if incremental_load:
+    job_name = job_name + '-incremental'
+  return job_name
+
+
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
@@ -120,29 +450,6 @@ class ScanDataBeamPipelineRunner():
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
-
-  @staticmethod
-  def get_bigquery_schema(
-      field_types: Dict[str, str]) -> beam_bigquery.TableSchema:
-    """Return a beam bigquery schema for the output table.
-
-    Args:
-      field_types: dict of {'field_name': 'column_type'}
-
-    Returns:
-      A bigquery table schema
-    """
-    table_schema = beam_bigquery.TableSchema()
-
-    for (name, field_type) in field_types.items():
-
-      field_schema = beam_bigquery.TableFieldSchema()
-      field_schema.name = name
-      field_schema.type = field_type
-      field_schema.mode = 'nullable'  # all fields are flat
-      table_schema.fields.append(field_schema)
-
-    return table_schema
 
   def get_table_name(self, scan_type, env):
     """Get a bigquery table name.
@@ -195,23 +502,6 @@ class ScanDataBeamPipelineRunner():
 
     return sources
 
-  @staticmethod
-  def source_from_filename(filepath: str) -> str:
-    """Get the source string from a scan filename.
-
-    Source represents the .tar.gz container which held this file.
-
-    Args:
-      filepath:
-      'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-
-    Returns:
-      Just the 'CP_Quack-echo-2020-08-23-06-01-02' source
-    """
-    path = os.path.split(filepath)[0]
-    path_end = os.path.split(path)[1]
-    return path_end
-
   def data_to_load(self,
                    gcs: GCSFileSystem,
                    scan_type: str,
@@ -253,280 +543,11 @@ class ScanDataBeamPipelineRunner():
 
     filtered_filenames = [
         filename for (filename, file_size) in zip(filenames, file_sizes)
-        if (self.between_dates(filename, start_date, end_date) and
-            self.source_from_filename(filename) not in existing_sources and
+        if (between_dates(filename, start_date, end_date) and
+            source_from_filename(filename) not in existing_sources and
             file_size != 0)
     ]
     return filtered_filenames
-
-  @classmethod
-  def read_scan_text(
-      cls, p: beam.Pipeline,
-      filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
-    """Read in all individual lines for the given data sources.
-
-    Args:
-      p: beam pipeline object
-      filenames: List of files to read from
-
-    Returns:
-      A PCollection[Tuple[filename, line]] of all the lines in the files keyed
-      by
-      filename
-    """
-    # List[PCollection[Tuple[filename,line]]]
-    line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
-
-    for filename in filenames:
-      # PCollection[line]
-      lines = p | 'read file ' + filename >> beam.io.ReadFromText(filename)
-
-      step_name = 'annotate filename ' + filename
-
-      # PCollection[Tuple[filename,line]]
-      lines_with_filenames = (
-          lines | step_name >> beam.Map(
-              cls.make_tuple, filename).with_output_types(Tuple[str, str]))
-
-      line_pcollections_per_file.append(lines_with_filenames)
-
-    # PCollection[Tuple[filename,line]]
-    lines = (
-        tuple(line_pcollections_per_file)
-        | 'flatten lines' >> beam.Flatten(pipeline=p).with_output_types(
-            Tuple[str, str]))
-
-    return lines
-
-  @staticmethod
-  def make_tuple(line: str, filename: str) -> Tuple[str, str]:
-    """Helper method for making a tuple from two args."""
-    return (filename, line)
-
-  @staticmethod
-  def between_dates(filename: str,
-                    start_date: Optional[datetime.date] = None,
-                    end_date: Optional[datetime.date] = None) -> bool:
-    """Return true if a filename is between (or matches either of) two dates.
-
-    Args:
-      filename: string of the format
-      "gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json"
-      start_date: date object or None
-      end_date: date object or None
-
-    Returns:
-      boolean
-    """
-    date = datetime.date.fromisoformat(
-        re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0])
-    if start_date and end_date:
-      return start_date <= date <= end_date
-    elif start_date:
-      return start_date <= date
-    elif end_date:
-      return date <= end_date
-    else:
-      return True
-
-  @classmethod
-  def flatten_measurement(cls, filename: str, line: str) -> Iterator[Row]:
-    """Flatten a measurement string into several roundtrip rows.
-
-    Args:
-      filename: a filepath string
-      line: a json string describing a censored planet measurement. example
-      {'Keyword': 'test.com,
-       'Server': '1.2.3.4',
-       'Results': [{'Success': true},
-                   {'Success': false}]}
-
-    Yields:
-      Dicts containing individual roundtrip information
-      {'column_name': field_value}
-      examples:
-      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-    """
-
-    try:
-      scan = json.loads(line)
-    except json.decoder.JSONDecodeError as e:
-      logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
-                      line)
-      return
-
-    # Add a unique id per-measurement so single retry rows can be reassembled
-    random_measurement_id = uuid.uuid4().hex
-
-    for result in scan['Results']:
-      received = result.get('Received', '')
-      if isinstance(received, str):
-        received_flat = received
-      else:
-        # TODO figure out a better way to deal with the structure in http/https
-        received_flat = json.dumps(received)
-
-      date = result['StartTime'][:10]
-      row = {
-          'domain': scan['Keyword'],
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'retries': scan['Retries'],
-          'sent': result['Sent'],
-          'received': received_flat,
-          'error': result.get('Error', ''),
-          'blocked': scan['Blocked'],
-          'success': result['Success'],
-          'fail_sanity': scan['FailSanity'],
-          'stateful_block': scan['StatefulBlock'],
-          'measurement_id': random_measurement_id,
-          'source': cls.source_from_filename(filename),
-      }
-      yield row
-
-  @classmethod
-  def add_metadata(
-      cls, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
-    """Add ip metadata to a collection of roundtrip rows.
-
-    Args:
-      rows: beam.PCollection[Row]
-
-    Returns:
-      PCollection[Row]
-      The same rows as above with with additional metadata columns added.
-    """
-
-    # PCollection[Tuple[DateIpKey,Row]]
-    rows_keyed_by_ip_and_date = (
-        rows
-        | 'key by ips and dates' >> beam.Map(lambda row: (cls.make_date_ip_key(
-            row), row)).with_output_types(Tuple[DateIpKey, Row]))
-
-    # PCollection[DateIpKey]
-    ips_and_dates = (
-        rows_keyed_by_ip_and_date
-        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
-
-    # PCollection[DateIpKey]
-    deduped_ips_and_dates = (
-        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
-
-    # PCollection[Tuple[date,List[ip]]]
-    grouped_ips_by_dates = (
-        deduped_ips_and_dates | 'group by date' >>
-        beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
-
-    # PCollection[Tuple[DateIpKey,Row]]
-    ips_with_metadata = (
-        grouped_ips_by_dates
-        | 'get ip metadata' >> beam.FlatMapTuple(
-            cls.add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
-
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
-    grouped_metadata_and_rows = (({
-        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-    }) | 'group by keys' >> beam.CoGroupByKey())
-
-    # PCollection[Row]
-    rows_with_metadata = (
-        grouped_metadata_and_rows
-        | 'merge metadata with rows' >> beam.FlatMapTuple(
-            cls.merge_metadata_with_rows).with_output_types(Row))
-
-    return rows_with_metadata
-
-  @staticmethod
-  def make_date_ip_key(row: Row) -> DateIpKey:
-    """Makes a tuple key of the date and ip from a given row dict."""
-    return (row['date'], row['ip'])
-
-  @staticmethod
-  def add_ip_metadata(date: str,
-                      ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
-    """Add Autonymous System metadata for ips in the given rows.
-
-    Args:
-      date: a 'YYYY-MM-DD' date key
-      ips: a list of ips
-
-    Yields:
-      Tuples (DateIpKey, metadata_dict)
-      where metadata_dict is a row Dict[column_name, values]
-    """
-    ip_metadata = None
-
-    # This class needs to be imported here
-    # since this function will be called on remote workers.
-    try:
-      # On workers we import relative to setup.py
-      from metadata.ip_metadata import get_firehook_ip_metadata_db
-
-      ip_metadata = get_firehook_ip_metadata_db(
-          datetime.date.fromisoformat(date), allow_previous_day=True)
-
-    except ImportError:
-      # For tests we import relative to the top-level test call
-      # and we import a fake
-      logging.warning('Using a fake IpMetadata for testing')
-      from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
-
-      ip_metadata = FakeIpMetadata(
-          datetime.date.fromisoformat(date), allow_previous_day=True)
-
-    for ip in ips:
-      metadata_key = (date, ip)
-
-      try:
-        (netblock, asn, as_name, as_full_name, as_type,
-         country) = ip_metadata.lookup(ip)
-        metadata_values = {
-            'netblock': netblock,
-            'asn': asn,
-            'as_name': as_name,
-            'as_full_name': as_full_name,
-            'as_class': as_type,
-            'country': country,
-        }
-
-      except KeyError as e:
-        logging.warning('KeyError: %s\n', e)
-        metadata_values = {}  # values are missing, but entry should still exist
-
-      yield (metadata_key, metadata_values)
-
-  @staticmethod
-  def merge_metadata_with_rows(key: DateIpKey,
-                               value: Dict[str, List[Row]]) -> Iterator[Row]:
-    # pyformat: disable
-    """Merge a list of rows with their corresponding metadata information.
-
-    Args:
-      key: The DateIpKey tuple that we joined on. This is thrown away.
-      value: A two-element dict
-        {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
-                 ROWS_PCOLLECION_NAME: Many element list containing row dicts}
-        where ipmetadata is a dict of the format {column_name, value}
-         {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
-        and row is a dict of the format {column_name, value}
-         {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
-
-    Yields:
-      row dict {column_name, value} containing both row and metadata cols/values
-    """
-    # pyformat: enable
-    ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
-    rows = value[ROWS_PCOLLECION_NAME]
-
-    for row in rows:
-      new_row: Row = {}
-      new_row.update(row)
-      new_row.update(ip_metadata)
-      yield new_row
 
   def write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
                         scan_type: str, incremental_load: bool, env: str):
@@ -551,28 +572,9 @@ class ScanDataBeamPipelineRunner():
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(
         full_table_name,
-        schema=self.get_bigquery_schema(self.schema),
+        schema=get_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode))
-
-  @staticmethod
-  def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
-    """Creates the job name for the beam pipeline.
-
-    Pipelines with the same name cannot run simultaneously.
-
-    Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https'
-      incremental_load: boolean. whether the job is incremental.
-      env: one of 'prod' or 'dev.
-
-    Returns:
-      A string like 'echo-flatten-add-metadata-prod-incremental'
-    """
-    job_name = scan_type + '-flatten-add-metadata-' + env
-    if incremental_load:
-      job_name = job_name + '-incremental'
-    return job_name
 
   def get_pipeline_options(self, scan_type: str,
                            job_name: str) -> PipelineOptions:
@@ -617,7 +619,7 @@ class ScanDataBeamPipelineRunner():
       Exception: if any arguments are invalid or the pipeline fails.
     """
     logging.getLogger().setLevel(logging.INFO)
-    job_name = self.get_job_name(scan_type, incremental_load, env)
+    job_name = get_job_name(scan_type, incremental_load, env)
     pipeline_options = self.get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
@@ -629,15 +631,15 @@ class ScanDataBeamPipelineRunner():
 
     with beam.Pipeline(options=pipeline_options) as p:
       # PCollection[Tuple[filename,line]]
-      lines = self.read_scan_text(p, new_filenames)
+      lines = read_scan_text(p, new_filenames)
 
       # PCollection[Row]
       rows = (
-          lines | 'flatten json' >> beam.FlatMapTuple(
-              self.flatten_measurement).with_output_types(Row))
+          lines | 'flatten json' >>
+          beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
 
       # PCollection[Row]
-      rows_with_metadata = self.add_metadata(rows)
+      rows_with_metadata = add_metadata(rows)
 
       self.write_to_bigquery(rows_with_metadata, scan_type, incremental_load,
                              env)
