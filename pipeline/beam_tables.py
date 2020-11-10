@@ -418,6 +418,25 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
+def get_partition_params() -> Dict[str, Any]:
+  """Returns additional partitioning params to pass with the bigquery load.
+
+  Returns: A dict of query params, See:
+  https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
+  https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table
+  """
+  partition_params = {
+      'timePartitioning': {
+          'type': 'DAY',
+          'field': 'date'
+      },
+      'clustering': {
+          'fields': ['country', 'asn']
+      }
+  }
+  return partition_params
+
+
 def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
   """Creates the job name for the beam pipeline.
 
@@ -574,7 +593,8 @@ class ScanDataBeamPipelineRunner():
         full_table_name,
         schema=get_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-        write_disposition=write_mode))
+        write_disposition=write_mode,
+        additional_bq_parameters=get_partition_params()))
 
   def get_pipeline_options(self, scan_type: str,
                            job_name: str) -> PipelineOptions:
