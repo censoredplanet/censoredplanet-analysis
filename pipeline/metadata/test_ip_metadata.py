@@ -75,7 +75,7 @@ class IpMetadataTest(unittest.TestCase):
         })
 
   def test_parse_as_to_type_map(self):
-    # Sample content for a as2types.txt file
+    # Sample content for an as2types.txt file
     # pyformat: disable
     as2type_file_content = iter([
         "# format: as|source|type",

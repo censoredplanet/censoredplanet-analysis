@@ -39,31 +39,6 @@ ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
 AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
 
-class IteratorCompressedFile():
-  """Wrap Apache Beam's CompressedFile to be an Iterator
-
-  CompressedFile doesn't implement the Iterator interface or the full file
-  interface, only readline().
-  This class wraps a CompressedFile to make it an Iterator
-  without reading the whole file into memory at once.
-  """
-
-  def __init__(self, f: apache_filesystem.CompressedFile):
-    self.f = f
-
-  def __iter__(self) -> Iterator[str]:
-    return self
-
-  def __next__(self) -> str:
-    line: bytes = self.f.readline()
-    if line:
-      # Remove the newline char
-      return str(line, "utf-8")[:-1]
-    else:
-      self.f.close()
-      raise StopIteration
-
-
 def _read_compressed_file(filepath: str) -> Iterator[str]:
   """Read in a compressed file as a decompressed string iterator
 
@@ -73,12 +48,18 @@ def _read_compressed_file(filepath: str) -> Iterator[str]:
       'gs://censoredplanet_geolocation/caida/as-classifications/as2types.txt.gz'
 
   Returns:
-    An iterator per-line reader for the file
+    An generator per-line reader for the file
   """
   f: apache_filesystem.CompressedFile = apache_filesystems.FileSystems.open(
       filepath)
-  it = IteratorCompressedFile(f)
-  return it
+
+  while True:
+    line = f.readline()
+    if not line:
+      f.close()
+      return
+    # Remove the newline char
+    yield str(line, "utf-8")[:-1]
 
 
 def _parse_asn_db(f: Iterator[str]) -> pyasn.pyasn:
