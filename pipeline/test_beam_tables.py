@@ -91,36 +91,27 @@ class PipelineMainTest(unittest.TestCase):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-10'),
-                                  datetime.date.fromisoformat('2020-05-12')))
+        beam_tables.between_dates(filename, datetime.date(2020, 5, 10),
+                                  datetime.date(2020, 5, 12)))
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-11'),
-                                  datetime.date.fromisoformat('2020-05-11')))
+        beam_tables.between_dates(filename, datetime.date(2020, 5, 11),
+                                  datetime.date(2020, 5, 11)))
     self.assertTrue(
-        beam_tables.between_dates(filename, None,
-                                  datetime.date.fromisoformat('2020-05-12')))
+        beam_tables.between_dates(filename, None, datetime.date(2020, 5, 12)))
     self.assertTrue(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-10'),
-                                  None))
+        beam_tables.between_dates(filename, datetime.date(2020, 5, 10), None))
     self.assertTrue(beam_tables.between_dates(filename, None, None))
 
   def test_not_between_dates(self):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertFalse(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-12'),
-                                  datetime.date.fromisoformat('2020-05-10')))
+        beam_tables.between_dates(filename, datetime.date(2020, 5, 12),
+                                  datetime.date(2020, 5, 10)))
     self.assertFalse(
-        beam_tables.between_dates(filename, None,
-                                  datetime.date.fromisoformat('2020-05-10')))
+        beam_tables.between_dates(filename, None, datetime.date(2020, 5, 10)))
     self.assertFalse(
-        beam_tables.between_dates(filename,
-                                  datetime.date.fromisoformat('2020-05-12'),
-                                  None))
+        beam_tables.between_dates(filename, datetime.date(2020, 5, 12), None))
 
   def test_flatten_measurement(self):
     line = """{

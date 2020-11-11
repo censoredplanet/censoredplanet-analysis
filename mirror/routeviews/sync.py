@@ -55,7 +55,7 @@ def _get_latest_generated_routeview_files() -> List[str]:
   return files
 
 
-class RouteviewSyncer():
+class RouteviewMirror():
   """Syncer to look for any recent routeview files and mirror them in cloud."""
 
   def __init__(self, bucket: storage.bucket.Bucket, bucket_routeview_path: str,
@@ -100,7 +100,7 @@ class RouteviewSyncer():
     with httpio.open(url) as output:
       output_blob.upload_from_file(output)
 
-  def sync_routeviews(self):
+  def sync(self):
     """Look for new routeview files and transfer them into the cloud bucket."""
     latest_files = _get_latest_generated_routeview_files()
     existing_files = self._get_caida_files_in_bucket()
@@ -115,14 +115,14 @@ class RouteviewSyncer():
       pprint(("transferred file: ", new_file))
 
 
-def get_firehook_routeview_syncer():
+def get_firehook_routeview_mirror():
   """Factory function to get a RouteviewUpdater with our project values."""
   client = storage.Client(project=PROJECT_NAME)
   bucket = client.get_bucket(BUCKET_NAME)
 
-  return RouteviewSyncer(bucket, BUCKET_ROUTEVIEW_PATH, CAIDA_ROUTEVIEW_DIR_URL)
+  return RouteviewMirror(bucket, BUCKET_ROUTEVIEW_PATH, CAIDA_ROUTEVIEW_DIR_URL)
 
 
 if __name__ == "__main__":
   # Called manually when running a backfill.
-  get_firehook_routeview_syncer().sync_routeviews()
+  get_firehook_routeview_mirror().sync()

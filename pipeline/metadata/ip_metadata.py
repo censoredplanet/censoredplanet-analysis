@@ -97,6 +97,7 @@ def _parse_asn_db(f: Iterator[str]) -> pyasn.pyasn:
   formatted_lines = map(
       lambda line: re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line), f)
   as_str = "\n".join(formatted_lines)
+  del formatted_lines
 
   asn_db = pyasn.pyasn(None, ipasn_string=as_str)
   return asn_db

@@ -25,7 +25,7 @@ class IpMetadataTest(unittest.TestCase):
     # This E2E test requires the user to have get access to the
     # gs://censoredplanet_geolocation bucket.
     ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(
-        datetime.date.fromisoformat("2018-07-27"))
+        datetime.date(2018, 7, 27))
     metadata = ip_metadata_db.lookup("1.1.1.1")
 
     self.assertEqual(metadata, ("1.1.1.0/24", 13335, "CLOUDFLARENET",
@@ -40,8 +40,8 @@ class IpMetadataTest(unittest.TestCase):
     # Sample content for a routeviews-rv2-*.pfx2as file
     # pyformat: disable
     routeview_file_content = iter([
-        "1.0.0.0	24	13335",
-        "8.8.8.0	24	15169",
+        "1.0.0.0\t24\t13335",
+        "8.8.8.0\t24\t15169",
     ])
     # pyformat: enable
     asn_db = ip_metadata._parse_asn_db(routeview_file_content)

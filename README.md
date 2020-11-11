@@ -17,7 +17,7 @@ pipeline works.
 
 There are two main top-level pieces
 
-`python mirror/scans.py`
+`python mirror/data_transfer.py`
 
 This sets up a daily data transfer job to copy scan files from the Censored
 Planet cloud bucket to an internal bucket.
@@ -41,13 +41,13 @@ Individual pieces of the pipeline can be run manually.
 These scripts pull in a large amount of data from external datasources and
 mirror it in the correct locations in google cloud buckets.
 
-`python mirror/decompress_files/decompress.py`
+`python mirror/untar_files/sync.py`
 
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool to
 decompress missing files.
 
-`python mirror/routeviews/update.py`
+`python mirror/routeviews/sync.py`
 
 Transfers in the latest missing CAIDA routeview files. (Can only mirror in data
 from the last 30 days of data.)
