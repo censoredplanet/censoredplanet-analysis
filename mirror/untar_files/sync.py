@@ -57,7 +57,7 @@ SCAN_TYPE_IDENTIFIERS = {
 }
 
 
-class ScanfileUntarrer():
+class ScanfileMirror():
   """Look for any tarred files in a given bucket and untar them."""
 
   def __init__(self, client: storage.Client, tarred_bucket_name: str,
@@ -167,7 +167,7 @@ class ScanfileUntarrer():
     diff = set(tarred_files) - set(untarred_files)
     return list(diff)
 
-  def untar_all_missing_files(self) -> None:
+  def sync(self) -> None:
     """Untar all files that exist only in the tarred bucket.
 
     Used for backfilling data.
@@ -187,12 +187,12 @@ class ScanfileUntarrer():
       pprint(('untarred file: ', filename))
 
 
-def get_firehook_scanfile_untarrer():
+def get_firehook_scanfile_mirror():
   """Factory function to get a Untarrer with our project values/paths."""
   client = storage.Client(project=PROJECT_NAME)
-  return ScanfileUntarrer(client, TARRED_BUCKET_NAME, UNTARRED_BUCKET_NAME)
+  return ScanfileMirror(client, TARRED_BUCKET_NAME, UNTARRED_BUCKET_NAME)
 
 
 if __name__ == '__main__':
   # Called manually when running a backfill.
-  get_firehook_scanfile_untarrer().untar_all_missing_files()
+  get_firehook_scanfile_mirror().sync()

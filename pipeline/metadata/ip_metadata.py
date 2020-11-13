@@ -16,15 +16,22 @@
 import csv
 import datetime
 import logging
-import os
 from pprint import pprint
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple, Iterator
 
-from apache_beam.io.filesystems import FileSystems
+import apache_beam.io.filesystem as apache_filesystem
+import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
+# Public Firehook bucket for storing CAIDA files.
 CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
+
+# These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
+# TODO: Add a feature to update.py that updates these files automatically
+#       and get the latest file here instead.
+LATEST_AS2ORG_FILEPATH = "as-organizations/20200701.as-org2info.txt.gz"
+LATEST_AS2CLASS_FILEPATH = "as-classifications/20200801.as2types.txt.gz"
 
 # The as-org2info.txt file contains two tables
 # Comment lines with these headers divide the tables.
@@ -32,34 +39,188 @@ ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
 AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
 
+def _read_compressed_file(filepath: str) -> Iterator[str]:
+  """Read in a compressed file as a decompressed string iterator
+
+  Args:
+    filepath: a path to a compressed file. Could be either local like
+      '/tmp/text.txt.gz' or a gcs file like
+      'gs://censoredplanet_geolocation/caida/as-classifications/as2types.txt.gz'
+
+  Returns:
+    An generator per-line reader for the file
+  """
+  f: apache_filesystem.CompressedFile = apache_filesystems.FileSystems.open(
+      filepath)
+
+  while True:
+    line = f.readline()
+    if not line:
+      f.close()
+      return
+    # Remove the newline char
+    yield str(line, "utf-8")[:-1]
+
+
+def _parse_asn_db(f: Iterator[str]) -> pyasn.pyasn:
+  """Returns a pyasn db from a routeview file.
+
+  Args:
+    f: an routeview file Iterator
+
+  Returns:
+    pyasn database object
+  """
+  # CAIDA file lines are stored in the format
+  # 1.0.0.0\t24\t13335
+  # but pyasn wants lines in the format
+  # 1.0.0.0/24\t13335
+  formatted_lines = map(
+      lambda line: re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line), f)
+  as_str = "\n".join(formatted_lines)
+  del formatted_lines
+
+  asn_db = pyasn.pyasn(None, ipasn_string=as_str)
+  return asn_db
+
+
+def _parse_as_to_org_map(
+    f: Iterator[str]) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+  org2country_map = _parse_org_name_to_country_map(f)
+  as2org_map = _parse_as_to_org_map_remainder(f, org2country_map)
+
+  return as2org_map
+
+
+def _parse_org_name_to_country_map(
+    f: Iterator[str]) -> Dict[str, Tuple[str, str]]:
+  # pyformat: disable
+  """Returns a mapping of AS org short names to country info from a file.
+
+  This function only reads up to the AS_TO_ORG_HEADER and leaves the rest of the
+  iterator still readable.
+
+  Args:
+    f: an iterator containing the content of a as-org2info.txt file
+    File is of the format
+      # some comment lines
+      ORG_TO_COUNTRY_HEADER
+      1|20120224|LVLT-1|LVLT-ARIN|e5e3b9c13678dfc483fb1f819d70883c_ARIN|ARIN
+      ...
+      AS_TO_ORG_HEADER
+      LVLT-ARIN|20120130|Level 3 Communications, Inc.|US|ARIN
+      ...
+
+  Returns:
+    Dict {as_name -> ("readable name", country_code)}
+    ex: {"8X8INC-ARIN": ("8x8, Inc.","US")}
+  """
+  # pyformat: enable
+  line = next(f)
+
+  while line != ORG_TO_COUNTRY_HEADER:
+    # Throw away starter comment lines
+    line = next(f)
+
+  org_name_to_country_map: Dict[str, Tuple[str, str]] = {}
+
+  while line != AS_TO_ORG_HEADER:
+    org_id, changed_date, org_name, country, source = line.split("|")
+    org_name_to_country_map[org_id] = (org_name, country)
+
+    line = next(f)
+
+  return org_name_to_country_map
+
+
+def _parse_as_to_org_map_remainder(
+    f: Iterator[str], org_id_to_country_map: Dict[str, Tuple[str, str]]
+) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+  # pyformat: disable
+  """Returns a mapping of ASNs to organization info from a file.
+
+  Args:
+    f: an iterator containing the content of an as-org2info.txt file which
+      has already been iterated over by _parse_org_name_to_country_map so the
+      only remaining line are of the format
+        LVLT-ARIN|20120130|Level 3 Communications, Inc.|US|ARIN
+    org_id_to_country_map: Dict {as_name -> ("readable name", country_code)}
+
+  Returns:
+    Dict {asn -> (asn_name, readable_name, country)}
+    ex {204867 : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
+    The final 2 fields may be None
+  """
+  # pyformat: enable
+  asn_to_org_info_map: Dict[int, Tuple[str, Optional[str], Optional[str]]] = {}
+
+  for line in f:
+    asn, changed_date, asn_name, org_id, opaque_id, source = line.split("|")
+    try:
+      readable_name, country = org_id_to_country_map[org_id]
+      asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
+    except KeyError as e:
+      logging.warning("Missing org country info for asn %s %s", asn, e)
+      asn_to_org_info_map[int(asn)] = (asn_name, None, None)
+
+  return asn_to_org_info_map
+
+
+def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
+  """Returns a mapping of ASNs to org type info from a file.
+
+  Args:
+    f: as2type file object
+
+  Returns:
+    Dict {asn -> network_type}
+    ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
+  """
+  lines = [line for line in f]
+
+  # filter comments
+  data_lines = [line for line in lines if line[0] != "#"]
+  type_data = list(csv.reader(data_lines, delimiter="|"))
+
+  as_to_type_map: Dict[int, str] = {}
+  for line in type_data:
+    asn, source, org_type = line
+    as_to_type_map[int(asn)] = org_type
+
+  return as_to_type_map
+
+
 class IpMetadata(object):
   """A lookup table which contains network metadata about IPs."""
 
-  def __init__(self, date: str, allow_previous_day=False):
+  def __init__(
+      self,
+      date: datetime.date,
+      cloud_data_location: str,
+      latest_as2org_filepath: str,
+      latest_as2class_filepath: str,
+      allow_previous_day=False,
+  ):
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
-      date: the "YYYY-MM-DD" date string to initialize the asn database to
+      date: a date to initialize the asn database to
+      cloud_data_location: GCS bucket folder name like "gs://bucket/folder/"
+      latest_as2org_filepath: filepath
+      latest_as2class_filepath: filepath
       allow_previous_day: If the given date's routeview file doesn't exist,
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
-
-    Raises:
-      FileNotFoundError: when no matching routeview file is found
     """
-    self.date = date
+    self.cloud_data_location = cloud_data_location
+    self.latest_as2org_filepath = latest_as2org_filepath
+    self.latest_as2class_filepath = latest_as2class_filepath
 
-    org_to_country_map = self.get_org_name_to_country_map()
-    self.as_to_org_map = self.get_as_to_org_map(org_to_country_map)
-    self.as_to_type_map = self.get_as_to_type_map()
+    as_to_org_map, as_to_type_map = self.get_asn_maps()
+    self.as_to_org_map = as_to_org_map
+    self.as_to_type_map = as_to_type_map
 
-    try:
-      self.asn_db = self.get_asn_db(date)
-    except FileNotFoundError as ex:
-      if allow_previous_day:
-        self.asn_db = self.get_asn_db(self.previous_day(date))
-      else:
-        raise ex
+    self.asn_db = self.get_asn_db(date, allow_previous_day)
 
   def lookup(
       self, ip: str
@@ -81,7 +242,7 @@ class IpMetadata(object):
     asn, netblock = self.asn_db.lookup(ip)
 
     if not asn:
-      raise KeyError("Missing IP {} at {}".format(ip, self.date))
+      raise KeyError("Missing IP {} at {}".format(ip, self.date.isoformat()))
 
     if asn not in self.as_to_org_map:
       logging.warning("Missing asn %s in org name map", asn)
@@ -94,162 +255,88 @@ class IpMetadata(object):
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
 
-  def get_asn_db(self, date: str) -> pyasn.pyasn:
-    """Creates an ASN db for a given date.
-
-    Args:
-      date: "YYYY-MM-DD" date string to initialize the database to
+  def get_asn_maps(self):
+    """Initializes all ASN files as map objects.
 
     Returns:
-      pyasn database object
+      Tuple of an as2org Dict and as2type Dict
+    """
+    as_to_org_filename = self.cloud_data_location + self.latest_as2org_filepath
+    as_to_type_filename = self.cloud_data_location + self.latest_as2class_filepath
+
+    as_to_org_file = _read_compressed_file(as_to_org_filename)
+    as_to_type_file = _read_compressed_file(as_to_type_filename)
+
+    as_to_org_map = _parse_as_to_org_map(as_to_org_file)
+    as_to_type_map = _parse_as_to_type_map(as_to_type_file)
+
+    return as_to_org_map, as_to_type_map
+
+  def get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
+    """Return an ASN database object.
+
+    Args:
+      date: a date to initialize the asn database to
+      allow_previous_day: allow using previous routeview file
+
+    Returns:
+      pyasn database
 
     Raises:
-      FileNotFoundError: when no matching routeview file is found
+      FileNotFoundError: when no allowable routeview file is found
     """
-    formatted_date = date.replace("-", "")
+    try:
+      self.date = date
+      return self.get_dated_asn_db(self.date)
+    except FileNotFoundError as ex:
+      if allow_previous_day:
+        self.date = date - datetime.timedelta(days=1)
+        return self.get_dated_asn_db(self.date)
+      else:
+        raise ex
+
+  def get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
+    """Finds the right routeview file for a given date and returns an ASN DB.
+
+    Args:
+      date: date object to initialize the database to
+
+    Returns:
+      A pyasn DB for the dated routeview file.
+
+    Raises:
+      FileNotFoundError: when no exactly matching routeview file is found
+    """
+    formatted_date = date.isoformat().replace("-", "")
     file_pattern = "routeviews-rv2-" + formatted_date + "*.pfx2as.gz"
-    filepath_pattern = CLOUD_DATA_LOCATION + "routeviews/" + file_pattern
-    match = FileSystems.match([filepath_pattern], limits=[1])
+    filepath_pattern = self.cloud_data_location + "routeviews/" + file_pattern
+    match = apache_filesystems.FileSystems.match([filepath_pattern], limits=[1])
 
     try:
       filepath = match[0].metadata_list[0].path
-      lines = self.read_compressed_file(filepath)
+      return _parse_asn_db(_read_compressed_file(filepath))
     except IndexError:
       raise FileNotFoundError(filepath_pattern)
 
-    # CAIDA file lines are stored in the format
-    # 1.0.0.0\t24\t13335
-    # but pyasn wants lines in the format
-    # 1.0.0.0/24\t13335
-    formatted_lines = [
-        re.sub(r"(.*)\t(.*)\t(.*)", r"\1/\2\t\3", line) for line in lines
-    ]
 
-    # ipasn_string arg does not yet exist in pyasn 1.6.0b1,
-    # so we need to write a local file.
-    tmp_filename = "/tmp/routeview" + date + ".pfx2as"
-    tmp_file = open(tmp_filename, mode="w+")
-    for line in formatted_lines:
-      tmp_file.write(line + "\n")
-    tmp_file.close()
+def get_firehook_ip_metadata_db(
+    date: datetime.date,
+    allow_previous_day=False,
+) -> IpMetadata:
+  """Factory to return an IPMetadata object which reads in firehook files.
 
-    as_db = pyasn.pyasn(tmp_filename)
-    os.remove(tmp_filename)
-    return as_db
+  Args:
+    date: a date to initialize the asn database to
+    allow_previous_day: If the given date's routeview file doesn't exist, allow
+      the one from the previous day instead. This is useful when processing very
+      recent data where the newest file may not yet exist.
 
-  def get_org_name_to_country_map(self) -> Dict[str, Tuple[str, str]]:
-    """Reads in and returns a mapping of AS org short names to country info.
-
-    Returns:
-      Dict {as_name -> ("readable name", country_code)}
-      ex: {"8X8INC-ARIN": ("8x8, Inc.","US")}
-    """
-    filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
-    lines = self.read_compressed_file(filepath)
-
-    data_start_index = lines.index(ORG_TO_COUNTRY_HEADER) + 1
-    data_end_index = lines.index(AS_TO_ORG_HEADER)
-    org_country_lines = lines[data_start_index:data_end_index]
-    org_country_data = list(csv.reader(org_country_lines, delimiter="|"))
-
-    org_name_to_country_map: Dict[str, Tuple[str, str]] = {}
-    for line in org_country_data:
-      org_id, changed_date, org_name, country, source = line
-      org_name_to_country_map[org_id] = (org_name, country)
-
-    return org_name_to_country_map
-
-  def get_as_to_org_map(
-      self, org_id_to_country_map: Dict[str, Tuple[str, str]]
-  ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
-    """Reads in and returns a mapping of ASNs to organization info.
-
-    Args:
-      org_id_to_country_map: Dict {as_name -> ("readable name", country_code)}
-
-    Returns:
-      Dict {asn -> (asn_name, readable_name, country)}
-      ex {204867 : ("LIGHTNING-WIRE-LABS", "Lightning Wire Labs GmbH", "DE")}
-      The final 2 fields may be None
-    """
-    filepath = CLOUD_DATA_LOCATION + "as-organizations/20200701.as-org2info.txt.gz"
-    lines = self.read_compressed_file(filepath)
-
-    data_start_index = lines.index(AS_TO_ORG_HEADER) + 1
-    as_to_org_lines = lines[data_start_index:]
-    org_id_data = list(csv.reader(as_to_org_lines, delimiter="|"))
-
-    asn_to_org_info_map: Dict[int, Tuple[str, Optional[str],
-                                         Optional[str]]] = {}
-    for line in org_id_data:
-      asn, changed_date, asn_name, org_id, opaque_id, source = line
-      try:
-        readable_name, country = org_id_to_country_map[org_id]
-        asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
-      except KeyError as e:
-        logging.warning("Missing org country info for asn %s %s", asn, e)
-        asn_to_org_info_map[int(asn)] = (asn_name, None, None)
-
-    return asn_to_org_info_map
-
-  def get_as_to_type_map(self) -> Dict[int, str]:
-    """Reads in and returns a mapping of ASNs to org type info.
-
-    Returns:
-      Dict {asn -> network_type}
-      ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
-    """
-    filepath = CLOUD_DATA_LOCATION + "as-classifications/20200801.as2types.txt.gz"
-    lines = self.read_compressed_file(filepath)
-
-    # filter comments
-    data_lines = [line for line in lines if line[0] != "#"]
-    type_data = list(csv.reader(data_lines, delimiter="|"))
-
-    as_to_type_map: Dict[int, str] = {}
-    for line in type_data:
-      asn, source, org_type = line
-      as_to_type_map[int(asn)] = org_type
-
-    return as_to_type_map
-
-  @staticmethod
-  def read_compressed_file(filepath: str) -> List[str]:
-    """Read in a compressed file as a list of strings.
-
-    We have to read the whole file into memory because some operations
-    (removing comments, using only the second half of the file)
-    require being able to manipulate particular lines.
-
-    Args:
-      filepath: a path to a compressed file. ex
-        gs://censoredplanet_geolocation/caida/as-classifications/as2types.txt.gz
-
-    Returns:
-      A list of strings representing each line in the file
-    """
-    f = FileSystems.open(filepath)
-    lines = []
-
-    line = f.readline()
-    while line:
-      decoded_line = line.decode("utf-8").strip()
-      lines.append(decoded_line)
-      line = f.readline()
-    f.close()
-
-    return lines
-
-  @staticmethod
-  def previous_day(date: str) -> str:
-    """Given a date string return the date string of the day before.
-
-    Args:
-      date: "YYYY-MM-DD" string ex "2020-01-02"
-
-    Returns:
-      "YYYY-MM-DD" string ex "2020-01-01"
-    """
-    day = datetime.date.fromisoformat(date)
-    previous_day = day - datetime.timedelta(days=1)
-    return previous_day.isoformat()
+  Returns:
+    an IpMetadata for the given date.
+  """
+  return IpMetadata(
+      date,
+      CLOUD_DATA_LOCATION,
+      LATEST_AS2ORG_FILEPATH,
+      LATEST_AS2CLASS_FILEPATH,
+      allow_previous_day=allow_previous_day)

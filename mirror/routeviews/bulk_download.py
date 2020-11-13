@@ -12,31 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
+import datetime
 
-from google.cloud import storage
 import httpio
-import pandas as pd
 import requests
 
-earliest_data = "2018-07-27"
+from google.cloud import storage
+
+OUTPUT_BUCKET = "censoredplanet_geolocation"
 
 
-def download_manual_routeviews():
-  datelist = pd.date_range(
-      start=earliest_data, end=datetime.today().isoformat())
+def download_manual_routeviews(bucket: str):
+  first_date = datetime.date(2018, 7, 27)  # Date of earliest data
+  last_date = datetime.date.today()
+  datelist = [
+      first_date + datetime.timedelta(days=x)
+      for x in range(0, (last_date - first_date).days + 1)
+  ]
+
   client = storage.Client()
-  bucket = client.get_bucket("censoredplanet_geolocation")
+  bucket = client.get_bucket(bucket)
 
   for date in datelist:
     print("checking date {}".format(date))
+    year, month, day = date.year, date.month, date.day
 
-    year = str(date.year)
-    month = str(date.month).zfill(2)
-    day = str(date.day).zfill(2)
-
-    path = "http://data.caida.org/datasets/routing/routeviews-prefix2as/{}/{}/".format(
-        year, month)
+    path = f"http://data.caida.org/datasets/routing/routeviews-prefix2as/{year}/{month:02}/"
     # possible times are 0000 to 2200 in intervals of 200
     times = [
         "0000", "0200", "0400", "0600", "0800", "1000", "1200", "1400", "1600",
@@ -44,8 +45,7 @@ def download_manual_routeviews():
     ]
     for time in times:
       try:
-        filename = "routeviews-rv2-{}{}{}-{}.pfx2as.gz".format(
-            year, month, day, time)
+        filename = f"routeviews-rv2-{year}{month:02}{day:02}-{time}.pfx2as.gz"
         url = path + filename
         cloud_filepath = "caida/routeviews/" + filename
 
@@ -54,8 +54,9 @@ def download_manual_routeviews():
         # In that case we just move on to our next guess.
         f = httpio.open(url)
 
-        print("mirroring {} to {}".format(
-            url, "gs://censoredplanet_geolocation/" + cloud_filepath))
+        print(
+            f"mirroring {url} to gs://censoredplanet_geolocation/{cloud_filepath}"
+        )
 
         blob = bucket.blob(cloud_filepath)
         blob.upload_from_file(f)
@@ -65,4 +66,4 @@ def download_manual_routeviews():
 
 
 if __name__ == "__main__":
-  download_manual_routeviews()
+  download_manual_routeviews(OUTPUT_BUCKET)
