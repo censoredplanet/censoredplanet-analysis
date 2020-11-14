@@ -48,35 +48,47 @@ BASE_TABLE_NAME = 'scan'
 # Prod data goes in the `firehook-censoredplanet:base' dataset
 PROD_DATASET_NAME = 'base'
 
+# key: (type, mode)
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
-    'domain': 'string',
-    'ip': 'string',
-    'date': 'date',
-    'start_time': 'timestamp',
-    'end_time': 'timestamp',
-    'retries': 'integer',
-    'sent': 'string',
-    'received': 'string',
-    'error': 'string',
-    'blocked': 'boolean',
-    'success': 'boolean',
-    'fail_sanity': 'boolean',
-    'stateful_block': 'boolean',
-    'measurement_id': 'string',
-    'source': 'string',
+    'domain': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'retries': ('integer', 'nullable'),
+    'sent': ('string', 'nullable'),
+    'error': ('string', 'nullable'),
+    'blocked': ('boolean', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'fail_sanity': ('boolean', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable'),
+
+    # received columns
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
+
     # Columns added from CAIDA data
-    'netblock': 'string',
-    'asn': 'integer',
-    'as_name': 'string',
-    'as_full_name': 'string',
-    'as_class': 'string',
-    'country': 'string',
+    'netblock': ('string', 'nullable'),
+    'asn': ('integer', 'nullable'),
+    'as_name': ('string', 'nullable'),
+    'as_full_name': ('string', 'nullable'),
+    'as_class': ('string', 'nullable'),
+    'country': ('string', 'nullable'),
 }
 # Future fields
 """
-    'domain_category': 'string',
-    'as_traffic': 'integer',
+    'domain_category': ('string', 'nullable'),
+    'as_traffic': ('integer', 'nullable'),
 """
 
 # Mapping of each scan type to the zone to run its pipeline in.
@@ -96,23 +108,22 @@ ROWS_PCOLLECION_NAME = 'rows'
 
 
 def get_bigquery_schema(
-    field_types: Dict[str, str]) -> beam_bigquery.TableSchema:
+    fields: Dict[str, Tuple[str, str]]) -> beam_bigquery.TableSchema:
   """Return a beam bigquery schema for the output table.
 
   Args:
-    field_types: dict of {'field_name': 'column_type'}
+    fields: dict of {'field_name': ['column_type', 'column_mode']}
 
   Returns:
     A bigquery table schema
   """
   table_schema = beam_bigquery.TableSchema()
 
-  for (name, field_type) in field_types.items():
-
+  for (name, (field_type, mode)) in fields.items():
     field_schema = beam_bigquery.TableFieldSchema()
     field_schema.name = name
     field_schema.type = field_type
-    field_schema.mode = 'nullable'  # all fields are flat
+    field_schema.mode = mode
     table_schema.fields.append(field_schema)
 
   return table_schema
@@ -233,6 +244,59 @@ def between_dates(filename: str,
     return True
 
 
+def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
+  """Flatten headers from a dictionary of headers to value lists.
+
+  Args:
+    headers: Dict from a header key to a list of headers.
+      {"Content-Language": ["en", "fr"],
+       "Content-Type": ["text/html; charset=iso-8859-1"]}
+
+  Returns:
+    A list of key-value headers pairs as flat strings.
+    ["Content-Language: en",
+     "Content-Language: fr",
+     "Content-Type: text/html; charset=iso-8859-1"]
+  """
+  # TODO decide whether the right approach here is turning each value into its
+  # own string, or turning each key into its own string with the values as a
+  # comma seperated list.
+  # The right answer depends on whether people will be querying mostly for
+  # individual values, or for specific combinations of values.
+  flat_headers = []
+  for key, values in headers.items():
+    for value in values:
+      flat_headers.append(key + ': ' + value)
+  return flat_headers
+
+
+def parse_received_data(received: Dict[str, Any]) -> Row:
+  """Parse a received field into a section of a row to write to bigquery.
+
+  Args:
+    received: a dict parsed from json data
+
+  Returns:
+    a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
+  """
+  row = {
+      'received_status': received['status_line'],
+      'received_body': received['body'],
+      'received_headers': parse_received_headers(received.get('headers', {})),
+  }
+
+  tls = received.get('tls', None)
+  if tls:
+    tls_row = {
+        'received_tls_version': tls['version'],
+        'received_tls_cipher_suite': tls['cipher_suite'],
+        'received_tls_cert': tls['cert']
+    }
+    row.update(tls_row)
+
+  return row
+
+
 def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
@@ -263,12 +327,19 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   random_measurement_id = uuid.uuid4().hex
 
   for result in scan['Results']:
-    received = result.get('Received', '')
-    if isinstance(received, str):
-      received_flat = received
+    if 'Received' not in result:
+      received_fields = {}
     else:
-      # TODO figure out a better way to deal with the structure in http/https
-      received_flat = json.dumps(received)
+      received = result.get('Received', '')
+      if isinstance(received, str):
+        received_fields = {'received_status': received}
+      else:
+        received_fields = parse_received_data(received)
+
+    if 'Error' not in result:
+      error_field = {}
+    else:
+      error_field = {'error': result['Error']}
 
     date = result['StartTime'][:10]
     row = {
@@ -279,8 +350,6 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         'end_time': result['EndTime'],
         'retries': scan['Retries'],
         'sent': result['Sent'],
-        'received': received_flat,
-        'error': result.get('Error', ''),
         'blocked': scan['Blocked'],
         'success': result['Success'],
         'fail_sanity': scan['FailSanity'],
@@ -288,6 +357,10 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         'measurement_id': random_measurement_id,
         'source': source_from_filename(filename),
     }
+
+    row.update(received_fields)
+    row.update(error_field)
+
     yield row
 
 
