@@ -58,18 +58,15 @@ def _get_latest_generated_routeview_files() -> List[str]:
 class RouteviewMirror():
   """Syncer to look for any recent routeview files and mirror them in cloud."""
 
-  def __init__(self, bucket: storage.bucket.Bucket, bucket_routeview_path: str,
-               caida_routeview_dir_url: str):
+  def __init__(self, bucket: storage.bucket.Bucket, bucket_routeview_path: str):
     """Initialize a client for updating routeviews.
 
     Args:
       bucket: GCS bucket
       bucket_routeview_path: path to write routeview files in the bucket
-      caida_routeview_dir_url: http url of a dir containing routeview files
     """
     self.caida_bucket = bucket
     self.bucket_routeview_path = bucket_routeview_path
-    self.caida_routeview_dir_url = caida_routeview_dir_url
 
   def _get_caida_files_in_bucket(self):
     """Get a list of all caida files stored in our bucket.
@@ -92,7 +89,7 @@ class RouteviewMirror():
     year = filename[15:19]
     month = filename[19:21]
 
-    url = self.caida_routeview_dir_url + year + "/" + month + "/" + filename
+    url = CAIDA_ROUTEVIEW_DIR_URL + year + "/" + month + "/" + filename
 
     output_blob = self.caida_bucket.blob(
         os.path.join(self.bucket_routeview_path, filename))
@@ -120,7 +117,7 @@ def get_firehook_routeview_mirror():
   client = storage.Client(project=PROJECT_NAME)
   bucket = client.get_bucket(BUCKET_NAME)
 
-  return RouteviewMirror(bucket, BUCKET_ROUTEVIEW_PATH, CAIDA_ROUTEVIEW_DIR_URL)
+  return RouteviewMirror(bucket, BUCKET_ROUTEVIEW_PATH)
 
 
 if __name__ == "__main__":
