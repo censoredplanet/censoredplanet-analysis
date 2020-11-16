@@ -51,8 +51,7 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner(project, table_name,
                                                     dataset_suffix, None, None,
-                                                    None, None, None, None,
-                                                    None, None)
+                                                    None, None, None, None)
 
     self.assertEqual(
         runner.get_table_name('echo', 'prod'),
@@ -291,8 +290,7 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
                                                     None, None, None,
-                                                    FakeIpMetadata, None, None,
-                                                    None)
+                                                    FakeIpMetadata, None)
 
     rows_with_metadata = runner.add_metadata(rows)
     beam_test_util.assert_that(
@@ -351,8 +349,7 @@ class PipelineMainTest(unittest.TestCase):
   def test_add_ip_metadata(self):
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
                                                     None, None, None,
-                                                    FakeIpMetadata, None, None,
-                                                    None)
+                                                    FakeIpMetadata, None)
 
     metadatas = list(
         runner.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))

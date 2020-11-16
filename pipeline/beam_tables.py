@@ -382,8 +382,7 @@ class ScanDataBeamPipelineRunner():
   def __init__(self, project: str, table_name: str, dataset_suffix: str,
                schema: Dict[str, str], bucket: str, staging_location: str,
                temp_location: str, ip_metadata_class: type,
-               ip_metadata_bucket_folder: str, as2org_filepath: str,
-               as2class_filepath: str):
+               ip_metadata_bucket_folder: str):
     """Initialize a pipeline runner.
 
     Args:
@@ -396,8 +395,6 @@ class ScanDataBeamPipelineRunner():
       temp_location: gcs bucket name, used for temp beam data
       ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
       ip_metadata_bucket_folder: gcs folder with ip metadata files
-      as2org_filepath: path to a as-org2info.txt file
-      as2class_filepath: path to an as2types.txt file
     """
     self.project = project
     self.base_table_name = table_name
@@ -410,8 +407,6 @@ class ScanDataBeamPipelineRunner():
     # serlalization to pass around we pass in the class to instantiate instead.
     self.ip_metadata_class = ip_metadata_class
     self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
-    self.as2org_filepath = as2org_filepath
-    self.as2class_filepath = as2class_filepath
 
   def get_table_name(self, scan_type, env):
     """Get a bigquery table name.
@@ -549,8 +544,7 @@ class ScanDataBeamPipelineRunner():
       where metadata_dict is a row Dict[column_name, values]
     """
     ip_metadata_db = self.ip_metadata_class(
-        datetime.date.fromisoformat(date), self.ip_metadata_bucket_folder,
-        self.as2org_filepath, self.as2class_filepath, True)
+        datetime.date.fromisoformat(date), self.ip_metadata_bucket_folder, True)
     for ip in ips:
       metadata_key = (date, ip)
 
@@ -748,8 +742,8 @@ class ScanDataBeamPipelineRunner():
 def get_firehook_beam_pipeline_runner():
   """Factory function to get a beam pipeline class with firehook values."""
 
-  return ScanDataBeamPipelineRunner(
-      CLOUD_PROJECT, SCAN_TABLE_NAME, DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
-      INPUT_BUCKET, BEAM_STAGING_LOCATION, BEAM_TEMP_LOCATION,
-      ip_metadata.IpMetadata, ip_metadata.CLOUD_DATA_LOCATION,
-      ip_metadata.LATEST_AS2ORG_FILEPATH, ip_metadata.LATEST_AS2CLASS_FILEPATH)
+  return ScanDataBeamPipelineRunner(CLOUD_PROJECT, SCAN_TABLE_NAME,
+                                    DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
+                                    INPUT_BUCKET, BEAM_STAGING_LOCATION,
+                                    BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
+                                    ip_metadata.CLOUD_DATA_LOCATION)

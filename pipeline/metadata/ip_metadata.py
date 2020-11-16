@@ -162,7 +162,7 @@ def _parse_as_to_org_map_remainder(
       readable_name, country = org_id_to_country_map[org_id]
       asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
     except KeyError as e:
-      logging.warning("Missing org country info for asn %s %s", asn, e)
+      logging.warning(f"Missing org country info for asn {asn} {e}")
       asn_to_org_info_map[int(asn)] = (asn_name, None, None)
 
   return asn_to_org_info_map
@@ -199,8 +199,6 @@ class IpMetadata(IpMetadataInterface):
       self,
       date: datetime.date,
       cloud_data_location: str,
-      latest_as2org_filepath: str,
-      latest_as2class_filepath: str,
       allow_previous_day: bool,
   ):
     """Create an IP Metadata object by reading/parsing all needed data.
@@ -208,20 +206,14 @@ class IpMetadata(IpMetadataInterface):
     Args:
       date: a date to initialize the asn database to
       cloud_data_location: GCS bucket folder name like "gs://bucket/folder/"
-      latest_as2org_filepath: filepath
-      latest_as2class_filepath: filepath
       allow_previous_day: If the given date's routeview file doesn't exist,
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
     self.cloud_data_location = cloud_data_location
-    self.latest_as2org_filepath = latest_as2org_filepath
-    self.latest_as2class_filepath = latest_as2class_filepath
 
-    as_to_org_map, as_to_type_map = self._get_asn_maps()
-    self.as_to_org_map = as_to_org_map
-    self.as_to_type_map = as_to_type_map
-
+    self.as_to_org_map = self._get_asn2org_map()
+    self.as_to_type_map = self._get_asn2type_map()
     self.asn_db = self._get_asn_db(date, allow_previous_day)
 
   def lookup(
@@ -257,22 +249,16 @@ class IpMetadata(IpMetadataInterface):
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
 
-  def _get_asn_maps(self):
-    """Initializes all ASN files as map objects.
-
-    Returns:
-      Tuple of an as2org Dict and as2type Dict
-    """
-    as_to_org_filename = self.cloud_data_location + self.latest_as2org_filepath
-    as_to_type_filename = self.cloud_data_location + self.latest_as2class_filepath
-
+  def _get_asn2org_map(
+      self) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+    as_to_org_filename = self.cloud_data_location + LATEST_AS2ORG_FILEPATH
     as_to_org_file = _read_compressed_file(as_to_org_filename)
+    return _parse_as_to_org_map(as_to_org_file)
+
+  def _get_asn2type_map(self) -> Dict[int, str]:
+    as_to_type_filename = self.cloud_data_location + LATEST_AS2CLASS_FILEPATH
     as_to_type_file = _read_compressed_file(as_to_type_filename)
-
-    as_to_org_map = _parse_as_to_org_map(as_to_org_file)
-    as_to_type_map = _parse_as_to_type_map(as_to_type_file)
-
-    return as_to_org_map, as_to_type_map
+    return _parse_as_to_type_map(as_to_type_file)
 
   def _get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
     """Return an ASN database object.
@@ -309,8 +295,7 @@ class IpMetadata(IpMetadataInterface):
     Raises:
       FileNotFoundError: when no exactly matching routeview file is found
     """
-    formatted_date = date.isoformat().replace("-", "")
-    file_pattern = "routeviews-rv2-" + formatted_date + "*.pfx2as.gz"
+    file_pattern = f"routeviews-rv2-{date:%Y%m%d}*.pfx2as.gz"
     filepath_pattern = self.cloud_data_location + "routeviews/" + file_pattern
     match = apache_filesystems.FileSystems.match([filepath_pattern], limits=[1])
 
@@ -336,5 +321,4 @@ def get_firehook_ip_metadata_db(
   Returns:
     an IpMetadata for the given date.
   """
-  return IpMetadata(date, CLOUD_DATA_LOCATION, LATEST_AS2ORG_FILEPATH,
-                    LATEST_AS2CLASS_FILEPATH, allow_previous_day)
+  return IpMetadata(date, CLOUD_DATA_LOCATION, allow_previous_day)

@@ -23,8 +23,6 @@ class IpMetadataInterface(object):
       self,
       date: datetime.date,
       cloud_data_location: str,
-      latest_as2org_filepath: str,
-      latest_as2class_filepath: str,
       allow_previous_day: bool,
   ):
     pass
