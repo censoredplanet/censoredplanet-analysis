@@ -24,6 +24,8 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
+from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
+
 # Public Firehook bucket for storing CAIDA files.
 CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
 
@@ -40,7 +42,7 @@ AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
 
 def _read_compressed_file(filepath: str) -> Iterator[str]:
-  """Read in a compressed file as a decompressed string iterator
+  """Read in a compressed file as a decompressed string iterator.
 
   Args:
     filepath: a path to a compressed file. Could be either local like
@@ -190,7 +192,7 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class IpMetadata(object):
+class IpMetadata(IpMetadataInterface):
   """A lookup table which contains network metadata about IPs."""
 
   def __init__(
@@ -199,7 +201,7 @@ class IpMetadata(object):
       cloud_data_location: str,
       latest_as2org_filepath: str,
       latest_as2class_filepath: str,
-      allow_previous_day=False,
+      allow_previous_day: bool,
   ):
     """Create an IP Metadata object by reading/parsing all needed data.
 
@@ -216,11 +218,11 @@ class IpMetadata(object):
     self.latest_as2org_filepath = latest_as2org_filepath
     self.latest_as2class_filepath = latest_as2class_filepath
 
-    as_to_org_map, as_to_type_map = self.get_asn_maps()
+    as_to_org_map, as_to_type_map = self._get_asn_maps()
     self.as_to_org_map = as_to_org_map
     self.as_to_type_map = as_to_type_map
 
-    self.asn_db = self.get_asn_db(date, allow_previous_day)
+    self.asn_db = self._get_asn_db(date, allow_previous_day)
 
   def lookup(
       self, ip: str
@@ -255,7 +257,7 @@ class IpMetadata(object):
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
 
-  def get_asn_maps(self):
+  def _get_asn_maps(self):
     """Initializes all ASN files as map objects.
 
     Returns:
@@ -272,7 +274,7 @@ class IpMetadata(object):
 
     return as_to_org_map, as_to_type_map
 
-  def get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
+  def _get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
     """Return an ASN database object.
 
     Args:
@@ -287,15 +289,15 @@ class IpMetadata(object):
     """
     try:
       self.date = date
-      return self.get_dated_asn_db(self.date)
+      return self._get_dated_asn_db(self.date)
     except FileNotFoundError as ex:
       if allow_previous_day:
         self.date = date - datetime.timedelta(days=1)
-        return self.get_dated_asn_db(self.date)
+        return self._get_dated_asn_db(self.date)
       else:
         raise ex
 
-  def get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
+  def _get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
     """Finds the right routeview file for a given date and returns an ASN DB.
 
     Args:
@@ -334,9 +336,5 @@ def get_firehook_ip_metadata_db(
   Returns:
     an IpMetadata for the given date.
   """
-  return IpMetadata(
-      date,
-      CLOUD_DATA_LOCATION,
-      LATEST_AS2ORG_FILEPATH,
-      LATEST_AS2CLASS_FILEPATH,
-      allow_previous_day=allow_previous_day)
+  return IpMetadata(date, CLOUD_DATA_LOCATION, LATEST_AS2ORG_FILEPATH,
+                    LATEST_AS2CLASS_FILEPATH, allow_previous_day)

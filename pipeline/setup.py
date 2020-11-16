@@ -19,7 +19,12 @@ setuptools.setup(
     name='censoredplanet-analysis',
     version='0.0.1',
     install_requires=['pyasn==1.6.1'],
-    packages=setuptools.find_packages(),
+    # Add a prefix so absolute import succeeds on workers.
+    packages=['pipeline', 'pipeline.metadata'],
+    package_dir={
+        'pipeline.metadata': './metadata',
+        'pipeline': './'
+    },
     url='https://github.com/Jigsaw-Code/censoredplanet-analysis',
     author='Sarah Laplante',
     author_email='laplante@google.com')

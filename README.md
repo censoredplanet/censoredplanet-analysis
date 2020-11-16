@@ -62,7 +62,7 @@ from the google cloud bucket and re-run the appropriate script to re-mirror it.
 
 ### Processing Data
 
-`python pipeline/beam_tables.py --env=prod --full`
+`python run_beam_pipeline.py --env=prod --full`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing base tables.

@@ -20,7 +20,6 @@ python pipeline/main.py --env=prod --incremental=False
 
 from __future__ import absolute_import
 
-import argparse
 import concurrent
 import datetime
 import json
@@ -37,6 +36,8 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
+
+from pipeline.metadata import ip_metadata
 
 # Custom Types
 #
@@ -308,115 +309,6 @@ def make_date_ip_key(row: Row) -> DateIpKey:
   return (row['date'], row['ip'])
 
 
-def add_metadata(
-    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
-  """Add ip metadata to a collection of roundtrip rows.
-
-  Args:
-    rows: beam.PCollection[Row]
-
-  Returns:
-    PCollection[Row]
-    The same rows as above with with additional metadata columns added.
-  """
-
-  # PCollection[Tuple[DateIpKey,Row]]
-  rows_keyed_by_ip_and_date = (
-      rows
-      | 'key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-          Tuple[DateIpKey, Row]))
-
-  # PCollection[DateIpKey]
-  ips_and_dates = (
-      rows_keyed_by_ip_and_date
-      | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
-
-  # PCollection[DateIpKey]
-  deduped_ips_and_dates = (
-      ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
-
-  # PCollection[Tuple[date,List[ip]]]
-  grouped_ips_by_dates = (
-      deduped_ips_and_dates | 'group by date' >>
-      beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
-
-  # PCollection[Tuple[DateIpKey,Row]]
-  ips_with_metadata = (
-      grouped_ips_by_dates
-      |
-      'get ip metadata' >> beam.FlatMapTuple(add_ip_metadata).with_output_types(
-          Tuple[DateIpKey, Row]))
-
-  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
-  grouped_metadata_and_rows = (({
-      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-  }) | 'group by keys' >> beam.CoGroupByKey())
-
-  # PCollection[Row]
-  rows_with_metadata = (
-      grouped_metadata_and_rows
-      | 'merge metadata with rows' >>
-      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
-
-  return rows_with_metadata
-
-
-def add_ip_metadata(date: str,
-                    ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
-  """Add Autonymous System metadata for ips in the given rows.
-
-  Args:
-    date: a 'YYYY-MM-DD' date key
-    ips: a list of ips
-
-  Yields:
-    Tuples (DateIpKey, metadata_dict)
-    where metadata_dict is a row Dict[column_name, values]
-  """
-  ip_metadata = None
-
-  # This class needs to be imported here
-  # since this function will be called on remote workers.
-  try:
-    # On workers we import relative to setup.py
-    from metadata.ip_metadata import get_firehook_ip_metadata_db
-
-    ip_metadata = get_firehook_ip_metadata_db(
-        datetime.date.fromisoformat(date), allow_previous_day=True)
-
-  except ImportError:
-    # For tests we import relative to the top-level test call
-    # and we import a fake
-    logging.warning('Using a fake IpMetadata for testing')
-    from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
-
-    ip_metadata = FakeIpMetadata(
-        datetime.date.fromisoformat(date), allow_previous_day=True)
-
-  for ip in ips:
-    metadata_key = (date, ip)
-
-    try:
-      (netblock, asn, as_name, as_full_name, as_type,
-       country) = ip_metadata.lookup(ip)
-      metadata_values = {
-          'netblock': netblock,
-          'asn': asn,
-          'as_name': as_name,
-          'as_full_name': as_full_name,
-          'as_class': as_type,
-          'country': country,
-      }
-
-    except KeyError as e:
-      logging.warning('KeyError: %s\n', e)
-      metadata_values = {}  # values are missing, but entry should still exist
-
-    yield (metadata_key, metadata_values)
-
-
 def merge_metadata_with_rows(key: DateIpKey,
                              value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
@@ -489,7 +381,24 @@ class ScanDataBeamPipelineRunner():
 
   def __init__(self, project: str, table_name: str, dataset_suffix: str,
                schema: Dict[str, str], bucket: str, staging_location: str,
-               temp_location: str):
+               temp_location: str, ip_metadata_class: type,
+               ip_metadata_bucket_folder: str, as2org_filepath: str,
+               as2class_filepath: str):
+    """Initialize a pipeline runner.
+
+    Args:
+      project: google cluod project name
+      table_name: name of bigqery table to write to
+      dataset_suffix: suffix for a dataset to write the table in
+      schema: bigquery schema
+      bucket: gcs bucket name
+      staging_location: gcs bucket name, used for staging beam data
+      temp_location: gcs bucket name, used for temp beam data
+      ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
+      ip_metadata_bucket_folder: gcs folder with ip metadata files
+      as2org_filepath: path to a as-org2info.txt file
+      as2class_filepath: path to an as2types.txt file
+    """
     self.project = project
     self.base_table_name = table_name
     self.dataset_suffix = dataset_suffix
@@ -497,6 +406,12 @@ class ScanDataBeamPipelineRunner():
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
+    # Because an instantiated IpMetadata object is too big for beam's
+    # serlalization to pass around we pass in the class to instantiate instead.
+    self.ip_metadata_class = ip_metadata_class
+    self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
+    self.as2org_filepath = as2org_filepath
+    self.as2class_filepath = as2class_filepath
 
   def get_table_name(self, scan_type, env):
     """Get a bigquery table name.
@@ -567,6 +482,95 @@ class ScanDataBeamPipelineRunner():
             file_size != 0)
     ]
     return filtered_filenames
+
+  def add_metadata(
+      self, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+    """Add ip metadata to a collection of roundtrip rows.
+
+    Args:
+      rows: beam.PCollection[Row]
+
+    Returns:
+      PCollection[Row]
+      The same rows as above with with additional metadata columns added.
+    """
+
+    # PCollection[Tuple[DateIpKey,Row]]
+    rows_keyed_by_ip_and_date = (
+        rows
+        | 'key by ips and dates' >>
+        beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+            Tuple[DateIpKey, Row]))
+
+    # PCollection[DateIpKey]
+    ips_and_dates = (
+        rows_keyed_by_ip_and_date
+        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+
+    # PCollection[DateIpKey]
+    deduped_ips_and_dates = (
+        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
+
+    # PCollection[Tuple[date,List[ip]]]
+    grouped_ips_by_dates = (
+        deduped_ips_and_dates | 'group by date' >>
+        beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
+
+    # PCollection[Tuple[DateIpKey,Row]]
+    ips_with_metadata = (
+        grouped_ips_by_dates
+        | 'get ip metadata' >> beam.FlatMapTuple(
+            self.add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
+
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    grouped_metadata_and_rows = (({
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+    }) | 'group by keys' >> beam.CoGroupByKey())
+
+    # PCollection[Row]
+    rows_with_metadata = (
+        grouped_metadata_and_rows
+        | 'merge metadata with rows' >>
+        beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+
+    return rows_with_metadata
+
+  def add_ip_metadata(self, date: str,
+                      ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+    """Add Autonymous System metadata for ips in the given rows.
+
+    Args:
+      date: a 'YYYY-MM-DD' date key
+      ips: a list of ips
+
+    Yields:
+      Tuples (DateIpKey, metadata_dict)
+      where metadata_dict is a row Dict[column_name, values]
+    """
+    ip_metadata_db = self.ip_metadata_class(
+        datetime.date.fromisoformat(date), self.ip_metadata_bucket_folder,
+        self.as2org_filepath, self.as2class_filepath, True)
+    for ip in ips:
+      metadata_key = (date, ip)
+
+      try:
+        (netblock, asn, as_name, as_full_name, as_type,
+         country) = ip_metadata_db.lookup(ip)
+        metadata_values = {
+            'netblock': netblock,
+            'asn': asn,
+            'as_name': as_name,
+            'as_full_name': as_full_name,
+            'as_class': as_type,
+            'country': country,
+        }
+
+      except KeyError as e:
+        logging.warning('KeyError: %s\n', e)
+        metadata_values = {}  # values are missing, but entry should still exist
+
+      yield (metadata_key, metadata_values)
 
   def write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
                         table_name: str, incremental_load: bool):
@@ -658,7 +662,7 @@ class ScanDataBeamPipelineRunner():
           beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
 
       # PCollection[Row]
-      rows_with_metadata = add_metadata(rows)
+      rows_with_metadata = self.add_metadata(rows)
 
       self.write_to_bigquery(rows_with_metadata, table_name, incremental_load)
 
@@ -744,38 +748,8 @@ class ScanDataBeamPipelineRunner():
 def get_firehook_beam_pipeline_runner():
   """Factory function to get a beam pipeline class with firehook values."""
 
-  return ScanDataBeamPipelineRunner(CLOUD_PROJECT, SCAN_TABLE_NAME,
-                                    DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
-                                    INPUT_BUCKET, BEAM_STAGING_LOCATION,
-                                    BEAM_TEMP_LOCATION)
-
-
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
-  parser.add_argument(
-      '--full',
-      action='store_true',
-      default=False,
-      help='Run over all files and not just the latest (rebuilds tables)')
-  parser.add_argument(
-      '--env',
-      type=str,
-      default='dev',
-      choices=['dev', 'prod'],
-      help='Whether to run over prod or dev data')
-  parser.add_argument(
-      '--scan_type',
-      type=str,
-      default='echo',
-      choices=['all'] + list(SCAN_TYPES_TO_ZONES.keys()),
-      help='Which type of scan to run over')
-  args = parser.parse_args()
-
-  incremental = not args.full
-
-  runner = get_firehook_beam_pipeline_runner()
-
-  if args.env == 'dev':
-    runner.run_dev(args.scan_type, incremental)
-  elif args.env == 'prod':
-    runner.run_all_scan_types(incremental, 'prod')
+  return ScanDataBeamPipelineRunner(
+      CLOUD_PROJECT, SCAN_TABLE_NAME, DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
+      INPUT_BUCKET, BEAM_STAGING_LOCATION, BEAM_TEMP_LOCATION,
+      ip_metadata.IpMetadata, ip_metadata.CLOUD_DATA_LOCATION,
+      ip_metadata.LATEST_AS2ORG_FILEPATH, ip_metadata.LATEST_AS2CLASS_FILEPATH)

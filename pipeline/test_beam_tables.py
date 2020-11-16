@@ -22,6 +22,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
 from pipeline import beam_tables
+from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 
 
 class PipelineMainTest(unittest.TestCase):
@@ -50,6 +51,7 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner(project, table_name,
                                                     dataset_suffix, None, None,
+                                                    None, None, None, None,
                                                     None, None)
 
     self.assertEqual(
@@ -287,7 +289,12 @@ class PipelineMainTest(unittest.TestCase):
     p = TestPipeline()
     rows = (p | beam.Create(rows))
 
-    rows_with_metadata = beam_tables.add_metadata(rows)
+    runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
+                                                    None, None, None,
+                                                    FakeIpMetadata, None, None,
+                                                    None)
+
+    rows_with_metadata = runner.add_metadata(rows)
     beam_test_util.assert_that(
         rows_with_metadata,
         beam_test_util.equal_to([{
@@ -342,8 +349,13 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
   def test_add_ip_metadata(self):
+    runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
+                                                    None, None, None,
+                                                    FakeIpMetadata, None, None,
+                                                    None)
+
     metadatas = list(
-        beam_tables.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+        runner.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1 = ('2020-01-01', '1.1.1.1')
     expected_value_1 = {

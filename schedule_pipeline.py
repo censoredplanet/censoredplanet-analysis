@@ -11,14 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# pyformat: disable
-r"""Orchestrate the pieces of the Censored Planet Data Pipeline.
+"""Orchestrate the pieces of the Censored Planet Data Pipeline.
 
 This script is means to be run on a GCE machine.
 To deploy to GCE use the deploy.sh script.
 """
-# pyformat: enable
 import subprocess
 import time
 
@@ -26,6 +23,7 @@ import schedule
 
 from mirror.untar_files.sync import get_firehook_scanfile_mirror
 from mirror.routeviews.sync import get_firehook_routeview_mirror
+from pipeline.beam_tables import get_firehook_beam_pipeline_runner
 from table.run_queries import rebuild_all_tables
 
 
@@ -33,18 +31,7 @@ def run_pipeline():
   """Steps of the pipeline to run nightly."""
   get_firehook_scanfile_mirror().sync()
   get_firehook_routeview_mirror().sync()
-
-  # This is a very weird hack.
-  # We execute the beam pipeline as a seperate process
-  # because beam really doesn't like it when the main file for a pipeline
-  # execution is not the same file the pipeline run call is made in.
-  # It would require all the deps to be packaged and installed on the workers
-  # which in our case requires packaging up many google cloud packages
-  # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run(['python3', 'pipeline/beam_tables.py', '--env=prod'],
-                 check=True,
-                 stdout=subprocess.PIPE)
-
+  get_firehook_beam_pipeline_runner().run_all_scan_types(True, 'prod')
   rebuild_all_tables()
 
 
