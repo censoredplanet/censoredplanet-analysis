@@ -60,23 +60,16 @@ SCAN_TYPE_IDENTIFIERS = {
 class ScanfileMirror():
   """Look for any tarred files in a given bucket and untar them."""
 
-  def __init__(self, client: storage.Client, tarred_bucket_name: str,
-               untarred_bucket_name: str):
-    """Initialize an.
-
-    untarrer.
+  def __init__(self, tarred_bucket: storage.bucket.Bucket,
+               untarred_bucket: storage.bucket.Bucket):
+    """Initialize an untarrer.
 
     Args:
-      client: google.cloud.storage.Client
-      tarred_bucket_name: name of a bucket to get tarred files from
-      untarred_bucket_name: name of a bucket to put untarred files in
+      tarred_bucket: gcs bucket which stores tarred files
+      untarred_bucket: gcs bucket which stores untarred files
     """
-    self.tarred_bucket_name = tarred_bucket_name
-    self.untarred_bucket_name = untarred_bucket_name
-
-    self.client = client
-    self.tarred_bucket = self.client.get_bucket(tarred_bucket_name)
-    self.untarred_bucket = self.client.get_bucket(untarred_bucket_name)
+    self.tarred_bucket = tarred_bucket
+    self.untarred_bucket = untarred_bucket
 
   @retry(requests.exceptions.ConnectionError, tries=3, delay=1)
   def _untar_file(self, tar_name: str) -> None:
@@ -135,7 +128,7 @@ class ScanfileMirror():
           "CP_Satellite-2020-08-16-17-07-54"]
     """
     # CP_Satellite-2020-08-16-17-07-54.tar.gz
-    blobs = list(self.client.list_blobs(self.tarred_bucket_name))
+    blobs = list(self.tarred_bucket.list_blobs())
     # CP_Satellite-2020-08-16-17-07-54
     filenames = [  # remove both .tar and .gz
         pathlib.PurePosixPath(pathlib.PurePosixPath(blob.name).stem).stem
@@ -152,7 +145,7 @@ class ScanfileMirror():
           "CP_Satellite-2020-08-16-17-07-54"]
     """
     # discard/CP_Quack-discard-2020-08-17-08-41-15/results.json
-    blobs = list(self.client.list_blobs(self.untarred_bucket_name))
+    blobs = list(self.untarred_bucket.list_blobs())
     # CP_Quack-discard-2020-08-17-08-41-15/
     path_ends = [
         pathlib.PurePosixPath(blob.name).parts[1]
@@ -190,7 +183,11 @@ class ScanfileMirror():
 def get_firehook_scanfile_mirror():
   """Factory function to get a Untarrer with our project values/paths."""
   client = storage.Client(project=PROJECT_NAME)
-  return ScanfileMirror(client, TARRED_BUCKET_NAME, UNTARRED_BUCKET_NAME)
+
+  tarred_bucket = client.get_bucket(TARRED_BUCKET_NAME)
+  untarred_bucket = client.get_bucket(UNTARRED_BUCKET_NAME)
+
+  return ScanfileMirror(tarred_bucket, untarred_bucket)
 
 
 if __name__ == '__main__':
