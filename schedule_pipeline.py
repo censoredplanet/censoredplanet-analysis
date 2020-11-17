@@ -23,7 +23,6 @@ import schedule
 
 from mirror.untar_files.sync import get_firehook_scanfile_mirror
 from mirror.routeviews.sync import get_firehook_routeview_mirror
-from pipeline.beam_tables import get_firehook_beam_pipeline_runner
 from table.run_queries import rebuild_all_tables
 
 
@@ -31,7 +30,18 @@ def run_pipeline():
   """Steps of the pipeline to run nightly."""
   get_firehook_scanfile_mirror().sync()
   get_firehook_routeview_mirror().sync()
-  get_firehook_beam_pipeline_runner().run_all_scan_types(True, 'prod')
+
+  # This is a very weird hack.
+  # We execute the beam pipeline as a seperate process
+  # because beam really doesn't like it when the main file for a pipeline
+  # execution is not the same file the pipeline run call is made in.
+  # It would require all the deps to be packaged and installed on the workers
+  # which in our case requires packaging up many google cloud packages
+  # which is slow (hangs basic worker machines) and wasteful.
+  subprocess.run(['python3', 'run_beam_pipeline.py', '--env=prod'],
+                 check=True,
+                 stdout=subprocess.PIPE)
+
   rebuild_all_tables()
 
 
