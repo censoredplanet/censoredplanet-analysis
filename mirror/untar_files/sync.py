@@ -40,10 +40,6 @@ from retry import retry
 
 from google.cloud import storage
 
-PROJECT_NAME = 'firehook-censoredplanet'
-TARRED_BUCKET_NAME = 'firehook-censoredplanetscanspublic'
-UNTARRED_BUCKET_NAME = 'firehook-scans'
-
 TIMEOUT_5_MINUTES = 300
 
 # Key - a substring that will be in the filename
@@ -180,16 +176,7 @@ class ScanfileMirror():
       pprint(('untarred file: ', filename))
 
 
-def get_firehook_scanfile_mirror():
-  """Factory function to get a Untarrer with our project values/paths."""
-  client = storage.Client(project=PROJECT_NAME)
-
-  tarred_bucket = client.get_bucket(TARRED_BUCKET_NAME)
-  untarred_bucket = client.get_bucket(UNTARRED_BUCKET_NAME)
-
-  return ScanfileMirror(tarred_bucket, untarred_bucket)
-
-
 if __name__ == '__main__':
   # Called manually when running a backfill.
+  from pipeline_constants import get_firehook_scanfile_mirror
   get_firehook_scanfile_mirror().sync()

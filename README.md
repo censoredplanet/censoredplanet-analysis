@@ -17,7 +17,7 @@ pipeline works.
 
 There are two main top-level pieces
 
-`python mirror/data_transfer.py`
+`python -m mirror.data_transfer`
 
 This sets up a daily data transfer job to copy scan files from the Censored
 Planet cloud bucket to an internal bucket.
@@ -41,18 +41,18 @@ Individual pieces of the pipeline can be run manually.
 These scripts pull in a large amount of data from external datasources and
 mirror it in the correct locations in google cloud buckets.
 
-`python mirror/untar_files/sync.py`
+`python -m mirror.untar_files.sync`
 
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool to
 decompress missing files.
 
-`python mirror/routeviews/sync.py`
+`python -m mirror.routeviews.sync`
 
 Transfers in the latest missing CAIDA routeview files. (Can only mirror in data
 from the last 30 days of data.)
 
-`python mirror/routeviews/bulk_download.py`
+`python -m mirror.routeviews.bulk_download`
 
 Transfers in all CAIDA routeview files from a certain date. This is used for
 backfilling data from older than 30 days.
@@ -62,12 +62,12 @@ from the google cloud bucket and re-run the appropriate script to re-mirror it.
 
 ### Processing Data
 
-`python run_beam_pipeline.py --env=prod --full`
+`python -m pipeline.beam_tables --env=prod --full`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing base tables.
 
-`python table/run_queries.py`
+`python -m table.run_queries`
 
 Runs queries to recreate any tables derived from the base tables.
 

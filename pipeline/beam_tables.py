@@ -20,6 +20,7 @@ python pipeline/main.py --env=prod --incremental=False
 
 from __future__ import absolute_import
 
+import argparse
 import concurrent
 import datetime
 import json
@@ -56,12 +57,6 @@ CLOUD_PROJECT = 'firehook-censoredplanet'
 BEAM_STAGING_LOCATION = 'gs://firehook-dataflow-test/staging'
 BEAM_TEMP_LOCATION = 'gs://firehook-dataflow-test/temp'
 INPUT_BUCKET = 'gs://firehook-scans/'
-
-# Output table name pieces
-# Tables have names like 'scan' and 'scan_test'
-SCAN_TABLE_NAME = 'scan'
-# Datasets have names like 'echo_results', and 'https_results'
-DATASET_SUFFIX = '_results'
 
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -739,11 +734,33 @@ class ScanDataBeamPipelineRunner():
                              start_day, end_day)
 
 
-def get_firehook_beam_pipeline_runner():
-  """Factory function to get a beam pipeline class with firehook values."""
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
+  parser.add_argument(
+      '--full',
+      action='store_true',
+      default=False,
+      help='Run over all files and not just the latest (rebuilds tables)')
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to run over prod or dev data')
+  parser.add_argument(
+      '--scan_type',
+      type=str,
+      default='echo',
+      choices=['all'] + list(SCAN_TYPES_TO_ZONES.keys()),
+      help='Which type of scan to run over')
+  args = parser.parse_args()
 
-  return ScanDataBeamPipelineRunner(CLOUD_PROJECT, SCAN_TABLE_NAME,
-                                    DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
-                                    INPUT_BUCKET, BEAM_STAGING_LOCATION,
-                                    BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
-                                    ip_metadata.CLOUD_DATA_LOCATION)
+  incremental = not args.full
+
+  from pipeline_constants import get_firehook_beam_pipeline_runner
+  runner = get_firehook_beam_pipeline_runner()
+
+  if args.env == 'dev':
+    runner.run_dev(args.scan_type, incremental)
+  elif args.env == 'prod':
+    runner.run_all_scan_types(incremental, 'prod')

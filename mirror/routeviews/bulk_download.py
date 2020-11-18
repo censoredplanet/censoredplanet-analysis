@@ -19,8 +19,6 @@ import requests
 
 from google.cloud import storage
 
-OUTPUT_BUCKET = "censoredplanet_geolocation"
-
 
 def download_manual_routeviews(bucket: str):
   first_date = datetime.date(2018, 7, 27)  # Date of earliest data
@@ -54,9 +52,7 @@ def download_manual_routeviews(bucket: str):
         # In that case we just move on to our next guess.
         f = httpio.open(url)
 
-        print(
-            f"mirroring {url} to gs://censoredplanet_geolocation/{cloud_filepath}"
-        )
+        print(f"mirroring {url} to gs://{bucket}/{cloud_filepath}")
 
         blob = bucket.blob(cloud_filepath)
         blob.upload_from_file(f)
@@ -66,4 +62,5 @@ def download_manual_routeviews(bucket: str):
 
 
 if __name__ == "__main__":
-  download_manual_routeviews(OUTPUT_BUCKET)
+  from pipeline_constants import download_manual_routeviews_firehook
+  download_manual_routeviews_firehook()

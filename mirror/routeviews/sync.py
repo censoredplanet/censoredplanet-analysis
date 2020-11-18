@@ -20,12 +20,7 @@ from pprint import pprint
 from typing import List
 
 import httpio
-
 from google.cloud import storage
-
-PROJECT_NAME = "firehook-censoredplanet"
-BUCKET_NAME = "censoredplanet_geolocation"
-BUCKET_ROUTEVIEW_PATH = "caida/routeviews/"
 
 CAIDA_ROUTEVIEW_DIR_URL = "http://data.caida.org/datasets/routing/routeviews-prefix2as/"
 # This file contains only the last 30 routeview files created.
@@ -112,14 +107,7 @@ class RouteviewMirror():
       pprint(("transferred file: ", new_file))
 
 
-def get_firehook_routeview_mirror():
-  """Factory function to get a RouteviewUpdater with our project values."""
-  client = storage.Client(project=PROJECT_NAME)
-  bucket = client.get_bucket(BUCKET_NAME)
-
-  return RouteviewMirror(bucket, BUCKET_ROUTEVIEW_PATH)
-
-
 if __name__ == "__main__":
   # Called manually when running a backfill.
+  from pipeline_constants import get_firehook_routeview_mirror
   get_firehook_routeview_mirror().sync()
