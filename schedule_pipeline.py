@@ -21,14 +21,15 @@ import time
 
 import schedule
 
-import pipeline_constants
+from mirror.untar_files.sync import get_firehook_scanfile_mirror
+from mirror.routeviews.sync import get_firehook_routeview_mirror
 from table.run_queries import rebuild_all_tables
 
 
 def run_pipeline():
   """Steps of the pipeline to run nightly."""
-  pipeline_constants.get_firehook_scanfile_mirror().sync()
-  pipeline_constants.get_firehook_routeview_mirror().sync()
+  get_firehook_scanfile_mirror().sync()
+  get_firehook_routeview_mirror().sync()
 
   # This is a very weird hack.
   # We execute the beam pipeline as a seperate process

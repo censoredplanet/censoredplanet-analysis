@@ -22,6 +22,8 @@ from typing import List
 import httpio
 from google.cloud import storage
 
+import firehook_resources
+
 CAIDA_ROUTEVIEW_DIR_URL = "http://data.caida.org/datasets/routing/routeviews-prefix2as/"
 # This file contains only the last 30 routeview files created.
 # To backfill beyond 30 days use bulk_download.py
@@ -107,7 +109,14 @@ class RouteviewMirror():
       pprint(("transferred file: ", new_file))
 
 
+def get_firehook_routeview_mirror():
+  """Factory function to get a RouteviewUpdater with our project values."""
+  client = storage.Client()
+  bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)
+
+  return RouteviewMirror(bucket, firehook_resources.ROUTEVIEW_PATH)
+
+
 if __name__ == "__main__":
   # Called manually when running a backfill.
-  from pipeline_constants import get_firehook_routeview_mirror
   get_firehook_routeview_mirror().sync()

@@ -38,6 +38,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
 
+import firehook_resources
 from pipeline.metadata import ip_metadata
 
 # Custom Types
@@ -52,11 +53,11 @@ Row = Dict[str, Any]
 # ex: ("2020-01-01", '1.2.3.4')
 DateIpKey = Tuple[str, str]
 
-# Project values
-CLOUD_PROJECT = 'firehook-censoredplanet'
-BEAM_STAGING_LOCATION = 'gs://firehook-dataflow-test/staging'
-BEAM_TEMP_LOCATION = 'gs://firehook-dataflow-test/temp'
-INPUT_BUCKET = 'gs://firehook-scans/'
+# Output table name pieces
+# Tables have names like 'scan' and 'scan_test'
+SCAN_TABLE_NAME = 'scan'
+# Datasets have names like 'echo_results', and 'https_results'
+DATASET_SUFFIX = '_results'
 
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -734,6 +735,17 @@ class ScanDataBeamPipelineRunner():
                              start_day, end_day)
 
 
+def get_firehook_beam_pipeline_runner():
+  """Factory function to get a beam pipeline class with firehook values."""
+
+  return ScanDataBeamPipelineRunner(
+      firehook_resources.PROJECT_NAME, SCAN_TABLE_NAME, DATASET_SUFFIX,
+      SCAN_BIGQUERY_SCHEMA, firehook_resources.INPUT_BUCKET,
+      firehook_resources.BEAM_STAGING_LOCATION,
+      firehook_resources.BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
+      firehook_resources.CAIDA_BUCKET)
+
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
   parser.add_argument(
@@ -757,7 +769,6 @@ if __name__ == '__main__':
 
   incremental = not args.full
 
-  from pipeline_constants import get_firehook_beam_pipeline_runner
   runner = get_firehook_beam_pipeline_runner()
 
   if args.env == 'dev':

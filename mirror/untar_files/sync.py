@@ -37,8 +37,9 @@ from typing import List
 
 import requests
 from retry import retry
-
 from google.cloud import storage
+
+import firehook_resources
 
 TIMEOUT_5_MINUTES = 300
 
@@ -176,7 +177,16 @@ class ScanfileMirror():
       pprint(('untarred file: ', filename))
 
 
+def get_firehook_scanfile_mirror():
+  """Factory function to get a Untarrer with our project values/paths."""
+  client = storage.Client()
+
+  tarred_bucket = client.get_bucket(firehook_resources.TARRED_BUCKET)
+  untarred_bucket = client.get_bucket(firehook_resources.UNTARRED_BUCKET)
+
+  return ScanfileMirror(tarred_bucket, untarred_bucket)
+
+
 if __name__ == '__main__':
   # Called manually when running a backfill.
-  from pipeline_constants import get_firehook_scanfile_mirror
   get_firehook_scanfile_mirror().sync()

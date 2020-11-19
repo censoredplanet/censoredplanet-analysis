@@ -19,17 +19,16 @@ import requests
 
 from google.cloud import storage
 
+import firehook_resources
 
-def download_manual_routeviews(bucket: str):
+
+def download_manual_routeviews(bucket: storage.bucket.Bucket):
   first_date = datetime.date(2018, 7, 27)  # Date of earliest data
   last_date = datetime.date.today()
   datelist = [
       first_date + datetime.timedelta(days=x)
       for x in range(0, (last_date - first_date).days + 1)
   ]
-
-  client = storage.Client()
-  bucket = client.get_bucket(bucket)
 
   for date in datelist:
     print("checking date {}".format(date))
@@ -52,7 +51,7 @@ def download_manual_routeviews(bucket: str):
         # In that case we just move on to our next guess.
         f = httpio.open(url)
 
-        print(f"mirroring {url} to gs://{bucket}/{cloud_filepath}")
+        print(f"mirroring {url} to gs://{bucket.name}/{cloud_filepath}")
 
         blob = bucket.blob(cloud_filepath)
         blob.upload_from_file(f)
@@ -61,6 +60,12 @@ def download_manual_routeviews(bucket: str):
           raise ex
 
 
+def download_manual_routeviews_firehook():
+  client = storage.Client()
+  bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)
+
+  download_manual_routeviews(bucket)
+
+
 if __name__ == "__main__":
-  from pipeline_constants import download_manual_routeviews_firehook
   download_manual_routeviews_firehook()
