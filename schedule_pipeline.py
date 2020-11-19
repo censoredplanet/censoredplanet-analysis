@@ -17,6 +17,7 @@ This script is means to be run on a GCE machine.
 To deploy to GCE use the deploy.sh script.
 """
 import subprocess
+import sys
 import time
 
 import schedule
@@ -38,7 +39,7 @@ def run_pipeline():
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run(['python3', '-m', 'pipeline.beam_tables', '--env=prod'],
+  subprocess.run([sys.executable, '-m', 'pipeline.beam_tables', '--env=prod'],
                  check=True,
                  stdout=subprocess.PIPE)
 
