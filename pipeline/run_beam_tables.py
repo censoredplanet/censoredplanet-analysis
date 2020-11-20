@@ -124,7 +124,7 @@ def get_firehook_beam_pipeline_runner():
       firehook_resources.PROJECT_NAME, beam_tables.SCAN_BIGQUERY_SCHEMA,
       firehook_resources.INPUT_BUCKET, firehook_resources.BEAM_STAGING_LOCATION,
       firehook_resources.BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
-      firehook_resources.CAIDA_BUCKET)
+      firehook_resources.CAIDA_FILE_LOCATION)
 
 
 def main(parsed_args: argparse.Namespace):

@@ -75,17 +75,3 @@ elif [[ "${action}" == "delete" ]]; then
 else
   echo "Unknown action ${action}"
 fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-

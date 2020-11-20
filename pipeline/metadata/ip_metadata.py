@@ -26,9 +26,6 @@ import pyasn
 
 from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
-# Public Firehook bucket for storing CAIDA files.
-CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
-
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
 #       and get the latest file here instead.
@@ -321,4 +318,7 @@ def get_firehook_ip_metadata_db(
   Returns:
     an IpMetadata for the given date.
   """
-  return IpMetadata(date, CLOUD_DATA_LOCATION, allow_previous_day)
+  # import here to avoid beam pickling issues
+  import firehook_resources
+  return IpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
+                    allow_previous_day)
