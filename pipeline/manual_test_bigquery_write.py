@@ -184,15 +184,26 @@ class PipelineManualBigqueryTest(unittest.TestCase):
         }
     ]
 
+    # The main thing being checked here is that the test data is compatible with
+    # the Bigquery schema and can write to bigquery without failing.
+
     run_write_pipeline(rows1, incremental=False)
 
-    written_rows = client.query('SELECT * FROM ' + BQ_TEST_TABLE).result()
-    self.assertEqual(len(list(written_rows)), 2)
+    written_rows = list(client.query('SELECT * FROM ' + BQ_TEST_TABLE).result())
+    self.assertEqual(len(written_rows), 2)
 
     run_write_pipeline(rows2, incremental=True)
 
-    written_rows = client.query('SELECT * FROM ' + BQ_TEST_TABLE).result()
-    self.assertEqual(len(list(written_rows)), 4)
+    written_rows = list(client.query('SELECT * FROM ' + BQ_TEST_TABLE).result())
+    self.assertEqual(len(written_rows), 4)
+
+    written_domains = [row[0] for row in written_rows]
+    self.assertListEqual(
+        sorted(written_domains),
+        sorted([
+            'www.arabhra.org', 'www.csmonitor.com', 'scribd.com',
+            'www.example.com'
+        ]))
 
     client.delete_table(BQ_TEST_TABLE)
 

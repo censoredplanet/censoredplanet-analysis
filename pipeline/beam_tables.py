@@ -21,7 +21,7 @@ import logging
 import os
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 import uuid
 
 import apache_beam as beam
@@ -107,7 +107,7 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
-def get_bigquery_schema(
+def get_beam_bigquery_schema(
     fields: Dict[str, Tuple[str, str]]) -> beam_bigquery.TableSchema:
   """Return a beam bigquery schema for the output table.
 
@@ -270,15 +270,18 @@ def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   return flat_headers
 
 
-def parse_received_data(received: Dict[str, Any]) -> Row:
+def parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
-    received: a dict parsed from json data
+    received: a dict parsed from json data, or a str
 
   Returns:
     a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
   """
+  if isinstance(received, str):
+    return {'received_status': received}
+
   row = {
       'received_status': received['status_line'],
       'received_body': received['body'],
@@ -303,7 +306,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   Args:
     filename: a filepath string
     line: a json string describing a censored planet measurement. example
-    {'Keyword': 'test.com,
+    {'Keyword': 'test.com',
      'Server': '1.2.3.4',
      'Results': [{'Success': true},
                  {'Success': false}]}
@@ -313,7 +316,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     {'column_name': field_value}
     examples:
     {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': false}
   """
 
   try:
@@ -327,19 +330,16 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   random_measurement_id = uuid.uuid4().hex
 
   for result in scan['Results']:
-    if 'Received' not in result:
-      received_fields = {}
-    else:
+    if 'Received' in result:
       received = result.get('Received', '')
-      if isinstance(received, str):
-        received_fields = {'received_status': received}
-      else:
-        received_fields = parse_received_data(received)
-
-    if 'Error' not in result:
-      error_field = {}
+      received_fields = parse_received_data(received)
     else:
+      received_fields = {}
+
+    if 'Error' in result:
       error_field = {'error': result['Error']}
+    else:
+      error_field = {}
 
     date = result['StartTime'][:10]
     row = {
@@ -648,7 +648,7 @@ class ScanDataBeamPipelineRunner():
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(
         self.get_full_table_name(table_name),
-        schema=get_bigquery_schema(self.schema),
+        schema=get_beam_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
         additional_bq_parameters=get_partition_params()))

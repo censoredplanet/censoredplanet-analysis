@@ -27,13 +27,13 @@ from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 
 class PipelineMainTest(unittest.TestCase):
 
-  def test_get_bigquery_schema(self):
+  def test_get_beam_bigquery_schema(self):
     test_field = {
         'string_field': ('string', 'nullable'),
         'int_field': ('integer', 'repeated'),
     }
 
-    table_schema = beam_tables.get_bigquery_schema(test_field)
+    table_schema = beam_tables.get_beam_bigquery_schema(test_field)
 
     expected_field_schema_1 = beam_bigquery.TableFieldSchema()
     expected_field_schema_1.name = 'string_field'
