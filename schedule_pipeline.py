@@ -39,9 +39,10 @@ def run_pipeline():
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run([sys.executable, '-m', 'pipeline.beam_tables', '--env=prod'],
-                 check=True,
-                 stdout=subprocess.PIPE)
+  subprocess.run(
+      [sys.executable, '-m', 'pipeline.run_beam_tables', '--env=prod'],
+      check=True,
+      stdout=subprocess.PIPE)
 
   rebuild_all_tables()
 

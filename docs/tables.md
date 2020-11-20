@@ -9,10 +9,10 @@ These tables are created using the original censored planet json data, plus some
 
 There is one table for each scan type.
 
-- `firehook-censoredplanet:echo_results.scan`
-- `firehook-censoredplanet:discard_results.scan`
-- `firehook-censoredplanet:http_results.scan`
-- `firehook-censoredplanet:https_results.scan`
+- `firehook-censoredplanet:base.echo_scan`
+- `firehook-censoredplanet:base.discard_scan`
+- `firehook-censoredplanet:base.http_scan`
+- `firehook-censoredplanet:base.https_scan`
 
 #### Original Data Format
 
@@ -100,7 +100,7 @@ This table is created by the script
 
 #### Table Name
 
-- `firehook-censoredplanet.merged_results.cleaned_error_scans`
+- `firehook-censoredplanet.derived.merged_error_scans`
 
 #### Table format
 
@@ -132,12 +132,12 @@ These tables are created by the script
 
 ##### View
 
-- firehook-censoredplanet.https_results.reduced_scans_geolocated
+- firehook-censoredplanet.derived.https_reduced_scans
 
 ##### Joined Sub-tables
 
-- `firehook-censoredplanet.https.reduced_scans`
-- `firehook-censoredplanet.https.net_as`
+- `firehook-censoredplanet.derived.https_reduced_scans_no_as`
+- `firehook-censoredplanet.derived.https_net_as`
 
 These two tables are joined on their `date` and `netblock` fields to create the
 view.

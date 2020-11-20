@@ -1,5 +1,6 @@
 apache-beam==2.25.0
 apache-beam[gcp]==2.25.0
+freezegun==1.0.0
 # Imports GCS client needed for beam
 google-apitools==0.5.31
 google-api-python-client==1.12.8

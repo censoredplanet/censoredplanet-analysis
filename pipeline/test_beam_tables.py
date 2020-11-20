@@ -45,26 +45,45 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(table_schema, expected_table_schema)
 
   def test_get_table_name(self):
+    base_table_name = 'scan'
+
+    prod_dataset = 'base'
+    user_dataset = 'laplante'
+
+    self.assertEqual(
+        beam_tables.get_table_name(prod_dataset, 'echo', base_table_name),
+        'base.echo_scan')
+    self.assertEqual(
+        beam_tables.get_table_name(user_dataset, 'discard', base_table_name),
+        'laplante.discard_scan')
+    self.assertEqual(
+        beam_tables.get_table_name(prod_dataset, 'http', base_table_name),
+        'base.http_scan')
+    self.assertEqual(
+        beam_tables.get_table_name(user_dataset, 'https', base_table_name),
+        'laplante.https_scan')
+
+  def test_get_job_name(self):
+    self.assertEqual(
+        beam_tables.get_job_name('base.scan_echo', False),
+        'write-base-scan-echo')
+    self.assertEqual(
+        beam_tables.get_job_name('base.scan_discard', True),
+        'append-base-scan-discard')
+    self.assertEqual(
+        beam_tables.get_job_name('laplante.scan_http', False),
+        'write-laplante-scan-http')
+    self.assertEqual(
+        beam_tables.get_job_name('laplante.scan_https', True),
+        'append-laplante-scan-https')
+
+  def test_get_full_table_name(self):
     project = 'firehook-censoredplanet'
-    table_name = 'scan'
-    dataset_suffix = '_results'
+    runner = beam_tables.ScanDataBeamPipelineRunner(project, None, None, None,
+                                                    None, None, None)
 
-    runner = beam_tables.ScanDataBeamPipelineRunner(project, table_name,
-                                                    dataset_suffix, None, None,
-                                                    None, None, None, None)
-
-    self.assertEqual(
-        runner.get_table_name('echo', 'prod'),
-        'firehook-censoredplanet:echo_results.scan')
-    self.assertEqual(
-        runner.get_table_name('discard', 'dev'),
-        'firehook-censoredplanet:discard_results.scan_test')
-    self.assertEqual(
-        runner.get_table_name('http', 'prod'),
-        'firehook-censoredplanet:http_results.scan')
-    self.assertEqual(
-        runner.get_table_name('https', 'dev'),
-        'firehook-censoredplanet:https_results.scan_test')
+    full_name = runner.get_full_table_name('prod.echo_scan')
+    self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
   def test_source_from_filename(self):
     self.assertEqual(
@@ -289,8 +308,7 @@ class PipelineMainTest(unittest.TestCase):
     rows = (p | beam.Create(rows))
 
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
-                                                    None, None, None,
-                                                    FakeIpMetadata, None)
+                                                    None, FakeIpMetadata, None)
 
     rows_with_metadata = runner.add_metadata(rows)
     beam_test_util.assert_that(
@@ -348,8 +366,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_add_ip_metadata(self):
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
-                                                    None, None, None,
-                                                    FakeIpMetadata, None)
+                                                    None, FakeIpMetadata, None)
 
     metadatas = list(
         runner.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
@@ -425,20 +442,6 @@ class PipelineMainTest(unittest.TestCase):
 
     rows_with_metadata = list(beam_tables.merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
-
-  def test_get_job_name(self):
-    self.assertEqual(
-        beam_tables.get_job_name('echo', False, 'dev'),
-        'echo-flatten-add-metadata-dev')
-    self.assertEqual(
-        beam_tables.get_job_name('discard', True, 'dev'),
-        'discard-flatten-add-metadata-dev-incremental')
-    self.assertEqual(
-        beam_tables.get_job_name('http', False, 'prod'),
-        'http-flatten-add-metadata-prod')
-    self.assertEqual(
-        beam_tables.get_job_name('https', True, 'prod'),
-        'https-flatten-add-metadata-prod-incremental')
 
 
 if __name__ == '__main__':

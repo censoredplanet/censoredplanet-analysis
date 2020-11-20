@@ -11,17 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Beam pipeline for converting json scan files into bigquery tables.
-
-To re-run the full beam pipeline manually (and blow away any old tables) run
-
-python pipeline/main.py --env=prod --incremental=False
-"""
+"""Beam pipeline for converting json scan files into bigquery tables."""
 
 from __future__ import absolute_import
 
-import argparse
-import concurrent
 import datetime
 import json
 import logging
@@ -38,9 +31,6 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
 
-import firehook_resources
-from pipeline.metadata import ip_metadata
-
 # Custom Types
 #
 # All or part of a scan row to be written to bigquery
@@ -53,11 +43,10 @@ Row = Dict[str, Any]
 # ex: ("2020-01-01", '1.2.3.4')
 DateIpKey = Tuple[str, str]
 
-# Output table name pieces
-# Tables have names like 'scan' and 'scan_test'
-SCAN_TABLE_NAME = 'scan'
-# Datasets have names like 'echo_results', and 'https_results'
-DATASET_SUFFIX = '_results'
+# Tables have names like 'echo_scan' and 'http_scan
+BASE_TABLE_NAME = 'scan'
+# Prod data goes in the `firehook-censoredplanet:base' dataset
+PROD_DATASET_NAME = 'base'
 
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -98,6 +87,8 @@ SCAN_TYPES_TO_ZONES = {
     'echo': 'us-west1',
     'discard': 'us-central1',
 }
+
+ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 
 # PCollection key names used internally by the beam pipeline
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
@@ -353,38 +344,52 @@ def get_partition_params() -> Dict[str, Any]:
   return partition_params
 
 
-def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
+def get_job_name(table_name: str, incremental_load: bool) -> str:
   """Creates the job name for the beam pipeline.
 
   Pipelines with the same name cannot run simultaneously.
 
   Args:
-    scan_type: one of 'echo', 'discard', 'http', 'https'
+    table_name: a dataset.table name like 'base.scan_echo'
     incremental_load: boolean. whether the job is incremental.
-    env: one of 'prod' or 'dev.
 
   Returns:
-    A string like 'echo-flatten-add-metadata-prod-incremental'
+    A string like 'write-base-scan-echo'
   """
-  job_name = scan_type + '-flatten-add-metadata-' + env
+  # no underscores or periods are allowed in beam job names
+  fixed_table_name = table_name.replace('_', '-').replace('.', '-')
+
   if incremental_load:
-    job_name = job_name + '-incremental'
-  return job_name
+    return 'append-' + fixed_table_name
+  else:
+    return 'write-' + fixed_table_name
+
+
+def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
+  """Construct a bigquery table name.
+
+  Args:
+    dataset_name: dataset name like 'base' or 'laplante'
+    scan_type: data type, one of 'echo', 'discard', 'http', 'https'
+    base_table_name: table name like 'scan'
+
+  Returns:
+    a dataset.table name like 'base.echo_scan'
+  """
+  table_name = scan_type + '_' + base_table_name
+  return dataset_name + '.' + table_name
 
 
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, table_name: str, dataset_suffix: str,
-               schema: Dict[str, str], bucket: str, staging_location: str,
-               temp_location: str, ip_metadata_class: type,
-               ip_metadata_bucket_folder: str):
+  def __init__(self, project: str, schema: Dict[str, str], bucket: str,
+               staging_location: str, temp_location: str,
+               ip_metadata_class: type, ip_metadata_bucket_folder: str):
     """Initialize a pipeline runner.
 
     Args:
       project: google cluod project name
-      table_name: name of bigqery table to write to
-      dataset_suffix: suffix for a dataset to write the table in
       schema: bigquery schema
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
@@ -393,8 +398,6 @@ class ScanDataBeamPipelineRunner():
       ip_metadata_bucket_folder: gcs folder with ip metadata files
     """
     self.project = project
-    self.base_table_name = table_name
-    self.dataset_suffix = dataset_suffix
     self.schema = schema
     self.bucket = bucket
     self.staging_location = staging_location
@@ -404,28 +407,16 @@ class ScanDataBeamPipelineRunner():
     self.ip_metadata_class = ip_metadata_class
     self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
 
-  def get_table_name(self, scan_type, env):
-    """Get a bigquery table name.
+  def get_full_table_name(self, table_name: str):
+    """Get a full project:dataset.table name.
 
     Args:
-      scan_type: data type, one of 'echo', 'discard', 'http', 'https'
-      env: one of 'prod' or 'dev'.
+      table_name: a dataset.table name
 
     Returns:
-      a string table name like 'firehook-censoredplanet:echo_results.scan_test'
-
-    Raises:
-      Exception: if the env is invalid.
+      project:dataset.table name
     """
-    if env == 'dev':
-      table_name = self.base_table_name + '_test'
-    elif env == 'prod':
-      table_name = self.base_table_name
-    else:
-      raise Exception('Invalid env: ' + env)
-
-    dataset = scan_type + self.dataset_suffix
-    return self.project + ':' + dataset + '.' + table_name
+    return self.project + ':' + table_name
 
   def data_to_load(self,
                    gcs: GCSFileSystem,
@@ -450,7 +441,8 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      existing_sources = get_existing_datasources(table_name)
+      full_table_name = self.get_full_table_name(table_name)
+      existing_sources = get_existing_datasources(full_table_name)
     else:
       existing_sources = []
 
@@ -568,8 +560,8 @@ class ScanDataBeamPipelineRunner():
 
     Args:
       rows: PCollection[Row] of data to write.
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
-        Determines which tables to write to.
+      table_name: dataset.table name like 'base.echo_scan' Determines which
+        tables to write to.
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
 
@@ -582,7 +574,7 @@ class ScanDataBeamPipelineRunner():
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(
-        table_name,
+        self.get_full_table_name(table_name),
         schema=get_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
@@ -616,14 +608,14 @@ class ScanDataBeamPipelineRunner():
                         job_name: str, table_name: str,
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date]):
-    """Run an apache beam pipeline to load json data into bigquery.
+    """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https'
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
+      table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read.
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
@@ -636,8 +628,9 @@ class ScanDataBeamPipelineRunner():
     pipeline_options = self.get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
+    full_table_name = self.get_full_table_name(table_name)
     new_filenames = self.data_to_load(gcs, scan_type, incremental_load,
-                                      table_name, start_date, end_date)
+                                      full_table_name, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load incrementally')
       return
@@ -655,123 +648,3 @@ class ScanDataBeamPipelineRunner():
       rows_with_metadata = self.add_metadata(rows)
 
       self.write_to_bigquery(rows_with_metadata, table_name, incremental_load)
-
-  def run_all_scan_types(self,
-                         incremental_load: bool,
-                         env: str,
-                         start_date: Optional[datetime.date] = None,
-                         end_date: Optional[datetime.date] = None):
-    """Runs the beam pipelines for all scan types in parallel.
-
-    Args:
-      incremental_load: boolean. If true, only load the latest new data, if
-        false reload all data.
-      env: one of 'prod' or 'dev. Determines which tables to write to.
-      start_date: date object, only files after or at this date will be read.
-        Mostly only used during development.
-      end_date: date object, only files at or before this date will be read.
-        Mostly only used during development.
-
-    Returns:
-      True on success
-
-    Raises:
-      Exception: if any of the pipelines fail or don't finish.
-    """
-    scan_types = SCAN_TYPES_TO_ZONES.keys()
-
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-      futures = []
-      for scan_type in scan_types:
-        job_name = get_job_name(scan_type, incremental_load, env)
-        table_name = self.get_table_name(scan_type, env)
-
-        future = pool.submit(self.run_beam_pipeline, scan_type,
-                             incremental_load, job_name, table_name, start_date,
-                             end_date)
-        futures.append(future)
-
-      finished, pending = concurrent.futures.wait(
-          futures, return_when=concurrent.futures.FIRST_EXCEPTION)
-
-      exceptions = [
-          future.exception() for future in finished if future.exception()
-      ]
-      if exceptions:
-        # If there were any exceptions just raise the first one.
-        raise exceptions[0]
-
-      if pending:
-        raise Exception('Some pipelines failed to finish: ', pending,
-                        'finished: ', finished)
-      return True
-
-  def run_dev(self, scan_type: str, incremental_load: bool):
-    """Run a dev pipeline for testing.
-
-    Dev only needs to load a week of data of one type for testing.
-    For incremental loads use the last week of data.
-    for full loads use data from two weeks ago.
-    (This is to make it easier to test the full and then incremental loads
-    together when developing.)
-
-    Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https' or 'all'
-      incremental_load: boolean. If true, only load the latest new data.
-    """
-    if incremental_load:
-      end_day = datetime.date.today()
-    else:
-      end_day = datetime.date.today() - datetime.timedelta(days=7)
-    start_day = end_day - datetime.timedelta(days=7)
-
-    if scan_type == 'all':
-      self.run_all_scan_types(incremental_load, 'dev', start_day, end_day)
-    else:
-      job_name = get_job_name(scan_type, incremental_load, 'dev')
-      table_name = self.get_table_name(scan_type, 'dev')
-
-      self.run_beam_pipeline(scan_type, incremental_load, job_name, table_name,
-                             start_day, end_day)
-
-
-def get_firehook_beam_pipeline_runner():
-  """Factory function to get a beam pipeline class with firehook values."""
-
-  return ScanDataBeamPipelineRunner(
-      firehook_resources.PROJECT_NAME, SCAN_TABLE_NAME, DATASET_SUFFIX,
-      SCAN_BIGQUERY_SCHEMA, firehook_resources.INPUT_BUCKET,
-      firehook_resources.BEAM_STAGING_LOCATION,
-      firehook_resources.BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
-      firehook_resources.CAIDA_BUCKET)
-
-
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
-  parser.add_argument(
-      '--full',
-      action='store_true',
-      default=False,
-      help='Run over all files and not just the latest (rebuilds tables)')
-  parser.add_argument(
-      '--env',
-      type=str,
-      default='dev',
-      choices=['dev', 'prod'],
-      help='Whether to run over prod or dev data')
-  parser.add_argument(
-      '--scan_type',
-      type=str,
-      default='echo',
-      choices=['all'] + list(SCAN_TYPES_TO_ZONES.keys()),
-      help='Which type of scan to run over')
-  args = parser.parse_args()
-
-  incremental = not args.full
-
-  runner = get_firehook_beam_pipeline_runner()
-
-  if args.env == 'dev':
-    runner.run_dev(args.scan_type, incremental)
-  elif args.env == 'prod':
-    runner.run_all_scan_types(incremental, 'prod')
