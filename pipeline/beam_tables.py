@@ -431,7 +431,7 @@ class ScanDataBeamPipelineRunner():
       gcs: GCSFileSystem object
       scan_type: one of 'echo', 'discard', 'http', 'https'
       incremental_load: boolean. If true, only read the latest new data
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
+      table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read
       end_date: date object, only files at or before this date will be read
 
@@ -628,9 +628,8 @@ class ScanDataBeamPipelineRunner():
     pipeline_options = self.get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
-    full_table_name = self.get_full_table_name(table_name)
     new_filenames = self.data_to_load(gcs, scan_type, incremental_load,
-                                      full_table_name, start_date, end_date)
+                                      table_name, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load incrementally')
       return
