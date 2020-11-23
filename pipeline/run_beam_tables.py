@@ -131,7 +131,7 @@ def main(parsed_args: argparse.Namespace):
   incremental = not parsed_args.full
 
   if parsed_args.scan_type == 'all':
-    selected_scan_types = beam_tables.ALL_SCAN_TYPES
+    selected_scan_types = list(beam_tables.ALL_SCAN_TYPES)
   else:
     selected_scan_types = [parsed_args.scan_type]
 
