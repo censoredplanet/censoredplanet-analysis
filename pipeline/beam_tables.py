@@ -376,8 +376,7 @@ def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
   Returns:
     a dataset.table name like 'base.echo_scan'
   """
-  table_name = scan_type + '_' + base_table_name
-  return dataset_name + '.' + table_name
+  return f'{dataset_name}.{scan_type}_{base_table_name}'
 
 
 class ScanDataBeamPipelineRunner():

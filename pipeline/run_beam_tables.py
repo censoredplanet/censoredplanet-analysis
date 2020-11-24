@@ -69,12 +69,9 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
     finished, pending = concurrent.futures.wait(
         futures, return_when=concurrent.futures.FIRST_EXCEPTION)
 
-    exceptions = [
-        future.exception() for future in finished if future.exception()
-    ]
-    if exceptions:
-      # If there were any exceptions just raise the first one.
-      raise exceptions[0]
+    # Raise any exceptions
+    for future in finished:
+      future.result()
 
     if pending:
       raise Exception('Some pipelines failed to finish: ', pending,
