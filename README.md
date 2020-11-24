@@ -11,7 +11,7 @@ pipeline works.
 
 ## System Diagram
 
-![System Diagram](system-diagram.png)
+![System Diagram](system-diagram.svg)
 
 ## Running as an Automated Pipeline
 
