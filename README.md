@@ -9,6 +9,8 @@ devoted Google Cloud project to run in. It is not recommended to run yourself,
 but the code is made available for anyone who wants to understand how the data
 pipeline works.
 
+![Master Build Status](https://github.com/Jigsaw-Code/censoredplanet-analysis/workflows/build/badge.svg?branch=master)
+
 ## System Diagram
 
 ![System Diagram](system-diagram.svg)

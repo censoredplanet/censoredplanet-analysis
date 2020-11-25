@@ -20,6 +20,7 @@ However it does do a full write to bigquery.
 The local pipeline runs twice, once for a full load, and once incrementally.
 """
 
+import datetime
 import os
 import pwd
 from typing import List
@@ -32,6 +33,7 @@ from google.cloud.exceptions import NotFound
 
 import firehook_resources
 from pipeline import run_beam_tables
+from pipeline.metadata import ip_metadata
 
 # The test table is written into the <project>:<username> dataset
 username = pwd.getpwuid(os.getuid()).pw_name
@@ -141,6 +143,16 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     finally:
       clean_up_bq_table(client, BQ_TEST_TABLE)
+
+  def test_ipmetadata_init(self):
+    # This E2E test requires the user to have get access to the
+    # gs://censoredplanet_geolocation bucket.
+    ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(
+        datetime.date(2018, 7, 27))
+    metadata = ip_metadata_db.lookup('1.1.1.1')
+
+    self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
+                                'Cloudflare, Inc.', 'Content', 'US'))
 
 
 # This test is not run by default in unittest because it takes about a minute
