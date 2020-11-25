@@ -20,6 +20,8 @@ However it does do a full write to bigquery.
 The local pipeline runs twice, once for a full load, and once incrementally.
 """
 
+import os
+import pwd
 from typing import List
 import unittest
 import warnings
@@ -31,8 +33,10 @@ from google.cloud.exceptions import NotFound
 import firehook_resources
 from pipeline import run_beam_tables
 
-BEAM_TEST_TABLE = 'test.test'
-BQ_TEST_TABLE = firehook_resources.PROJECT_NAME + '.test.test'
+# The test table is written into the <project>:<username> dataset
+username = pwd.getpwuid(os.getuid()).pw_name
+BEAM_TEST_TABLE = f'{username}.manual_test'
+BQ_TEST_TABLE = f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_TABLE}'
 
 JOB_NAME = 'manual_test_job'
 
@@ -45,17 +49,19 @@ JOB_NAME = 'manual_test_job'
 # But since the table schemas are all the same we do it here to test all the
 # different types of fields.
 #
-# These files contain real test data, usually 4 measurements each, the first 2
+# These files contain real sample data, usually 4 measurements each, the first 2
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_1(*_) -> List[str]:
   return [
-      'pipeline/e2e_test_data_http.json', 'pipeline/e2e_test_data_https.json'
+      'pipeline/e2e_test_data/http_results.json',
+      'pipeline/e2e_test_data/https_results.json'
   ]
 
 
 def local_data_to_load_2(*_) -> List[str]:
   return [
-      'pipeline/e2e_test_data_echo.json', 'pipeline/e2e_test_data_discard.json'
+      'pipeline/e2e_test_data/discard_results.json',
+      'pipeline/e2e_test_data/echo_results.json'
   ]
 
 
@@ -92,46 +98,49 @@ def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str):
     pass
 
 
+def get_bq_rows(client: cloud_bigquery.Client, table_name: str):
+  return list(client.query(f'SELECT * FROM {table_name}').result())
+
+
 class PipelineManualE2eTest(unittest.TestCase):
 
   def test_pipeline_e2e(self):
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
-
     client = cloud_bigquery.Client()
 
-    # Clean up table if previous run failed to
-    clean_up_bq_table(client, BQ_TEST_TABLE)
+    try:
+      run_local_pipeline(incremental=False)
 
-    run_local_pipeline(incremental=False)
+      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      self.assertEqual(len(written_rows), 28)
 
-    written_rows = list(client.query('SELECT * FROM ' + BQ_TEST_TABLE).result())
-    self.assertEqual(len(written_rows), 28)
+      run_local_pipeline(incremental=True)
 
-    run_local_pipeline(incremental=True)
+      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      self.assertEqual(len(written_rows), 53)
 
-    written_rows = list(client.query('SELECT * FROM ' + BQ_TEST_TABLE).result())
-    self.assertEqual(len(written_rows), 53)
+      # Domain appear different numbers of times in the test table depending on
+      # how their measurement succeeded/failed.
+      expected_single_domains = [
+          'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
+          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info'
+      ]
+      expected_triple_domains = ['www.arabhra.org']
+      expected_sextuple_domains = [
+          'discover.com', 'peacefire.org', 'secondlife.com', 'www.89.com',
+          'www.casinotropez.com', 'www.epa.gov', 'www.sex.com'
+      ]
+      all_expected_domains = (
+          expected_single_domains + expected_triple_domains * 3 +
+          expected_sextuple_domains * 6)
 
-    # Domain appear different numbers of times in the test table depending on
-    # how their measurement succeeded/failed.
-    expected_single_domains = [
-        'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
-        'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info'
-    ]
-    expected_triple_domains = ['www.arabhra.org']
-    expected_sextuple_domains = [
-        'discover.com', 'peacefire.org', 'secondlife.com', 'www.89.com',
-        'www.casinotropez.com', 'www.epa.gov', 'www.sex.com'
-    ]
-    all_expected_domains = (
-        expected_single_domains + expected_triple_domains * 3 +
-        expected_sextuple_domains * 6)
+      written_domains = [row[0] for row in written_rows]
+      self.assertListEqual(
+          sorted(written_domains), sorted(all_expected_domains))
 
-    written_domains = [row[0] for row in written_rows]
-    self.assertListEqual(sorted(written_domains), sorted(all_expected_domains))
-
-    clean_up_bq_table(client, BQ_TEST_TABLE)
+    finally:
+      clean_up_bq_table(client, BQ_TEST_TABLE)
 
 
 # This test is not run by default in unittest because it takes about a minute
