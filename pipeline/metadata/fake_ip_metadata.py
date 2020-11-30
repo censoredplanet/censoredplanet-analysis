@@ -14,11 +14,18 @@
 
 import datetime
 
+from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
-class FakeIpMetadata(object):
+
+class FakeIpMetadata(IpMetadataInterface):
   """A fake lookup table for testing IpMetadata."""
 
-  def __init__(self, date: datetime.date, allow_previous_day=False):
+  def __init__(
+      self,
+      date: datetime.date,
+      cloud_data_location: str,
+      allow_previous_day: bool,
+  ):
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",

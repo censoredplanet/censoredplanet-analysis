@@ -21,7 +21,7 @@ CREATE TEMP FUNCTION CleanError(error string) AS (
     "port\\.[0-9]+", "port.[PORT]")
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.merged_results.cleaned_error_scans`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_error_scans`
 PARTITION BY date
 CLUSTER BY source, country, domain, result
 as (
@@ -38,7 +38,7 @@ WITH
     as_full_name,
     netblock,
     as_class
-  FROM `firehook-censoredplanet.discard_results.scan`
+  FROM `firehook-censoredplanet.base.discard_scan`
   UNION ALL
   SELECT
     date,
@@ -51,7 +51,7 @@ WITH
     as_full_name,
     netblock,
     as_class
-  FROM `firehook-censoredplanet.echo_results.scan`
+  FROM `firehook-censoredplanet.base.echo_scan`
   UNION ALL
   SELECT
     date,
@@ -64,7 +64,7 @@ WITH
     as_full_name,
     netblock,
     as_class
-  FROM `firehook-censoredplanet.http_results.scan`
+  FROM `firehook-censoredplanet.base.http_scan`
   UNION ALL
   SELECT
     date,
@@ -77,7 +77,7 @@ WITH
     as_full_name,
     netblock,
     as_class
-  FROM `firehook-censoredplanet.https_results.scan`
+  FROM `firehook-censoredplanet.base.https_scan`
 )
 SELECT
   date,

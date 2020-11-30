@@ -26,7 +26,7 @@ and delete any existing daily scheduled jobs named
 "Transfer scan data from UMich to Firehook".
 
 Then run
-  python transfer/scans.py
+  python3 -m mirror.data_transfer
 to create a new scheduled transfer job.
 """
 
@@ -35,9 +35,7 @@ import json
 
 import googleapiclient.discovery
 
-PROJECT_NAME = 'firehook-censoredplanet'
-SOURCE_BUCKET = 'censoredplanetscanspublic'
-SINK_BUCKET = 'firehook-censoredplanetscanspublic'
+import firehook_resources
 
 
 def setup_transfer_service(project_name: str, source_bucket: str,
@@ -81,7 +79,12 @@ def setup_transfer_service(project_name: str, source_bucket: str,
   print(f'Returned transferJob: {json.dumps(result, indent=4)}')
 
 
-if __name__ == '__main__':
+def setup_firehook_data_transfer():
   transfer_job_start = datetime.date.today()
-  setup_transfer_service(PROJECT_NAME, SOURCE_BUCKET, SINK_BUCKET,
-                         transfer_job_start)
+  setup_transfer_service(firehook_resources.PROJECT_NAME,
+                         firehook_resources.U_MICH_BUCKET,
+                         firehook_resources.TARRED_BUCKET, transfer_job_start)
+
+
+if __name__ == '__main__':
+  setup_firehook_data_transfer()

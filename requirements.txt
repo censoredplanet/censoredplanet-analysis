@@ -1,8 +1,10 @@
 apache-beam==2.25.0
 apache-beam[gcp]==2.25.0
+freezegun==1.0.0
 # Imports GCS client needed for beam
 google-apitools==0.5.31
-google-cloud-bigquery==2.3.1
+google-api-python-client==1.12.8
+google-cloud-bigquery==1.28.0
 google-cloud-storage==1.32.0
 # Specify resumable-media version to avoid dependency conflict
 google-resumable-media===1.1.0

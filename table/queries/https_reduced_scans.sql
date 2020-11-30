@@ -21,7 +21,7 @@ CREATE TEMP FUNCTION CleanError(error STRING) AS (
     "port\\.[0-9]+", "port.[PORT]")
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.https_results.net_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.https_net_as`
 PARTITION BY date
 CLUSTER BY netblock
 AS (
@@ -30,10 +30,10 @@ AS (
     netblock,
     asn,
     as_full_name AS as_full_name
-  FROM `firehook-censoredplanet.https_results.scan`
+  FROM `firehook-censoredplanet.base.https_scan`
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.https_results.reduced_scans`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.https_reduced_scans_no_as`
 PARTITION BY date
 CLUSTER BY country, domain, netblock
 AS (
@@ -44,7 +44,7 @@ AS (
     netblock,
     CleanError(error) AS result,
     count(1) AS count
-  FROM `firehook-censoredplanet.https_results.scan`
+  FROM `firehook-censoredplanet.base.https_scan`
   WHERE
     NOT SAFE.REGEXP_CONTAINS(error, "too many open files|address already in use|no route to host|connection refused|connect: connection timed out")
   GROUP BY date, country, domain, netblock, result
@@ -54,7 +54,7 @@ AS (
 # Since any temp functions in scope block view creation.
 DROP FUNCTION CleanError;
 
-CREATE OR REPLACE VIEW `firehook-censoredplanet.https_results.reduced_scans_geolocated`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.derived.https_reduced_scans`
 OPTIONS(
   friendly_name="Reduced Scan View",
   description="A join of reduced scans with ASN info."
@@ -69,7 +69,7 @@ AS (
     as_full_name AS as_name,
     result,
     count
-  FROM `firehook-censoredplanet.https_results.reduced_scans`
-  LEFT JOIN `firehook-censoredplanet.https_results.net_as`
+  FROM `firehook-censoredplanet.derived.https_reduced_scans_no_as`
+  LEFT JOIN `firehook-censoredplanet.derived.https_net_as`
   USING (date, netblock)
 );
