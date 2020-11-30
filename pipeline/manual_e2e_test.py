@@ -81,12 +81,12 @@ def run_local_pipeline(incremental=False):
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
-  test_runner.get_pipeline_options = get_local_pipeline_options
+  test_runner._get_pipeline_options = get_local_pipeline_options
   # Monkey patch the data_to_load method to load only local data
   if incremental:
-    test_runner.data_to_load = local_data_to_load_1
+    test_runner._data_to_load = local_data_to_load_1
   else:
-    test_runner.data_to_load = local_data_to_load_2
+    test_runner._data_to_load = local_data_to_load_2
 
   test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)

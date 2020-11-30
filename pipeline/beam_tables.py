@@ -107,7 +107,7 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
-def get_beam_bigquery_schema(
+def _get_beam_bigquery_schema(
     fields: Dict[str, Tuple[str, str]]) -> beam_bigquery.TableSchema:
   """Return a beam bigquery schema for the output table.
 
@@ -129,7 +129,7 @@ def get_beam_bigquery_schema(
   return table_schema
 
 
-def source_from_filename(filepath: str) -> str:
+def _source_from_filename(filepath: str) -> str:
   """Get the source string from a scan filename.
 
   Source represents the .tar.gz container which held this file.
@@ -146,7 +146,7 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
-def get_existing_datasources(table_name: str) -> List[str]:
+def _get_existing_datasources(table_name: str) -> List[str]:
   """Given a table return all sources that contributed to the table.
 
   Args:
@@ -174,12 +174,12 @@ def get_existing_datasources(table_name: str) -> List[str]:
   return sources
 
 
-def make_tuple(line: str, filename: str) -> Tuple[str, str]:
+def _make_tuple(line: str, filename: str) -> Tuple[str, str]:
   """Helper method for making a tuple from two args."""
   return (filename, line)
 
 
-def read_scan_text(
+def _read_scan_text(
     p: beam.Pipeline,
     filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
   """Read in all individual lines for the given data sources.
@@ -204,7 +204,7 @@ def read_scan_text(
 
     # PCollection[Tuple[filename,line]]
     lines_with_filenames = (
-        lines | step_name >> beam.Map(make_tuple, filename).with_output_types(
+        lines | step_name >> beam.Map(_make_tuple, filename).with_output_types(
             Tuple[str, str]))
 
     line_pcollections_per_file.append(lines_with_filenames)
@@ -218,9 +218,9 @@ def read_scan_text(
   return lines
 
 
-def between_dates(filename: str,
-                  start_date: Optional[datetime.date] = None,
-                  end_date: Optional[datetime.date] = None) -> bool:
+def _between_dates(filename: str,
+                   start_date: Optional[datetime.date] = None,
+                   end_date: Optional[datetime.date] = None) -> bool:
   """Return true if a filename is between (or matches either of) two dates.
 
   Args:
@@ -244,7 +244,7 @@ def between_dates(filename: str,
     return True
 
 
-def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
+def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   """Flatten headers from a dictionary of headers to value lists.
 
   Args:
@@ -270,7 +270,7 @@ def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   return flat_headers
 
 
-def parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
+def _parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
@@ -285,7 +285,7 @@ def parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
   row = {
       'received_status': received['status_line'],
       'received_body': received['body'],
-      'received_headers': parse_received_headers(received.get('headers', {})),
+      'received_headers': _parse_received_headers(received.get('headers', {})),
   }
 
   tls = received.get('tls', None)
@@ -300,7 +300,7 @@ def parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
   return row
 
 
-def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
+def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -332,7 +332,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   for result in scan['Results']:
     if 'Received' in result:
       received = result.get('Received', '')
-      received_fields = parse_received_data(received)
+      received_fields = _parse_received_data(received)
     else:
       received_fields = {}
 
@@ -355,7 +355,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
         'measurement_id': random_measurement_id,
-        'source': source_from_filename(filename),
+        'source': _source_from_filename(filename),
     }
 
     row.update(received_fields)
@@ -364,13 +364,13 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     yield row
 
 
-def make_date_ip_key(row: Row) -> DateIpKey:
+def _make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
 
 
-def merge_metadata_with_rows(key: DateIpKey,
-                             value: Dict[str, List[Row]]) -> Iterator[Row]:
+def _merge_metadata_with_rows(key: DateIpKey,
+                              value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -398,7 +398,7 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
-def get_partition_params() -> Dict[str, Any]:
+def _get_partition_params() -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Returns: A dict of query params, See:
@@ -479,7 +479,7 @@ class ScanDataBeamPipelineRunner():
     self.ip_metadata_class = ip_metadata_class
     self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
 
-  def get_full_table_name(self, table_name: str):
+  def _get_full_table_name(self, table_name: str):
     """Get a full project:dataset.table name.
 
     Args:
@@ -490,13 +490,13 @@ class ScanDataBeamPipelineRunner():
     """
     return self.project + ':' + table_name
 
-  def data_to_load(self,
-                   gcs: GCSFileSystem,
-                   scan_type: str,
-                   incremental_load: bool,
-                   table_name: str,
-                   start_date: Optional[datetime.date] = None,
-                   end_date: Optional[datetime.date] = None) -> List[str]:
+  def _data_to_load(self,
+                    gcs: GCSFileSystem,
+                    scan_type: str,
+                    incremental_load: bool,
+                    table_name: str,
+                    start_date: Optional[datetime.date] = None,
+                    end_date: Optional[datetime.date] = None) -> List[str]:
     """Select the right files to read.
 
     Args:
@@ -513,8 +513,8 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      full_table_name = self.get_full_table_name(table_name)
-      existing_sources = get_existing_datasources(full_table_name)
+      full_table_name = self._get_full_table_name(table_name)
+      existing_sources = _get_existing_datasources(full_table_name)
     else:
       existing_sources = []
 
@@ -532,13 +532,13 @@ class ScanDataBeamPipelineRunner():
 
     filtered_filenames = [
         filename for (filename, file_size) in zip(filenames, file_sizes)
-        if (between_dates(filename, start_date, end_date) and
-            source_from_filename(filename) not in existing_sources and
+        if (_between_dates(filename, start_date, end_date) and
+            _source_from_filename(filename) not in existing_sources and
             file_size != 0)
     ]
     return filtered_filenames
 
-  def add_metadata(
+  def _add_metadata(
       self, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
     """Add ip metadata to a collection of roundtrip rows.
 
@@ -554,7 +554,7 @@ class ScanDataBeamPipelineRunner():
     rows_keyed_by_ip_and_date = (
         rows
         | 'key by ips and dates' >>
-        beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+        beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
             Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
@@ -575,7 +575,7 @@ class ScanDataBeamPipelineRunner():
     ips_with_metadata = (
         grouped_ips_by_dates
         | 'get ip metadata' >> beam.FlatMapTuple(
-            self.add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
+            self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
     grouped_metadata_and_rows = (({
@@ -587,12 +587,12 @@ class ScanDataBeamPipelineRunner():
     rows_with_metadata = (
         grouped_metadata_and_rows
         | 'merge metadata with rows' >>
-        beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+        beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
     return rows_with_metadata
 
-  def add_ip_metadata(self, date: str,
-                      ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+  def _add_ip_metadata(self, date: str,
+                       ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
     """Add Autonymous System metadata for ips in the given rows.
 
     Args:
@@ -626,8 +626,8 @@ class ScanDataBeamPipelineRunner():
 
       yield (metadata_key, metadata_values)
 
-  def write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
-                        table_name: str, incremental_load: bool):
+  def _write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
+                         table_name: str, incremental_load: bool):
     """Write out row to a bigquery table.
 
     Args:
@@ -646,14 +646,14 @@ class ScanDataBeamPipelineRunner():
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(
-        self.get_full_table_name(table_name),
-        schema=get_beam_bigquery_schema(self.schema),
+        self._get_full_table_name(table_name),
+        schema=_get_beam_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=get_partition_params()))
+        additional_bq_parameters=_get_partition_params()))
 
-  def get_pipeline_options(self, scan_type: str,
-                           job_name: str) -> PipelineOptions:
+  def _get_pipeline_options(self, scan_type: str,
+                            job_name: str) -> PipelineOptions:
     """Sets up pipeline options for a beam pipeline.
 
     Args:
@@ -697,25 +697,25 @@ class ScanDataBeamPipelineRunner():
       Exception: if any arguments are invalid or the pipeline fails.
     """
     logging.getLogger().setLevel(logging.INFO)
-    pipeline_options = self.get_pipeline_options(scan_type, job_name)
+    pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
-    new_filenames = self.data_to_load(gcs, scan_type, incremental_load,
-                                      table_name, start_date, end_date)
+    new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
+                                       table_name, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load incrementally')
       return
 
     with beam.Pipeline(options=pipeline_options) as p:
       # PCollection[Tuple[filename,line]]
-      lines = read_scan_text(p, new_filenames)
+      lines = _read_scan_text(p, new_filenames)
 
       # PCollection[Row]
       rows = (
           lines | 'flatten json' >>
-          beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
+          beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
 
       # PCollection[Row]
-      rows_with_metadata = self.add_metadata(rows)
+      rows_with_metadata = self._add_metadata(rows)
 
-      self.write_to_bigquery(rows_with_metadata, table_name, incremental_load)
+      self._write_to_bigquery(rows_with_metadata, table_name, incremental_load)

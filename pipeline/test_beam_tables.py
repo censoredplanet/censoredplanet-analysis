@@ -33,7 +33,7 @@ class PipelineMainTest(unittest.TestCase):
         'int_field': ('integer', 'repeated'),
     }
 
-    table_schema = beam_tables.get_beam_bigquery_schema(test_field)
+    table_schema = beam_tables._get_beam_bigquery_schema(test_field)
 
     expected_field_schema_1 = beam_bigquery.TableFieldSchema()
     expected_field_schema_1.name = 'string_field'
@@ -89,23 +89,23 @@ class PipelineMainTest(unittest.TestCase):
     runner = beam_tables.ScanDataBeamPipelineRunner(project, None, None, None,
                                                     None, None, None)
 
-    full_name = runner.get_full_table_name('prod.echo_scan')
+    full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
   def test_source_from_filename(self):
     self.assertEqual(
-        beam_tables.source_from_filename(
+        beam_tables._source_from_filename(
             'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
         ), 'CP_Quack-echo-2020-08-23-06-01-02')
 
     self.assertEqual(
-        beam_tables.source_from_filename(
+        beam_tables._source_from_filename(
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
   def test_read_scan_text(self):
     p = TestPipeline()
-    pipeline = beam_tables.read_scan_text(
+    pipeline = beam_tables._read_scan_text(
         p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
 
     beam_test_util.assert_that(
@@ -118,35 +118,35 @@ class PipelineMainTest(unittest.TestCase):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertTrue(
-        beam_tables.between_dates(filename, datetime.date(2020, 5, 10),
-                                  datetime.date(2020, 5, 12)))
+        beam_tables._between_dates(filename, datetime.date(2020, 5, 10),
+                                   datetime.date(2020, 5, 12)))
     self.assertTrue(
-        beam_tables.between_dates(filename, datetime.date(2020, 5, 11),
-                                  datetime.date(2020, 5, 11)))
+        beam_tables._between_dates(filename, datetime.date(2020, 5, 11),
+                                   datetime.date(2020, 5, 11)))
     self.assertTrue(
-        beam_tables.between_dates(filename, None, datetime.date(2020, 5, 12)))
+        beam_tables._between_dates(filename, None, datetime.date(2020, 5, 12)))
     self.assertTrue(
-        beam_tables.between_dates(filename, datetime.date(2020, 5, 10), None))
-    self.assertTrue(beam_tables.between_dates(filename, None, None))
+        beam_tables._between_dates(filename, datetime.date(2020, 5, 10), None))
+    self.assertTrue(beam_tables._between_dates(filename, None, None))
 
   def test_not_between_dates(self):
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertFalse(
-        beam_tables.between_dates(filename, datetime.date(2020, 5, 12),
-                                  datetime.date(2020, 5, 10)))
+        beam_tables._between_dates(filename, datetime.date(2020, 5, 12),
+                                   datetime.date(2020, 5, 10)))
     self.assertFalse(
-        beam_tables.between_dates(filename, None, datetime.date(2020, 5, 10)))
+        beam_tables._between_dates(filename, None, datetime.date(2020, 5, 10)))
     self.assertFalse(
-        beam_tables.between_dates(filename, datetime.date(2020, 5, 12), None))
+        beam_tables._between_dates(filename, datetime.date(2020, 5, 12), None))
 
-  def parse_received_headers(self):
+  def test_parse_received_headers(self):
     headers = {
         'Content-Language': ['en', 'fr'],
         'Content-Type': ['text/html; charset=iso-8859-1']
     }
 
-    flat_headers = beam_tables.parse_received_headers(headers)
+    flat_headers = beam_tables._parse_received_headers(headers)
 
     expected_headers = [
         'Content-Language: en', 'Content-Language: fr',
@@ -170,7 +170,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     # pyformat: enable
 
-    parsed = beam_tables.parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self):
@@ -188,7 +188,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     # pyformat: enable
 
-    parsed = beam_tables.parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self):
@@ -232,7 +232,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     # pyformat: enable
 
-    parsed = beam_tables.parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self):
@@ -298,7 +298,7 @@ class PipelineMainTest(unittest.TestCase):
     }]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-    rows = list(beam_tables.flatten_measurement(filename, line))
+    rows = list(beam_tables._flatten_measurement(filename, line))
     self.assertEqual(len(rows), 2)
 
     # Measurement ids should be the same
@@ -350,7 +350,7 @@ class PipelineMainTest(unittest.TestCase):
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
-    row = list(beam_tables.flatten_measurement(filename, line))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -410,7 +410,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
-    row = list(beam_tables.flatten_measurement(filename, line))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -493,7 +493,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     # pyformat: enable
 
-    row = list(beam_tables.flatten_measurement(filename, line))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
 
@@ -503,7 +503,7 @@ class PipelineMainTest(unittest.TestCase):
     line = 'invalid json'
 
     with self.assertLogs(level='WARNING') as cm:
-      rows = list(beam_tables.flatten_measurement('test_filename.json', line))
+      rows = list(beam_tables._flatten_measurement('test_filename.json', line))
       self.assertEqual(
           cm.output[0], 'WARNING:root:JSONDecodeError: '
           'Expecting value: line 1 column 1 (char 0)\n'
@@ -540,7 +540,7 @@ class PipelineMainTest(unittest.TestCase):
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
                                                     None, FakeIpMetadata, None)
 
-    rows_with_metadata = runner.add_metadata(rows)
+    rows_with_metadata = runner._add_metadata(rows)
     beam_test_util.assert_that(
         rows_with_metadata,
         beam_test_util.equal_to([{
@@ -592,14 +592,14 @@ class PipelineMainTest(unittest.TestCase):
   def test_make_date_ip_key(self):
     row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
     self.assertEqual(
-        beam_tables.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
+        beam_tables._make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
   def test_add_ip_metadata(self):
     runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
                                                     None, FakeIpMetadata, None)
 
     metadatas = list(
-        runner.add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+        runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1 = ('2020-01-01', '1.1.1.1')
     expected_value_1 = {
@@ -670,7 +670,7 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }]
 
-    rows_with_metadata = list(beam_tables.merge_metadata_with_rows(key, value))
+    rows_with_metadata = list(beam_tables._merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
 
 
