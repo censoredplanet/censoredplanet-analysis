@@ -11,15 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# pyformat: disable
-r"""Orchestrate the pieces of the Censored Planet Data Pipeline.
+"""Orchestrate the pieces of the Censored Planet Data Pipeline.
 
 This script is means to be run on a GCE machine.
 To deploy to GCE use the deploy.sh script.
 """
-# pyformat: enable
 import subprocess
+import sys
 import time
 
 import schedule
@@ -41,7 +39,10 @@ def run_pipeline():
   # It would require all the deps to be packaged and installed on the workers
   # which in our case requires packaging up many google cloud packages
   # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run(['python3', 'pipeline/beam_tables.py', '--env=prod'],
+  subprocess.run([
+      sys.executable, '-m', 'pipeline.run_beam_tables', '--env=prod',
+      '--scan_type=all'
+  ],
                  check=True,
                  stdout=subprocess.PIPE)
 

@@ -11,20 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Dependency setup for beam remote workers."""
 
-import setuptools
+import datetime
+from typing import Optional, Tuple
 
-setuptools.setup(
-    name='censoredplanet-analysis',
-    version='0.0.1',
-    install_requires=['pyasn==1.6.1'],
-    # Add a prefix so absolute import succeeds on workers.
-    packages=['pipeline', 'pipeline.metadata'],
-    package_dir={
-        'pipeline.metadata': './metadata',
-        'pipeline': './'
-    },
-    url='https://github.com/Jigsaw-Code/censoredplanet-analysis',
-    author='Sarah Laplante',
-    author_email='laplante@google.com')
+
+class IpMetadataInterface(object):
+  """Interface for an IP Metadata lookup database."""
+
+  def __init__(
+      self,
+      date: datetime.date,
+      cloud_data_location: str,
+      allow_previous_day: bool,
+  ):
+    pass
+
+  def lookup(
+      self, ip: str
+  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
+             Optional[str]]:
+    pass

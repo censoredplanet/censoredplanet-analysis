@@ -24,8 +24,7 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
-# Public Firehook bucket for storing CAIDA files.
-CLOUD_DATA_LOCATION = "gs://censoredplanet_geolocation/caida/"
+from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
@@ -40,7 +39,7 @@ AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
 
 def _read_compressed_file(filepath: str) -> Iterator[str]:
-  """Read in a compressed file as a decompressed string iterator
+  """Read in a compressed file as a decompressed string iterator.
 
   Args:
     filepath: a path to a compressed file. Could be either local like
@@ -160,7 +159,7 @@ def _parse_as_to_org_map_remainder(
       readable_name, country = org_id_to_country_map[org_id]
       asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
     except KeyError as e:
-      logging.warning("Missing org country info for asn %s %s", asn, e)
+      logging.warning(f"Missing org country info for asn {asn} {e}")
       asn_to_org_info_map[int(asn)] = (asn_name, None, None)
 
   return asn_to_org_info_map
@@ -190,37 +189,29 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class IpMetadata(object):
+class IpMetadata(IpMetadataInterface):
   """A lookup table which contains network metadata about IPs."""
 
   def __init__(
       self,
       date: datetime.date,
       cloud_data_location: str,
-      latest_as2org_filepath: str,
-      latest_as2class_filepath: str,
-      allow_previous_day=False,
+      allow_previous_day: bool,
   ):
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
       date: a date to initialize the asn database to
       cloud_data_location: GCS bucket folder name like "gs://bucket/folder/"
-      latest_as2org_filepath: filepath
-      latest_as2class_filepath: filepath
       allow_previous_day: If the given date's routeview file doesn't exist,
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
     self.cloud_data_location = cloud_data_location
-    self.latest_as2org_filepath = latest_as2org_filepath
-    self.latest_as2class_filepath = latest_as2class_filepath
 
-    as_to_org_map, as_to_type_map = self.get_asn_maps()
-    self.as_to_org_map = as_to_org_map
-    self.as_to_type_map = as_to_type_map
-
-    self.asn_db = self.get_asn_db(date, allow_previous_day)
+    self.as_to_org_map = self._get_asn2org_map()
+    self.as_to_type_map = self._get_asn2type_map()
+    self.asn_db = self._get_asn_db(date, allow_previous_day)
 
   def lookup(
       self, ip: str
@@ -255,24 +246,18 @@ class IpMetadata(object):
 
     return (netblock, asn, as_name, as_full_name, as_type, country)
 
-  def get_asn_maps(self):
-    """Initializes all ASN files as map objects.
-
-    Returns:
-      Tuple of an as2org Dict and as2type Dict
-    """
-    as_to_org_filename = self.cloud_data_location + self.latest_as2org_filepath
-    as_to_type_filename = self.cloud_data_location + self.latest_as2class_filepath
-
+  def _get_asn2org_map(
+      self) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+    as_to_org_filename = self.cloud_data_location + LATEST_AS2ORG_FILEPATH
     as_to_org_file = _read_compressed_file(as_to_org_filename)
+    return _parse_as_to_org_map(as_to_org_file)
+
+  def _get_asn2type_map(self) -> Dict[int, str]:
+    as_to_type_filename = self.cloud_data_location + LATEST_AS2CLASS_FILEPATH
     as_to_type_file = _read_compressed_file(as_to_type_filename)
+    return _parse_as_to_type_map(as_to_type_file)
 
-    as_to_org_map = _parse_as_to_org_map(as_to_org_file)
-    as_to_type_map = _parse_as_to_type_map(as_to_type_file)
-
-    return as_to_org_map, as_to_type_map
-
-  def get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
+  def _get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
     """Return an ASN database object.
 
     Args:
@@ -287,15 +272,15 @@ class IpMetadata(object):
     """
     try:
       self.date = date
-      return self.get_dated_asn_db(self.date)
+      return self._get_dated_asn_db(self.date)
     except FileNotFoundError as ex:
       if allow_previous_day:
         self.date = date - datetime.timedelta(days=1)
-        return self.get_dated_asn_db(self.date)
+        return self._get_dated_asn_db(self.date)
       else:
         raise ex
 
-  def get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
+  def _get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
     """Finds the right routeview file for a given date and returns an ASN DB.
 
     Args:
@@ -307,8 +292,7 @@ class IpMetadata(object):
     Raises:
       FileNotFoundError: when no exactly matching routeview file is found
     """
-    formatted_date = date.isoformat().replace("-", "")
-    file_pattern = "routeviews-rv2-" + formatted_date + "*.pfx2as.gz"
+    file_pattern = f"routeviews-rv2-{date:%Y%m%d}*.pfx2as.gz"
     filepath_pattern = self.cloud_data_location + "routeviews/" + file_pattern
     match = apache_filesystems.FileSystems.match([filepath_pattern], limits=[1])
 
@@ -334,9 +318,7 @@ def get_firehook_ip_metadata_db(
   Returns:
     an IpMetadata for the given date.
   """
-  return IpMetadata(
-      date,
-      CLOUD_DATA_LOCATION,
-      LATEST_AS2ORG_FILEPATH,
-      LATEST_AS2CLASS_FILEPATH,
-      allow_previous_day=allow_previous_day)
+  # import here to avoid beam pickling issues
+  import firehook_resources
+  return IpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
+                    allow_previous_day)

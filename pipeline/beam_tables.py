@@ -11,24 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Beam pipeline for converting json scan files into bigquery tables.
-
-To re-run the full beam pipeline manually (and blow away any old tables) run
-
-python pipeline/main.py --env=prod --incremental=False
-"""
+"""Beam pipeline for converting json scan files into bigquery tables."""
 
 from __future__ import absolute_import
 
-import argparse
-import concurrent
 import datetime
 import json
 import logging
 import os
 import re
 from pprint import pprint
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 import uuid
 
 import apache_beam as beam
@@ -50,47 +43,52 @@ Row = Dict[str, Any]
 # ex: ("2020-01-01", '1.2.3.4')
 DateIpKey = Tuple[str, str]
 
-# Project values
-CLOUD_PROJECT = 'firehook-censoredplanet'
-BEAM_STAGING_LOCATION = 'gs://firehook-dataflow-test/staging'
-BEAM_TEMP_LOCATION = 'gs://firehook-dataflow-test/temp'
-INPUT_BUCKET = 'gs://firehook-scans/'
+# Tables have names like 'echo_scan' and 'http_scan
+BASE_TABLE_NAME = 'scan'
+# Prod data goes in the `firehook-censoredplanet:base' dataset
+PROD_DATASET_NAME = 'base'
 
-# Output table name pieces
-# Tables have names like 'scan' and 'scan_test'
-SCAN_TABLE_NAME = 'scan'
-# Datasets have names like 'echo_results', and 'https_results'
-DATASET_SUFFIX = '_results'
-
+# key: (type, mode)
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
-    'domain': 'string',
-    'ip': 'string',
-    'date': 'date',
-    'start_time': 'timestamp',
-    'end_time': 'timestamp',
-    'retries': 'integer',
-    'sent': 'string',
-    'received': 'string',
-    'error': 'string',
-    'blocked': 'boolean',
-    'success': 'boolean',
-    'fail_sanity': 'boolean',
-    'stateful_block': 'boolean',
-    'measurement_id': 'string',
-    'source': 'string',
+    'domain': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'retries': ('integer', 'nullable'),
+    'sent': ('string', 'nullable'),
+    'error': ('string', 'nullable'),
+    'blocked': ('boolean', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'fail_sanity': ('boolean', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable'),
+
+    # received columns
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
+
     # Columns added from CAIDA data
-    'netblock': 'string',
-    'asn': 'integer',
-    'as_name': 'string',
-    'as_full_name': 'string',
-    'as_class': 'string',
-    'country': 'string',
+    'netblock': ('string', 'nullable'),
+    'asn': ('integer', 'nullable'),
+    'as_name': ('string', 'nullable'),
+    'as_full_name': ('string', 'nullable'),
+    'as_class': ('string', 'nullable'),
+    'country': ('string', 'nullable'),
 }
 # Future fields
 """
-    'domain_category': 'string',
-    'as_traffic': 'integer',
+    'domain_category': ('string', 'nullable'),
+    'as_traffic': ('integer', 'nullable'),
 """
 
 # Mapping of each scan type to the zone to run its pipeline in.
@@ -102,35 +100,36 @@ SCAN_TYPES_TO_ZONES = {
     'discard': 'us-central1',
 }
 
+ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
+
 # PCollection key names used internally by the beam pipeline
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
-def get_bigquery_schema(
-    field_types: Dict[str, str]) -> beam_bigquery.TableSchema:
+def _get_beam_bigquery_schema(
+    fields: Dict[str, Tuple[str, str]]) -> beam_bigquery.TableSchema:
   """Return a beam bigquery schema for the output table.
 
   Args:
-    field_types: dict of {'field_name': 'column_type'}
+    fields: dict of {'field_name': ['column_type', 'column_mode']}
 
   Returns:
     A bigquery table schema
   """
   table_schema = beam_bigquery.TableSchema()
 
-  for (name, field_type) in field_types.items():
-
+  for (name, (field_type, mode)) in fields.items():
     field_schema = beam_bigquery.TableFieldSchema()
     field_schema.name = name
     field_schema.type = field_type
-    field_schema.mode = 'nullable'  # all fields are flat
+    field_schema.mode = mode
     table_schema.fields.append(field_schema)
 
   return table_schema
 
 
-def source_from_filename(filepath: str) -> str:
+def _source_from_filename(filepath: str) -> str:
   """Get the source string from a scan filename.
 
   Source represents the .tar.gz container which held this file.
@@ -147,7 +146,7 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
-def get_existing_datasources(table_name: str) -> List[str]:
+def _get_existing_datasources(table_name: str) -> List[str]:
   """Given a table return all sources that contributed to the table.
 
   Args:
@@ -175,12 +174,12 @@ def get_existing_datasources(table_name: str) -> List[str]:
   return sources
 
 
-def make_tuple(line: str, filename: str) -> Tuple[str, str]:
+def _make_tuple(line: str, filename: str) -> Tuple[str, str]:
   """Helper method for making a tuple from two args."""
   return (filename, line)
 
 
-def read_scan_text(
+def _read_scan_text(
     p: beam.Pipeline,
     filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
   """Read in all individual lines for the given data sources.
@@ -205,7 +204,7 @@ def read_scan_text(
 
     # PCollection[Tuple[filename,line]]
     lines_with_filenames = (
-        lines | step_name >> beam.Map(make_tuple, filename).with_output_types(
+        lines | step_name >> beam.Map(_make_tuple, filename).with_output_types(
             Tuple[str, str]))
 
     line_pcollections_per_file.append(lines_with_filenames)
@@ -219,9 +218,9 @@ def read_scan_text(
   return lines
 
 
-def between_dates(filename: str,
-                  start_date: Optional[datetime.date] = None,
-                  end_date: Optional[datetime.date] = None) -> bool:
+def _between_dates(filename: str,
+                   start_date: Optional[datetime.date] = None,
+                   end_date: Optional[datetime.date] = None) -> bool:
   """Return true if a filename is between (or matches either of) two dates.
 
   Args:
@@ -245,13 +244,69 @@ def between_dates(filename: str,
     return True
 
 
-def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
+def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
+  """Flatten headers from a dictionary of headers to value lists.
+
+  Args:
+    headers: Dict from a header key to a list of headers.
+      {"Content-Language": ["en", "fr"],
+       "Content-Type": ["text/html; charset=iso-8859-1"]}
+
+  Returns:
+    A list of key-value headers pairs as flat strings.
+    ["Content-Language: en",
+     "Content-Language: fr",
+     "Content-Type: text/html; charset=iso-8859-1"]
+  """
+  # TODO decide whether the right approach here is turning each value into its
+  # own string, or turning each key into its own string with the values as a
+  # comma seperated list.
+  # The right answer depends on whether people will be querying mostly for
+  # individual values, or for specific combinations of values.
+  flat_headers = []
+  for key, values in headers.items():
+    for value in values:
+      flat_headers.append(key + ': ' + value)
+  return flat_headers
+
+
+def _parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
+  """Parse a received field into a section of a row to write to bigquery.
+
+  Args:
+    received: a dict parsed from json data, or a str
+
+  Returns:
+    a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
+  """
+  if isinstance(received, str):
+    return {'received_status': received}
+
+  row = {
+      'received_status': received['status_line'],
+      'received_body': received['body'],
+      'received_headers': _parse_received_headers(received.get('headers', {})),
+  }
+
+  tls = received.get('tls', None)
+  if tls:
+    tls_row = {
+        'received_tls_version': tls['version'],
+        'received_tls_cipher_suite': tls['cipher_suite'],
+        'received_tls_cert': tls['cert']
+    }
+    row.update(tls_row)
+
+  return row
+
+
+def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
     filename: a filepath string
     line: a json string describing a censored planet measurement. example
-    {'Keyword': 'test.com,
+    {'Keyword': 'test.com',
      'Server': '1.2.3.4',
      'Results': [{'Success': true},
                  {'Success': false}]}
@@ -261,7 +316,7 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     {'column_name': field_value}
     examples:
     {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': false}
   """
 
   try:
@@ -275,12 +330,16 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   random_measurement_id = uuid.uuid4().hex
 
   for result in scan['Results']:
-    received = result.get('Received', '')
-    if isinstance(received, str):
-      received_flat = received
+    if 'Received' in result:
+      received = result.get('Received', '')
+      received_fields = _parse_received_data(received)
     else:
-      # TODO figure out a better way to deal with the structure in http/https
-      received_flat = json.dumps(received)
+      received_fields = {}
+
+    if 'Error' in result:
+      error_field = {'error': result['Error']}
+    else:
+      error_field = {}
 
     date = result['StartTime'][:10]
     row = {
@@ -291,134 +350,27 @@ def flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         'end_time': result['EndTime'],
         'retries': scan['Retries'],
         'sent': result['Sent'],
-        'received': received_flat,
-        'error': result.get('Error', ''),
         'blocked': scan['Blocked'],
         'success': result['Success'],
         'fail_sanity': scan['FailSanity'],
         'stateful_block': scan['StatefulBlock'],
         'measurement_id': random_measurement_id,
-        'source': source_from_filename(filename),
+        'source': _source_from_filename(filename),
     }
+
+    row.update(received_fields)
+    row.update(error_field)
+
     yield row
 
 
-def make_date_ip_key(row: Row) -> DateIpKey:
+def _make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
 
 
-def add_metadata(
-    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
-  """Add ip metadata to a collection of roundtrip rows.
-
-  Args:
-    rows: beam.PCollection[Row]
-
-  Returns:
-    PCollection[Row]
-    The same rows as above with with additional metadata columns added.
-  """
-
-  # PCollection[Tuple[DateIpKey,Row]]
-  rows_keyed_by_ip_and_date = (
-      rows
-      | 'key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-          Tuple[DateIpKey, Row]))
-
-  # PCollection[DateIpKey]
-  ips_and_dates = (
-      rows_keyed_by_ip_and_date
-      | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
-
-  # PCollection[DateIpKey]
-  deduped_ips_and_dates = (
-      ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
-
-  # PCollection[Tuple[date,List[ip]]]
-  grouped_ips_by_dates = (
-      deduped_ips_and_dates | 'group by date' >>
-      beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
-
-  # PCollection[Tuple[DateIpKey,Row]]
-  ips_with_metadata = (
-      grouped_ips_by_dates
-      |
-      'get ip metadata' >> beam.FlatMapTuple(add_ip_metadata).with_output_types(
-          Tuple[DateIpKey, Row]))
-
-  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
-  grouped_metadata_and_rows = (({
-      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-  }) | 'group by keys' >> beam.CoGroupByKey())
-
-  # PCollection[Row]
-  rows_with_metadata = (
-      grouped_metadata_and_rows
-      | 'merge metadata with rows' >>
-      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
-
-  return rows_with_metadata
-
-
-def add_ip_metadata(date: str,
-                    ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
-  """Add Autonymous System metadata for ips in the given rows.
-
-  Args:
-    date: a 'YYYY-MM-DD' date key
-    ips: a list of ips
-
-  Yields:
-    Tuples (DateIpKey, metadata_dict)
-    where metadata_dict is a row Dict[column_name, values]
-  """
-  ip_metadata = None
-
-  # This class needs to be imported here
-  # since this function will be called on remote workers.
-  try:
-    # On workers we import relative to setup.py
-    from metadata.ip_metadata import get_firehook_ip_metadata_db
-
-    ip_metadata = get_firehook_ip_metadata_db(
-        datetime.date.fromisoformat(date), allow_previous_day=True)
-
-  except ImportError:
-    # For tests we import relative to the top-level test call
-    # and we import a fake
-    logging.warning('Using a fake IpMetadata for testing')
-    from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
-
-    ip_metadata = FakeIpMetadata(
-        datetime.date.fromisoformat(date), allow_previous_day=True)
-
-  for ip in ips:
-    metadata_key = (date, ip)
-
-    try:
-      (netblock, asn, as_name, as_full_name, as_type,
-       country) = ip_metadata.lookup(ip)
-      metadata_values = {
-          'netblock': netblock,
-          'asn': asn,
-          'as_name': as_name,
-          'as_full_name': as_full_name,
-          'as_class': as_type,
-          'country': country,
-      }
-
-    except KeyError as e:
-      logging.warning('KeyError: %s\n', e)
-      metadata_values = {}  # values are missing, but entry should still exist
-
-    yield (metadata_key, metadata_values)
-
-
-def merge_metadata_with_rows(key: DateIpKey,
-                             value: Dict[str, List[Row]]) -> Iterator[Row]:
+def _merge_metadata_with_rows(key: DateIpKey,
+                              value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -446,7 +398,7 @@ def merge_metadata_with_rows(key: DateIpKey,
     yield new_row
 
 
-def get_partition_params() -> Dict[str, Any]:
+def _get_partition_params() -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Returns: A dict of query params, See:
@@ -465,76 +417,93 @@ def get_partition_params() -> Dict[str, Any]:
   return partition_params
 
 
-def get_job_name(scan_type: str, incremental_load: bool, env: str) -> str:
+def get_job_name(table_name: str, incremental_load: bool) -> str:
   """Creates the job name for the beam pipeline.
 
   Pipelines with the same name cannot run simultaneously.
 
   Args:
-    scan_type: one of 'echo', 'discard', 'http', 'https'
+    table_name: a dataset.table name like 'base.scan_echo'
     incremental_load: boolean. whether the job is incremental.
-    env: one of 'prod' or 'dev.
 
   Returns:
-    A string like 'echo-flatten-add-metadata-prod-incremental'
+    A string like 'write-base-scan-echo'
   """
-  job_name = scan_type + '-flatten-add-metadata-' + env
+  # no underscores or periods are allowed in beam job names
+  fixed_table_name = table_name.replace('_', '-').replace('.', '-')
+
   if incremental_load:
-    job_name = job_name + '-incremental'
-  return job_name
+    return 'append-' + fixed_table_name
+  else:
+    return 'write-' + fixed_table_name
+
+
+def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
+  """Construct a bigquery table name.
+
+  Args:
+    dataset_name: dataset name like 'base' or 'laplante'
+    scan_type: data type, one of 'echo', 'discard', 'http', 'https'
+    base_table_name: table name like 'scan'
+
+  Returns:
+    a dataset.table name like 'base.echo_scan'
+  """
+  return f'{dataset_name}.{scan_type}_{base_table_name}'
 
 
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, table_name: str, dataset_suffix: str,
-               schema: Dict[str, str], bucket: str, staging_location: str,
-               temp_location: str):
+  def __init__(self, project: str, schema: Dict[str, str], bucket: str,
+               staging_location: str, temp_location: str,
+               ip_metadata_class: type, ip_metadata_bucket_folder: str):
+    """Initialize a pipeline runner.
+
+    Args:
+      project: google cluod project name
+      schema: bigquery schema
+      bucket: gcs bucket name
+      staging_location: gcs bucket name, used for staging beam data
+      temp_location: gcs bucket name, used for temp beam data
+      ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
+      ip_metadata_bucket_folder: gcs folder with ip metadata files
+    """
     self.project = project
-    self.base_table_name = table_name
-    self.dataset_suffix = dataset_suffix
     self.schema = schema
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
+    # Because an instantiated IpMetadata object is too big for beam's
+    # serlalization to pass around we pass in the class to instantiate instead.
+    self.ip_metadata_class = ip_metadata_class
+    self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
 
-  def get_table_name(self, scan_type, env):
-    """Get a bigquery table name.
+  def _get_full_table_name(self, table_name: str):
+    """Get a full project:dataset.table name.
 
     Args:
-      scan_type: data type, one of 'echo', 'discard', 'http', 'https'
-      env: one of 'prod' or 'dev'.
+      table_name: a dataset.table name
 
     Returns:
-      a string table name like 'firehook-censoredplanet:echo_results.scan_test'
-
-    Raises:
-      Exception: if the env is invalid.
+      project:dataset.table name
     """
-    if env == 'dev':
-      table_name = self.base_table_name + '_test'
-    elif env == 'prod':
-      table_name = self.base_table_name
-    else:
-      raise Exception('Invalid env: ' + env)
+    return self.project + ':' + table_name
 
-    dataset = scan_type + self.dataset_suffix
-    return self.project + ':' + dataset + '.' + table_name
-
-  def data_to_load(self,
-                   gcs: GCSFileSystem,
-                   scan_type: str,
-                   incremental_load: bool,
-                   table_name: str,
-                   start_date: Optional[datetime.date] = None,
-                   end_date: Optional[datetime.date] = None) -> List[str]:
+  def _data_to_load(self,
+                    gcs: GCSFileSystem,
+                    scan_type: str,
+                    incremental_load: bool,
+                    table_name: str,
+                    start_date: Optional[datetime.date] = None,
+                    end_date: Optional[datetime.date] = None) -> List[str]:
     """Select the right files to read.
 
     Args:
       gcs: GCSFileSystem object
       scan_type: one of 'echo', 'discard', 'http', 'https'
       incremental_load: boolean. If true, only read the latest new data
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
+      table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read
       end_date: date object, only files at or before this date will be read
 
@@ -544,7 +513,8 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      existing_sources = get_existing_datasources(table_name)
+      full_table_name = self._get_full_table_name(table_name)
+      existing_sources = _get_existing_datasources(full_table_name)
     else:
       existing_sources = []
 
@@ -562,20 +532,108 @@ class ScanDataBeamPipelineRunner():
 
     filtered_filenames = [
         filename for (filename, file_size) in zip(filenames, file_sizes)
-        if (between_dates(filename, start_date, end_date) and
-            source_from_filename(filename) not in existing_sources and
+        if (_between_dates(filename, start_date, end_date) and
+            _source_from_filename(filename) not in existing_sources and
             file_size != 0)
     ]
     return filtered_filenames
 
-  def write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
-                        table_name: str, incremental_load: bool):
+  def _add_metadata(
+      self, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+    """Add ip metadata to a collection of roundtrip rows.
+
+    Args:
+      rows: beam.PCollection[Row]
+
+    Returns:
+      PCollection[Row]
+      The same rows as above with with additional metadata columns added.
+    """
+
+    # PCollection[Tuple[DateIpKey,Row]]
+    rows_keyed_by_ip_and_date = (
+        rows
+        | 'key by ips and dates' >>
+        beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
+            Tuple[DateIpKey, Row]))
+
+    # PCollection[DateIpKey]
+    ips_and_dates = (
+        rows_keyed_by_ip_and_date
+        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+
+    # PCollection[DateIpKey]
+    deduped_ips_and_dates = (
+        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
+
+    # PCollection[Tuple[date,List[ip]]]
+    grouped_ips_by_dates = (
+        deduped_ips_and_dates | 'group by date' >>
+        beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
+
+    # PCollection[Tuple[DateIpKey,Row]]
+    ips_with_metadata = (
+        grouped_ips_by_dates
+        | 'get ip metadata' >> beam.FlatMapTuple(
+            self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
+
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    grouped_metadata_and_rows = (({
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+    }) | 'group by keys' >> beam.CoGroupByKey())
+
+    # PCollection[Row]
+    rows_with_metadata = (
+        grouped_metadata_and_rows
+        | 'merge metadata with rows' >>
+        beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
+
+    return rows_with_metadata
+
+  def _add_ip_metadata(self, date: str,
+                       ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+    """Add Autonymous System metadata for ips in the given rows.
+
+    Args:
+      date: a 'YYYY-MM-DD' date key
+      ips: a list of ips
+
+    Yields:
+      Tuples (DateIpKey, metadata_dict)
+      where metadata_dict is a row Dict[column_name, values]
+    """
+    ip_metadata_db = self.ip_metadata_class(
+        datetime.date.fromisoformat(date), self.ip_metadata_bucket_folder, True)
+    for ip in ips:
+      metadata_key = (date, ip)
+
+      try:
+        (netblock, asn, as_name, as_full_name, as_type,
+         country) = ip_metadata_db.lookup(ip)
+        metadata_values = {
+            'netblock': netblock,
+            'asn': asn,
+            'as_name': as_name,
+            'as_full_name': as_full_name,
+            'as_class': as_type,
+            'country': country,
+        }
+
+      except KeyError as e:
+        logging.warning('KeyError: %s\n', e)
+        metadata_values = {}  # values are missing, but entry should still exist
+
+      yield (metadata_key, metadata_values)
+
+  def _write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
+                         table_name: str, incremental_load: bool):
     """Write out row to a bigquery table.
 
     Args:
       rows: PCollection[Row] of data to write.
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
-        Determines which tables to write to.
+      table_name: dataset.table name like 'base.echo_scan' Determines which
+        tables to write to.
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
 
@@ -588,14 +646,14 @@ class ScanDataBeamPipelineRunner():
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(
-        table_name,
-        schema=get_bigquery_schema(self.schema),
+        self._get_full_table_name(table_name),
+        schema=_get_beam_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=get_partition_params()))
+        additional_bq_parameters=_get_partition_params()))
 
-  def get_pipeline_options(self, scan_type: str,
-                           job_name: str) -> PipelineOptions:
+  def _get_pipeline_options(self, scan_type: str,
+                            job_name: str) -> PipelineOptions:
     """Sets up pipeline options for a beam pipeline.
 
     Args:
@@ -622,14 +680,14 @@ class ScanDataBeamPipelineRunner():
                         job_name: str, table_name: str,
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date]):
-    """Run an apache beam pipeline to load json data into bigquery.
+    """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https'
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
-      table_name: name like 'firehook-censoredplanet:echo_results.scan_test'
+      table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read.
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
@@ -639,143 +697,25 @@ class ScanDataBeamPipelineRunner():
       Exception: if any arguments are invalid or the pipeline fails.
     """
     logging.getLogger().setLevel(logging.INFO)
-    pipeline_options = self.get_pipeline_options(scan_type, job_name)
+    pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
-    new_filenames = self.data_to_load(gcs, scan_type, incremental_load,
-                                      table_name, start_date, end_date)
+    new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
+                                       table_name, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load incrementally')
       return
 
     with beam.Pipeline(options=pipeline_options) as p:
       # PCollection[Tuple[filename,line]]
-      lines = read_scan_text(p, new_filenames)
+      lines = _read_scan_text(p, new_filenames)
 
       # PCollection[Row]
       rows = (
           lines | 'flatten json' >>
-          beam.FlatMapTuple(flatten_measurement).with_output_types(Row))
+          beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
 
       # PCollection[Row]
-      rows_with_metadata = add_metadata(rows)
+      rows_with_metadata = self._add_metadata(rows)
 
-      self.write_to_bigquery(rows_with_metadata, table_name, incremental_load)
-
-  def run_all_scan_types(self,
-                         incremental_load: bool,
-                         env: str,
-                         start_date: Optional[datetime.date] = None,
-                         end_date: Optional[datetime.date] = None):
-    """Runs the beam pipelines for all scan types in parallel.
-
-    Args:
-      incremental_load: boolean. If true, only load the latest new data, if
-        false reload all data.
-      env: one of 'prod' or 'dev. Determines which tables to write to.
-      start_date: date object, only files after or at this date will be read.
-        Mostly only used during development.
-      end_date: date object, only files at or before this date will be read.
-        Mostly only used during development.
-
-    Returns:
-      True on success
-
-    Raises:
-      Exception: if any of the pipelines fail or don't finish.
-    """
-    scan_types = SCAN_TYPES_TO_ZONES.keys()
-
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-      futures = []
-      for scan_type in scan_types:
-        job_name = get_job_name(scan_type, incremental_load, env)
-        table_name = self.get_table_name(scan_type, env)
-
-        future = pool.submit(self.run_beam_pipeline, scan_type,
-                             incremental_load, job_name, table_name, start_date,
-                             end_date)
-        futures.append(future)
-
-      finished, pending = concurrent.futures.wait(
-          futures, return_when=concurrent.futures.FIRST_EXCEPTION)
-
-      exceptions = [
-          future.exception() for future in finished if future.exception()
-      ]
-      if exceptions:
-        # If there were any exceptions just raise the first one.
-        raise exceptions[0]
-
-      if pending:
-        raise Exception('Some pipelines failed to finish: ', pending,
-                        'finished: ', finished)
-      return True
-
-  def run_dev(self, scan_type: str, incremental_load: bool):
-    """Run a dev pipeline for testing.
-
-    Dev only needs to load a week of data of one type for testing.
-    For incremental loads use the last week of data.
-    for full loads use data from two weeks ago.
-    (This is to make it easier to test the full and then incremental loads
-    together when developing.)
-
-    Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https' or 'all'
-      incremental_load: boolean. If true, only load the latest new data.
-    """
-    if incremental_load:
-      end_day = datetime.date.today()
-    else:
-      end_day = datetime.date.today() - datetime.timedelta(days=7)
-    start_day = end_day - datetime.timedelta(days=7)
-
-    if scan_type == 'all':
-      self.run_all_scan_types(incremental_load, 'dev', start_day, end_day)
-    else:
-      job_name = get_job_name(scan_type, incremental_load, 'dev')
-      table_name = self.get_table_name(scan_type, 'dev')
-
-      self.run_beam_pipeline(scan_type, incremental_load, job_name, table_name,
-                             start_day, end_day)
-
-
-def get_firehook_beam_pipeline_runner():
-  """Factory function to get a beam pipeline class with firehook values."""
-
-  return ScanDataBeamPipelineRunner(CLOUD_PROJECT, SCAN_TABLE_NAME,
-                                    DATASET_SUFFIX, SCAN_BIGQUERY_SCHEMA,
-                                    INPUT_BUCKET, BEAM_STAGING_LOCATION,
-                                    BEAM_TEMP_LOCATION)
-
-
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
-  parser.add_argument(
-      '--full',
-      action='store_true',
-      default=False,
-      help='Run over all files and not just the latest (rebuilds tables)')
-  parser.add_argument(
-      '--env',
-      type=str,
-      default='dev',
-      choices=['dev', 'prod'],
-      help='Whether to run over prod or dev data')
-  parser.add_argument(
-      '--scan_type',
-      type=str,
-      default='echo',
-      choices=['all'] + list(SCAN_TYPES_TO_ZONES.keys()),
-      help='Which type of scan to run over')
-  args = parser.parse_args()
-
-  incremental = not args.full
-
-  runner = get_firehook_beam_pipeline_runner()
-
-  if args.env == 'dev':
-    runner.run_dev(args.scan_type, incremental)
-  elif args.env == 'prod':
-    runner.run_all_scan_types(incremental, 'prod')
+      self._write_to_bigquery(rows_with_metadata, table_name, incremental_load)
