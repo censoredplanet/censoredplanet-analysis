@@ -19,7 +19,7 @@ python -m pipeline.run_beam_tables --env=prod --incremental=False
 """
 
 import argparse
-import concurrent
+import concurrent.futures
 import datetime
 import os
 import pwd

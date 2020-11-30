@@ -455,8 +455,8 @@ def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, schema: Dict[str, str], bucket: str,
-               staging_location: str, temp_location: str,
+  def __init__(self, project: str, schema: Dict[str, Tuple[str, str]],
+               bucket: str, staging_location: str, temp_location: str,
                ip_metadata_class: type, ip_metadata_bucket_folder: str):
     """Initialize a pipeline runner.
 

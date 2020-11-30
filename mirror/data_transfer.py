@@ -75,7 +75,8 @@ def setup_transfer_service(project_name: str, source_bucket: str,
       }
   }
 
-  result = storagetransfer.transferJobs().create(body=transfer_job).execute()
+  result = storagetransfer.transferJobs().create(
+      body=transfer_job).execute()  # type: ignore
   print(f'Returned transferJob: {json.dumps(result, indent=4)}')
 
 

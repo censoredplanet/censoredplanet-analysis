@@ -87,7 +87,7 @@ class ScanfileMirror():
         scan_type = potential_scan_type
 
     if not scan_type:
-      raise Exception("Couldn't determine scan type for filename " + tar_name)
+      raise Exception(f'Couldn\'t determine scan type for filename {tar_name}')
 
     tmp_filepath = os.path.join('/tmp', tar_name)
     tar_folder = tar_name[:-7]  # remove the extensions
@@ -101,7 +101,10 @@ class ScanfileMirror():
     tfile = tarfile.open(tmp_filepath, 'r:gz')
     for entry in tfile:
       if entry.isfile():
-        with tfile.extractfile(entry) as unzipped_file:
+        unzipped_file = tfile.extractfile(entry)
+        if unzipped_file is None:
+          raise Exception(f'No data associated with member {entry}')
+        with unzipped_file:
           # Re-zip the individual files for upload
           filename_rezipped = pathlib.PurePosixPath(entry.name).name + '.gz'
           filepath_rezipped = os.path.join(tmp_folder, filename_rezipped)
@@ -166,7 +169,7 @@ class ScanfileMirror():
     untarred_files = self._get_all_untarred_filepaths()
     new_files = self._get_missing_tarred_files(tarred_files, untarred_files)
 
-    files_with_extensions = [filename + '.tar.gz' for filename in new_files]
+    files_with_extensions = [f'{filename}.tar.gz' for filename in new_files]
 
     if not files_with_extensions:
       pprint('no new scan files to untar')

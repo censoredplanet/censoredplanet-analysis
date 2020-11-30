@@ -43,13 +43,13 @@ Individual pieces of the pipeline can be run manually.
 These scripts pull in a large amount of data from external datasources and
 mirror it in the correct locations in google cloud buckets.
 
-`python -m mirror.untar_files.sync`
+`python -m mirror.untar_files.sync_files`
 
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool to
 decompress missing files.
 
-`python -m mirror.routeviews.sync`
+`python -m mirror.routeviews.sync_routeviews`
 
 Transfers in the latest missing CAIDA routeview files. (Can only mirror in data
 from the last 30 days of data.)
@@ -81,6 +81,6 @@ To run all tests run
 
 To typecheck all files install mypy and run
 
-`mypy ^env**/*.py`
+`mypy **/*.py`
 
 This produces some spurious errors because of missing types in dependencies

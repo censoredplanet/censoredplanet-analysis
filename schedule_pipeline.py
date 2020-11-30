@@ -22,8 +22,8 @@ import time
 
 import schedule
 
-from mirror.untar_files.sync import get_firehook_scanfile_mirror
-from mirror.routeviews.sync import get_firehook_routeview_mirror
+from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
+from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from table.run_queries import rebuild_all_tables
 
 
