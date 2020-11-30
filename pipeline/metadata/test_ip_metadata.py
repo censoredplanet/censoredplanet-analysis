@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 from typing import Iterable
 import unittest
 
@@ -20,16 +19,6 @@ from pipeline.metadata import ip_metadata
 
 
 class IpMetadataTest(unittest.TestCase):
-
-  def test_init_and_lookup(self):
-    # This E2E test requires the user to have get access to the
-    # gs://censoredplanet_geolocation bucket.
-    ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(
-        datetime.date(2018, 7, 27))
-    metadata = ip_metadata_db.lookup("1.1.1.1")
-
-    self.assertEqual(metadata, ("1.1.1.0/24", 13335, "CLOUDFLARENET",
-                                "Cloudflare, Inc.", "Content", "US"))
 
   def test_read_compressed_file(self):
     filepath = "pipeline/metadata/test_file.txt.gz"
