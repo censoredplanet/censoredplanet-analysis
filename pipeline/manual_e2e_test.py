@@ -53,21 +53,21 @@ JOB_NAME = 'manual_test_job'
 #
 # These files contain real sample data, usually 4 measurements each, the first 2
 # are measurements that succeeded, the last two are measurements that failed.
-def local_data_to_load_1(*_) -> List[str]:
+def local_data_to_load_1(*_) -> List[str]:  # type: ignore
   return [
       'pipeline/e2e_test_data/http_results.json',
       'pipeline/e2e_test_data/https_results.json'
   ]
 
 
-def local_data_to_load_2(*_) -> List[str]:
+def local_data_to_load_2(*_) -> List[str]:  # type: ignore
   return [
       'pipeline/e2e_test_data/discard_results.json',
       'pipeline/e2e_test_data/echo_results.json'
   ]
 
 
-def get_local_pipeline_options(*_) -> PipelineOptions:
+def get_local_pipeline_options(*_) -> PipelineOptions:  # type: ignore
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
   return PipelineOptions(
@@ -77,22 +77,22 @@ def get_local_pipeline_options(*_) -> PipelineOptions:
       temp_location=firehook_resources.BEAM_TEMP_LOCATION)
 
 
-def run_local_pipeline(incremental=False):
+def run_local_pipeline(incremental: bool = False) -> None:
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
-  test_runner._get_pipeline_options = get_local_pipeline_options
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   # Monkey patch the data_to_load method to load only local data
   if incremental:
-    test_runner._data_to_load = local_data_to_load_1
+    test_runner._data_to_load = local_data_to_load_1  # type: ignore
   else:
-    test_runner._data_to_load = local_data_to_load_2
+    test_runner._data_to_load = local_data_to_load_2  # type: ignore
 
   test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
 
 
-def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str):
+def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str) -> None:
   try:
     client.get_table(table_name)
     client.delete_table(table_name)
@@ -100,13 +100,13 @@ def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str):
     pass
 
 
-def get_bq_rows(client: cloud_bigquery.Client, table_name: str):
+def get_bq_rows(client: cloud_bigquery.Client, table_name: str) -> List:
   return list(client.query(f'SELECT * FROM {table_name}').result())
 
 
 class PipelineManualE2eTest(unittest.TestCase):
 
-  def test_pipeline_e2e(self):
+  def test_pipeline_e2e(self) -> None:
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
@@ -144,7 +144,7 @@ class PipelineManualE2eTest(unittest.TestCase):
     finally:
       clean_up_bq_table(client, BQ_TEST_TABLE)
 
-  def test_ipmetadata_init(self):
+  def test_ipmetadata_init(self) -> None:
     # This E2E test requires the user to have get access to the
     # gs://censoredplanet_geolocation bucket.
     ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(

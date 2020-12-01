@@ -26,13 +26,13 @@ from google.cloud import bigquery as cloud_bigquery
 client = cloud_bigquery.Client()
 
 
-def run_query(filepath: str):
+def run_query(filepath: str) -> cloud_bigquery.table.RowIterator:
   with open(filepath) as sql:
     query_job = client.query(sql.read())
   return query_job.result()
 
 
-def rebuild_all_tables():
+def rebuild_all_tables() -> None:
   for filepath in glob.glob('table/queries/*.sql'):
     try:
       run_query(filepath)

@@ -197,7 +197,7 @@ class IpMetadata(IpMetadataInterface):
       date: datetime.date,
       cloud_data_location: str,
       allow_previous_day: bool,
-  ):
+  ) -> None:
     """Create an IP Metadata object by reading/parsing all needed data.
 
     Args:
@@ -257,7 +257,8 @@ class IpMetadata(IpMetadataInterface):
     as_to_type_file = _read_compressed_file(as_to_type_filename)
     return _parse_as_to_type_map(as_to_type_file)
 
-  def _get_asn_db(self, date: datetime.date, allow_previous_day) -> pyasn.pyasn:
+  def _get_asn_db(self, date: datetime.date,
+                  allow_previous_day: bool) -> pyasn.pyasn:
     """Return an ASN database object.
 
     Args:
@@ -305,7 +306,7 @@ class IpMetadata(IpMetadataInterface):
 
 def get_firehook_ip_metadata_db(
     date: datetime.date,
-    allow_previous_day=False,
+    allow_previous_day: bool = False,
 ) -> IpMetadata:
   """Factory to return an IPMetadata object which reads in firehook files.
 

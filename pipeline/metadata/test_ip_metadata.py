@@ -20,12 +20,12 @@ from pipeline.metadata import ip_metadata
 
 class IpMetadataTest(unittest.TestCase):
 
-  def test_read_compressed_file(self):
+  def test_read_compressed_file(self) -> None:
     filepath = "pipeline/metadata/test_file.txt.gz"
     lines = [line for line in ip_metadata._read_compressed_file(filepath)]
     self.assertListEqual(lines, ["test line 1", "test line 2"])
 
-  def test_parse_asn_db(self):
+  def test_parse_asn_db(self) -> None:
     # Sample content for a routeviews-rv2-*.pfx2as file
     # pyformat: disable
     routeview_file_content = iter([
@@ -38,7 +38,7 @@ class IpMetadataTest(unittest.TestCase):
     self.assertEqual(asn_db.lookup("1.0.0.1"), (13335, "1.0.0.0/24"))
     self.assertEqual(asn_db.lookup("8.8.8.8"), (15169, "8.8.8.0/24"))
 
-  def test_parse_org_map(self):
+  def test_parse_org_map(self) -> None:
     # Sample content for an as-org2info.txt file.
     # pyformat: disable
     as2org_file_content = iter([
@@ -63,7 +63,7 @@ class IpMetadataTest(unittest.TestCase):
             394811: ("O1FIBER", "O1.com", "US")
         })
 
-  def test_parse_as_to_type_map(self):
+  def test_parse_as_to_type_map(self) -> None:
     # Sample content for an as2types.txt file
     # pyformat: disable
     as2type_file_content = iter([

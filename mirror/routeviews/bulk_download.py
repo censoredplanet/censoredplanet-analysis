@@ -22,7 +22,7 @@ from google.cloud import storage
 import firehook_resources
 
 
-def download_manual_routeviews(bucket: storage.bucket.Bucket):
+def download_manual_routeviews(bucket: storage.bucket.Bucket) -> None:
   first_date = datetime.date(2018, 7, 27)  # Date of earliest data
   last_date = datetime.date.today()
   datelist = [
@@ -60,7 +60,7 @@ def download_manual_routeviews(bucket: storage.bucket.Bucket):
           raise ex
 
 
-def download_manual_routeviews_firehook():
+def download_manual_routeviews_firehook() -> None:
   client = storage.Client()
   bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)
 

@@ -24,7 +24,7 @@ class IpMetadataInterface(object):
       date: datetime.date,
       cloud_data_location: str,
       allow_previous_day: bool,
-  ):
+  ) -> None:
     pass
 
   def lookup(

@@ -438,7 +438,8 @@ def get_job_name(table_name: str, incremental_load: bool) -> str:
     return 'write-' + fixed_table_name
 
 
-def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
+def get_table_name(dataset_name: str, scan_type: str,
+                   base_table_name: str) -> str:
   """Construct a bigquery table name.
 
   Args:
@@ -457,7 +458,7 @@ class ScanDataBeamPipelineRunner():
 
   def __init__(self, project: str, schema: Dict[str, Tuple[str, str]],
                bucket: str, staging_location: str, temp_location: str,
-               ip_metadata_class: type, ip_metadata_bucket_folder: str):
+               ip_metadata_class: type, ip_metadata_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -479,7 +480,7 @@ class ScanDataBeamPipelineRunner():
     self.ip_metadata_class = ip_metadata_class
     self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
 
-  def _get_full_table_name(self, table_name: str):
+  def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
 
     Args:
@@ -627,7 +628,7 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
-                         table_name: str, incremental_load: bool):
+                         table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
@@ -679,7 +680,7 @@ class ScanDataBeamPipelineRunner():
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
                         job_name: str, table_name: str,
                         start_date: Optional[datetime.date],
-                        end_date: Optional[datetime.date]):
+                        end_date: Optional[datetime.date]) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:

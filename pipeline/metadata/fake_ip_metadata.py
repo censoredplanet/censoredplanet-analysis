@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+from typing import Optional, Tuple
 
 from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
@@ -25,7 +26,7 @@ class FakeIpMetadata(IpMetadataInterface):
       date: datetime.date,
       cloud_data_location: str,
       allow_previous_day: bool,
-  ):
+  ) -> None:
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",
@@ -34,5 +35,8 @@ class FakeIpMetadata(IpMetadataInterface):
             ("8.8.8.0/24", 15169, "GOOGLE", "Google LLC", "Content", "US"),
     }
 
-  def lookup(self, ip: str):
+  def lookup(
+      self, ip: str
+  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
+             Optional[str]]:
     return self.lookup_table[ip]

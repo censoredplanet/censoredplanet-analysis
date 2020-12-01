@@ -39,7 +39,7 @@ import firehook_resources
 
 
 def setup_transfer_service(project_name: str, source_bucket: str,
-                           sink_bucket: str, start_date: datetime.date):
+                           sink_bucket: str, start_date: datetime.date) -> None:
   storagetransfer = googleapiclient.discovery.build('storagetransfer', 'v1')
 
   # Transfer any files created in the last day
@@ -80,7 +80,7 @@ def setup_transfer_service(project_name: str, source_bucket: str,
   print(f'Returned transferJob: {json.dumps(result, indent=4)}')
 
 
-def setup_firehook_data_transfer():
+def setup_firehook_data_transfer() -> None:
   transfer_job_start = datetime.date.today()
   setup_transfer_service(firehook_resources.PROJECT_NAME,
                          firehook_resources.U_MICH_BUCKET,

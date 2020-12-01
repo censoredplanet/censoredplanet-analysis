@@ -55,7 +55,8 @@ def _get_latest_generated_routeview_files() -> List[str]:
 class RouteviewMirror():
   """Syncer to look for any recent routeview files and mirror them in cloud."""
 
-  def __init__(self, bucket: storage.bucket.Bucket, bucket_routeview_path: str):
+  def __init__(self, bucket: storage.bucket.Bucket,
+               bucket_routeview_path: str) -> None:
     """Initialize a client for updating routeviews.
 
     Args:
@@ -65,7 +66,7 @@ class RouteviewMirror():
     self.caida_bucket = bucket
     self.bucket_routeview_path = bucket_routeview_path
 
-  def _get_caida_files_in_bucket(self):
+  def _get_caida_files_in_bucket(self) -> List[str]:
     """Get a list of all caida files stored in our bucket.
 
     Returns:
@@ -77,7 +78,7 @@ class RouteviewMirror():
     filenames = [os.path.basename(blob.name) for blob in blobs]
     return filenames
 
-  def _transfer_new_file(self, filename: str):
+  def _transfer_new_file(self, filename: str) -> None:
     """Transfer a routeview file into the cloud bucket.
 
     Args:
@@ -94,7 +95,7 @@ class RouteviewMirror():
     with httpio.open(url) as output:
       output_blob.upload_from_file(output)
 
-  def sync(self):
+  def sync(self) -> None:
     """Look for new routeview files and transfer them into the cloud bucket."""
     latest_files = _get_latest_generated_routeview_files()
     existing_files = self._get_caida_files_in_bucket()
@@ -109,7 +110,7 @@ class RouteviewMirror():
       pprint(("transferred file: ", new_file))
 
 
-def get_firehook_routeview_mirror():
+def get_firehook_routeview_mirror() -> RouteviewMirror:
   """Factory function to get a RouteviewUpdater with our project values."""
   client = storage.Client()
   bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)

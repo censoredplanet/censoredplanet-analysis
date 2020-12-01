@@ -25,7 +25,7 @@ from pipeline import run_beam_tables
 
 class RunBeamTablesTest(unittest.TestCase):
 
-  def test_run_single_pipelines(self):
+  def test_run_single_pipelines(self) -> None:
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
@@ -38,7 +38,7 @@ class RunBeamTablesTest(unittest.TestCase):
                                                      datetime.date(2020, 1, 1),
                                                      datetime.date(2020, 1, 2))
 
-  def test_run_parallel_pipelines(self):
+  def test_run_parallel_pipelines(self) -> None:
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'laplante',
@@ -52,7 +52,7 @@ class RunBeamTablesTest(unittest.TestCase):
                                                    any_order=True)
 
   @freeze_time('2020-01-15')
-  def test_run_user_pipeline_full(self):
+  def test_run_user_pipeline_full(self) -> None:
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], False)
@@ -62,7 +62,7 @@ class RunBeamTablesTest(unittest.TestCase):
         datetime.date(2020, 1, 1), datetime.date(2020, 1, 8))
 
   @freeze_time('2020-01-15')
-  def test_run_user_pipeline_incremental(self):
+  def test_run_user_pipeline_incremental(self) -> None:
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], True)
@@ -71,7 +71,7 @@ class RunBeamTablesTest(unittest.TestCase):
         'echo', True, 'append-laplante-echo-scan', 'laplante.echo_scan',
         datetime.date(2020, 1, 8), datetime.date(2020, 1, 15))
 
-  def test_main(self):
+  def test_main(self) -> None:
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',

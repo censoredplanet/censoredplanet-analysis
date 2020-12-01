@@ -180,7 +180,7 @@ class ScanfileMirror():
       pprint(('untarred file: ', filename))
 
 
-def get_firehook_scanfile_mirror():
+def get_firehook_scanfile_mirror() -> ScanfileMirror:
   """Factory function to get a Untarrer with our project values/paths."""
   client = storage.Client()
 

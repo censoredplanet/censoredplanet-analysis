@@ -27,7 +27,7 @@ from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from table.run_queries import rebuild_all_tables
 
 
-def run_pipeline():
+def run_pipeline() -> None:
   """Steps of the pipeline to run nightly."""
   get_firehook_scanfile_mirror().sync()
   get_firehook_routeview_mirror().sync()
@@ -49,7 +49,7 @@ def run_pipeline():
   rebuild_all_tables()
 
 
-def run():
+def run() -> None:
   run_pipeline()  # run once when starting to catch new errors when deploying
 
   schedule.every().day.at('04:00').do(run_pipeline)
