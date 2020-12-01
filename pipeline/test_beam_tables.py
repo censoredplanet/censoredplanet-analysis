@@ -166,11 +166,12 @@ class PipelineMainTest(unittest.TestCase):
     expected = {
         'received_status': '403 Forbidden',
         'received_body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
-        'received_headers': []
+        'received_headers': [],
+        'blockpage': True,
     }
     # pyformat: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self):
@@ -184,11 +185,12 @@ class PipelineMainTest(unittest.TestCase):
     expected = {
         'received_status': '403 Forbidden',
         'received_body': '<test-body>',
-        'received_headers': []
+        'received_headers': [],
+        'blockpage': None,
     }
     # pyformat: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self):
@@ -229,10 +231,11 @@ class PipelineMainTest(unittest.TestCase):
             'Server: AkamaiGHost',
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
+        'blockpage': True,
     }
     # pyformat: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self):
@@ -400,6 +403,7 @@ class PipelineMainTest(unittest.TestCase):
             'Location: https://www.csmonitor.com/',
             'Server: HTTP Proxy/1.0',
         ],
+        'blockpage': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': True,
         'success': False,
@@ -483,6 +487,7 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: TS016c74f4=01671efb9a1a400535e215d6f76498a5887425fed793ca942baa75f16076e60e1350988222922fa06fc16f53ef016d9ecd38535fcabf14861525811a7c3459e91086df326f; Path=/',
             'X-Frame-Options: SAMEORIGIN',
         ],
+        'blockpage': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': False,
         'success': False,
