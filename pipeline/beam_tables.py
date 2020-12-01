@@ -31,7 +31,7 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
-from assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND
+from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND
 
 # Custom Types
 #
