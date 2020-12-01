@@ -31,6 +31,7 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
+from assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND
 
 # Custom Types
 #
@@ -108,27 +109,33 @@ ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
-# Path to Maxmind db
-MAXMIND = 'GeoLite2-City.mmdb'
 
 class BlockpageMatcher:
 
   def __init__(self):
-    self.false_positives = None
-    self.blockpages = None
-    self.__load_signatures()
+    self.false_positives = self._load_signatures(FALSE_POSITIVES)
+    self.blockpages = self._load_signatures(BLOCKPAGES)
 
-  def __load_signatures(self):
-    """Load signatures for blockpage matching."""
-    with open("false_positive_signatures.json") as f:
-      false_positives = [json.loads(line) for line in f if line.strip()]
-    self.false_positives = {fp["fingerprint"]: fp["pattern"] for fp in false_positives}
+  def _load_signatures(self, filename: str) -> Dict[str, str]:
+    """Load signatures for blockpage matching.
 
-    with open("blockpage_signatures.json") as f:
-      blockpages = [json.loads(line) for line in f if line.strip()]
-    self.blockpages = {bp["fingerprint"]: bp["pattern"] for bp in blockpages}
+    Args:
+      filename: json file containing signatures
 
-  def match_page(self, page: str):
+    Returns:
+      Dictionary mapping fingerprints to signature patterns
+    """
+    signatures = {}
+    with open(filename) as f:
+      for line in f:
+        try:
+          signature = json.loads(line.strip())
+          signatures[signature["fingerprint"]] = signature["pattern"]
+        except:
+          pass
+    return signatures
+
+  def match_page(self, page: str) -> bool:
     """Check if the input page matches a known blockpage or false positive.
 
     Args:
@@ -383,7 +390,7 @@ def _parse_received_data(received: Union[str, Dict[str, Any]], anomaly: bool) ->
       'blockpage': None,
   }
 
-  if anomaly:
+  if anomaly: # check response for blockpage
     row['blockpage'] = blockpage_matcher.match_page(received['body'])
 
   tls = received.get('tls', None)
