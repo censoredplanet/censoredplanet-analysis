@@ -25,6 +25,7 @@ from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 import uuid
 
 import apache_beam as beam
+import geoip2.database
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -72,6 +73,7 @@ SCAN_BIGQUERY_SCHEMA = {
     # Columns filled only in HTTP/HTTPS tables
     'received_body': ('string', 'nullable'),
     'received_headers': ('string', 'repeated'),
+    'blockpage': ('boolean', 'nullable'),
     # Columns filled only in HTTPS tables
     'received_tls_version': ('integer', 'nullable'),
     'received_tls_cipher_suite': ('integer', 'nullable'),
@@ -105,6 +107,98 @@ ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 # PCollection key names used internally by the beam pipeline
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
+
+# Path to Maxmind db
+MAXMIND = 'GeoLite2-City.mmdb'
+
+class BlockpageMatcher:
+
+  def __init__(self):
+    self.false_positives = None
+    self.blockpages = None
+    self.__load_signatures()
+
+  def __load_signatures(self):
+    """Load signatures for blockpage matching."""
+    with open("false_positive_signatures.json") as f:
+      false_positives = [json.loads(line) for line in f if line.strip()]
+    self.false_positives = {fp["fingerprint"]: fp["pattern"] for fp in false_positives}
+
+    with open("blockpage_signatures.json") as f:
+      blockpages = [json.loads(line) for line in f if line.strip()]
+    self.blockpages = {bp["fingerprint"]: bp["pattern"] for bp in blockpages}
+
+  def match_page(self, page: str):
+    """Check if the input page matches a known blockpage or false positive.
+
+    Args:
+      page: a string containing the HTTP body of the potential blockpage
+
+    Returns:
+      False if page matches a false positive signature.
+      True if page matches a blockpage signature.
+      None otherwise.
+    """
+
+    # Check false positives
+    for fingerprint, pattern in self.false_positives.items():
+      if page.find(pattern) != -1:
+        return False
+
+    # Check blockpages
+    for fingerprint, pattern in self.blockpages.items():
+      if page.find(pattern) != -1:
+        return True
+
+    # No signature match
+    return
+
+
+blockpage_matcher = BlockpageMatcher()
+maxmind = geoip2.database.Reader(MAXMIND)
+
+def _get_country_code(vp: str) -> str:
+  """Get country code for IP address.
+
+  Args:
+    vp: IP address of vantage point (as string)
+
+  Returns:
+    2-letter ISO country code
+  """
+  try:
+    vp_info = maxmind.city(vp)
+    return vp_info.country.iso_code
+  except Exception as e:
+    logging.warning('Maxmind: %s\n', e)
+    return
+
+
+def _get_censys(ips: List[str]) -> cloud_bigquery.table.RowIterator:
+  """Get additional IP information from Censys.
+
+    Args:
+      ips: list of IP addresses (as strings)
+
+    Returns:
+      BigQuery RowIterator for query results
+  """
+  censys = cloud_bigquery.Client()
+
+  # currently using CP Table
+  query = """
+    SELECT
+      ip,
+      asname as asname,
+      http as http,
+      cert as cert,
+      asnum as asnum
+    FROM censoredplanet-v1.cp.as_info_from_censys WHERE ip IN UNNEST({})
+  """.format(ips)
+
+  job = censys.query(query)
+  rows = job.result()
+  return rows
 
 
 def _get_beam_bigquery_schema(
@@ -270,7 +364,7 @@ def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   return flat_headers
 
 
-def _parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
+def _parse_received_data(received: Union[str, Dict[str, Any]], anomaly: bool) -> Row:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
@@ -286,7 +380,11 @@ def _parse_received_data(received: Union[str, Dict[str, Any]]) -> Row:
       'received_status': received['status_line'],
       'received_body': received['body'],
       'received_headers': _parse_received_headers(received.get('headers', {})),
+      'blockpage': None,
   }
+
+  if anomaly:
+    row['blockpage'] = blockpage_matcher.match_page(received['body'])
 
   tls = received.get('tls', None)
   if tls:
@@ -332,7 +430,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   for result in scan['Results']:
     if 'Received' in result:
       received = result.get('Received', '')
-      received_fields = _parse_received_data(received)
+      received_fields = _parse_received_data(received, scan['Blocked'])
     else:
       received_fields = {}
 
@@ -619,6 +717,8 @@ class ScanDataBeamPipelineRunner():
             'as_class': as_type,
             'country': country,
         }
+        if not metadata_values['country']: # try Maxmind
+          metadata_values['country'] = _get_country_code(ip)
 
       except KeyError as e:
         logging.warning('KeyError: %s\n', e)
