@@ -75,6 +75,9 @@ Runs queries to recreate any tables derived from the base tables.
 
 ## Testing
 
+All tests and lint checks will be run on pull requests using
+[github actions](https://github.com/Jigsaw-Code/censoredplanet-analysis/actions)
+
 To run all tests run
 
 `python -m unittest`
@@ -83,4 +86,6 @@ To typecheck all files install mypy and run
 
 `mypy **/*.py`
 
-This produces some spurious errors because of missing types in dependencies
+To format all files install yapf and run
+
+`yapf --in-place --recursive .`

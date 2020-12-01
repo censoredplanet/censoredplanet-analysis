@@ -18,10 +18,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install mypy
+        pip install yapf
     - name: Check types with mypy
       # Get all files with find because ** doesn't expand correctly.
       run: |
         find . -iname '*.py' | xargs mypy
+    - name: Check formatting with yapf
+      run: |
+        yapf --diff --recursive .
     - name: Test with unittest
       run: |
         python -m unittest
