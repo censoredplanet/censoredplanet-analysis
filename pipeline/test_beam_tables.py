@@ -157,7 +157,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(flat_headers, expected_headers)
 
   def test_parse_received_data_http(self) -> None:
-    # pyformat: disable
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'headers': {},
@@ -169,13 +169,13 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
         'received_headers': []
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
-    # pyformat: disable
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'body': '<test-body>'
@@ -187,13 +187,13 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<test-body>',
         'received_headers': []
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
-    # pyformat: disable
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'headers': {
@@ -231,7 +231,7 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
@@ -459,7 +459,7 @@ class PipelineMainTest(unittest.TestCase):
     """
     filename = 'gs://firehook-scans/http/CP_Quack-https-2020-11-06-15-15-31/results.json'
 
-    # pyformat: disable
+    # yapf: disable
     expected_row: beam_tables.Row = {
         'domain': 'www.arabhra.org',
         'ip': '213.175.166.157',
@@ -492,7 +492,7 @@ class PipelineMainTest(unittest.TestCase):
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
     }
-    # pyformat: enable
+    # yapf: enable
 
     row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random

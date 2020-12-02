@@ -27,12 +27,12 @@ class IpMetadataTest(unittest.TestCase):
 
   def test_parse_asn_db(self) -> None:
     # Sample content for a routeviews-rv2-*.pfx2as file
-    # pyformat: disable
+    # yapf: disable
     routeview_file_content = iter([
         "1.0.0.0\t24\t13335",
         "8.8.8.0\t24\t15169",
     ])
-    # pyformat: enable
+    # yapf: enable
     asn_db = ip_metadata._parse_asn_db(routeview_file_content)
 
     self.assertEqual(asn_db.lookup("1.0.0.1"), (13335, "1.0.0.0/24"))
@@ -40,7 +40,7 @@ class IpMetadataTest(unittest.TestCase):
 
   def test_parse_org_map(self) -> None:
     # Sample content for an as-org2info.txt file.
-    # pyformat: disable
+    # yapf: disable
     as2org_file_content = iter([
         "# name: AS Org",
         "# some random",
@@ -53,7 +53,7 @@ class IpMetadataTest(unittest.TestCase):
         "19864|20120320|O1COMM|01CO-ARIN|928772fc737205dea9e069438acaae36_ARIN|ARIN",
         "394811|20160111|O1FIBER|01CO-ARIN|928772fc737205dea9e069438acaae36_ARIN|ARIN"
     ])
-    # pyformat: enable
+    # yapf: enable
 
     as2org_map = ip_metadata._parse_as_to_org_map(as2org_file_content)
     self.assertEqual(
@@ -65,7 +65,7 @@ class IpMetadataTest(unittest.TestCase):
 
   def test_parse_as_to_type_map(self) -> None:
     # Sample content for an as2types.txt file
-    # pyformat: disable
+    # yapf: disable
     as2type_file_content = iter([
         "# format: as|source|type",
         "# date: 20201001",
@@ -76,7 +76,7 @@ class IpMetadataTest(unittest.TestCase):
         "1|CAIDA_class|Transit/Access",
         "4|CAIDA_class|Content"
     ])
-    # pyformat: enable
+    # yapf: enable
 
     as2type_map = ip_metadata._parse_as_to_type_map(as2type_file_content)
     self.assertEqual(as2type_map, {1: "Transit/Access", 4: "Content"})

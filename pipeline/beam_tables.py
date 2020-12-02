@@ -211,9 +211,8 @@ def _read_scan_text(
 
   # PCollection[Tuple[filename,line]]
   lines = (
-      tuple(line_pcollections_per_file)
-      | 'flatten lines' >> beam.Flatten(pipeline=p).with_output_types(
-          Tuple[str, str]))
+      tuple(line_pcollections_per_file) | 'flatten lines' >>
+      beam.Flatten(pipeline=p).with_output_types(Tuple[str, str]))
 
   return lines
 
@@ -553,15 +552,14 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Tuple[DateIpKey,Row]]
     rows_keyed_by_ip_and_date = (
-        rows
-        | 'key by ips and dates' >>
+        rows | 'key by ips and dates' >>
         beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
             Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
     ips_and_dates = (
-        rows_keyed_by_ip_and_date
-        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+        rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
+        beam.Keys().with_output_types(DateIpKey))
 
     # PCollection[DateIpKey]
     deduped_ips_and_dates = (
@@ -574,8 +572,7 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Tuple[DateIpKey,Row]]
     ips_with_metadata = (
-        grouped_ips_by_dates
-        | 'get ip metadata' >> beam.FlatMapTuple(
+        grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
             self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
@@ -586,8 +583,7 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Row]
     rows_with_metadata = (
-        grouped_metadata_and_rows
-        | 'merge metadata with rows' >>
+        grouped_metadata_and_rows | 'merge metadata with rows' >>
         beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
     return rows_with_metadata
