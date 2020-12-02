@@ -82,10 +82,10 @@ To run all tests run
 
 `python -m unittest`
 
-To typecheck all files install mypy and run
+To typecheck all files install `mypy` and run
 
 `mypy **/*.py`
 
-To format all files install yapf and run
+To format all files install `yapf` and run
 
 `yapf --in-place --recursive .`
