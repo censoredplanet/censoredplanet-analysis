@@ -92,7 +92,7 @@ class ScanfileMirror():
     tmp_filepath = os.path.join('/tmp', tar_name)
     tar_folder = tar_name[:-7]  # remove the extensions
     tmp_folder = os.path.join('/tmp', tar_folder)
-    os.mkdir(tmp_folder)
+    os.makedirs(tmp_folder, exist_ok=True)
 
     self.tarred_bucket.get_blob(tar_name).download_to_filename(
         tmp_filepath, timeout=TIMEOUT_5_MINUTES)
@@ -133,6 +133,7 @@ class ScanfileMirror():
     filenames = [  # remove both .tar and .gz
         pathlib.PurePosixPath(pathlib.PurePosixPath(blob.name).stem).stem
         for blob in blobs
+        if pathlib.PurePosixPath(blob.name).suffixes == ['.tar', '.gz']
     ]
     return filenames
 
