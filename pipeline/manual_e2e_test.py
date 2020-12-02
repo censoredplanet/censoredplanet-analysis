@@ -23,7 +23,7 @@ The local pipeline runs twice, once for a full load, and once incrementally.
 import datetime
 import os
 import pwd
-from typing import List
+from typing import List, Any
 import unittest
 import warnings
 
@@ -53,14 +53,14 @@ JOB_NAME = 'manual_test_job'
 #
 # These files contain real sample data, usually 4 measurements each, the first 2
 # are measurements that succeeded, the last two are measurements that failed.
-def local_data_to_load_1(*_) -> List[str]:  # type: ignore
+def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/http_results.json',
       'pipeline/e2e_test_data/https_results.json'
   ]
 
 
-def local_data_to_load_2(*_) -> List[str]:  # type: ignore
+def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/discard_results.json',
       'pipeline/e2e_test_data/echo_results.json'
@@ -84,9 +84,9 @@ def run_local_pipeline(incremental: bool = False) -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   # Monkey patch the data_to_load method to load only local data
   if incremental:
-    test_runner._data_to_load = local_data_to_load_1  # type: ignore
+    test_runner._data_to_load = local_data_to_load_http_and_https  # type: ignore
   else:
-    test_runner._data_to_load = local_data_to_load_2  # type: ignore
+    test_runner._data_to_load = local_data_to_load_discard_and_echo  # type: ignore
 
   test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
