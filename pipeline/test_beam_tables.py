@@ -604,7 +604,7 @@ class PipelineMainTest(unittest.TestCase):
                                                     None, FakeIpMetadata, None)
 
     metadatas = list(
-        runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+        runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8', '1.1.1.3']))
 
     expected_key_1 = ('2020-01-01', '1.1.1.1')
     expected_value_1 = {
@@ -626,8 +626,21 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }
 
+    # Test Maxmind lookup when country data is missing
+    # Cloudflare IPs return Australia
+    expected_key_3 = ('2020-01-01', '1.1.1.3')
+    expected_value_3 = {
+        'netblock': '1.0.0.1/24',
+        'asn': 13335,
+        'as_name': 'CLOUDFLARENET',
+        'as_full_name': 'Cloudflare Inc.',
+        'as_class': 'Content',
+        'country': 'AU',
+    }
+
     self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
-                                     (expected_key_2, expected_value_2)])
+                                     (expected_key_2, expected_value_2),
+                                     (expected_key_3, expected_value_3)])
 
   def test_merge_metadata_with_rows(self):
     key = ('2020-01-01', '1.1.1.1')
