@@ -46,6 +46,7 @@ AS (
     count(1) AS count
   FROM `firehook-censoredplanet.base.https_scan`
   WHERE
+    error IS NULL OR
     NOT SAFE.REGEXP_CONTAINS(error, "too many open files|address already in use|no route to host|connection refused|connect: connection timed out")
   GROUP BY date, country, domain, netblock, result
 );
