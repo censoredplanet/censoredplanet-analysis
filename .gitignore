@@ -1,5 +1,5 @@
 env/
 **/__pycache__/*
 **/*egg-info/*
-pipeline/assets/GeoLite2*.mmdb
-assets/routeviews/*
+pipeline/assets/maxmind/GeoLite2*.mmdb
+pipeline/assets/routeviews/*

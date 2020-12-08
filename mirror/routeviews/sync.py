@@ -129,7 +129,7 @@ def get_firehook_routeview_mirror():
 
 def get_local_routeview_mirror():
   project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-  directory = os.path.join(project_root, 'assets', 'routeviews')
+  directory = os.path.join(project_root, 'pipeline', 'assets', 'routeviews')
   return RouteviewMirror(None, directory)
 
 
