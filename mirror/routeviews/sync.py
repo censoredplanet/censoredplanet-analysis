@@ -73,9 +73,14 @@ class RouteviewMirror():
       ex ["routeviews-rv2-20200720-1200.pfx2as.gz",
           "routeviews-rv2-20200719-1200.pfx2as.gz"]
     """
-    blobs = self.caida_bucket.list_blobs()
-    filenames = [os.path.basename(blob.name) for blob in blobs]
-    return filenames
+    if self.caida_bucket:
+      blobs = self.caida_bucket.list_blobs()
+      filenames = [os.path.basename(blob.name) for blob in blobs]
+      return filenames
+    else:
+      # Check local directory
+      filenames = [obj.name for obj in os.scandir(self.bucket_routeview_path) if obj.is_file()]
+      return filenames
 
   def _transfer_new_file(self, filename: str):
     """Transfer a routeview file into the cloud bucket.
@@ -88,11 +93,16 @@ class RouteviewMirror():
 
     url = CAIDA_ROUTEVIEW_DIR_URL + year + "/" + month + "/" + filename
 
-    output_blob = self.caida_bucket.blob(
-        os.path.join(self.bucket_routeview_path, filename))
+    if self.caida_bucket:
+      output_blob = self.caida_bucket.blob(
+          os.path.join(self.bucket_routeview_path, filename))
 
-    with httpio.open(url) as output:
-      output_blob.upload_from_file(output)
+      with httpio.open(url) as output:
+        output_blob.upload_from_file(output)
+    else:
+      # Download locally
+      with httpio.open(url) as output, open(os.path.join(self.bucket_routeview_path, filename), 'wb') as f:
+        f.write(output.read())
 
   def sync(self):
     """Look for new routeview files and transfer them into the cloud bucket."""
@@ -117,6 +127,13 @@ def get_firehook_routeview_mirror():
   return RouteviewMirror(bucket, firehook_resources.ROUTEVIEW_PATH)
 
 
+def get_local_routeview_mirror():
+  project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  directory = os.path.join(project_root, 'assets', 'routeviews')
+  return RouteviewMirror(None, directory)
+
+
 if __name__ == "__main__":
   # Called manually when running a backfill.
-  get_firehook_routeview_mirror().sync()
+  # get_firehook_routeview_mirror().sync()
+  get_local_routeview_mirror().sync()
