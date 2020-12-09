@@ -2,4 +2,5 @@ env/
 **/__pycache__/*
 **/*egg-info/*
 pipeline/assets/maxmind/GeoLite2*.mmdb
-pipeline/assets/routeviews/*
+pipeline/assets/caida/*
+*.conf
