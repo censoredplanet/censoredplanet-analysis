@@ -18,6 +18,7 @@ import datetime
 import logging
 from pprint import pprint
 import re
+import os
 from typing import Dict, Optional, Tuple, Iterator
 
 import apache_beam.io.filesystem as apache_filesystem
@@ -36,6 +37,21 @@ LATEST_AS2CLASS_FILEPATH = "as-classifications/20200801.as2types.txt.gz"
 # Comment lines with these headers divide the tables.
 ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
 AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
+
+
+def _get_latest_file(directory: str) -> str:
+  """Check directory for latest file.
+
+  Args:
+    directory: contains dated CAIDA files
+
+  Returns:
+    Name of latest file
+  """
+  filenames = [obj.name for obj in os.scandir(directory) if obj.is_file()]
+  if filenames:
+    latest = sorted(filenames)[-1]
+    return os.path.join(directory, latest)
 
 
 def _read_compressed_file(filepath: str) -> Iterator[str]:
@@ -248,12 +264,14 @@ class IpMetadata(IpMetadataInterface):
 
   def _get_asn2org_map(
       self) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
-    as_to_org_filename = self.cloud_data_location + LATEST_AS2ORG_FILEPATH
+    # as_to_org_filename = self.cloud_data_location + LATEST_AS2ORG_FILEPATH
+    as_to_org_filename = _get_latest_file(os.path.join(self.cloud_data_location, 'as-organizations'))
     as_to_org_file = _read_compressed_file(as_to_org_filename)
     return _parse_as_to_org_map(as_to_org_file)
 
   def _get_asn2type_map(self) -> Dict[int, str]:
-    as_to_type_filename = self.cloud_data_location + LATEST_AS2CLASS_FILEPATH
+    # as_to_type_filename = self.cloud_data_location + LATEST_AS2CLASS_FILEPATH
+    as_to_type_filename = _get_latest_file(os.path.join(self.cloud_data_location, 'as-classifications'))
     as_to_type_file = _read_compressed_file(as_to_type_filename)
     return _parse_as_to_type_map(as_to_type_file)
 
@@ -293,7 +311,7 @@ class IpMetadata(IpMetadataInterface):
       FileNotFoundError: when no exactly matching routeview file is found
     """
     file_pattern = f"routeviews-rv2-{date:%Y%m%d}*.pfx2as.gz"
-    filepath_pattern = self.cloud_data_location + "routeviews/" + file_pattern
+    filepath_pattern = os.path.join(self.cloud_data_location,"routeviews/", file_pattern)
     match = apache_filesystems.FileSystems.match([filepath_pattern], limits=[1])
 
     try:
