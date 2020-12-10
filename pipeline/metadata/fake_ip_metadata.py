@@ -33,7 +33,7 @@ class FakeIpMetadata(IpMetadataInterface):
         "8.8.8.8":
             ("8.8.8.0/24", 15169, "GOOGLE", "Google LLC", "Content", "US"),
         "1.1.1.3":
-            ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "Content", ""),
+            ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "Content", None),
     }
 
   def lookup(self, ip: str):
