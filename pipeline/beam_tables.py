@@ -130,7 +130,13 @@ class BlockpageMatcher:
       for line in f:
         try:
           signature = json.loads(line.strip())
-          signatures[signature["fingerprint"]] = signature["pattern"]
+          # Patterns stored in BigQuery syntax,
+          # so % represents any number of characters
+          pattern = signature['pattern']
+          # Convert to Python regex
+          pattern = re.escape(pattern)
+          pattern = pattern.replace('%', '.*')
+          signatures[signature["fingerprint"]] = re.compile(pattern, re.DOTALL)
         except:
           pass
     return signatures
@@ -149,12 +155,12 @@ class BlockpageMatcher:
 
     # Check false positives
     for fingerprint, pattern in self.false_positives.items():
-      if page.find(pattern) != -1:
+      if pattern.search(page):
         return False
 
     # Check blockpages
     for fingerprint, pattern in self.blockpages.items():
-      if page.find(pattern) != -1:
+      if pattern.search(page):
         return True
 
     # No signature match
