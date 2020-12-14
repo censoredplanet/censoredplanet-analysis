@@ -108,7 +108,7 @@ def get_censoredplanet_mirror():
   """Factory function to get mirror for Censored Planet repository."""
   owner = 'censoredplanet'
   repo = 'censoredplanet-scheduler'
-  destination = os.path.join(PROJECT_ROOT, 'pipeline/assets/')
+  destination = os.path.join(PROJECT_ROOT, 'pipeline/assets/internal/')
   files = [
     'signatures/false_positive_signatures.json', 
     'signatures/blockpage_signatures.json'

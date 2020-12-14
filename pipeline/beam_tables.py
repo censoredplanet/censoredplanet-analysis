@@ -31,7 +31,8 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
-from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND_CITY, MAXMIND_ASN
+from pipeline.metadata.maxmind_metadata import get_maxmind_db
+from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES
 
 # Custom Types
 #
@@ -166,58 +167,8 @@ class BlockpageMatcher:
     # No signature match
     return
 
-def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
-  """Return a reader for the Maxmind database.
-
-  Args:
-    filepath: Maxmind .mmdb file
-
-  Returns:
-    geoip2.database.Reader
-  """
-  if not os.path.exists(filepath):
-    logging.warning('Path to Maxmind db not found: %s\n', filepath)
-    return
-  return geoip2.database.Reader(filepath)
-
 blockpage_matcher = BlockpageMatcher()
-maxmind_city = _maxmind_reader(MAXMIND_CITY)
-maxmind_asn = _maxmind_reader(MAXMIND_ASN)
-
-def _get_country_code(vp: str) -> str:
-  """Get country code for IP address.
-
-  Args:
-    vp: IP address of vantage point (as string)
-
-  Returns:
-    2-letter ISO country code
-  """
-  if maxmind_city:
-    try:
-      vp_info = maxmind_city.city(vp)
-      return vp_info.country.iso_code
-    except Exception as e:
-      logging.warning('Maxmind: %s\n', e)
-  return
-
-
-def _get_maxmind_asn(vp: str) -> Tuple[str]:
-  """Get ASN information for IP address.
-
-  Args:
-    vp: IP address of vantage point (as string)
-
-  Returns:
-    Tuple containing AS num, AS org, and netblock
-  """
-  if maxmind_asn:
-    try:
-      vp_info = maxmind_asn.asn(vp)
-      return vp_info.autonomous_system_number, vp_info.autonomous_system_organization, vp_info.network
-    except Exception as e:
-      logging.warning('Maxmind: %s\n', e)
-  return None, None, None
+maxmind = get_maxmind_db()
 
 
 def _get_censys(ips: List[str]) -> cloud_bigquery.table.RowIterator:
@@ -764,7 +715,7 @@ class ScanDataBeamPipelineRunner():
             'country': country,
         }
         if not metadata_values['country']: # try Maxmind
-          metadata_values['country'] = _get_country_code(ip)
+          metadata_values['country'] = maxmind.get_country_code(ip)
 
       except KeyError as e:
         logging.warning('KeyError: %s\n', e)
