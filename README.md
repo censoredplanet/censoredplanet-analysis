@@ -62,6 +62,10 @@ backfilling data from older than 30 days.
 In all cases to fix missing or incorrect data simple delete the incorrect data
 from the google cloud bucket and re-run the appropriate script to re-mirror it.
 
+`python -m mirror.internal.sync`
+
+Downloads most recent version of Censored Planet resources locally.
+
 ### Processing Data
 
 `python -m pipeline.run_beam_tables --env=prod --full`
