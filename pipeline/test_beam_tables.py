@@ -719,6 +719,93 @@ class PipelineMainTest(unittest.TestCase):
     matches = [matcher.match_page(page) for page in pages]
     self.assertListEqual(matches, expected_matches)
 
+  def test_read_satellitev1_data(self):
+
+    filename = 'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json'
+    response1 = {
+        'resolver': '67.69.184.215',
+        'query': 'asana.com',
+        'answers': {
+            '151.101.1.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
+            '151.101.129.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
+            '151.101.193.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
+            '151.101.65.184': ['ip', 'cert', 'asnum', 'asname']
+        },
+        'passed': True
+    }
+
+    response2 = {
+        'resolver': '145.239.6.50',
+        'query': 'www.ecequality.org',
+        'answers': {
+            '160.153.136.3': []
+        },
+        'passed': False
+    }
+
+    response3 = {
+        'resolver': '185.228.168.149',
+        'query': 'www.sportsinteraction.com',
+        'error': 'no_answer'
+    }
+
+    row1 = {
+      'domain': 'asana.com',
+      'ip': '67.69.184.215',
+      'error': None,
+      'blocked': False,
+      'success': True,
+      'received': [
+          {'ip': '151.101.1.184', 'tags': [
+              {'type': 'ip', 'matches_control': True},
+              {'type': 'http', 'matches_control': True},
+              {'type': 'cert', 'matches_control': True},
+              {'type': 'asnum', 'matches_control': True},
+              {'type': 'asname', 'matches_control': True}]},
+          {'ip': '151.101.129.184', 'tags': [
+              {'type': 'ip', 'matches_control': True},
+              {'type': 'http', 'matches_control': True},
+              {'type': 'cert', 'matches_control': True},
+              {'type': 'asnum', 'matches_control': True},
+              {'type': 'asname', 'matches_control': True}]},
+          {'ip': '151.101.193.184', 'tags': [
+              {'type': 'ip', 'matches_control': True},
+              {'type': 'http', 'matches_control': True},
+              {'type': 'cert', 'matches_control': True},
+              {'type': 'asnum', 'matches_control': True},
+              {'type': 'asname', 'matches_control': True}]},
+          {'ip': '151.101.65.184', 'tags': [
+              {'type': 'ip', 'matches_control': True},
+              {'type': 'cert', 'matches_control': True},
+              {'type': 'asnum', 'matches_control': True},
+              {'type': 'asname', 'matches_control': True}]}
+      ],
+    }
+
+    row2 = {
+      'domain': 'www.ecequality.org',
+      'ip': '145.239.6.50',
+      'error': None,
+      'blocked': True,
+      'success': True,
+      'received': [
+          {'ip': '160.153.136.3', 'tags': []},
+      ],
+    }
+
+    row3 = {
+      'domain':  'www.sportsinteraction.com',
+      'ip': '185.228.168.149',
+      'error': "no_answer",
+      'blocked': None,
+      'success': False,
+    }
+
+    interference = [response1, response2, response3]
+    expected = [row1, row2, row3]
+    read_result = [beam_tables._read_satellitev1(i) for i in interference]
+    self.assertListEqual(read_result, expected)
+
 
 if __name__ == '__main__':
   unittest.main()

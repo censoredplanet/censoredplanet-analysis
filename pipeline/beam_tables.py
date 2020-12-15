@@ -79,6 +79,16 @@ SCAN_BIGQUERY_SCHEMA = {
     'received_tls_version': ('integer', 'nullable'),
     'received_tls_cipher_suite': ('integer', 'nullable'),
     'received_tls_cert': ('string', 'nullable'),
+    # SATELLITE
+    'received': ('record', 'repeated', {
+        'ip': ('string', 'nullable'),
+        'tags': ('record', 'repeated', {
+          'type': ('string', 'nullable'),
+          'tag': ('string', 'nullable'),
+          'tag': ('integer', 'nullable'),
+          'matches_control': ('boolean', 'nullable')
+        })
+    }),
 
     # Columns added from CAIDA data
     'netblock': ('string', 'nullable'),
@@ -506,6 +516,38 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     row.update(error_field)
 
     yield row
+
+
+def _read_satellitev1(scan: Dict[str, Any]) -> Dict[str, Any]:
+  """Read measurement from Satellite v1 data.
+
+  Args:
+    scan: dictionary containing measurement data
+
+  Returns:
+    Processed Satellite fields
+
+  """
+  satellite_fields = {
+      'domain': scan['query'],
+      'ip': scan['resolver'],
+      'error': scan.get('error', None),
+      'blocked': not scan['passed'] if 'passed' in scan else None,
+      'success': 'error' not in scan,
+  }
+
+  received_ips = scan.get('answers')
+  if received_ips:
+    satellite_fields['received'] = []
+    for ip, tags in received_ips.items():
+      # TODO: get tag value from tagging output files
+      received = {
+        'ip': ip,
+        'tags': [{'type': tag, 'matches_control': True} for tag in tags]
+      }
+      satellite_fields['received'].append(received)
+
+  return satellite_fields
 
 
 def _make_date_ip_key(row: Row) -> DateIpKey:
