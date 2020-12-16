@@ -54,6 +54,13 @@ SCAN_TYPE_IDENTIFIERS = {
 }
 
 
+def _get_missing_tarred_files(tarred_files: List[str],
+                              untarred_files: List[str]) -> List[str]:
+  """Get all files in the tarred list that are not in the untarred list."""
+  diff = set(tarred_files) - set(untarred_files)
+  return list(diff)
+
+
 class ScanfileMirror():
   """Look for any tarred files in a given bucket and untar them."""
 
@@ -155,12 +162,6 @@ class ScanfileMirror():
     ]
     return path_ends
 
-  def _get_missing_tarred_files(self, tarred_files: List[str],
-                                untarred_files: List[str]) -> List[str]:
-    """Get all files in the tarred list that are not in the untarred list."""
-    diff = set(tarred_files) - set(untarred_files)
-    return list(diff)
-
   def sync(self) -> None:
     """Untar all files that exist only in the tarred bucket.
 
@@ -168,7 +169,7 @@ class ScanfileMirror():
     """
     tarred_files = self._get_all_tarred_filenames()
     untarred_files = self._get_all_untarred_filepaths()
-    new_files = self._get_missing_tarred_files(tarred_files, untarred_files)
+    new_files = _get_missing_tarred_files(tarred_files, untarred_files)
 
     files_with_extensions = [f'{filename}.tar.gz' for filename in new_files]
 

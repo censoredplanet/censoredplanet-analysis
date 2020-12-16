@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Interface for IPMetadata class and its fake."""
 
 import datetime
 from typing import Optional, Tuple
 
 
-class IpMetadataInterface(object):
+class IpMetadataInterface:
   """Interface for an IP Metadata lookup database."""
 
   def __init__(

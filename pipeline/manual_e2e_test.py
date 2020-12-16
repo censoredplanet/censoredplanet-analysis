@@ -78,6 +78,14 @@ def get_local_pipeline_options(*_) -> PipelineOptions:  # type: ignore
 
 
 def run_local_pipeline(incremental: bool = False) -> None:
+  """Run a local pipeline.
+
+  Reads local files but writes to bigquery.
+
+  Args:
+    incremental: bool, whether to run a full or incremental local pipeline.
+  """
+  # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
@@ -90,6 +98,7 @@ def run_local_pipeline(incremental: bool = False) -> None:
 
   test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
+  # pylint: enable=protected-access
 
 
 def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str) -> None:
@@ -105,8 +114,10 @@ def get_bq_rows(client: cloud_bigquery.Client, table_name: str) -> List:
 
 
 class PipelineManualE2eTest(unittest.TestCase):
+  """Manual tests that require access to cloud project resources."""
 
   def test_pipeline_e2e(self) -> None:
+    """Test the full pipeline by running it twice locally on a few files."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
@@ -145,7 +156,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_bq_table(client, BQ_TEST_TABLE)
 
   def test_ipmetadata_init(self) -> None:
-    # This E2E test requires the user to have get access to the
+    # This E2E test requires the user to have access to the
     # gs://censoredplanet_geolocation bucket.
     ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(
         datetime.date(2018, 7, 27))

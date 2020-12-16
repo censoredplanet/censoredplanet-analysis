@@ -116,7 +116,7 @@ def get_firehook_beam_pipeline_runner(
 ) -> beam_tables.ScanDataBeamPipelineRunner:
   """Factory function to get a beam pipeline class with firehook values."""
   # importing here to avoid beam pickling issues
-  import firehook_resources
+  import firehook_resources  # pylint: disable=import-outside-toplevel
 
   return beam_tables.ScanDataBeamPipelineRunner(
       firehook_resources.PROJECT_NAME, beam_tables.SCAN_BIGQUERY_SCHEMA,
@@ -126,6 +126,11 @@ def get_firehook_beam_pipeline_runner(
 
 
 def main(parsed_args: argparse.Namespace) -> None:
+  """Parse namespace arguments and run a beam pipeline based on them.
+
+  Args:
+    parsed_args: an argparse namespace with 'full', 'env' and 'scan_type' args.
+  """
   incremental = not parsed_args.full
 
   if parsed_args.scan_type == 'all':

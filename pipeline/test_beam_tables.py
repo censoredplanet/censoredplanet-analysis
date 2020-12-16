@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Unit tests for the beam pipeline."""
 
 import datetime
-from pprint import pprint
-from typing import Tuple, Dict, List
+from typing import Dict, List
 import unittest
 
 import apache_beam as beam
@@ -27,8 +27,12 @@ from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 
 
 class PipelineMainTest(unittest.TestCase):
+  """Unit tests for beam pipeline steps."""
+
+  # pylint: disable=protected-access
 
   def test_get_beam_bigquery_schema(self) -> None:
+    """Test making a bigquery schema for beam's table writing."""
     test_field = {
         'string_field': ('string', 'nullable'),
         'int_field': ('integer', 'repeated'),
@@ -53,6 +57,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(table_schema, expected_table_schema)
 
   def test_get_table_name(self) -> None:
+    """Test creating a table name given params."""
     base_table_name = 'scan'
 
     prod_dataset = 'base'
@@ -72,6 +77,7 @@ class PipelineMainTest(unittest.TestCase):
         'laplante.https_scan')
 
   def test_get_job_name(self) -> None:
+    """Test getting the name for the beam job"""
     self.assertEqual(
         beam_tables.get_job_name('base.scan_echo', False),
         'write-base-scan-echo')
@@ -94,6 +100,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
   def test_source_from_filename(self) -> None:
+    """Test getting the data source name from the filename."""
     self.assertEqual(
         beam_tables._source_from_filename(
             'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
@@ -104,7 +111,8 @@ class PipelineMainTest(unittest.TestCase):
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
-  def test_read_scan_text(self) -> None:
+  def test_read_scan_text(self) -> None:  # pylint: disable=no-self-use
+    """Test reading lines from compressed and uncompressed files"""
     p = TestPipeline()
     pipeline = beam_tables._read_scan_text(
         p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
@@ -116,6 +124,7 @@ class PipelineMainTest(unittest.TestCase):
         ]))
 
   def test_between_dates(self) -> None:
+    """Test logic to include filenames based on their creation dates."""
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertTrue(
@@ -131,6 +140,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertTrue(beam_tables._between_dates(filename, None, None))
 
   def test_not_between_dates(self) -> None:
+    """Test logic to filter filenames based on their creation dates."""
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertFalse(
@@ -142,6 +152,7 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables._between_dates(filename, datetime.date(2020, 5, 12), None))
 
   def test_parse_received_headers(self) -> None:
+    """Test parsing HTTP/S header fields into a flat format."""
     headers = {
         'Content-Language': ['en', 'fr'],
         'Content-Type': ['text/html; charset=iso-8859-1']
@@ -157,6 +168,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(flat_headers, expected_headers)
 
   def test_parse_received_data_http(self) -> None:
+    """Test parsing sample HTTP data."""
     # yapf: disable
     received = {
         'status_line': '403 Forbidden',
@@ -175,6 +187,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
+    """Test parsing reciveed HTTP/S data missing a header field."""
     # yapf: disable
     received = {
         'status_line': '403 Forbidden',
@@ -193,6 +206,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
+    """Test parsing example HTTPS data."""
     # yapf: disable
     received = {
         'status_line': '403 Forbidden',
@@ -237,6 +251,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self) -> None:
+    """Test parsing an example Echo measurement."""
     line = """{
       "Server":"1.2.3.4",
       "Keyword":"www.example.com",
@@ -312,9 +327,12 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(rows, expected_rows)
 
   def test_flatten_measurement_http_success(self) -> None:
-    # Not all measurements recieve any data/errors,
-    # in that case the received_ and error fields should not exist
-    # and will end up Null in bigquery.
+    """Test parsing an example successful HTTP measurement
+
+    Not all measurements recieve any data/errors,
+    in that case the received_ and error fields should not exist
+    and will end up Null in bigquery.
+    """
 
     line = """{
       "Server":"170.248.33.11",
@@ -357,6 +375,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(row, expected_row)
 
   def test_flatten_measurement_http(self) -> None:
+    """Test parsing an unsuccessful HTTP measurement."""
     line = """{
       "Server":"184.50.171.225",
       "Keyword":"www.csmonitor.com",
@@ -417,6 +436,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(row, expected_row)
 
   def test_flatten_measurement_https(self) -> None:
+    """Test parsing an unsuccessful HTTPS measurement."""
     line = """{
       "Server":"213.175.166.157",
       "Keyword":"www.arabhra.org",
@@ -501,6 +521,7 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(row, expected_row)
 
   def test_flatten_measurement_invalid_json(self) -> None:
+    """Test logging an error when parsing invalid JSON."""
     line = 'invalid json'
 
     with self.assertLogs(level='WARNING') as cm:
@@ -512,7 +533,8 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertEqual(len(rows), 0)
 
-  def test_add_metadata(self) -> None:
+  def test_add_metadata(self) -> None:  # pylint: disable=no-self-use
+    """Test adding IP metadata to mesurements."""
     rows: List[beam_tables.Row] = [{
         'domain': 'www.example.com',
         'ip': '8.8.8.8',
@@ -596,6 +618,7 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables._make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
   def test_add_ip_metadata(self) -> None:
+    """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
                                                     FakeIpMetadata, '')
 
@@ -626,6 +649,7 @@ class PipelineMainTest(unittest.TestCase):
                                      (expected_key_2, expected_value_2)])
 
   def test_merge_metadata_with_rows(self) -> None:
+    """Test merging IP metadata pcollection with rows pcollection."""
     key: beam_tables.DateIpKey = ('2020-01-01', '1.1.1.1')
     ip_metadata: beam_tables.Row = {
         'netblock': '1.0.0.1/24',
@@ -673,6 +697,8 @@ class PipelineMainTest(unittest.TestCase):
 
     rows_with_metadata = list(beam_tables._merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
+
+  # pylint: enable=protected-access
 
 
 if __name__ == '__main__':
