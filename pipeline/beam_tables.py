@@ -111,6 +111,7 @@ SCAN_TYPES_TO_ZONES = {
     'http': 'us-east4',
     'echo': 'us-west1',
     'discard': 'us-central1',
+    'dns': None
 }
 
 ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
@@ -687,7 +688,7 @@ class ScanDataBeamPipelineRunner():
 
     Args:
       gcs: GCSFileSystem object
-      scan_type: one of 'echo', 'discard', 'http', 'https'
+      scan_type: one of 'echo', 'discard', 'http', 'https', 'dns'
       incremental_load: boolean. If true, only read the latest new data
       table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read
@@ -704,14 +705,25 @@ class ScanDataBeamPipelineRunner():
     else:
       existing_sources = []
 
-    # Both zipped and unzipped data to be read in
-    zipped_regex = self.bucket + scan_type + '/**/results.json.gz'
-    unzipped_regex = self.bucket + scan_type + '/**/results.json'
+    if scan_type == 'dns':
+      # Satellite v1 has several output files
+      # TODO: check date for v1 vs. v2
+      files_to_load = ['resolvers.json', 'answers_err.json', 'answers_control.json',
+                       'answers.json', 'tagged_resolvers.json', 'tagged_answers.json',
+                       'interference.json', 'interference_err.json']
+    else:
+      files_to_load = ['results.json']
 
-    zipped_metadata = [m.metadata_list for m in gcs.match([zipped_regex])][0]
-    unzipped_metadata = [m.metadata_list for m in gcs.match([unzipped_regex])
-                        ][0]
-    file_metadata = zipped_metadata + unzipped_metadata
+    # Both zipped and unzipped data to be read in
+    zipped_regex = self.bucket + scan_type + '/**/{0}.gz'
+    unzipped_regex = self.bucket + scan_type + '/**/{0}'
+
+    file_metadata = []
+    for file in files_to_load:
+      zipped_metadata = [m.metadata_list for m in gcs.match([zipped_regex.format(file)])][0]
+      unzipped_metadata = [m.metadata_list for m in gcs.match([unzipped_regex.format(file)])
+                          ][0]
+      file_metadata += zipped_metadata + unzipped_metadata
 
     filenames = [metadata.path for metadata in file_metadata]
     file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
