@@ -36,9 +36,9 @@ def rebuild_all_tables() -> None:
   for filepath in glob.glob('table/queries/*.sql'):
     try:
       run_query(filepath)
-    except Exception as ex:  # pylint: disable=broad-except
+    except Exception as ex:
       pprint(('Failed SQL query', filepath))
-      pprint(ex)
+      raise ex
 
 
 if __name__ == '__main__':
