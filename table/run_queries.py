@@ -38,7 +38,7 @@ def rebuild_all_tables() -> None:
       run_query(filepath)
     except Exception as ex:
       pprint(('Failed SQL query', filepath))
-      pprint(ex)
+      raise ex
 
 
 if __name__ == '__main__':

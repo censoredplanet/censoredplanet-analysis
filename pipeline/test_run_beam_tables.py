@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Test top-level runner for beam pipelines."""
 
 import argparse
 import datetime
@@ -24,8 +25,16 @@ from pipeline import run_beam_tables
 
 
 class RunBeamTablesTest(unittest.TestCase):
+  """Test running beam pipelines.
+
+  This tests the runner arg parsing and parallelization,
+  not the beam pipelines themselves.
+  """
+
+  # pylint: disable=no-self-use
 
   def test_run_single_pipelines(self) -> None:
+    """Test running a single dated pipeline."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
@@ -39,6 +48,7 @@ class RunBeamTablesTest(unittest.TestCase):
                                                      datetime.date(2020, 1, 2))
 
   def test_run_parallel_pipelines(self) -> None:
+    """Test running two pipelines in parallel."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'laplante',
@@ -53,6 +63,7 @@ class RunBeamTablesTest(unittest.TestCase):
 
   @freeze_time('2020-01-15')
   def test_run_user_pipeline_full(self) -> None:
+    """Test running a user pipeline with automatically chosen dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], False)
@@ -63,6 +74,7 @@ class RunBeamTablesTest(unittest.TestCase):
 
   @freeze_time('2020-01-15')
   def test_run_user_pipeline_incremental(self) -> None:
+    """Test running a user pipeline with automatic incremental dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], True)
@@ -72,6 +84,7 @@ class RunBeamTablesTest(unittest.TestCase):
         datetime.date(2020, 1, 8), datetime.date(2020, 1, 15))
 
   def test_main(self) -> None:
+    """Test arg parsing."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
@@ -89,6 +102,8 @@ class RunBeamTablesTest(unittest.TestCase):
                    None, None)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call1, call2, call3, call4], any_order=True)
+
+  # pylint: enable=no-self-use
 
 
 if __name__ == '__main__':

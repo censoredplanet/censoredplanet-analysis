@@ -40,6 +40,14 @@ import firehook_resources
 
 def setup_transfer_service(project_name: str, source_bucket: str,
                            sink_bucket: str, start_date: datetime.date) -> None:
+  """Set up a data transfer job between two buckets.
+
+  Args:
+    project_name: string like 'firehook-censoredplanet'
+    source_bucket: GCS bucket to read from like 'censoredplanetscanspublic'
+    sink_bucket: GCS bucket to write to like 'firehook-censoredplanetscans'
+    start_date: date, when to start the job running, usually today
+  """
   storagetransfer = googleapiclient.discovery.build('storagetransfer', 'v1')
 
   # Transfer any files created in the last day

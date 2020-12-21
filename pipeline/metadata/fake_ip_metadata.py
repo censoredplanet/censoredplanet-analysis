@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Fake IpMetadata implementation for use in testing."""
 
 import datetime
 from typing import Optional, Tuple
@@ -27,6 +28,7 @@ class FakeIpMetadata(IpMetadataInterface):
       cloud_data_location: str,
       allow_previous_day: bool,
   ) -> None:
+    super().__init__(date, cloud_data_location, allow_previous_day)
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",

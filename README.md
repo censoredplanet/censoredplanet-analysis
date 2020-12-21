@@ -89,3 +89,7 @@ To typecheck all files install `mypy` and run
 To format all files install `yapf` and run
 
 `yapf --in-place --recursive .`
+
+To get all lint errors install `pylint` and run
+
+`python -m pylint **/*.py --rcfile=setup.cfg`

@@ -20,7 +20,6 @@ import json
 import logging
 import os
 import re
-from pprint import pprint
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 import uuid
 
@@ -235,12 +234,12 @@ def _between_dates(filename: str,
       re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0])
   if start_date and end_date:
     return start_date <= date <= end_date
-  elif start_date:
+  if start_date:
     return start_date <= date
-  elif end_date:
+  if end_date:
     return date <= end_date
-  else:
-    return True
+
+  return True
 
 
 def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -368,8 +367,9 @@ def _make_date_ip_key(row: Row) -> DateIpKey:
   return (row['date'], row['ip'])
 
 
-def _merge_metadata_with_rows(key: DateIpKey,
-                              value: Dict[str, List[Row]]) -> Iterator[Row]:
+def _merge_metadata_with_rows(
+    key: DateIpKey,  # pylint: disable=unused-argument
+    value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -433,8 +433,8 @@ def get_job_name(table_name: str, incremental_load: bool) -> str:
 
   if incremental_load:
     return 'append-' + fixed_table_name
-  else:
-    return 'write-' + fixed_table_name
+
+  return 'write-' + fixed_table_name
 
 
 def get_table_name(dataset_name: str, scan_type: str,
@@ -563,6 +563,7 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[DateIpKey]
     deduped_ips_and_dates = (
+        # pylint: disable=no-value-for-parameter
         ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
 
     # PCollection[Tuple[date,List[ip]]]
@@ -642,7 +643,7 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | 'Write' >> beam.io.WriteToBigQuery(
+    (rows | 'Write' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=_get_beam_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,

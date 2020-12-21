@@ -11,22 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Test IPMetadata file parsing and database access."""
 
-from typing import Iterable
 import unittest
 
 from pipeline.metadata import ip_metadata
 
 
 class IpMetadataTest(unittest.TestCase):
+  """Test IPMetadata database."""
+
+  # pylint: disable=protected-access
 
   def test_read_compressed_file(self) -> None:
     filepath = "pipeline/metadata/test_file.txt.gz"
-    lines = [line for line in ip_metadata._read_compressed_file(filepath)]
+    lines = list(ip_metadata._read_compressed_file(filepath))
     self.assertListEqual(lines, ["test line 1", "test line 2"])
 
   def test_parse_asn_db(self) -> None:
-    # Sample content for a routeviews-rv2-*.pfx2as file
+    """Test parsing a routeviews-rv2-*.pfx2as file into an asn database."""
     # yapf: disable
     routeview_file_content = iter([
         "1.0.0.0\t24\t13335",
@@ -39,7 +42,7 @@ class IpMetadataTest(unittest.TestCase):
     self.assertEqual(asn_db.lookup("8.8.8.8"), (15169, "8.8.8.0/24"))
 
   def test_parse_org_map(self) -> None:
-    # Sample content for an as-org2info.txt file.
+    """Test parsing an as-org2info.txt file into a dictionary."""
     # yapf: disable
     as2org_file_content = iter([
         "# name: AS Org",
@@ -64,7 +67,7 @@ class IpMetadataTest(unittest.TestCase):
         })
 
   def test_parse_as_to_type_map(self) -> None:
-    # Sample content for an as2types.txt file
+    """Test parsing an as2types.txt file into a dictionary."""
     # yapf: disable
     as2type_file_content = iter([
         "# format: as|source|type",
@@ -80,6 +83,8 @@ class IpMetadataTest(unittest.TestCase):
 
     as2type_map = ip_metadata._parse_as_to_type_map(as2type_file_content)
     self.assertEqual(as2type_map, {1: "Transit/Access", 4: "Content"})
+
+  # pylint: enable=protected-access
 
 
 if __name__ == "__main__":

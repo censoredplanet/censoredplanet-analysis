@@ -16,7 +16,6 @@
 import csv
 import datetime
 import logging
-from pprint import pprint
 import re
 from typing import Dict, Optional, Tuple, Iterator
 
@@ -159,7 +158,7 @@ def _parse_as_to_org_map_remainder(
       readable_name, country = org_id_to_country_map[org_id]
       asn_to_org_info_map[int(asn)] = (asn_name, readable_name, country)
     except KeyError as e:
-      logging.warning(f"Missing org country info for asn {asn} {e}")
+      logging.warning("Missing org country info for asn %s, %s", asn, e)
       asn_to_org_info_map[int(asn)] = (asn_name, None, None)
 
   return asn_to_org_info_map
@@ -175,10 +174,8 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
     Dict {asn -> network_type}
     ex {398243 : "Enterprise", 13335: "Content", 4: "Transit/Access"}
   """
-  lines = [line for line in f]
-
   # filter comments
-  data_lines = [line for line in lines if line[0] != "#"]
+  data_lines = [line for line in f if line[0] != "#"]
   type_data = list(csv.reader(data_lines, delimiter="|"))
 
   as_to_type_map: Dict[int, str] = {}
@@ -207,6 +204,7 @@ class IpMetadata(IpMetadataInterface):
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
+    super().__init__(date, cloud_data_location, allow_previous_day)
     self.cloud_data_location = cloud_data_location
 
     self.as_to_org_map = self._get_asn2org_map()
@@ -278,8 +276,8 @@ class IpMetadata(IpMetadataInterface):
       if allow_previous_day:
         self.date = date - datetime.timedelta(days=1)
         return self._get_dated_asn_db(self.date)
-      else:
-        raise ex
+
+      raise ex
 
   def _get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
     """Finds the right routeview file for a given date and returns an ASN DB.
@@ -300,8 +298,8 @@ class IpMetadata(IpMetadataInterface):
     try:
       filepath = match[0].metadata_list[0].path
       return _parse_asn_db(_read_compressed_file(filepath))
-    except IndexError:
-      raise FileNotFoundError(filepath_pattern)
+    except IndexError as ex:
+      raise FileNotFoundError(filepath_pattern) from ex
 
 
 def get_firehook_ip_metadata_db(
@@ -320,6 +318,6 @@ def get_firehook_ip_metadata_db(
     an IpMetadata for the given date.
   """
   # import here to avoid beam pickling issues
-  import firehook_resources
+  import firehook_resources  # pylint: disable=import-outside-toplevel
   return IpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
                     allow_previous_day)
