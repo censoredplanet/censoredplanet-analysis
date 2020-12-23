@@ -67,7 +67,7 @@ def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   ]
 
 
-def get_local_pipeline_options(*_) -> PipelineOptions:  # type: ignore
+def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
   return PipelineOptions(

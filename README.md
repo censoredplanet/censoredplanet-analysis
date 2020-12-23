@@ -82,6 +82,12 @@ To run all tests run
 
 `python -m unittest`
 
+There are a few end-to-end tests which aren't run by the unittest framework
+because they require cloud resource access. To run these tests manually use the
+command
+
+`python -m unittest pipeline.manual_e2e_test.PipelineManualE2eTest`
+
 To typecheck all files install `mypy` and run
 
 `mypy **/*.py`
