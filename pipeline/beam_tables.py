@@ -31,7 +31,7 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
-from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND_CITY, MAXMIND_ASN
+from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND_CITY, MAXMIND_ASN, COUNTRY_CODES
 
 # Custom Types
 #
@@ -191,9 +191,21 @@ def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
     return
   return geoip2.database.Reader(filepath)
 
+
+def _read_json(filepath) -> Dict[str, str]:
+  """Load a JSON file to a dictionary."""
+  if os.path.exists(filepath):
+    with open(filepath) as f:
+      dictionary = json.loads(f.read())
+    return dictionary
+  return {}
+
+
 blockpage_matcher = BlockpageMatcher()
 maxmind_city = _maxmind_reader(MAXMIND_CITY)
 maxmind_asn = _maxmind_reader(MAXMIND_ASN)
+country_name_to_code = _read_json(COUNTRY_CODES)
+
 
 def _get_country_code(vp: str) -> str:
   """Get country code for IP address.
@@ -484,39 +496,46 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   # Add a unique id per-measurement so single retry rows can be reassembled
   random_measurement_id = uuid.uuid4().hex
 
-  for result in scan['Results']:
-    if 'Received' in result:
-      received = result.get('Received', '')
-      received_fields = _parse_received_data(received, scan['Blocked'])
-    else:
-      received_fields = {}
-
-    if 'Error' in result:
-      error_field = {'error': result['Error']}
-    else:
-      error_field = {}
-
-    date = result['StartTime'][:10]
-    row = {
-        'domain': scan['Keyword'],
-        'ip': scan['Server'],
-        'date': date,
-        'start_time': result['StartTime'],
-        'end_time': result['EndTime'],
-        'retries': scan['Retries'],
-        'sent': result['Sent'],
-        'blocked': scan['Blocked'],
-        'success': result['Success'],
-        'fail_sanity': scan['FailSanity'],
-        'stateful_block': scan['StatefulBlock'],
-        'measurement_id': random_measurement_id,
-        'source': _source_from_filename(filename),
-    }
-
-    row.update(received_fields)
-    row.update(error_field)
+  if 'Satellite' in filename:
+    date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
+    row = _read_satellitev1(scan)
+    row['date'] = date
 
     yield row
+  else:
+    for result in scan['Results']:
+      if 'Received' in result:
+        received = result.get('Received', '')
+        received_fields = _parse_received_data(received, scan['Blocked'])
+      else:
+        received_fields = {}
+
+      if 'Error' in result:
+        error_field = {'error': result['Error']}
+      else:
+        error_field = {}
+
+      date = result['StartTime'][:10]
+      row = {
+          'domain': scan['Keyword'],
+          'ip': scan['Server'],
+          'date': date,
+          'start_time': result['StartTime'],
+          'end_time': result['EndTime'],
+          'retries': scan['Retries'],
+          'sent': result['Sent'],
+          'blocked': scan['Blocked'],
+          'success': result['Success'],
+          'fail_sanity': scan['FailSanity'],
+          'stateful_block': scan['StatefulBlock'],
+          'measurement_id': random_measurement_id,
+          'source': _source_from_filename(filename),
+      }
+
+      row.update(received_fields)
+      row.update(error_field)
+
+      yield row
 
 
 def _read_satellitev1(scan: Dict[str, Any]) -> Dict[str, Any]:
@@ -539,16 +558,120 @@ def _read_satellitev1(scan: Dict[str, Any]) -> Dict[str, Any]:
 
   received_ips = scan.get('answers')
   if received_ips:
-    satellite_fields['received'] = []
-    for ip, tags in received_ips.items():
-      # TODO: get tag value from tagging output files
-      received = {
-        'ip': ip,
-        'tags': [{'type': tag, 'matches_control': True} for tag in tags]
-      }
-      satellite_fields['received'].append(received)
-
+    if type(received_ips) == list:
+      satellite_fields['received'] = received_ips
+    else:
+      satellite_fields['received'] = []
+      for ip, tags in received_ips.items():
+        # TODO: get tag value from tagging output files
+        received = {
+          'ip': ip,
+          'tags': [{'type': tag, 'matches_control': True} for tag in tags]
+        }
+        satellite_fields['received'].append(received)
   return satellite_fields
+
+
+def _read_satellite_tags(filename, scan: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+  """Read data for IP tagging from Satellite.
+
+    Args:
+      scan: dictionary containing tag data
+
+    Returns:
+      Processed Satellite fields
+  """
+  date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
+  if 'name' in scan:
+    # from resolvers.json
+    tags = {
+      'ip': scan['resolver'],
+      'name': scan['name']
+    }
+  elif 'country' in scan:
+    # from tagged_resolvers.json
+    # contains resolver's full country name
+    # convert to country code
+    tags = {
+      'ip': scan['resolver'],
+      'country': country_name_to_code.get(scan['country'], scan['country'])
+    }
+  else:
+    # from tagged_answers.json
+    tags = scan
+  tags['date'] = date
+  return tags
+
+
+def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PCollection[Tuple[Row]]):
+    # PCollection[Tuple[DateIpKey,Row]]
+    rows_keyed_by_ip_and_date = (
+        rows
+        | 'key by ips and dates' >>
+        beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
+            Tuple[DateIpKey, Row]))
+
+    # PCollection[DateIpKey]
+    ips_and_dates = (
+        rows_keyed_by_ip_and_date
+        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+
+    # PCollection[DateIpKey]
+    deduped_ips_and_dates = (
+        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
+
+    # PCollection[Tuple[date,List[ip]]]
+    grouped_ips_by_dates = (
+        deduped_ips_and_dates | 'group by date' >>
+        beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
+
+    def merge_dicts(dicts):
+      merged = {}
+      for d in dicts:
+        merged.update(d)
+      return merged
+
+    # PCollection[Tuple[DateIpKey,Row]]
+    ips_with_metadata = (
+        tags
+        | 'tags key by ips and dates' >>
+        beam.Map(lambda row: (_make_date_ip_key(row), row))
+        | 'combine duplicate tags' >>
+        beam.CombinePerKey(merge_dicts).with_output_types(
+            Tuple[DateIpKey, Row]))
+
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    grouped_metadata_and_rows = (({
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+    }) | 'group by keys' >> beam.CoGroupByKey())
+
+
+    # PCollection[Row]
+    rows_with_metadata = (
+        grouped_metadata_and_rows
+        | 'merge metadata with rows' >>
+        beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
+
+    return rows_with_metadata
+
+
+def _process_satellitev1(lines: beam.pvalue.PCollection[Tuple[str, str]],
+              lines2: beam.pvalue.PCollection[Tuple[str, str]]):
+
+  def yield_tags(filename, scan):
+    yield _read_satellite_tags(filename, scan)
+
+  rows = (
+      lines | 'flatten json' >>
+      beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
+  tag_rows = (
+        lines2 | 'tag rows' >>
+        beam.FlatMapTuple(yield_tags).with_output_types(Row))
+
+  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
+
+  return rows_with_metadata
 
 
 def _make_date_ip_key(row: Row) -> DateIpKey:
