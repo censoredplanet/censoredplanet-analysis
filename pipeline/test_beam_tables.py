@@ -719,92 +719,110 @@ class PipelineMainTest(unittest.TestCase):
     matches = [matcher.match_page(page) for page in pages]
     self.assertListEqual(matches, expected_matches)
 
-  def test_read_satellitev1_data(self):
+  def test_flatten_measurement_https_satellitev1(self):
 
     filename = 'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json'
-    response1 = {
-        'resolver': '67.69.184.215',
-        'query': 'asana.com',
-        'answers': {
-            '151.101.1.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
-            '151.101.129.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
-            '151.101.193.184': ['ip', 'http', 'cert', 'asnum', 'asname'],
-            '151.101.65.184': ['ip', 'cert', 'asnum', 'asname']
+    interference = [
+      """{
+        "resolver":"67.69.184.215",
+        "query":"asana.com",
+        "answers":{
+          "151.101.1.184":["ip", "http", "cert", "asnum", "asname"],
+          "151.101.129.184":["ip", "http", "cert", "asnum", "asname"],
+          "151.101.193.184":["ip", "http", "cert", "asnum", "asname"],
+          "151.101.65.184":["ip", "cert", "asnum", "asname"]
         },
-        'passed': True
-    }
-
-    response2 = {
-        'resolver': '145.239.6.50',
-        'query': 'www.ecequality.org',
-        'answers': {
-            '160.153.136.3': []
+        "passed":true
+      }
+      """,
+      """{
+        "resolver":"145.239.6.50",
+        "query":"www.ecequality.org",
+        "answers":{
+          "160.153.136.3":[]
         },
-        'passed': False
-    }
+        "passed":false
+      }
+      """,
+      """{
+        "resolver":"185.228.168.149",
+        "query":"www.sportsinteraction.com",
+        "error":"no_answer"
+      }
+      """
+    ]
 
-    response3 = {
-        'resolver': '185.228.168.149',
-        'query': 'www.sportsinteraction.com',
-        'error': 'no_answer'
-    }
+    expected = [
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.1.184', 'matches_control': ['ip', 'http', 'cert', 'asnum', 'asname']},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.129.184', 'matches_control': ['ip', 'http', 'cert', 'asnum', 'asname']},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.193.184', 'matches_control': ['ip', 'http', 'cert', 'asnum', 'asname']},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.65.184', 'matches_control': ['ip', 'cert', 'asnum', 'asname']},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'www.ecequality.org',
+        'ip': '145.239.6.50',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '160.153.136.3', 'matches_control': []},
+        'measurement_id': ''
+      },
+      {
+        'domain':  'www.sportsinteraction.com',
+        'ip': '185.228.168.149',
+        'date': '2020-09-02',
+        'error': "no_answer",
+        'blocked': None,
+        'success': False,
+        'received': None,
+        'measurement_id': ''
+      }
+    ]
 
-    row1 = {
-      'domain': 'asana.com',
-      'ip': '67.69.184.215',
-      'error': None,
-      'blocked': False,
-      'success': True,
-      'received': [
-          {'ip': '151.101.1.184', 'tags': [
-              {'type': 'ip', 'matches_control': True},
-              {'type': 'http', 'matches_control': True},
-              {'type': 'cert', 'matches_control': True},
-              {'type': 'asnum', 'matches_control': True},
-              {'type': 'asname', 'matches_control': True}]},
-          {'ip': '151.101.129.184', 'tags': [
-              {'type': 'ip', 'matches_control': True},
-              {'type': 'http', 'matches_control': True},
-              {'type': 'cert', 'matches_control': True},
-              {'type': 'asnum', 'matches_control': True},
-              {'type': 'asname', 'matches_control': True}]},
-          {'ip': '151.101.193.184', 'tags': [
-              {'type': 'ip', 'matches_control': True},
-              {'type': 'http', 'matches_control': True},
-              {'type': 'cert', 'matches_control': True},
-              {'type': 'asnum', 'matches_control': True},
-              {'type': 'asname', 'matches_control': True}]},
-          {'ip': '151.101.65.184', 'tags': [
-              {'type': 'ip', 'matches_control': True},
-              {'type': 'cert', 'matches_control': True},
-              {'type': 'asnum', 'matches_control': True},
-              {'type': 'asname', 'matches_control': True}]}
-      ],
-    }
-
-    row2 = {
-      'domain': 'www.ecequality.org',
-      'ip': '145.239.6.50',
-      'error': None,
-      'blocked': True,
-      'success': True,
-      'received': [
-          {'ip': '160.153.136.3', 'tags': []},
-      ],
-    }
-
-    row3 = {
-      'domain':  'www.sportsinteraction.com',
-      'ip': '185.228.168.149',
-      'error': "no_answer",
-      'blocked': None,
-      'success': False,
-    }
-
-    interference = [response1, response2, response3]
-    expected = [row1, row2, row3]
-    read_result = [beam_tables._read_satellitev1(i) for i in interference]
-    self.assertListEqual(read_result, expected)
+    result = []
+    for i in interference:
+      rows = beam_tables._flatten_measurement(filename, i)
+      # remove random measurement id
+      for row in rows:
+        row['measurement_id'] = ''
+        result.append(row.copy())
+    self.assertListEqual(result, expected)
 
   def test_read_satellite_tags(self):
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
@@ -833,72 +851,6 @@ class PipelineMainTest(unittest.TestCase):
     result = [beam_tables._read_satellite_tags('2020-12-17', d) for d in data]
     self.assertListEqual(result, expected)
 
-  def test_add_satellite_tags(self):
-    rows = [
-      {
-        'ip': '1.1.1.3',
-        'domain': 'signal.org',
-        'error': None,
-        'blocked': False,
-        'success': True,
-        'received': [{'ip': '13.249.134.38', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.44', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.74', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.89', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}],
-        'date': '2020-09-02'
-      },
-      {
-        'ip': '1.1.1.3',
-        'domain': 'adl.org',
-        'error': None,
-        'blocked': False,
-        'success': True,
-        'received': [{'ip': '192.124.249.107', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'no_tags', 'matches_control': True}]}],
-        'date': '2020-09-02'
-      }
-    ]
-
-    tag_rows = [
-      {'ip': '1.1.1.3', 'name': 'special', 'date': '2020-09-02'},
-      {'ip': '1.1.1.3', 'country': 'US', 'date': '2020-09-02'},
-      {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af','ip':'13.249.134.38', 'date': '2020-09-02'},
-      {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71','ip':'13.249.134.44', 'date': '2020-09-02'},
-      {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe','ip':'13.249.134.74', 'date': '2020-09-02'},
-      {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac','ip':'13.249.134.89', 'date': '2020-09-02'}
-    ]
-
-    expected = [
-      {
-        'ip': '1.1.1.3',
-        'country': 'US',
-        'name': 'special',
-        'domain': 'signal.org',
-        'error': None,
-        'blocked': False,
-        'success': True,
-        'received': [{'ip': '13.249.134.38', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.44', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.74', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.89', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}],
-        'date': '2020-09-02'
-      },
-      {
-        'ip': '1.1.1.3',
-        'country': 'US',
-        'name': 'special',
-        'domain': 'adl.org',
-        'error': None,
-        'blocked': False,
-        'success': True,
-        'received': [{'ip': '192.124.249.107', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'no_tags', 'matches_control': True}]}],
-        'date': '2020-09-02'
-      }
-    ]
-
-    with TestPipeline() as p:
-      beam_rows = p | 'create data' >> beam.Create(rows)
-      beam_tag_rows = p | 'create tags' >> beam.Create(tag_rows)
-
-      rows_with_tags = beam_tables._add_satellite_tags(beam_rows, beam_tag_rows)
-
-      beam_test_util.assert_that(
-          rows_with_tags,
-          beam_test_util.equal_to(expected))
-
   def test_process_satellite_v1(self):
     import json
     data = [
@@ -926,7 +878,12 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'blocked': False,
         'success': True,
-        'received': [{'ip': '13.249.134.38', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.44', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.74', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}, {'ip': '13.249.134.89', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'http', 'matches_control': True}, {'type': 'asnum', 'matches_control': True}, {'type': 'asname', 'matches_control': True}]}],
+        'received': [
+            {'ip': '13.249.134.38', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ['ip', 'http', 'asnum', 'asname']},
+            {'ip': '13.249.134.44', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': ['ip', 'http', 'asnum', 'asname']},
+            {'ip': '13.249.134.74', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': ['ip', 'http', 'asnum', 'asname']},
+            {'ip': '13.249.134.89', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': ['ip', 'http', 'asnum', 'asname']}
+        ],
         'date': '2020-09-02'
       },
       {
@@ -937,7 +894,9 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'blocked': False,
         'success': True,
-        'received': [{'ip': '192.124.249.107', 'tags': [{'type': 'ip', 'matches_control': True}, {'type': 'no_tags', 'matches_control': True}]}],
+        'received': [
+            {'ip': '192.124.249.107', 'matches_control': ['ip']}
+        ],
         'date': '2020-09-02'
       }
     ]
