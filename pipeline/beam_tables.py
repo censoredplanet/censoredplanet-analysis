@@ -120,6 +120,7 @@ ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
+SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 
 class BlockpageMatcher:
 
@@ -498,10 +499,29 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
 
   if 'Satellite' in filename:
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
-    row = _read_satellitev1(scan)
-    row['date'] = date
+    row = {
+      'domain': scan['query'],
+      'ip': scan['resolver'],
+      'date': date,
+      'error': scan.get('error', None),
+      'blocked': not scan['passed'] if 'passed' in scan else None,
+      'success': 'error' not in scan,
+      'received': None,
+      'measurement_id': random_measurement_id,
+    }
 
-    yield row
+    # separate into one answer ip per row for tagging
+    received_ips = scan.get('answers')
+    if received_ips:
+      for ip in received_ips:
+        row['received'] = {
+          'ip': ip
+        }
+        if type(received_ips) == dict:
+          row['received']['matches_control'] = [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS]
+        yield row
+    else:
+      yield row
   else:
     for result in scan['Results']:
       if 'Received' in result:
@@ -536,40 +556,6 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
       row.update(error_field)
 
       yield row
-
-
-def _read_satellitev1(scan: Dict[str, Any]) -> Dict[str, Any]:
-  """Read measurement from Satellite v1 data.
-
-  Args:
-    scan: dictionary containing measurement data
-
-  Returns:
-    Processed Satellite fields
-
-  """
-  satellite_fields = {
-      'domain': scan['query'],
-      'ip': scan['resolver'],
-      'error': scan.get('error', None),
-      'blocked': not scan['passed'] if 'passed' in scan else None,
-      'success': 'error' not in scan,
-  }
-
-  received_ips = scan.get('answers')
-  if received_ips:
-    if type(received_ips) == list:
-      satellite_fields['received'] = received_ips
-    else:
-      satellite_fields['received'] = []
-      for ip, tags in received_ips.items():
-        # TODO: get tag value from tagging output files
-        received = {
-          'ip': ip,
-          'tags': [{'type': tag, 'matches_control': True} for tag in tags]
-        }
-        satellite_fields['received'].append(received)
-  return satellite_fields
 
 
 def _read_satellite_tags(filename, scan: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
@@ -653,7 +639,59 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
         | 'merge metadata with rows' >>
         beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
-    return rows_with_metadata
+    received_keyed_by_ip_and_date = (
+        rows_with_metadata
+        | 'key by received ips and dates' >>
+        beam.Map(lambda row: ((row['date'], row['received']['ip']), row)).with_output_types(
+            Tuple[DateIpKey, Row]))
+
+    grouped_received_metadata_and_rows = (({
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
+    }) | 'group by received ip keys ' >> beam.CoGroupByKey())
+
+    def merge_tags(key, value):
+      ip_metadata = value[IP_METADATA_PCOLLECTION_NAME]
+      rows = value[ROWS_PCOLLECION_NAME]
+      if ip_metadata:
+        ip_metadata = ip_metadata[0]
+      for row in rows:
+        new_row: Row = {}
+        new_row.update(row)
+        if 'received' in new_row:
+          for key in ip_metadata:
+            if key != 'date':
+              new_row['received'][key] = ip_metadata[key]
+        yield new_row
+
+    rows_with_tags = (
+        grouped_received_metadata_and_rows
+        | 'tag received ips' >>
+        beam.FlatMapTuple(merge_tags).with_output_types(Row))
+
+    def remerge_rows(key, values):
+      if values:
+        combined = {}
+        for value in values:
+          if not combined:
+            combined = value
+            combined['received'] = [value['received']]
+          else:
+            combined['received'].append(value['received'])
+        combined.pop('measurement_id')
+        yield combined
+
+    remerged_rows = (
+      rows_with_tags
+      | 'key by measurement id' >>
+      beam.Map(lambda row: (row['measurement_id'], row)).with_output_types(
+            Tuple[str, Row])
+      | 'group by measurement id' >>
+      beam.GroupByKey()
+      | 'remerge rows' >>
+      beam.FlatMapTuple(remerge_rows).with_output_types(Row))
+
+    return remerged_rows
 
 
 def _process_satellitev1(lines: beam.pvalue.PCollection[Tuple[str, str]],
