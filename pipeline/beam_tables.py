@@ -583,7 +583,6 @@ def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
     logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
                     line)
     return
-  date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
   if 'name' in scan:
     # from resolvers.json
     tags = {
@@ -601,11 +600,23 @@ def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
   else:
     # from tagged_answers.json
     tags = scan
-  tags['date'] = date
+  tags['date'] = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
   yield tags
 
 
-def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PCollection[Tuple[Row]]):
+def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PCollection[Tuple[Row]]) -> beam.pvalue.PCollection[Row]:
+    """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
+
+    Args:
+      rows: PCollection of measurement rows
+      tags: PCollection of (filename, tag dictionary) tuples
+
+    Returns:
+      PCollection of measurement rows containing tag information
+  """
+
+    # 1. Add tags for vantage point IPs - resolver name (hostname/control/special) and country
+
     # PCollection[Tuple[DateIpKey,Row]]
     rows_keyed_by_ip_and_date = (
         rows
@@ -648,12 +659,13 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
         ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
     }) | 'group by keys' >> beam.CoGroupByKey())
 
-
     # PCollection[Row]
     rows_with_metadata = (
         grouped_metadata_and_rows
         | 'merge metadata with rows' >>
         beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
+
+    # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
 
     received_keyed_by_ip_and_date = (
         rows_with_metadata
@@ -685,6 +697,9 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
         | 'tag received ips' >>
         beam.FlatMapTuple(merge_tags).with_output_types(Row))
 
+    # 3. Measurements are currently flattened to one answer IP per row ->
+    #    Remerge so that each row contains a array of answer IPs
+
     def remerge_rows(key, values):
       if values:
         combined = {}
@@ -712,6 +727,7 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
 
 def _process_satellitev1(lines: beam.pvalue.PCollection[Tuple[str, str]],
               lines2: beam.pvalue.PCollection[Tuple[str, str]]):
+  """Process Satellite measurements and tags."""
   rows = (
       lines | 'flatten json' >>
       beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
@@ -728,6 +744,7 @@ def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2):
   """Partitions Satellite input into tags and rows."""
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
+    # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
     return 0
   return 1
 
