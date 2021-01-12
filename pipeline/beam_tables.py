@@ -67,6 +67,7 @@ SCAN_BIGQUERY_SCHEMA = {
     'stateful_block': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
+    'name': ('string', 'nullable'),
 
     # received columns
     # Column filled in all tables
@@ -82,12 +83,11 @@ SCAN_BIGQUERY_SCHEMA = {
     # SATELLITE
     'received': ('record', 'repeated', {
         'ip': ('string', 'nullable'),
-        'tags': ('record', 'repeated', {
-          'type': ('string', 'nullable'),
-          'tag': ('string', 'nullable'),
-          'tag': ('integer', 'nullable'),
-          'matches_control': ('boolean', 'nullable')
-        })
+        'asnum': ('integer', 'nullable'),
+        'asname': ('string', 'nullable'),
+        'http': ('string', 'nullable'),
+        'cert': ('string', 'nullable'),
+        'matches_control': ('string', 'nullable')
     }),
 
     # Columns added from CAIDA data
@@ -283,11 +283,21 @@ def _get_beam_bigquery_schema(
   """
   table_schema = beam_bigquery.TableSchema()
 
-  for (name, (field_type, mode)) in fields.items():
+  for (name, attributes) in fields.items():
+    field_type = attributes[0]
+    mode = attributes[1]
     field_schema = beam_bigquery.TableFieldSchema()
     field_schema.name = name
     field_schema.type = field_type
     field_schema.mode = mode
+    if len(attributes) > 2:
+      field_schema.fields = []
+      for (n, (t, m)) in attributes[2].items():
+        subfield_schema = beam_bigquery.TableFieldSchema()
+        subfield_schema.name = n
+        subfield_schema.type = t
+        subfield_schema.mode = m
+        field_schema.fields.append(subfield_schema)
     table_schema.fields.append(field_schema)
 
   return table_schema
@@ -518,7 +528,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
           'ip': ip
         }
         if type(received_ips) == dict:
-          row['received']['matches_control'] = [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS]
+          row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
         yield row
     else:
       yield row
@@ -558,7 +568,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
       yield row
 
 
-def _read_satellite_tags(filename, scan: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
   """Read data for IP tagging from Satellite.
 
     Args:
@@ -567,6 +577,12 @@ def _read_satellite_tags(filename, scan: Dict[str, Any]) -> Iterator[Dict[str, A
     Returns:
       Processed Satellite fields
   """
+  try:
+    scan = json.loads(line)
+  except json.decoder.JSONDecodeError as e:
+    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+                    line)
+    return
   date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
   if 'name' in scan:
     # from resolvers.json
@@ -1076,7 +1092,7 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == 'dns':
-        tags, lines = lines | beam.Partition(beam_tables._partition_satellite_input, 2)
+        tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
 
         rows_with_metadata = _process_satellitev1(lines, tags)
       else:
