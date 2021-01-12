@@ -586,7 +586,7 @@ def _read_satellite_tags(filename, scan: Dict[str, Any]) -> Iterator[Dict[str, A
     # from tagged_answers.json
     tags = scan
   tags['date'] = date
-  return tags
+  yield tags
 
 
 def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PCollection[Tuple[Row]]):
@@ -696,20 +696,24 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
 
 def _process_satellitev1(lines: beam.pvalue.PCollection[Tuple[str, str]],
               lines2: beam.pvalue.PCollection[Tuple[str, str]]):
-
-  def yield_tags(filename, scan):
-    yield _read_satellite_tags(filename, scan)
-
   rows = (
       lines | 'flatten json' >>
       beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
   tag_rows = (
         lines2 | 'tag rows' >>
-        beam.FlatMapTuple(yield_tags).with_output_types(Row))
+        beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   rows_with_metadata = _add_satellite_tags(rows, tag_rows)
 
   return rows_with_metadata
+
+
+def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2):
+  """Partitions Satellite input into tags and rows."""
+  filename = line[0]
+  if "tagged" in filename or "resolvers" in filename:
+    return 0
+  return 1
 
 
 def _make_date_ip_key(row: Row) -> DateIpKey:
@@ -1071,12 +1075,17 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      # PCollection[Row]
-      rows = (
-          lines | 'flatten json' >>
-          beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
+      if scan_type == 'dns':
+        tags, lines = lines | beam.Partition(beam_tables._partition_satellite_input, 2)
 
-      # PCollection[Row]
-      rows_with_metadata = self._add_metadata(rows)
+        rows_with_metadata = _process_satellitev1(lines, tags)
+      else:
+        # PCollection[Row]
+        rows = (
+            lines | 'flatten json' >>
+            beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
+
+        # PCollection[Row]
+        rows_with_metadata = self._add_metadata(rows)
 
       self._write_to_bigquery(rows_with_metadata, table_name, incremental_load)
