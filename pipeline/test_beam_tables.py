@@ -848,7 +848,7 @@ class PipelineMainTest(unittest.TestCase):
 
     data = [tagged_resolver1, tagged_resolver2, tagged_answer1]
     expected = [row1, row2, row3]
-    result = [beam_tables._read_satellite_tags('2020-12-17', d) for d in data]
+    result = [next(beam_tables._read_satellite_tags('2020-12-17', d)) for d in data]
     self.assertListEqual(result, expected)
 
   def test_process_satellite_v1(self):
@@ -909,6 +909,35 @@ class PipelineMainTest(unittest.TestCase):
       beam_test_util.assert_that(
           final,
           beam_test_util.equal_to(expected))
+
+  def test_partition_satellite_input(self):
+    data = [
+      ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
+      ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row"),
+      ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")
+    ]
+
+    expected_tags = data[0:6]
+    expected_rows = data[6:]
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+
+      tags, rows = lines | beam.Partition(beam_tables._partition_satellite_input, 2)
+
+      beam_test_util.assert_that(
+          tags,
+          beam_test_util.equal_to(expected_tags),
+          label='assert_that/tags')
+      beam_test_util.assert_that(
+          rows,
+          beam_test_util.equal_to(expected_rows),
+          label='assert_that/rows')
 
 if __name__ == '__main__':
   unittest.main()
