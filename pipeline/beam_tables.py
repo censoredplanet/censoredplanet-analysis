@@ -509,27 +509,46 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
 
   if 'Satellite' in filename:
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
-    row = {
-      'domain': scan['query'],
-      'ip': scan['resolver'],
-      'date': date,
-      'error': scan.get('error', None),
-      'blocked': not scan['passed'] if 'passed' in scan else None,
-      'success': 'error' not in scan,
-      'received': None,
-      'measurement_id': random_measurement_id,
-    }
+    if date < "2021":
+      row = {
+        'domain': scan['query'],
+        'ip': scan['resolver'],
+        'date': date,
+        'error': scan.get('error', None),
+        'blocked': not scan['passed'] if 'passed' in scan else None,
+        'success': 'error' not in scan,
+        'received': None,
+        'measurement_id': random_measurement_id,
+      }
+      received_ips = scan.get('answers')
+    else:
+      row = {
+        'domain': scan['test_url'],
+        'ip': scan['vp'],
+        'country': scan['location']['country_code'],
+        'date': scan['start_time'][:10],
+        'start_time': scan['start_time'],
+        'end_time': scan['end_time'],
+        'error': scan.get('error', None),
+        'blocked': scan['anomaly'],
+        'success': not scan['connect_error'],
+        'received': None,
+        'measurement_id': random_measurement_id
+      }
+      received_ips = scan.get('response')
 
     # separate into one answer ip per row for tagging
-    received_ips = scan.get('answers')
     if received_ips:
+      if 'rcode' in received_ips:
+        row['rcode'] = received_ips['rcode']
       for ip in received_ips:
-        row['received'] = {
-          'ip': ip
-        }
-        if type(received_ips) == dict:
-          row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-        yield row
+        if ip != 'rcode':
+          row['received'] = {
+            'ip': ip
+          }
+          if type(received_ips) == dict:
+            row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
+          yield row
     else:
       yield row
   else:
@@ -586,7 +605,7 @@ def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
   if 'name' in scan:
     # from resolvers.json
     tags = {
-      'ip': scan['resolver'],
+      'ip': scan.get('resolver', scan.get('vp')),
       'name': scan['name']
     }
   elif 'country' in scan:
@@ -725,7 +744,7 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
     return remerged_rows
 
 
-def _process_satellitev1(lines: beam.pvalue.PCollection[Tuple[str, str]],
+def _process_satellite(lines: beam.pvalue.PCollection[Tuple[str, str]],
               lines2: beam.pvalue.PCollection[Tuple[str, str]]):
   """Process Satellite measurements and tags."""
   rows = (
@@ -906,9 +925,9 @@ class ScanDataBeamPipelineRunner():
     if scan_type == 'dns':
       # Satellite v1 has several output files
       # TODO: check date for v1 vs. v2
-      files_to_load = ['resolvers.json', 'answers_err.json', 'answers_control.json',
-                       'answers.json', 'tagged_resolvers.json', 'tagged_answers.json',
-                       'interference.json', 'interference_err.json']
+      files_to_load = ['resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
+                       'interference.json', 'interference_err.json',
+                       'tagged_responses.json', 'results.json']
     else:
       files_to_load = ['results.json']
 
@@ -1111,7 +1130,7 @@ class ScanDataBeamPipelineRunner():
       if scan_type == 'dns':
         tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
 
-        rows_with_metadata = _process_satellitev1(lines, tags)
+        rows_with_metadata = _process_satellite(lines, tags)
       else:
         # PCollection[Row]
         rows = (

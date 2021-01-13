@@ -720,9 +720,15 @@ class PipelineMainTest(unittest.TestCase):
     matches = [matcher.match_page(page) for page in pages]
     self.assertListEqual(matches, expected_matches)
 
-  def test_flatten_measurement_https_satellitev1(self):
+  def test_flatten_measurement_dns(self):
 
-    filename = 'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json'
+    filenames = [
+      'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+      'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+      'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+      'gs://firehook-scans/dns/CP_Satellite-2021-01-01-12-00-01/interference.json'
+    ]
+
     interference = [
       """{
         "resolver":"67.69.184.215",
@@ -749,6 +755,32 @@ class PipelineMainTest(unittest.TestCase):
         "resolver":"185.228.168.149",
         "query":"www.sportsinteraction.com",
         "error":"no_answer"
+      }
+      """,
+      """{
+        "vp":"114.114.114.110",
+        "location":{
+          "country_name":"China",
+          "country_code":"CN"
+        },
+        "test_url":"abs-cbn.com",
+        "response":{
+          "104.20.161.135":[],
+          "104.20.161.134":[],
+          "rcode":["0","0","0"]
+        },
+        "passed_control":true,
+        "connect_error":false,
+        "in_control_group":true,
+        "anomaly":true,
+        "confidence":{
+          "average":0,
+          "matches":[0,0],
+          "untagged_controls":false,
+          "untagged_response":false
+        },
+        "start_time":"2021-01-05 15:32:05.324807502 -0500 EST m=+6.810936646",
+        "end_time":"2021-01-05 15:32:05.366104911 -0500 EST m=+6.852233636"
       }
       """
     ]
@@ -813,11 +845,39 @@ class PipelineMainTest(unittest.TestCase):
         'success': False,
         'received': None,
         'measurement_id': ''
+      },
+      {
+        'domain': 'abs-cbn.com',
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'date': '2021-01-05',
+        'start_time': '2021-01-05 15:32:05.324807502 -0500 EST m=+6.810936646',
+        'end_time': '2021-01-05 15:32:05.366104911 -0500 EST m=+6.852233636',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '104.20.161.135', 'matches_control': ''},
+        'rcode': ["0", "0", "0"],
+        'measurement_id': ''
+      },
+      {
+        'domain': 'abs-cbn.com',
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'date': '2021-01-05',
+        'start_time': '2021-01-05 15:32:05.324807502 -0500 EST m=+6.810936646',
+        'end_time': '2021-01-05 15:32:05.366104911 -0500 EST m=+6.852233636',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '104.20.161.134', 'matches_control': ''},
+        'rcode': ["0", "0", "0"],
+        'measurement_id': ''
       }
     ]
 
     result = []
-    for i in interference:
+    for filename, i in zip(filenames, interference):
       rows = beam_tables._flatten_measurement(filename, i)
       # remove random measurement id
       for row in rows:
@@ -852,7 +912,7 @@ class PipelineMainTest(unittest.TestCase):
     result = [next(beam_tables._read_satellite_tags('2020-12-17', d)) for d in data]
     self.assertListEqual(result, expected)
 
-  def test_process_satellite_v1(self):
+  def test_process_satellite(self):
     data = [
       ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'signal.org', 'answers': {'13.249.134.38': ['ip', 'http', 'asnum', 'asname'], '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],'13.249.134.74': ['ip', 'http', 'asnum', 'asname'], '13.249.134.89': ['ip', 'http', 'asnum', 'asname']}, 'passed': True}),
       ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'adl.org', 'answers': {'192.124.249.107': ['ip', 'no_tags']}, 'passed': True}),
@@ -907,7 +967,7 @@ class PipelineMainTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = beam_tables._process_satellitev1(lines, lines2)
+      final = beam_tables._process_satellite(lines, lines2)
       beam_test_util.assert_that(
           final,
           beam_test_util.equal_to(expected))
