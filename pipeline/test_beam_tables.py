@@ -972,6 +972,65 @@ class PipelineMainTest(unittest.TestCase):
           final,
           beam_test_util.equal_to(expected))
 
+  def test_process_satellite_v2(self):
+    data = [
+      ("CP_Satellite-2021-01-01-12-00-01/results.json", """{"vp":"185.228.169.37","location":{"country_code":"IE","country_name":"Ireland"},"test_url":"ar.m.wikipedia.org","response":{"198.35.26.96":["cert","asnum","asname"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":false,"confidence":{"average":60,"matches":[60],"untagged_controls":false,"untagged_response":false},"start_time":"2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
+      ("CP_Satellite-2021-01-01-12-00-01/results.json", """{"vp":"156.154.71.37","location":{"country_code":"US","country_name":"United States"},"test_url":"www.usacasino.com","response":{"15.126.193.233":["no_tags"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":[0],"untagged_controls":false,"untagged_response":true},"start_time":"2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
+    ]
+
+    tags = [
+      ("CP_Satellite-2021-01-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"IE","country_name":"Ireland"},"vp":"185.228.169.37"}"""),
+      ("CP_Satellite-2021-01-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"US","country_name":"United States"},"vp":"156.154.71.37"}"""),
+      ("CP_Satellite-2021-01-01-12-00-01/resolvers.json", """{"name":"rdns37b.ultradns.net.","vp":"156.154.71.37"}"""),
+      ("CP_Satellite-2021-01-01-12-00-01/resolvers.json", """{"name":"customfilter37-dns2.cleanbrowsing.org.","vp":"185.228.169.37"}"""),
+      ("CP_Satellite-2021-01-01-12-00-01/tagged_responses.json", """{"asname":"WIKIMEDIA","asnum":14907,"cert":"9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10","http":"7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca","ip":"198.35.26.96"}""")
+    ]
+
+    expected = [
+      {
+        'ip': '185.228.169.37',
+        'country': 'IE',
+        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        'domain': 'ar.m.wikipedia.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '198.35.26.96', 'asname':'WIKIMEDIA','asnum':14907,'cert':'9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10','http':'7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca', 'matches_control': 'cert asnum asname'},
+        ],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-01-01',
+        'start_time': '2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701',
+        'end_time': '2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001'
+      },
+      {
+        'ip': '156.154.71.37',
+        'country': 'US',
+        'name': 'rdns37b.ultradns.net.',
+        'domain': 'www.usacasino.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [
+            {'ip': '15.126.193.233', 'matches_control': ''},
+        ],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-01-01',
+        'start_time': '2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701',
+        'end_time': '2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001'
+      }
+    ]
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+      lines2 = p | 'create tags' >> beam.Create(tags)
+
+      final = beam_tables._process_satellite(lines, lines2)
+      beam_test_util.assert_that(
+          final,
+          beam_test_util.equal_to(expected))
+
+
   def test_partition_satellite_input(self):
     data = [
       ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
