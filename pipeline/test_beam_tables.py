@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Unit tests for the beam pipeline."""
 
 import datetime
-from pprint import pprint
+from typing import Dict, List
 import unittest
 
 import apache_beam as beam
@@ -26,8 +27,12 @@ from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 
 
 class PipelineMainTest(unittest.TestCase):
+  """Unit tests for beam pipeline steps."""
 
-  def test_get_beam_bigquery_schema(self):
+  # pylint: disable=protected-access
+
+  def test_get_beam_bigquery_schema(self) -> None:
+    """Test making a bigquery schema for beam's table writing."""
     test_field = {
         'string_field': ('string', 'nullable'),
         'int_field': ('integer', 'repeated'),
@@ -51,7 +56,8 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertEqual(table_schema, expected_table_schema)
 
-  def test_get_table_name(self):
+  def test_get_table_name(self) -> None:
+    """Test creating a table name given params."""
     base_table_name = 'scan'
 
     prod_dataset = 'base'
@@ -70,7 +76,8 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables.get_table_name(user_dataset, 'https', base_table_name),
         'laplante.https_scan')
 
-  def test_get_job_name(self):
+  def test_get_job_name(self) -> None:
+    """Test getting the name for the beam job"""
     self.assertEqual(
         beam_tables.get_job_name('base.scan_echo', False),
         'write-base-scan-echo')
@@ -84,15 +91,16 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables.get_job_name('laplante.scan_https', True),
         'append-laplante-scan-https')
 
-  def test_get_full_table_name(self):
+  def test_get_full_table_name(self) -> None:
     project = 'firehook-censoredplanet'
-    runner = beam_tables.ScanDataBeamPipelineRunner(project, None, None, None,
-                                                    None, None, None)
+    runner = beam_tables.ScanDataBeamPipelineRunner(project, {}, '', '', '',
+                                                    FakeIpMetadata, '')
 
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
-  def test_source_from_filename(self):
+  def test_source_from_filename(self) -> None:
+    """Test getting the data source name from the filename."""
     self.assertEqual(
         beam_tables._source_from_filename(
             'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
@@ -103,7 +111,8 @@ class PipelineMainTest(unittest.TestCase):
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
-  def test_read_scan_text(self):
+  def test_read_scan_text(self) -> None:  # pylint: disable=no-self-use
+    """Test reading lines from compressed and uncompressed files"""
     p = TestPipeline()
     pipeline = beam_tables._read_scan_text(
         p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
@@ -114,7 +123,8 @@ class PipelineMainTest(unittest.TestCase):
             'test line 1.1', 'test line 1.2', 'test line 2.1', 'test line 2.2'
         ]))
 
-  def test_between_dates(self):
+  def test_between_dates(self) -> None:
+    """Test logic to include filenames based on their creation dates."""
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertTrue(
@@ -129,7 +139,8 @@ class PipelineMainTest(unittest.TestCase):
         beam_tables._between_dates(filename, datetime.date(2020, 5, 10), None))
     self.assertTrue(beam_tables._between_dates(filename, None, None))
 
-  def test_not_between_dates(self):
+  def test_not_between_dates(self) -> None:
+    """Test logic to filter filenames based on their creation dates."""
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-05-11-01-02-08/results.json'
 
     self.assertFalse(
@@ -140,7 +151,8 @@ class PipelineMainTest(unittest.TestCase):
     self.assertFalse(
         beam_tables._between_dates(filename, datetime.date(2020, 5, 12), None))
 
-  def test_parse_received_headers(self):
+  def test_parse_received_headers(self) -> None:
+    """Test parsing HTTP/S header fields into a flat format."""
     headers = {
         'Content-Language': ['en', 'fr'],
         'Content-Type': ['text/html; charset=iso-8859-1']
@@ -155,8 +167,9 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertListEqual(flat_headers, expected_headers)
 
-  def test_parse_received_data_http(self):
-    # pyformat: disable
+  def test_parse_received_data_http(self) -> None:
+    """Test parsing sample HTTP data."""
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'headers': {},
@@ -168,13 +181,14 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
         'received_headers': []
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
-  def test_parse_received_data_no_header_field(self):
-    # pyformat: disable
+  def test_parse_received_data_no_header_field(self) -> None:
+    """Test parsing reciveed HTTP/S data missing a header field."""
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'body': '<test-body>'
@@ -186,13 +200,14 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<test-body>',
         'received_headers': []
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
-  def test_parse_received_data_https(self):
-    # pyformat: disable
+  def test_parse_received_data_https(self) -> None:
+    """Test parsing example HTTPS data."""
+    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'headers': {
@@ -230,12 +245,13 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
     }
-    # pyformat: enable
+    # yapf: enable
 
     parsed = beam_tables._parse_received_data(received)
     self.assertDictEqual(parsed, expected)
 
-  def test_flatten_measurement_echo(self):
+  def test_flatten_measurement_echo(self) -> None:
+    """Test parsing an example Echo measurement."""
     line = """{
       "Server":"1.2.3.4",
       "Keyword":"www.example.com",
@@ -263,7 +279,7 @@ class PipelineMainTest(unittest.TestCase):
       "StatefulBlock":false
     }"""
 
-    expected_rows = [{
+    expected_rows: List[beam_tables.Row] = [{
         'domain': 'www.example.com',
         'ip': '1.2.3.4',
         'date': '2020-09-20',
@@ -310,10 +326,13 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertListEqual(rows, expected_rows)
 
-  def test_flatten_measurement_http_success(self):
-    # Not all measurements recieve any data/errors,
-    # in that case the received_ and error fields should not exist
-    # and will end up Null in bigquery.
+  def test_flatten_measurement_http_success(self) -> None:
+    """Test parsing an example successful HTTP measurement
+
+    Not all measurements recieve any data/errors,
+    in that case the received_ and error fields should not exist
+    and will end up Null in bigquery.
+    """
 
     line = """{
       "Server":"170.248.33.11",
@@ -355,7 +374,8 @@ class PipelineMainTest(unittest.TestCase):
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_http(self):
+  def test_flatten_measurement_http(self) -> None:
+    """Test parsing an unsuccessful HTTP measurement."""
     line = """{
       "Server":"184.50.171.225",
       "Keyword":"www.csmonitor.com",
@@ -415,7 +435,8 @@ class PipelineMainTest(unittest.TestCase):
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_https(self):
+  def test_flatten_measurement_https(self) -> None:
+    """Test parsing an unsuccessful HTTPS measurement."""
     line = """{
       "Server":"213.175.166.157",
       "Keyword":"www.arabhra.org",
@@ -458,8 +479,8 @@ class PipelineMainTest(unittest.TestCase):
     """
     filename = 'gs://firehook-scans/http/CP_Quack-https-2020-11-06-15-15-31/results.json'
 
-    # pyformat: disable
-    expected_row = {
+    # yapf: disable
+    expected_row: beam_tables.Row = {
         'domain': 'www.arabhra.org',
         'ip': '213.175.166.157',
         'date': '2020-11-06',
@@ -491,7 +512,7 @@ class PipelineMainTest(unittest.TestCase):
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
     }
-    # pyformat: enable
+    # yapf: enable
 
     row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
@@ -499,7 +520,8 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_invalid_json(self):
+  def test_flatten_measurement_invalid_json(self) -> None:
+    """Test logging an error when parsing invalid JSON."""
     line = 'invalid json'
 
     with self.assertLogs(level='WARNING') as cm:
@@ -511,8 +533,9 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertEqual(len(rows), 0)
 
-  def test_add_metadata(self):
-    rows = [{
+  def test_add_metadata(self) -> None:  # pylint: disable=no-self-use
+    """Test adding IP metadata to mesurements."""
+    rows: List[beam_tables.Row] = [{
         'domain': 'www.example.com',
         'ip': '8.8.8.8',
         'date': '2020-01-01',
@@ -537,8 +560,8 @@ class PipelineMainTest(unittest.TestCase):
     p = TestPipeline()
     rows = (p | beam.Create(rows))
 
-    runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
-                                                    None, FakeIpMetadata, None)
+    runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
+                                                    FakeIpMetadata, '')
 
     rows_with_metadata = runner._add_metadata(rows)
     beam_test_util.assert_that(
@@ -589,20 +612,21 @@ class PipelineMainTest(unittest.TestCase):
             'country': 'US',
         }]))
 
-  def test_make_date_ip_key(self):
+  def test_make_date_ip_key(self) -> None:
     row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
     self.assertEqual(
         beam_tables._make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
-  def test_add_ip_metadata(self):
-    runner = beam_tables.ScanDataBeamPipelineRunner(None, None, None, None,
-                                                    None, FakeIpMetadata, None)
+  def test_add_ip_metadata(self) -> None:
+    """Test merging given IP metadata with given measurements."""
+    runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
+                                                    FakeIpMetadata, '')
 
     metadatas = list(
         runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
-    expected_key_1 = ('2020-01-01', '1.1.1.1')
-    expected_value_1 = {
+    expected_key_1: beam_tables.DateIpKey = ('2020-01-01', '1.1.1.1')
+    expected_value_1: beam_tables.Row = {
         'netblock': '1.0.0.1/24',
         'asn': 13335,
         'as_name': 'CLOUDFLARENET',
@@ -611,8 +635,8 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }
 
-    expected_key_2 = ('2020-01-01', '8.8.8.8')
-    expected_value_2 = {
+    expected_key_2: beam_tables.DateIpKey = ('2020-01-01', '8.8.8.8')
+    expected_value_2: beam_tables.Row = {
         'netblock': '8.8.8.0/24',
         'asn': 15169,
         'as_name': 'GOOGLE',
@@ -624,9 +648,10 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
                                      (expected_key_2, expected_value_2)])
 
-  def test_merge_metadata_with_rows(self):
-    key = ('2020-01-01', '1.1.1.1')
-    ip_metadata = {
+  def test_merge_metadata_with_rows(self) -> None:
+    """Test merging IP metadata pcollection with rows pcollection."""
+    key: beam_tables.DateIpKey = ('2020-01-01', '1.1.1.1')
+    ip_metadata: beam_tables.Row = {
         'netblock': '1.0.0.1/24',
         'asn': 13335,
         'as_name': 'CLOUDFLARENET',
@@ -634,7 +659,7 @@ class PipelineMainTest(unittest.TestCase):
         'as_class': 'Content',
         'country': 'US',
     }
-    rows = [{
+    rows: List[beam_tables.Row] = [{
         'domain': 'www.example.com',
         'ip': '1.1.1.1',
         'date': '2020-01-01',
@@ -643,7 +668,7 @@ class PipelineMainTest(unittest.TestCase):
         'ip': '1.1.1.1',
         'date': '2020-01-01',
     }]
-    value = {
+    value: Dict[str, List[beam_tables.Row]] = {
         beam_tables.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
         beam_tables.ROWS_PCOLLECION_NAME: rows
     }
@@ -672,6 +697,8 @@ class PipelineMainTest(unittest.TestCase):
 
     rows_with_metadata = list(beam_tables._merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
+
+  # pylint: enable=protected-access
 
 
 if __name__ == '__main__':
