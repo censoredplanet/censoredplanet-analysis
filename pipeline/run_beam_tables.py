@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ python -m pipeline.run_beam_tables --env=prod --incremental=False
 """
 
 import argparse
-import concurrent
+import concurrent.futures
 import datetime
 import os
 import pwd
@@ -34,7 +34,7 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
                            scan_types: List[str],
                            incremental_load: bool,
                            start_date: Optional[datetime.date] = None,
-                           end_date: Optional[datetime.date] = None):
+                           end_date: Optional[datetime.date] = None) -> bool:
   """Runs beam pipelines for different scan types in parallel.
 
   Args:
@@ -81,7 +81,7 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
 
 def run_user_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
                        dataset: str, scan_types: List[str],
-                       incremental_load: bool):
+                       incremental_load: bool) -> None:
   """Run user beam pipelines for testing.
 
   Users only needs to load a week of data for testing.
@@ -112,10 +112,11 @@ def run_user_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       end_date=end_day)
 
 
-def get_firehook_beam_pipeline_runner():
+def get_firehook_beam_pipeline_runner(
+) -> beam_tables.ScanDataBeamPipelineRunner:
   """Factory function to get a beam pipeline class with firehook values."""
   # importing here to avoid beam pickling issues
-  import firehook_resources
+  import firehook_resources  # pylint: disable=import-outside-toplevel
 
   return beam_tables.ScanDataBeamPipelineRunner(
       firehook_resources.PROJECT_NAME, beam_tables.SCAN_BIGQUERY_SCHEMA,
@@ -124,7 +125,12 @@ def get_firehook_beam_pipeline_runner():
       firehook_resources.CAIDA_FILE_LOCATION)
 
 
-def main(parsed_args: argparse.Namespace):
+def main(parsed_args: argparse.Namespace) -> None:
+  """Parse namespace arguments and run a beam pipeline based on them.
+
+  Args:
+    parsed_args: an argparse namespace with 'full', 'env' and 'scan_type' args.
+  """
   incremental = not parsed_args.full
 
   if parsed_args.scan_type == 'all':
