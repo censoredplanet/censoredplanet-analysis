@@ -11,7 +11,7 @@ class RepositoryMirror():
 
   def __init__(self, owner: str, repository: str,
                destination: str, files: List[str] = [],
-               source_tree: bool = True):
+               source_tree: bool = True, github: bool = False):
     """Initialize repository mirror.
 
       Args:
@@ -20,12 +20,14 @@ class RepositoryMirror():
         destination: local (root) directory for repository contents
         files: default list of files in repository to sync
         source_tree: indicates if repository file structure should be maintained
+        github: indicates if repository is hosted on Github
     """
     self.owner = owner
     self.repository = repository
     self.destination = destination
     self.files = files
     self.source_tree = source_tree
+    self.github = github
     self.history = self._load_history()
 
   def _load_history(self):
@@ -36,21 +38,25 @@ class RepositoryMirror():
       history = f.read()
     return json.loads(history)
 
-  def _download_github_file(self, path: str):
-    """Downloads a file from the Github repository.
+  def _download_file(self, path: str):
+    """Downloads a file from the repository.
 
       Args:
         path: path to the target file within the repository
     """
-    # Reference https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api
-    # in case of API changes
-    url = 'https://api.github.com/repos/{0}/{1}/contents/{2}'.format(self.owner, self.repository, path)
-    # Get Github token from environment variable 'GITHUBTOKEN'
-    # Using Github API v3 (raw output)
-    headers = {
-      'Authorization': 'token {}'.format(os.environ.get('GITHUBTOKEN', '')),
-      'Accept': 'application/vnd.github.v3.raw'
-    }
+    if self.github:
+      # Reference https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api
+      # in case of API changes
+      url = 'https://api.github.com/repos/{0}/{1}/contents/{2}'.format(self.owner, self.repository, path)
+      # Get Github token from environment variable 'GITHUBTOKEN'
+      # Using Github API v3 (raw output)
+      headers = {
+        'Authorization': 'token {}'.format(os.environ.get('GITHUBTOKEN', '')),
+        'Accept': 'application/vnd.github.v3.raw'
+      }
+    else:
+      url = self.repository + path
+      headers = {}
 
     # Check history for etag of the local version
     etag = self.history.get(url)
@@ -101,19 +107,18 @@ class RepositoryMirror():
       input_files = self.files
 
     for file in input_files:
-      self._download_github_file(file)
+      self._download_file(file)
 
 
 def get_censoredplanet_mirror():
   """Factory function to get mirror for Censored Planet repository."""
-  owner = 'censoredplanet'
-  repo = 'censoredplanet-scheduler'
+  repo = 'https://assets.censoredplanet.org'
   destination = os.path.join(PROJECT_ROOT, 'pipeline/assets/')
   files = [
-    'signatures/false_positive_signatures.json', 
-    'signatures/blockpage_signatures.json'
+    '/false_positive_signatures.json',
+    '/blockpage_signatures.json'
   ]
-  return RepositoryMirror(owner, repo, destination,
+  return RepositoryMirror(None, repo, destination,
                           files=files, source_tree=False)
 
 
