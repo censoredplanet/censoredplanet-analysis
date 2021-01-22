@@ -1060,5 +1060,74 @@ class PipelineMainTest(unittest.TestCase):
           beam_test_util.equal_to(expected_rows),
           label='assert_that/rows')
 
+  def test_calculate_confidence(self):
+    scans = [
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'abs-cbn.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.44', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.74', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+        ],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname':'AS1','asnum':11111,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
+            {'ip': '13.249.134.44', 'asname':'AS2','asnum':22222,'cert':'cert','http':'256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'asnum asname'},
+            {'ip': '13.249.134.74', 'asname':'AS2','asnum':22222,'cert':None,'http':'2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89', 'asname':'AS2','asnum':22222,'cert':None,'http':'0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+        ],
+        'date': '2020-09-02'
+      }
+
+    ]
+
+    expected = [
+      {
+        'average': 0,
+        'matches': [0],
+        'untagged_response': True
+      },
+      {
+        'average': 100,
+        'matches': [100, 100, 100, 100],
+        'untagged_response': False
+      },
+      {
+        'average': 62.5,
+        'matches': [0, 50, 100, 100],
+        'untagged_response': False
+      }
+    ]
+    result = [beam_tables._calculate_confidence(scan) for scan in scans]
+    self.assertListEqual(result, expected)
+
+
 if __name__ == '__main__':
   unittest.main()

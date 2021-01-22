@@ -755,6 +755,55 @@ def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2) -
   return 1
 
 
+def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
+  """Calculate confidence for a Satellite measurement.
+
+    Args:
+      scan: dict containing measurement data
+
+    Returns:
+      average: average percentage of tags that match control queries
+      matches: array of percentage match per answer IP
+      untagged_controls: True if all control answer IPs for the scan domain have no tags
+      untagged_response: True if all answer IPs have no tags
+  """
+  confidence = {
+    'matches': [],
+    'untagged_response': True
+  }
+  for answer in scan['received']:
+    # check tags for each answer IP
+    matches_control = answer['matches_control'].split()
+    total_tags = 0
+    matching_tags = 0
+
+    # calculate number of tags IP has and how many match controls
+    for tag in SATELLITE_TAGS:
+      if tag != 'ip' and answer.get(tag):
+        total_tags += 1
+        if tag in matches_control:
+          matching_tags += 1
+
+    if confidence['untagged_response'] and total_tags > 0:
+      # at least one answer IP has tags
+      confidence['untagged_response'] = False
+
+    # calculate percentage of matching tags
+    if 'ip' in matches_control:
+      # ip is in control response
+      ip_match = 100
+    else:
+      if total_tags == 0:
+        ip_match = 0
+      else:
+        ip_match = matching_tags * 100 / total_tags
+    confidence['matches'].append(ip_match)
+
+  confidence['average'] = sum(confidence['matches']) / len(confidence['matches'])
+
+  return confidence
+
+
 def _make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
