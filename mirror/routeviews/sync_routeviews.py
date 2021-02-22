@@ -20,7 +20,7 @@ from pprint import pprint
 from typing import List
 
 from google.cloud import storage
-import urllib
+import urllib.request
 
 import firehook_resources
 

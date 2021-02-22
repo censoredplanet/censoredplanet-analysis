@@ -16,7 +16,7 @@
 import datetime
 
 import requests
-import urllib
+import urllib.request
 
 from google.cloud import storage
 
