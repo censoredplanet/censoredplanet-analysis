@@ -15,8 +15,8 @@
 
 import datetime
 
-import httpio
 import requests
+import urllib
 
 from google.cloud import storage
 
@@ -67,12 +67,12 @@ def download_days_routeview(bucket: storage.bucket.Bucket,
       # This call will fail for most urls,
       # since we don't know which timestamp is correct.
       # In that case we just move on to our next guess.
-      f = httpio.open(url)
+      content = urllib.request.urlopen(url).read()
 
       print(f"mirroring {url} to gs://{bucket.name}/{cloud_filepath}")
 
       blob = bucket.blob(cloud_filepath)
-      blob.upload_from_file(f)
+      blob.upload_from_string(content)
     except requests.exceptions.HTTPError as ex:
       if ex.response.status_code != 404:
         raise ex
