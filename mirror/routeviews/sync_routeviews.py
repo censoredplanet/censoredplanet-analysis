@@ -13,14 +13,13 @@
 # limitations under the License.
 """Mirror the latest CAIDA routeview files into a cloud bucket."""
 
-import io
 import os
 import pathlib
 from pprint import pprint
 from typing import List
+import urllib.request
 
 from google.cloud import storage
-import urllib.request
 
 import firehook_resources
 

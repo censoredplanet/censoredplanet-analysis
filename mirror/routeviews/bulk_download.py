@@ -14,9 +14,9 @@
 """Bulk importer for CAIDA routeview files."""
 
 import datetime
+import urllib.request
 
 import requests
-import urllib.request
 
 from google.cloud import storage
 
