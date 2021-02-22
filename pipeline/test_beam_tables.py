@@ -1125,7 +1125,64 @@ class PipelineMainTest(unittest.TestCase):
         'untagged_response': False
       }
     ]
-    result = [beam_tables._calculate_confidence(scan) for scan in scans]
+    result = [beam_tables._calculate_confidence(scan)['confidence'] for scan in scans]
+    self.assertListEqual(result, expected)
+
+  def test_verify(self):
+    scans = [
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'abs-cbn.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'ar.m.wikipedia.org',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '198.35.26.96', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
+            {'ip': '13.249.134.44', 'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': ''},
+        ],
+        'date': '2020-09-02'
+      },
+    ]
+
+    # mock data for the global interference IP - DOMAIN mapping
+    beam_tables.INTERFERENCE_IPDOMAIN = {
+      '104.20.161.134': ['abs-cbn.com', 'xyz.com'],
+      '198.35.26.96': ['ar.m.wikipedia.org'],
+    }
+    expected = [
+      (False, ''), # answer IP is returned for multiple domains: likely to be interference
+      (True, 'domain_below_threshold'), # answer IP is returned for one domain: false positive
+      (True, 'is_CDN is_CDN'), # answer IPs are CDN: false positive
+    ]
+    result = []
+    for scan in scans:
+      scan = beam_tables._verify(scan)
+      result.append((scan['verify']['false_positive'], scan['verify']['indicators']))
+
     self.assertListEqual(result, expected)
 
 

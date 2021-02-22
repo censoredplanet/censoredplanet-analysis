@@ -90,6 +90,15 @@ SCAN_BIGQUERY_SCHEMA = {
         'matches_control': ('string', 'nullable')
     }),
     'rcode': ('string', 'repeated'),
+    'confidence': ('record', 'nullable', {
+        'average': ('float', 'nullable'),
+        'matches': ('float', 'repeated'),
+        'untagged_response': ('boolean', 'nullable'),
+    }),
+    'verify': ('record', 'nullable', {
+        'false_positive': ('boolean', 'nullable'),
+        'indicators': ('string', 'nullable'),
+    }),
 
     # Columns added from CAIDA data
     'netblock': ('string', 'nullable'),
@@ -122,6 +131,9 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
+CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
+VERIFY_THRESHOLD = 1
+INTERFERENCE_IPDOMAIN = {}
 
 class BlockpageMatcher:
 
@@ -762,10 +774,10 @@ def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
       scan: dict containing measurement data
 
     Returns:
-      average: average percentage of tags that match control queries
-      matches: array of percentage match per answer IP
-      untagged_controls: True if all control answer IPs for the scan domain have no tags
-      untagged_response: True if all answer IPs have no tags
+      scan dict with new 'confidence' record containing:
+        'average': average percentage of tags that match control queries
+        'matches': array of percentage match per answer IP
+        'untagged_response': True if all answer IPs have no tags
   """
   confidence = {
     'matches': [],
@@ -800,8 +812,45 @@ def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
     confidence['matches'].append(ip_match)
 
   confidence['average'] = sum(confidence['matches']) / len(confidence['matches'])
+  scan['confidence'] = confidence
 
-  return confidence
+  return scan
+
+
+def _verify(scan: Dict[str, Any]) ->  Dict[str, Any]:
+  """Verify that a Satellite measurement with interference is not a false positive.
+
+    Args:
+      scan: dict containing measurement data
+
+    Returns:
+      scan dict with new 'verify' record containing:
+        'false_positve': bool
+        'indicators': string of false positive indicators
+  """
+  scan['verify'] = {
+    'false_positive': None,
+    'indicators': None,
+  }
+
+  if scan['blocked']:
+    scan['verify']['false_positive'] = False
+    indicators = []
+    # Check received IPs for false positive indicators
+    for received in scan['received']:
+      asname = received.get('asname')
+      if asname and CDN_REGEX.match(asname):
+        # CDN IPs
+        scan['verify']['false_positive'] = True
+        indicators.append('is_CDN')
+      unique_domains = INTERFERENCE_IPDOMAIN.get(received['ip'])
+      if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
+        # IPs that appear <= threshold times across all interference
+        scan['verify']['false_positive'] = True
+        indicators.append('domain_below_threshold')
+    scan['verify']['indicators'] = ' '.join(indicators)
+
+    return scan
 
 
 def _make_date_ip_key(row: Row) -> DateIpKey:
