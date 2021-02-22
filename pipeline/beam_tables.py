@@ -559,6 +559,11 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
           row['received'] = {
             'ip': ip
           }
+          if row['blocked']:
+            # Track domains per IP for interference
+            if ip not in INTERFERENCE_IPDOMAIN:
+              INTERFERENCE_IPDOMAIN[ip] = set()
+            INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
           if type(received_ips) == dict:
             row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
           yield row
@@ -640,7 +645,7 @@ def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
 
 
 def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PCollection[Tuple[Row]]) -> beam.pvalue.PCollection[Row]:
-    """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
+  """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
       rows: PCollection of measurement rows
@@ -652,72 +657,91 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
 
     # 1. Add tags for vantage point IPs - resolver name (hostname/control/special) and country
 
-    def _merge_dicts(dicts):
-      merged = {}
-      for d in dicts:
-        merged.update(d)
-      return merged
+  def _merge_dicts(dicts):
+    merged = {}
+    for d in dicts:
+      merged.update(d)
+    return merged
 
-    # PCollection[Tuple[DateIpKey,Row]]
-    rows_keyed_by_ip_and_date = (
-        rows
-        | 'key by ips and dates' >>
-        beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
-            Tuple[DateIpKey, Row]))
+  # PCollection[Tuple[DateIpKey,Row]]
+  rows_keyed_by_ip_and_date = (
+      rows
+      | 'key by ips and dates' >>
+      beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
+          Tuple[DateIpKey, Row]))
 
-    # PCollection[Tuple[DateIpKey,Row]]
-    ips_with_metadata = (
-        tags
-        | 'tags key by ips and dates' >>
-        beam.Map(lambda row: (_make_date_ip_key(row), row))
-        | 'combine duplicate tags' >>
-        beam.CombinePerKey(_merge_dicts).with_output_types(
-            Tuple[DateIpKey, Row]))
+  # PCollection[Tuple[DateIpKey,Row]]
+  ips_with_metadata = (
+      tags
+      | 'tags key by ips and dates' >>
+      beam.Map(lambda row: (_make_date_ip_key(row), row))
+      | 'combine duplicate tags' >>
+      beam.CombinePerKey(_merge_dicts).with_output_types(
+          Tuple[DateIpKey, Row]))
 
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
-    grouped_metadata_and_rows = (({
-        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-    }) | 'group by keys' >> beam.CoGroupByKey())
+  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+  grouped_metadata_and_rows = (({
+      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+  }) | 'group by keys' >> beam.CoGroupByKey())
 
-    # PCollection[Row]
-    rows_with_metadata = (
-        grouped_metadata_and_rows
-        | 'merge metadata with rows' >>
-        beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
+  # PCollection[Row]
+  rows_with_metadata = (
+      grouped_metadata_and_rows
+      | 'merge metadata with rows' >>
+      beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
-    # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
+  # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
 
-    received_keyed_by_ip_and_date = (
-        rows_with_metadata
-        | 'key by received ips and dates' >>
-        beam.Map(lambda row: ((row['date'], row['received']['ip']), row)).with_output_types(
-            Tuple[DateIpKey, Row]))
+  received_keyed_by_ip_and_date = (
+      rows_with_metadata
+      | 'key by received ips and dates' >>
+      beam.Map(lambda row: ((row['date'], row['received']['ip']), row)).with_output_types(
+          Tuple[DateIpKey, Row]))
 
-    grouped_received_metadata_and_rows = (({
-        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
-    }) | 'group by received ip keys ' >> beam.CoGroupByKey())
+  grouped_received_metadata_and_rows = (({
+      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+      ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
+  }) | 'group by received ip keys ' >> beam.CoGroupByKey())
 
-    rows_with_tags = (
-        grouped_received_metadata_and_rows
-        | 'tag received ips' >>
-        beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(k, v, field='received')).with_output_types(Row))
+  rows_with_tags = (
+      grouped_received_metadata_and_rows
+      | 'tag received ips' >>
+      beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(k, v, field='received')).with_output_types(Row))
 
-    # 3. Measurements are currently flattened to one answer IP per row ->
-    #    Unflatten so that each row contains a array of answer IPs
+  # 3. Measurements are currently flattened to one answer IP per row ->
+  #    Unflatten so that each row contains a array of answer IPs
 
-    unflattened_rows = (
-      rows_with_tags
-      | 'key by measurement id' >>
-      beam.Map(lambda row: (row['measurement_id'], row)).with_output_types(
-            Tuple[str, Row])
-      | 'group by measurement id' >>
-      beam.GroupByKey()
-      | 'unflatten rows' >>
-      beam.FlatMapTuple(lambda k, v: _unflatten_satellite(v)).with_output_types(Row))
+  unflattened_rows = (
+    rows_with_tags
+    | 'key by measurement id' >>
+    beam.Map(lambda row: (row['measurement_id'], row)).with_output_types(
+          Tuple[str, Row])
+    | 'group by measurement id' >>
+    beam.GroupByKey()
+    | 'unflatten rows' >>
+    beam.FlatMapTuple(lambda k, v: _unflatten_satellite(v)).with_output_types(Row))
 
-    return unflattened_rows
+  return unflattened_rows
+
+def _post_processing_satellite(rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+  """Run post processing on Satellite v1 data (calculate confidence, verify interference).
+
+    Args:
+      rows: PCollection of measurement rows
+
+    Returns:
+      PCollection of measurement rows with confidence and verify fields
+  """
+
+  post = (rows
+    | 'calculate confidence' >>
+    beam.Map(lambda row: _calculate_confidence(row))
+    | 'verify interference' >>
+    beam.Map(lambda row: _verify(row).with_output_types(Row))
+  )
+
+  return post
 
 
 def _unflatten_satellite(flattened_measurement: List[Dict[str, Any]]) -> Iterator[Row]:
@@ -850,7 +874,7 @@ def _verify(scan: Dict[str, Any]) ->  Dict[str, Any]:
         indicators.append('domain_below_threshold')
     scan['verify']['indicators'] = ' '.join(indicators)
 
-    return scan
+  return scan
 
 
 def _make_date_ip_key(row: Row) -> DateIpKey:
@@ -1225,6 +1249,7 @@ class ScanDataBeamPipelineRunner():
         tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
 
         rows_with_metadata = _process_satellite(lines, tags)
+        rows_with_metadata = _post_processing_satellite(rows_with_metadata)
       else:
         # PCollection[Row]
         rows = (
