@@ -13,13 +13,12 @@
 # limitations under the License.
 """Mirror the latest CAIDA routeview files into a cloud bucket."""
 
-import io
 import os
 import pathlib
 from pprint import pprint
 from typing import List
+import urllib.request
 
-import httpio
 from google.cloud import storage
 
 import firehook_resources
@@ -39,7 +38,8 @@ def _get_latest_generated_routeview_files() -> List[str]:
         "routeviews-rv2-20200719-1200.pfx2as.gz"]
   """
   url = CAIDA_ROUTEVIEW_DIR_URL + CAIDA_CREATION_FILE
-  output = io.TextIOWrapper(httpio.open(url), encoding="utf-8")
+  output = map(lambda line: line.decode('utf8').rstrip(),
+               urllib.request.urlopen(url).readlines())
 
   files = []
   for line in output:
@@ -92,8 +92,8 @@ class RouteviewMirror():
     output_blob = self.caida_bucket.blob(
         os.path.join(self.bucket_routeview_path, filename))
 
-    with httpio.open(url) as output:
-      output_blob.upload_from_file(output)
+    output = urllib.request.urlopen(url).read()
+    output_blob.upload_from_string(output)
 
   def sync(self) -> None:
     """Look for new routeview files and transfer them into the cloud bucket."""
