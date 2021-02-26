@@ -837,6 +837,9 @@ def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
 
   confidence['average'] = sum(confidence['matches']) / len(confidence['matches'])
   scan['confidence'] = confidence
+  # Sanity check for untagged responses: do not claim interference
+  if confidence['untagged_response'] and confidence['average'] > 0:
+    scan['blocked'] = False
 
   return scan
 
