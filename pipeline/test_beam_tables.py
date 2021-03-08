@@ -1112,16 +1112,19 @@ class PipelineMainTest(unittest.TestCase):
       {
         'average': 0,
         'matches': [0],
+        'untagged_controls': False,
         'untagged_response': True
       },
       {
         'average': 100,
         'matches': [100, 100, 100, 100],
+        'untagged_controls': False,
         'untagged_response': False
       },
       {
         'average': 62.5,
         'matches': [0, 50, 100, 100],
+        'untagged_controls': False,
         'untagged_response': False
       }
     ]
@@ -1170,7 +1173,7 @@ class PipelineMainTest(unittest.TestCase):
 
     # mock data for the global interference IP - DOMAIN mapping
     beam_tables.INTERFERENCE_IPDOMAIN = {
-      '104.20.161.134': ['abs-cbn.com', 'xyz.com'],
+      '104.20.161.134': ['abs-cbn.com', 'xyz.com', 'blah.com'],
       '198.35.26.96': ['ar.m.wikipedia.org'],
     }
     expected = [
@@ -1181,7 +1184,7 @@ class PipelineMainTest(unittest.TestCase):
     result = []
     for scan in scans:
       scan = beam_tables._verify(scan)
-      result.append((scan['verify']['false_positive'], scan['verify']['indicators']))
+      result.append((scan['verify']['excluded'], scan['verify']['exclude_reason']))
 
     self.assertListEqual(result, expected)
 
