@@ -93,11 +93,12 @@ SCAN_BIGQUERY_SCHEMA = {
     'confidence': ('record', 'nullable', {
         'average': ('float', 'nullable'),
         'matches': ('float', 'repeated'),
+        'untagged_controls': ('boolean', 'nullable'),
         'untagged_response': ('boolean', 'nullable'),
     }),
     'verify': ('record', 'nullable', {
-        'false_positive': ('boolean', 'nullable'),
-        'indicators': ('string', 'nullable'),
+        'excluded': ('boolean', 'nullable'),
+        'exclude_reason': ('string', 'nullable'),
     }),
 
     # Columns added from CAIDA data
@@ -132,7 +133,7 @@ ROWS_PCOLLECION_NAME = 'rows'
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-VERIFY_THRESHOLD = 1
+VERIFY_THRESHOLD = 2 # 2 or 3 works best to optimize the FP:TP ratio.
 INTERFERENCE_IPDOMAIN = {}
 
 class BlockpageMatcher:
@@ -733,12 +734,16 @@ def _post_processing_satellite(rows: beam.pvalue.PCollection[Row]) -> beam.pvalu
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
+  rows, controls = ( # 'blocked' is None for control measurements
+      rows
+      | 'partition rows and controls' >>
+      beam.Partition(lambda row, p: int(row['blocked'] == None), 2))
 
   post = (rows
     | 'calculate confidence' >>
     beam.Map(lambda row: _calculate_confidence(row))
     | 'verify interference' >>
-    beam.Map(lambda row: _verify(row).with_output_types(Row))
+    beam.Map(lambda row: _verify(row)).with_output_types(Row)
   )
 
   return post
@@ -791,22 +796,29 @@ def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2) -
   return 1
 
 
-def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
+def _calculate_confidence(scan: Dict[str, Any], control_tags: Dict[str, Any] = None) -> Dict[str, Any]:
   """Calculate confidence for a Satellite measurement.
 
     Args:
       scan: dict containing measurement data
+      control_tags: dict containing control tags for the test domain
 
     Returns:
       scan dict with new 'confidence' record containing:
         'average': average percentage of tags that match control queries
         'matches': array of percentage match per answer IP
+        'untagged_controls': True if all control IPs have no tags
         'untagged_response': True if all answer IPs have no tags
   """
   confidence = {
     'matches': [],
+    'untagged_controls': False,
     'untagged_response': True
   }
+
+  if control_tags and control_tags.get((scan['date'], scan['domain']), 0) == 0:
+    confidence['untagged_controls'] = True
+
   for answer in scan['received']:
     # check tags for each answer IP
     matches_control = answer['matches_control'].split()
@@ -838,7 +850,7 @@ def _calculate_confidence(scan: Dict[str, Any]) -> Dict[str, Any]:
   confidence['average'] = sum(confidence['matches']) / len(confidence['matches'])
   scan['confidence'] = confidence
   # Sanity check for untagged responses: do not claim interference
-  if confidence['untagged_response'] and confidence['average'] > 0:
+  if confidence['untagged_response'] or confidence['untagged_controls']:
     scan['blocked'] = False
 
   return scan
@@ -852,30 +864,30 @@ def _verify(scan: Dict[str, Any]) ->  Dict[str, Any]:
 
     Returns:
       scan dict with new 'verify' record containing:
-        'false_positve': bool
-        'indicators': string of false positive indicators
+        'excluded': bool, equals true if interference is a false positive
+        'exclude_reason': string, reason(s) for false positive
   """
   scan['verify'] = {
-    'false_positive': None,
-    'indicators': None,
+    'excluded': None,
+    'exclude_reason': None,
   }
 
   if scan['blocked']:
-    scan['verify']['false_positive'] = False
-    indicators = []
-    # Check received IPs for false positive indicators
+    scan['verify']['excluded'] = False
+    reasons = []
+    # Check received IPs for false positive reasons
     for received in scan['received']:
       asname = received.get('asname')
       if asname and CDN_REGEX.match(asname):
         # CDN IPs
-        scan['verify']['false_positive'] = True
-        indicators.append('is_CDN')
+        scan['verify']['excluded'] = True
+        reasons.append('is_CDN')
       unique_domains = INTERFERENCE_IPDOMAIN.get(received['ip'])
       if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
         # IPs that appear <= threshold times across all interference
-        scan['verify']['false_positive'] = True
-        indicators.append('domain_below_threshold')
-    scan['verify']['indicators'] = ' '.join(indicators)
+        scan['verify']['excluded'] = True
+        reasons.append('domain_below_threshold')
+    scan['verify']['exclude_reason'] = ' '.join(reasons)
 
   return scan
 
@@ -1047,7 +1059,7 @@ class ScanDataBeamPipelineRunner():
       # Satellite v1 has several output files
       # TODO: check date for v1 vs. v2
       files_to_load = ['resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
-                       'interference.json', 'interference_err.json',
+                       'answers_control.json', 'interference.json', 'interference_err.json',
                        'tagged_responses.json', 'results.json']
     else:
       files_to_load = ['results.json']
