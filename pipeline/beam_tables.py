@@ -734,16 +734,36 @@ def _post_processing_satellite(rows: beam.pvalue.PCollection[Row]) -> beam.pvalu
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
-  rows, controls = ( # 'blocked' is None for control measurements
-      rows
-      | 'partition rows and controls' >>
-      beam.Partition(lambda row, p: int(row['blocked'] == None), 2))
+  def _total_tags(key, row):
+    total_tags = 0
+    for tag_type in SATELLITE_TAGS:
+      if tag_type != 'ip':
+        type_tags = set([ans[tag_type] for ans in row['received'] if ans.get(tag_type)])
+        total_tags += len(type_tags)
+    return (key, total_tags)
 
-  post = (rows
-    | 'calculate confidence' >>
-    beam.Map(lambda row: _calculate_confidence(row))
-    | 'verify interference' >>
-    beam.Map(lambda row: _verify(row)).with_output_types(Row)
+  def _flat_rows_controls(k, v):
+    num_control_tags = 0
+    if len(v['control']) > 0:
+      num_control_tags = v['control'][0]
+    for row in v['test']:
+      yield (row, num_control_tags)
+
+  # Partition rows into test measurements and control measurements
+  # 'blocked' is None for control measurements
+  rows, controls = (
+      rows | 'key by dates and domains' >>
+      beam.Map(lambda row: ((row['date'], row['domain']), row))
+      | 'partition test and control' >>
+      beam.Partition(lambda row, p: int(row[1]['blocked'] == None), 2))
+
+  num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(_total_tags)
+
+  post = ({'test': rows, 'control': num_ctags}
+    | 'group rows and # control tags by keys' >> beam.CoGroupByKey()
+    | 'flat map to (row, # control tags)' >> beam.FlatMapTuple(_flat_rows_controls)
+    | 'calculate confidence' >> beam.MapTuple(_calculate_confidence)
+    | 'verify interference' >> beam.Map(_verify).with_output_types(Row)
   )
 
   return post
@@ -796,7 +816,7 @@ def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2) -
   return 1
 
 
-def _calculate_confidence(scan: Dict[str, Any], control_tags: Dict[str, Any] = None) -> Dict[str, Any]:
+def _calculate_confidence(scan: Dict[str, Any], num_control_tags: int) -> Dict[str, Any]:
   """Calculate confidence for a Satellite measurement.
 
     Args:
@@ -812,12 +832,9 @@ def _calculate_confidence(scan: Dict[str, Any], control_tags: Dict[str, Any] = N
   """
   confidence = {
     'matches': [],
-    'untagged_controls': False,
+    'untagged_controls': num_control_tags == 0,
     'untagged_response': True
   }
-
-  if control_tags and control_tags.get((scan['date'], scan['domain']), 0) == 0:
-    confidence['untagged_controls'] = True
 
   for answer in scan['received']:
     # check tags for each answer IP
