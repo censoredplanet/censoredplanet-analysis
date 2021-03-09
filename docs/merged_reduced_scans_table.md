@@ -59,12 +59,12 @@ Stages are listed here in order. If a test reaches a later step like `content` t
 | setup       | The initial setup phase for the test (mustering resources, opening ports, etc.) |
 | dial        | The initial TCP dial connection to the remote |
 | tls         | The TLS handshake. `HTTPS` only. The [SNI header](https://en.wikipedia.org/wiki/Server_Name_Indication) containing the test domain is sent in this stage |
-| write       | Writing to the remote. For non-`HTTPS` tests this is where the domain is sent. |
+| write       | Writing to the remote. For non-`HTTPS` tests this is where the domain is sent |
 | read        | Reading from the remote |
 | http        | Verification of HTTP headers. `HTTP/S` only |
-| content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages. |
-| final       | Reaching the final stage without encountering any problems in the previous stages. |
-| unknown     | The stage is not known. Usually these are new errors which should be investigated and classified  |
+| content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
+| final       | Reaching the final stage without encountering any problems in the previous stages |
+| unknown     | Unknown stage. Usually these are new errors which should be investigated and classified |
 
 #### Stages per Probe
 
@@ -101,7 +101,7 @@ Mismatch Errors are used when the connection is successful, but the content rece
 |                         |
 | success                 | The test completed successfully and no interference was detected |
 | system                  | There was a test system failure, rendering the test invalid |
-| unknown                 | The class of the error is not known. Usually these are new errors which should be investigated and classified |
+| unknown                 | The class of the error was not known. Usually these are new errors which should be investigated and classified |
 |                         |
 | **Protocol Errors**     | There were errors in the connection protocol |
 |                         |
@@ -118,6 +118,6 @@ Mismatch Errors are used when the connection is successful, but the content rece
 | **Mismatch Errors**     | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
 |                         |
 | response_mismatch       | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. |
-| status_mismatch         | The HTTP status code doesn't match, eg. `403` instead of `200` |
+| status_mismatch         | The HTTP status code didn't match, eg. `403` instead of `200` |
 | body_mismatch           | The HTTP body didn't match, potentially a blockpage |
 | tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |

@@ -70,7 +70,6 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
     # find a way to diffentiate this case.
     WHEN ENDS_WITH(error, "read: connection reset by peer") THEN "read/tcp.reset"
     
-
     # HTTP content verification failures
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "unexpected EOF")) THEN "read/http.truncated_response"
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "EOF")) THEN "read/http.empty"
