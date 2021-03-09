@@ -1,0 +1,11 @@
+msc {
+  probe,remote;
+
+  probe box probe [label="Initial Test Setup"];
+  probe=>remote [ label = "Establish TCP Connection" ];
+  probe=>remote [ label = "Write HTTP Request" ];
+  probe<=remote [ label = "Read Response" ];
+  probe box probe [label="Validate HTTP response"];
+  probe box probe [label="Validate response content matches the control"];
+  probe box probe [label="Test Complete"];
+}
