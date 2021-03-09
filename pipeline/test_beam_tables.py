@@ -1128,7 +1128,7 @@ class PipelineMainTest(unittest.TestCase):
         'untagged_response': False
       }
     ]
-    result = [beam_tables._calculate_confidence(scan)['confidence'] for scan in scans]
+    result = [beam_tables._calculate_confidence(scan, 1)['confidence'] for scan in scans]
     self.assertListEqual(result, expected)
 
   def test_verify(self):

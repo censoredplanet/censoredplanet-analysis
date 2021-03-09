@@ -4,3 +4,10 @@
 {"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"bf77162bc6f159f00b6a254282bb59a860d799a83c9f1c7a219ced06993f1a60","ip":"13.227.44.109"}
 {"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"fe1004a5239cc40a6edb0887e1d9d65215aa01231be53e3a101120f4c13738b9","ip":"13.227.44.63"}
 {"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"ab7b80ee51b384eb30742ad92e909def2dfac4977edc5b3b993d898102c4cbb3","ip":"13.227.44.114"}
+{"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"c86c83be82896333e566d622da8ef5213b07d10f88e9e94ef001062d92a67309","ip":"99.84.251.81"}
+{"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"c49ac72abec9c0686d900013112ad41fcefcf9e109d5da37b0b5b7ccbf31a0cd","ip":"99.84.251.49"}
+{"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"6eb3842f0717cf7a180c3159a816a4931bb51f57a8400f0b5afb349242d02adb","ip":"99.84.251.123"}
+{"asname":"AMAZON-02","asnum":16509,"cert":null,"http":"9796a449816de38423c22ef7364c09bd4e147cb08825dca94584cf0e15b67c68","ip":"99.84.251.117"}
+{"asname":"WIKIMEDIA","asnum":14907,"cert":"9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10","http":"fa919469cb6183b46e4a644201f609a21b48098a1d6c632cc0858c59ae9194f9","ip":"208.80.154.224"}
+{"asname":"AS-26496-GO-DADDY-COM-LLC","asnum":26496,"cert":null,"http":"c623c1144c540ad5f5ee378220c6237026df828fa5d63c95e072de454aa1113a","ip":"72.167.191.69"}
+{"asname":null,"asnum":null,"cert":null,"http":"48d018fefab703a6e39f0cf095638af9a420ca72d47f763ca0db493651e5f4d7","ip":"217.19.248.132"}

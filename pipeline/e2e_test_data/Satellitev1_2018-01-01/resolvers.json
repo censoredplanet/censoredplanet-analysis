@@ -2,3 +2,4 @@
 {"name":"customfilter37-dns2.cleanbrowsing.org.","resolver":"185.228.169.37"}
 {"name":"rdns37b.ultradns.net.","resolver":"156.154.71.37"}
 {"name":"ns3082997.ip-145-239-6.eu.","resolver":"145.239.6.50"}
+{"name":"control","resolver":"1.1.1.1"}

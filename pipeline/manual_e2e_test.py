@@ -72,6 +72,7 @@ def local_data_to_load_3(*_) -> List[str]:
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/resolvers.json',
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_resolvers.json',
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_answers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/answers_control.json',
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/interference.json'
   ]
 
