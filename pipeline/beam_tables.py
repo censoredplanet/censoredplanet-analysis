@@ -327,7 +327,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   # Add a unique id per-measurement so single retry rows can be reassembled
   random_measurement_id = uuid.uuid4().hex
 
-  for result in scan['Results']:
+  for result in scan.get('Results', []):
     if 'Received' in result:
       received = result.get('Received', '')
       received_fields = _parse_received_data(received)
