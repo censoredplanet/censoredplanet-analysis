@@ -1,0 +1,4 @@
+{"resolver":"185.228.168.156","query":"biblegateway.com","answers":{"13.227.44.109":["asnum","asname"],"13.227.44.114":["asnum","asname"],"13.227.44.21":["asnum","asname"],"13.227.44.63":["asnum","asname"]},"passed":true}
+{"resolver": "185.228.169.37","query":"ar.m.wikipedia.org","answers":{"198.35.26.96":["cert","asnum","asname"]},"passed":true}
+{"resolver":"145.239.6.50","query":"www.ecequality.org","answers":{"160.153.136.3":[]},"passed":false}
+{"resolver":"156.154.71.37","query":"www.usacasino.com","answers":{"15.126.193.233":["no_tags"]},"passed":false}
