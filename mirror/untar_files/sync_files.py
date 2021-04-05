@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,13 @@ SCAN_TYPE_IDENTIFIERS = {
 }
 
 
+def _get_missing_tarred_files(tarred_files: List[str],
+                              untarred_files: List[str]) -> List[str]:
+  """Get all files in the tarred list that are not in the untarred list."""
+  diff = set(tarred_files) - set(untarred_files)
+  return list(diff)
+
+
 class ScanfileMirror():
   """Look for any tarred files in a given bucket and untar them."""
 
@@ -87,12 +94,12 @@ class ScanfileMirror():
         scan_type = potential_scan_type
 
     if not scan_type:
-      raise Exception("Couldn't determine scan type for filename " + tar_name)
+      raise Exception(f'Couldn\'t determine scan type for filename {tar_name}')
 
     tmp_filepath = os.path.join('/tmp', tar_name)
     tar_folder = tar_name[:-7]  # remove the extensions
     tmp_folder = os.path.join('/tmp', tar_folder)
-    os.mkdir(tmp_folder)
+    os.makedirs(tmp_folder, exist_ok=True)
 
     self.tarred_bucket.get_blob(tar_name).download_to_filename(
         tmp_filepath, timeout=TIMEOUT_5_MINUTES)
@@ -101,7 +108,10 @@ class ScanfileMirror():
     tfile = tarfile.open(tmp_filepath, 'r:gz')
     for entry in tfile:
       if entry.isfile():
-        with tfile.extractfile(entry) as unzipped_file:
+        unzipped_file = tfile.extractfile(entry)
+        if unzipped_file is None:
+          raise Exception(f'No data associated with member {entry}')
+        with unzipped_file:
           # Re-zip the individual files for upload
           filename_rezipped = pathlib.PurePosixPath(entry.name).name + '.gz'
           filepath_rezipped = os.path.join(tmp_folder, filename_rezipped)
@@ -130,6 +140,7 @@ class ScanfileMirror():
     filenames = [  # remove both .tar and .gz
         pathlib.PurePosixPath(pathlib.PurePosixPath(blob.name).stem).stem
         for blob in blobs
+        if pathlib.PurePosixPath(blob.name).suffixes == ['.tar', '.gz']
     ]
     return filenames
 
@@ -151,12 +162,6 @@ class ScanfileMirror():
     ]
     return path_ends
 
-  def _get_missing_tarred_files(self, tarred_files: List[str],
-                                untarred_files: List[str]) -> List[str]:
-    """Get all files in the tarred list that are not in the untarred list."""
-    diff = set(tarred_files) - set(untarred_files)
-    return list(diff)
-
   def sync(self) -> None:
     """Untar all files that exist only in the tarred bucket.
 
@@ -164,9 +169,9 @@ class ScanfileMirror():
     """
     tarred_files = self._get_all_tarred_filenames()
     untarred_files = self._get_all_untarred_filepaths()
-    new_files = self._get_missing_tarred_files(tarred_files, untarred_files)
+    new_files = _get_missing_tarred_files(tarred_files, untarred_files)
 
-    files_with_extensions = [filename + '.tar.gz' for filename in new_files]
+    files_with_extensions = [f'{filename}.tar.gz' for filename in new_files]
 
     if not files_with_extensions:
       pprint('no new scan files to untar')
@@ -177,7 +182,7 @@ class ScanfileMirror():
       pprint(('untarred file: ', filename))
 
 
-def get_firehook_scanfile_mirror():
+def get_firehook_scanfile_mirror() -> ScanfileMirror:
   """Factory function to get a Untarrer with our project values/paths."""
   client = storage.Client()
 

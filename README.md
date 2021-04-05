@@ -43,13 +43,13 @@ Individual pieces of the pipeline can be run manually.
 These scripts pull in a large amount of data from external datasources and
 mirror it in the correct locations in google cloud buckets.
 
-`python -m mirror.untar_files.sync`
+`python -m mirror.untar_files.sync_files`
 
 Decompresses any Censored Planet scan files which have been transfered into the
 project but are still compressed. This can also be used as a backfill tool to
 decompress missing files.
 
-`python -m mirror.routeviews.sync`
+`python -m mirror.routeviews.sync_routeviews`
 
 Transfers in the latest missing CAIDA routeview files. (Can only mirror in data
 from the last 30 days of data.)
@@ -79,12 +79,27 @@ Runs queries to recreate any tables derived from the base tables.
 
 ## Testing
 
+All tests and lint checks will be run on pull requests using
+[github actions](https://github.com/Jigsaw-Code/censoredplanet-analysis/actions)
+
 To run all tests run
 
 `python -m unittest`
 
-To typecheck all files install mypy and run
+There are a few end-to-end tests which aren't run by the unittest framework
+because they require cloud resource access. To run these tests manually use the
+command
 
-`mypy ^env**/*.py`
+`python -m unittest pipeline.manual_e2e_test.PipelineManualE2eTest`
 
-This produces some spurious errors because of missing types in dependencies
+To typecheck all files install `mypy` and run
+
+`mypy **/*.py`
+
+To format all files install `yapf` and run
+
+`yapf --in-place --recursive .`
+
+To get all lint errors install `pylint` and run
+
+`python -m pylint **/*.py --rcfile=setup.cfg`

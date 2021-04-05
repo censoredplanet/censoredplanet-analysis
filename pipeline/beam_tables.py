@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import json
 import logging
 import os
 import re
-from pprint import pprint
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 import uuid
 
@@ -399,9 +398,8 @@ def _read_scan_text(
 
   # PCollection[Tuple[filename,line]]
   lines = (
-      tuple(line_pcollections_per_file)
-      | 'flatten lines' >> beam.Flatten(pipeline=p).with_output_types(
-          Tuple[str, str]))
+      tuple(line_pcollections_per_file) | 'flatten lines' >>
+      beam.Flatten(pipeline=p).with_output_types(Tuple[str, str]))
 
   return lines
 
@@ -424,12 +422,12 @@ def _between_dates(filename: str,
       re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0])
   if start_date and end_date:
     return start_date <= date <= end_date
-  elif start_date:
+  if start_date:
     return start_date <= date
-  elif end_date:
+  if end_date:
     return date <= end_date
-  else:
-    return True
+
+  return True
 
 
 def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -988,11 +986,12 @@ def get_job_name(table_name: str, incremental_load: bool) -> str:
 
   if incremental_load:
     return 'append-' + fixed_table_name
-  else:
-    return 'write-' + fixed_table_name
+
+  return 'write-' + fixed_table_name
 
 
-def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
+def get_table_name(dataset_name: str, scan_type: str,
+                   base_table_name: str) -> str:
   """Construct a bigquery table name.
 
   Args:
@@ -1009,9 +1008,9 @@ def get_table_name(dataset_name: str, scan_type: str, base_table_name: str):
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, schema: Dict[str, str], bucket: str,
-               staging_location: str, temp_location: str,
-               ip_metadata_class: type, ip_metadata_bucket_folder: str):
+  def __init__(self, project: str, schema: Dict[str, Tuple[str, str]],
+               bucket: str, staging_location: str, temp_location: str,
+               ip_metadata_class: type, ip_metadata_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -1033,7 +1032,7 @@ class ScanDataBeamPipelineRunner():
     self.ip_metadata_class = ip_metadata_class
     self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
 
-  def _get_full_table_name(self, table_name: str):
+  def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
 
     Args:
@@ -1117,18 +1116,18 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Tuple[DateIpKey,Row]]
     rows_keyed_by_ip_and_date = (
-        rows
-        | 'key by ips and dates' >>
+        rows | 'key by ips and dates' >>
         beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
             Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
     ips_and_dates = (
-        rows_keyed_by_ip_and_date
-        | 'get keys' >> beam.Keys().with_output_types(DateIpKey))
+        rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
+        beam.Keys().with_output_types(DateIpKey))
 
     # PCollection[DateIpKey]
     deduped_ips_and_dates = (
+        # pylint: disable=no-value-for-parameter
         ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
 
     # PCollection[Tuple[date,List[ip]]]
@@ -1138,8 +1137,7 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Tuple[DateIpKey,Row]]
     ips_with_metadata = (
-        grouped_ips_by_dates
-        | 'get ip metadata' >> beam.FlatMapTuple(
+        grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
             self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
@@ -1150,8 +1148,7 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Row]
     rows_with_metadata = (
-        grouped_metadata_and_rows
-        | 'merge metadata with rows' >>
+        grouped_metadata_and_rows | 'merge metadata with rows' >>
         beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
     return rows_with_metadata
@@ -1194,7 +1191,7 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
-                         table_name: str, incremental_load: bool):
+                         table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
@@ -1212,7 +1209,7 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | 'Write' >> beam.io.WriteToBigQuery(
+    (rows | 'Write' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=_get_beam_bigquery_schema(self.schema),
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
@@ -1246,7 +1243,7 @@ class ScanDataBeamPipelineRunner():
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
                         job_name: str, table_name: str,
                         start_date: Optional[datetime.date],
-                        end_date: Optional[datetime.date]):
+                        end_date: Optional[datetime.date]) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
