@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,36 +11,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Test IPMetadata file parsing and database access."""
 
-from typing import Iterable
 import unittest
 
 from pipeline.metadata import ip_metadata
 
 
 class IpMetadataTest(unittest.TestCase):
+  """Test IPMetadata database."""
 
-  def test_read_compressed_file(self):
+  # pylint: disable=protected-access
+
+  def test_read_compressed_file(self) -> None:
     filepath = "pipeline/metadata/test_file.txt.gz"
-    lines = [line for line in ip_metadata._read_compressed_file(filepath)]
+    lines = list(ip_metadata._read_compressed_file(filepath))
     self.assertListEqual(lines, ["test line 1", "test line 2"])
 
-  def test_parse_asn_db(self):
-    # Sample content for a routeviews-rv2-*.pfx2as file
-    # pyformat: disable
+  def test_parse_asn_db(self) -> None:
+    """Test parsing a routeviews-rv2-*.pfx2as file into an asn database."""
+    # yapf: disable
     routeview_file_content = iter([
         "1.0.0.0\t24\t13335",
         "8.8.8.0\t24\t15169",
     ])
-    # pyformat: enable
+    # yapf: enable
     asn_db = ip_metadata._parse_asn_db(routeview_file_content)
 
     self.assertEqual(asn_db.lookup("1.0.0.1"), (13335, "1.0.0.0/24"))
     self.assertEqual(asn_db.lookup("8.8.8.8"), (15169, "8.8.8.0/24"))
 
-  def test_parse_org_map(self):
-    # Sample content for an as-org2info.txt file.
-    # pyformat: disable
+  def test_parse_org_map(self) -> None:
+    """Test parsing an as-org2info.txt file into a dictionary."""
+    # yapf: disable
     as2org_file_content = iter([
         "# name: AS Org",
         "# some random",
@@ -53,7 +56,7 @@ class IpMetadataTest(unittest.TestCase):
         "19864|20120320|O1COMM|01CO-ARIN|928772fc737205dea9e069438acaae36_ARIN|ARIN",
         "394811|20160111|O1FIBER|01CO-ARIN|928772fc737205dea9e069438acaae36_ARIN|ARIN"
     ])
-    # pyformat: enable
+    # yapf: enable
 
     as2org_map = ip_metadata._parse_as_to_org_map(as2org_file_content)
     self.assertEqual(
@@ -63,9 +66,9 @@ class IpMetadataTest(unittest.TestCase):
             394811: ("O1FIBER", "O1.com", "US")
         })
 
-  def test_parse_as_to_type_map(self):
-    # Sample content for an as2types.txt file
-    # pyformat: disable
+  def test_parse_as_to_type_map(self) -> None:
+    """Test parsing an as2types.txt file into a dictionary."""
+    # yapf: disable
     as2type_file_content = iter([
         "# format: as|source|type",
         "# date: 20201001",
@@ -76,10 +79,12 @@ class IpMetadataTest(unittest.TestCase):
         "1|CAIDA_class|Transit/Access",
         "4|CAIDA_class|Content"
     ])
-    # pyformat: enable
+    # yapf: enable
 
     as2type_map = ip_metadata._parse_as_to_type_map(as2type_file_content)
     self.assertEqual(as2type_map, {1: "Transit/Access", 4: "Content"})
+
+  # pylint: enable=protected-access
 
 
 if __name__ == "__main__":

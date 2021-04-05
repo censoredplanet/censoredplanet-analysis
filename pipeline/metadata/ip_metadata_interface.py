@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Interface for IPMetadata class and its fake."""
 
 import datetime
 from typing import Optional, Tuple
 
 
-class IpMetadataInterface(object):
+class IpMetadataInterface:
   """Interface for an IP Metadata lookup database."""
 
   def __init__(
@@ -24,7 +25,7 @@ class IpMetadataInterface(object):
       date: datetime.date,
       cloud_data_location: str,
       allow_previous_day: bool,
-  ):
+  ) -> None:
     pass
 
   def lookup(

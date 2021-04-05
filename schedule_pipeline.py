@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import time
 
 import schedule
 
-from mirror.untar_files.sync import get_firehook_scanfile_mirror
-from mirror.routeviews.sync import get_firehook_routeview_mirror
+
+from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
+from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from mirror.internal.sync import get_censoredplanet_mirror
 from table.run_queries import rebuild_all_tables
 
 
-def run_pipeline():
+def run_pipeline() -> None:
   """Steps of the pipeline to run nightly."""
   get_firehook_scanfile_mirror().sync()
   get_firehook_routeview_mirror().sync()
@@ -51,7 +52,7 @@ def run_pipeline():
   rebuild_all_tables()
 
 
-def run():
+def run() -> None:
   run_pipeline()  # run once when starting to catch new errors when deploying
 
   schedule.every().day.at('04:00').do(run_pipeline)

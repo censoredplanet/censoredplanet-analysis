@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020 Jigsaw Operations LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,15 @@ import firehook_resources
 
 
 def setup_transfer_service(project_name: str, source_bucket: str,
-                           sink_bucket: str, start_date: datetime.date):
+                           sink_bucket: str, start_date: datetime.date) -> None:
+  """Set up a data transfer job between two buckets.
+
+  Args:
+    project_name: string like 'firehook-censoredplanet'
+    source_bucket: GCS bucket to read from like 'censoredplanetscanspublic'
+    sink_bucket: GCS bucket to write to like 'firehook-censoredplanetscans'
+    start_date: date, when to start the job running, usually today
+  """
   storagetransfer = googleapiclient.discovery.build('storagetransfer', 'v1')
 
   # Transfer any files created in the last day
@@ -75,11 +83,12 @@ def setup_transfer_service(project_name: str, source_bucket: str,
       }
   }
 
-  result = storagetransfer.transferJobs().create(body=transfer_job).execute()
+  result = storagetransfer.transferJobs().create(
+      body=transfer_job).execute()  # type: ignore
   print(f'Returned transferJob: {json.dumps(result, indent=4)}')
 
 
-def setup_firehook_data_transfer():
+def setup_firehook_data_transfer() -> None:
   transfer_job_start = datetime.date.today()
   setup_transfer_service(firehook_resources.PROJECT_NAME,
                          firehook_resources.U_MICH_BUCKET,
