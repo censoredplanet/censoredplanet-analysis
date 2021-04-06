@@ -569,7 +569,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
     else:
       yield row
   else:
-    for result in scan['Results']:
+    for result in  scan.get('Results', []):
       if 'Received' in result:
         received = result.get('Received', '')
         received_fields = _parse_received_data(received, scan['Blocked'])

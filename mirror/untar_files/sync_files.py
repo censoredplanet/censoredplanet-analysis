@@ -122,6 +122,7 @@ class ScanfileMirror():
               os.path.join(scan_type, tar_folder, filename_rezipped))
           output_blob.upload_from_filename(
               filepath_rezipped, timeout=TIMEOUT_5_MINUTES)
+          os.remove(filepath_rezipped)
 
     os.remove(tmp_filepath)
     shutil.rmtree(tmp_folder)
