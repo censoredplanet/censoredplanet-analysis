@@ -90,7 +90,7 @@ command
 
 To typecheck all files install `mypy` and run
 
-`mypy **/*.py`
+`mypy **/*.py --namespace-packages --explicit-package-bases`
 
 To format all files install `yapf` and run
 

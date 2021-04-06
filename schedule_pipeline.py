@@ -20,6 +20,7 @@ import subprocess
 import sys
 import time
 
+from google.cloud import error_reporting
 import schedule
 
 from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
@@ -29,24 +30,30 @@ from table.run_queries import rebuild_all_tables
 
 def run_pipeline() -> None:
   """Steps of the pipeline to run nightly."""
-  get_firehook_scanfile_mirror().sync()
-  get_firehook_routeview_mirror().sync()
 
-  # This is a very weird hack.
-  # We execute the beam pipeline as a seperate process
-  # because beam really doesn't like it when the main file for a pipeline
-  # execution is not the same file the pipeline run call is made in.
-  # It would require all the deps to be packaged and installed on the workers
-  # which in our case requires packaging up many google cloud packages
-  # which is slow (hangs basic worker machines) and wasteful.
-  subprocess.run([
-      sys.executable, '-m', 'pipeline.run_beam_tables', '--env=prod',
-      '--scan_type=all'
-  ],
-                 check=True,
-                 stdout=subprocess.PIPE)
+  try:
+    get_firehook_scanfile_mirror().sync()
+    get_firehook_routeview_mirror().sync()
 
-  rebuild_all_tables()
+    # This is a very weird hack.
+    # We execute the beam pipeline as a seperate process
+    # because beam really doesn't like it when the main file for a pipeline
+    # execution is not the same file the pipeline run call is made in.
+    # It would require all the deps to be packaged and installed on the workers
+    # which in our case requires packaging up many google cloud packages
+    # which is slow (hangs basic worker machines) and wasteful.
+    subprocess.run([
+        sys.executable, '-m', 'pipeline.run_beam_tables', '--env=prod',
+        '--scan_type=all'
+    ],
+                   check=True,
+                   stdout=subprocess.PIPE)
+
+    rebuild_all_tables()
+  except Exception:
+    # If something goes wrong also log to GCP error console.
+    error_reporting.Client().report_exception()
+    raise
 
 
 def run() -> None:

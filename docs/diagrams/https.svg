@@ -1,0 +1,96 @@
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1"
+ width="600px" height="246px"
+ viewBox="0 0 600 246"
+ xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"
+ stroke-width="1" text-rendering="geometricPrecision">
+<polygon fill="white" points="133,7 165,7 165,16 133,16"/>
+<text x="150" y="16" textLength="31" font-family="Helvetica" font-size="12" fill="black" text-anchor="middle">
+
+probe
+</text>
+<polygon fill="white" points="430,7 468,7 468,16 430,16"/>
+<text x="450" y="16" textLength="37" font-family="Helvetica" font-size="12" fill="black" text-anchor="middle">
+
+remote
+</text>
+<line x1="150" y1="22" x2="150" y2="50" stroke="black"/>
+<line x1="450" y1="22" x2="450" y2="50" stroke="black"/>
+<polygon fill="white" points="8,22 292,22 292,44 8,44"/>
+<line x1="8" y1="22" x2="292" y2="22" stroke="black"/>
+<line x1="8" y1="44" x2="292" y2="44" stroke="black"/>
+<line x1="8" y1="22" x2="8" y2="44" stroke="black"/>
+<line x1="292" y1="22" x2="292" y2="44" stroke="black"/>
+<polygon fill="white" points="104,29 195,29 195,38 104,38"/>
+<text x="105" y="38" textLength="89" font-family="Helvetica" font-size="12" fill="black">
+Initial Test Setup
+</text>
+<line x1="150" y1="50" x2="150" y2="78" stroke="black"/>
+<line x1="450" y1="50" x2="450" y2="78" stroke="black"/>
+<line x1="150" y1="61" x2="450" y2="61" stroke="black"/>
+<polygon fill="black" points="450,61 440,67 440,55"/>
+<polygon fill="white" points="228,51 370,51 370,60 228,60"/>
+<text x="229" y="60" textLength="140" font-family="Helvetica" font-size="12" fill="black">
+Establish TCP Connection
+</text>
+<line x1="150" y1="78" x2="150" y2="106" stroke="black"/>
+<line x1="450" y1="78" x2="450" y2="106" stroke="black"/>
+<line x1="150" y1="89" x2="450" y2="89" stroke="black"/>
+<polygon fill="black" points="450,89 440,95 440,83"/>
+<polygon fill="white" points="229,79 369,79 369,88 229,88"/>
+<text x="230" y="88" textLength="138" font-family="Helvetica" font-size="12" fill="black">
+Establish TLS Connection
+</text>
+<line x1="150" y1="106" x2="150" y2="134" stroke="black"/>
+<line x1="450" y1="106" x2="450" y2="134" stroke="black"/>
+<line x1="150" y1="117" x2="450" y2="117" stroke="black"/>
+<polygon fill="black" points="450,117 440,123 440,111"/>
+<polygon fill="white" points="243,107 356,107 356,116 243,116"/>
+<text x="244" y="116" textLength="111" font-family="Helvetica" font-size="12" fill="black">
+Write HTTP Request
+</text>
+<line x1="150" y1="134" x2="150" y2="162" stroke="black"/>
+<line x1="450" y1="134" x2="450" y2="162" stroke="black"/>
+<line x1="450" y1="145" x2="150" y2="145" stroke="black"/>
+<polygon fill="black" points="150,145 160,151 160,139"/>
+<polygon fill="white" points="255,135 343,135 343,144 255,144"/>
+<text x="256" y="144" textLength="86" font-family="Helvetica" font-size="12" fill="black">
+Read Response
+</text>
+<line x1="150" y1="162" x2="150" y2="190" stroke="black"/>
+<line x1="450" y1="162" x2="450" y2="190" stroke="black"/>
+<polygon fill="white" points="8,162 292,162 292,184 8,184"/>
+<line x1="8" y1="162" x2="292" y2="162" stroke="black"/>
+<line x1="8" y1="184" x2="292" y2="184" stroke="black"/>
+<line x1="8" y1="162" x2="8" y2="184" stroke="black"/>
+<line x1="292" y1="162" x2="292" y2="184" stroke="black"/>
+<polygon fill="white" points="83,169 216,169 216,178 83,178"/>
+<text x="84" y="178" textLength="131" font-family="Helvetica" font-size="12" fill="black">
+Validate HTTP response
+</text>
+<line x1="150" y1="190" x2="150" y2="218" stroke="black"/>
+<line x1="450" y1="190" x2="450" y2="218" stroke="black"/>
+<polygon fill="white" points="8,190 292,190 292,212 8,212"/>
+<line x1="8" y1="190" x2="292" y2="190" stroke="black"/>
+<line x1="8" y1="212" x2="292" y2="212" stroke="black"/>
+<line x1="8" y1="190" x2="8" y2="212" stroke="black"/>
+<line x1="292" y1="190" x2="292" y2="212" stroke="black"/>
+<polygon fill="white" points="25,197 274,197 274,206 25,206"/>
+<text x="26" y="206" textLength="247" font-family="Helvetica" font-size="12" fill="black">
+Validate response content matches the control
+</text>
+<line x1="150" y1="218" x2="150" y2="246" stroke="black"/>
+<line x1="450" y1="218" x2="450" y2="246" stroke="black"/>
+<polygon fill="white" points="8,218 292,218 292,240 8,240"/>
+<line x1="8" y1="218" x2="292" y2="218" stroke="black"/>
+<line x1="8" y1="240" x2="292" y2="240" stroke="black"/>
+<line x1="8" y1="218" x2="8" y2="240" stroke="black"/>
+<line x1="292" y1="218" x2="292" y2="240" stroke="black"/>
+<polygon fill="white" points="109,225 189,225 189,234 109,234"/>
+<text x="110" y="234" textLength="78" font-family="Helvetica" font-size="12" fill="black">
+Test Complete
+</text>
+<line x1="150" y1="240" x2="150" y2="246" stroke="black"/>
+<line x1="450" y1="240" x2="450" y2="246" stroke="black"/>
+</svg>

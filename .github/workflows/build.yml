@@ -20,7 +20,7 @@ jobs:
     - name: Check types with mypy
       # Get all files with find because ** doesn't expand correctly.
       run: |
-        find . -iname '*.py' | xargs mypy
+        find . -iname '*.py' | xargs mypy --namespace-packages --explicit-package-bases
     - name: Check formatting with yapf
       run: |
         yapf --diff --recursive .
