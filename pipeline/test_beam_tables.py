@@ -28,7 +28,7 @@ from pipeline import beam_tables
 from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
 from pipeline.assets import MAXMIND_CITY
 
-
+# pylint: disable=too-many-lines
 class PipelineMainTest(unittest.TestCase):
   """Unit tests for beam pipeline steps."""
 
@@ -444,6 +444,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_flatten_measurement_https(self) -> None:
     """Test parsing an unsuccessful HTTPS measurement."""
+    # yapf: disable
     line = """{
       "Server":"213.175.166.157",
       "Keyword":"www.arabhra.org",
@@ -484,6 +485,8 @@ class PipelineMainTest(unittest.TestCase):
       "StatefulBlock":false
     }
     """
+    # yapf: enable
+
     filename = 'gs://firehook-scans/http/CP_Quack-https-2020-11-06-15-15-31/results.json'
 
     # yapf: disable
@@ -722,9 +725,11 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(rows_with_metadata, expected_rows)
 
 
-  def test_blockpage_matching(self):
+  def test_blockpage_matching(self) -> None:
+    """Test blockpage matching for data with detected anomalies."""
     matcher = beam_tables.BlockpageMatcher()
 
+    # yapf: disable
     pages = [
       '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eError\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nAn error occurred while processing your request.\u003cp\u003e\nReference\u0026#32;\u0026#35;218\u0026#46;7714d23c\u0026#46;1568241844\u0026#46;522b6\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
       'URL blocked by SpIDer Gate',
@@ -733,6 +738,7 @@ class PipelineMainTest(unittest.TestCase):
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       '\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eéç¾è³è¨å®å¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: éç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'
     ]
+    # yapf: enable
 
     expected_matches = [
       False,
@@ -746,7 +752,8 @@ class PipelineMainTest(unittest.TestCase):
     matches = [matcher.match_page(page) for page in pages]
     self.assertListEqual(matches, expected_matches)
 
-  def test_flatten_measurement_dns(self):
+  def test_flatten_measurement_dns(self) -> None:
+    """Test flattening of Satellite measurements."""
 
     filenames = [
       'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
@@ -911,7 +918,8 @@ class PipelineMainTest(unittest.TestCase):
         result.append(row.copy())
     self.assertListEqual(result, expected)
 
-  def test_read_satellite_tags(self):
+  def test_read_satellite_tags(self) -> None:
+    """Test reading rows from Satellite tag files."""
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
     tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
     tagged_answer1 = {
@@ -938,15 +946,16 @@ class PipelineMainTest(unittest.TestCase):
     result = [next(beam_tables._read_satellite_tags('2020-12-17', d)) for d in data]
     self.assertListEqual(result, expected)
 
-  def test_process_satellite(self):
-    data = [
+  def test_process_satellite(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v1 interference and tag files."""
+    _data = [
       ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'signal.org', 'answers': {'13.249.134.38': ['ip', 'http', 'asnum', 'asname'], '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],'13.249.134.74': ['ip', 'http', 'asnum', 'asname'], '13.249.134.89': ['ip', 'http', 'asnum', 'asname']}, 'passed': True}),
       ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'adl.org', 'answers': {'192.124.249.107': ['ip', 'no_tags']}, 'passed': True}),
     ]
 
-    data = [(filename, json.dumps(d)) for filename, d in data]
+    data = [(filename, json.dumps(d)) for filename, d in _data]
 
-    tags = [
+    _tags = [
       ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", {'name': 'special','resolver': '1.1.1.3'}),
       ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", {'resolver': '1.1.1.3', 'country': 'United States'}),
       ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af','ip':'13.249.134.38'}),
@@ -955,7 +964,7 @@ class PipelineMainTest(unittest.TestCase):
       ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname':'AMAZON-02','asnum':16509,'cert':None,'http':'0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac','ip':'13.249.134.89'})
     ]
 
-    tags = [(filename, json.dumps(t)) for filename, t in tags]
+    tags = [(filename, json.dumps(t)) for filename, t in _tags]
 
     expected = [
       {
@@ -998,7 +1007,8 @@ class PipelineMainTest(unittest.TestCase):
           final,
           beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2(self):
+  def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v2 interference and tag files."""
     data = [
       ("CP_Satellite-2021-01-01-12-00-01/results.json", """{"vp":"185.228.169.37","location":{"country_code":"IE","country_name":"Ireland"},"test_url":"ar.m.wikipedia.org","response":{"198.35.26.96":["cert","asnum","asname"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":false,"confidence":{"average":60,"matches":[60],"untagged_controls":false,"untagged_response":false},"start_time":"2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
       ("CP_Satellite-2021-01-01-12-00-01/results.json", """{"vp":"156.154.71.37","location":{"country_code":"US","country_name":"United States"},"test_url":"www.usacasino.com","response":{"15.126.193.233":["no_tags"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":[0],"untagged_controls":false,"untagged_response":true},"start_time":"2021-01-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-01-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
@@ -1057,7 +1067,8 @@ class PipelineMainTest(unittest.TestCase):
           beam_test_util.equal_to(expected))
 
 
-  def test_partition_satellite_input(self):
+  def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
+    """Test partitioning of Satellite tag and answer input files."""
     data = [
       ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
       ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
@@ -1086,8 +1097,9 @@ class PipelineMainTest(unittest.TestCase):
           beam_test_util.equal_to(expected_rows),
           label='assert_that/rows')
 
-  def test_calculate_confidence(self):
-    scans = [
+  def test_calculate_confidence(self) -> None:
+    """Test calculating the confidence metrics for Satellite v1 data."""
+    scans: List[beam_tables.Row] = [
       {
         'ip': '114.114.114.110',
         'country': 'CN',
@@ -1157,8 +1169,9 @@ class PipelineMainTest(unittest.TestCase):
     result = [beam_tables._calculate_confidence(scan, 1)['confidence'] for scan in scans]
     self.assertListEqual(result, expected)
 
-  def test_verify(self):
-    scans = [
+  def test_verify(self) -> None:
+    """Test verification of Satellite v1 data."""
+    scans: List[beam_tables.Row] = [
       {
         'ip': '114.114.114.110',
         'country': 'CN',
@@ -1199,8 +1212,8 @@ class PipelineMainTest(unittest.TestCase):
 
     # mock data for the global interference IP - DOMAIN mapping
     beam_tables.INTERFERENCE_IPDOMAIN = {
-      '104.20.161.134': ['abs-cbn.com', 'xyz.com', 'blah.com'],
-      '198.35.26.96': ['ar.m.wikipedia.org'],
+      '104.20.161.134': {'abs-cbn.com', 'xyz.com', 'blah.com'},
+      '198.35.26.96': {'ar.m.wikipedia.org'},
     }
     expected = [
       (False, ''), # answer IP is returned for multiple domains: likely to be interference

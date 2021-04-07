@@ -20,7 +20,7 @@ import json
 import logging
 import os
 import re
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union, Set
 import uuid
 
 import apache_beam as beam
@@ -133,15 +133,16 @@ ROWS_PCOLLECION_NAME = 'rows'
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2 # 2 or 3 works best to optimize the FP:TP ratio.
-INTERFERENCE_IPDOMAIN = {}
+INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = {}
 
+# pylint: disable=too-many-lines
 class BlockpageMatcher:
-
-  def __init__(self):
+  """Matcher to confirm blockpages or false positives."""
+  def __init__(self) -> None:
     self.false_positives = self._load_signatures(FALSE_POSITIVES)
     self.blockpages = self._load_signatures(BLOCKPAGES)
 
-  def _load_signatures(self, filename: str) -> Dict[str, str]:
+  def _load_signatures(self, filename: str) -> Dict[str, re.Pattern]:  # pylint: disable=no-self-use
     """Load signatures for blockpage matching.
 
     Args:
@@ -162,11 +163,11 @@ class BlockpageMatcher:
           pattern = re.escape(pattern)
           pattern = pattern.replace('%', '.*')
           signatures[signature["fingerprint"]] = re.compile(pattern, re.DOTALL)
-        except:
+        except (json.decoder.JSONDecodeError, KeyError) as e:
           pass
     return signatures
 
-  def match_page(self, page: str) -> bool:
+  def match_page(self, page: str) -> Optional[bool]:
     """Check if the input page matches a known blockpage or false positive.
 
     Args:
@@ -189,9 +190,9 @@ class BlockpageMatcher:
         return True
 
     # No signature match
-    return
+    return None
 
-def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
+def _maxmind_reader(filepath: str) -> Optional[geoip2.database.Reader]:
   """Return a reader for the Maxmind database.
 
   Args:
@@ -202,11 +203,11 @@ def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
   """
   if not os.path.exists(filepath):
     logging.warning('Path to Maxmind db not found: %s\n', filepath)
-    return
+    return None
   return geoip2.database.Reader(filepath)
 
 
-def _read_json(filepath) -> Dict[str, str]:
+def _read_json(filepath: str) -> Dict[str, str]:
   """Load a JSON file to a dictionary."""
   if os.path.exists(filepath):
     with open(filepath) as f:
@@ -221,38 +222,38 @@ maxmind_asn = _maxmind_reader(MAXMIND_ASN)
 country_name_to_code = _read_json(COUNTRY_CODES)
 
 
-def _get_country_code(vp: str) -> str:
+def _get_country_code(vp_ip: str) -> Optional[str]:
   """Get country code for IP address.
 
   Args:
-    vp: IP address of vantage point (as string)
+    vp_ip: IP address of vantage point (as string)
 
   Returns:
     2-letter ISO country code
   """
   if maxmind_city:
     try:
-      vp_info = maxmind_city.city(vp)
+      vp_info = maxmind_city.city(vp_ip)
       return vp_info.country.iso_code
-    except Exception as e:
+    except (ValueError, geoip2.errors.AddressNotFoundError) as e:
       logging.warning('Maxmind: %s\n', e)
-  return
+  return None
 
 
-def _get_maxmind_asn(vp: str) -> Tuple[str]:
+def _get_maxmind_asn(vp_ip: str) -> Tuple[Optional[int], Optional[str], Any]:
   """Get ASN information for IP address.
 
   Args:
-    vp: IP address of vantage point (as string)
+    vp_ip: IP address of vantage point (as string)
 
   Returns:
     Tuple containing AS num, AS org, and netblock
   """
   if maxmind_asn:
     try:
-      vp_info = maxmind_asn.asn(vp)
+      vp_info = maxmind_asn.asn(vp_ip)
       return vp_info.autonomous_system_number, vp_info.autonomous_system_organization, vp_info.network
-    except Exception as e:
+    except (ValueError, geoip2.errors.AddressNotFoundError) as e:
       logging.warning('Maxmind: %s\n', e)
   return None, None, None
 
@@ -285,7 +286,7 @@ def _get_censys(ips: List[str]) -> cloud_bigquery.table.RowIterator:
 
 
 def _get_beam_bigquery_schema(
-    fields: Dict[str, Tuple[str, str]]) -> beam_bigquery.TableSchema:
+    fields: Dict[str, Any]) -> beam_bigquery.TableSchema:
   """Return a beam bigquery schema for the output table.
 
   Args:
@@ -305,11 +306,11 @@ def _get_beam_bigquery_schema(
     field_schema.mode = mode
     if len(attributes) > 2:
       field_schema.fields = []
-      for (n, (t, m)) in attributes[2].items():
+      for (subname, (subtype, submode)) in attributes[2].items():
         subfield_schema = beam_bigquery.TableFieldSchema()
-        subfield_schema.name = n
-        subfield_schema.type = t
-        subfield_schema.mode = m
+        subfield_schema.name = subname
+        subfield_schema.type = subtype
+        subfield_schema.mode = submode
         field_schema.fields.append(subfield_schema)
     table_schema.fields.append(field_schema)
 
@@ -554,18 +555,19 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
       if 'rcode' in received_ips:
         row['rcode'] = received_ips['rcode']
       for ip in received_ips:
-        if ip != 'rcode':
-          row['received'] = {
-            'ip': ip
-          }
-          if row['blocked']:
-            # Track domains per IP for interference
-            if ip not in INTERFERENCE_IPDOMAIN:
-              INTERFERENCE_IPDOMAIN[ip] = set()
-            INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
-          if type(received_ips) == dict:
-            row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-          yield row
+        if ip == 'rcode':
+          continue
+        row['received'] = {
+          'ip': ip
+        }
+        if row['blocked']:
+          # Track domains per IP for interference
+          if ip not in INTERFERENCE_IPDOMAIN:
+            INTERFERENCE_IPDOMAIN[ip] = set()
+          INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
+        if isinstance(received_ips, dict):
+          row['received']['matches_control'] = ' '.join([tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])  # pylint: disable=unsupported-assignment-operation
+        yield row
     else:
       yield row
   else:
@@ -604,11 +606,12 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
       yield row
 
 
-def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
+def _read_satellite_tags(filename: str, line: str) -> Iterator[Dict[str, Any]]:
   """Read data for IP tagging from Satellite.
 
     Args:
-      scan: dictionary containing tag data
+      filename: source Satellite file
+      line: json str (dictionary containing tag data)
 
     Yields:
       Processed Satellite fields
@@ -622,7 +625,7 @@ def _read_satellite_tags(filename, line: str) -> Iterator[Dict[str, Any]]:
   if 'location' in scan:
     # from v2 tagged_resolvers.json, not needed
     return
-  elif 'name' in scan:
+  if 'name' in scan:
     # from resolvers.json
     tags = {
       'ip': scan.get('resolver', scan.get('vp')),
@@ -656,10 +659,10 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row], tags: beam.pvalue.PC
 
     # 1. Add tags for vantage point IPs - resolver name (hostname/control/special) and country
 
-  def _merge_dicts(dicts):
+  def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
     merged = {}
-    for d in dicts:
-      merged.update(d)
+    for dict_ in dicts:
+      merged.update(dict_)
     return merged
 
   # PCollection[Tuple[DateIpKey,Row]]
@@ -732,19 +735,19 @@ def _post_processing_satellite(rows: beam.pvalue.PCollection[Row]) -> beam.pvalu
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
-  def _total_tags(key, row):
+  def _total_tags(key: Tuple[str, str], row: Row) -> Tuple[Tuple[str, str], int]:
     total_tags = 0
     for tag_type in SATELLITE_TAGS:
       if tag_type != 'ip':
-        type_tags = set([ans[tag_type] for ans in row['received'] if ans.get(tag_type)])
+        type_tags = {ans[tag_type] for ans in row['received'] if ans.get(tag_type)}
         total_tags += len(type_tags)
     return (key, total_tags)
 
-  def _flat_rows_controls(k, v):
+  def _flat_rows_controls(key: Any, value: Row) -> Iterator[Tuple[Row, int]]:  # pylint: disable=unused-argument
     num_control_tags = 0
-    if len(v['control']) > 0:
-      num_control_tags = v['control'][0]
-    for row in v['test']:
+    if len(value['control']) > 0:
+      num_control_tags = value['control'][0]
+    for row in value['test']:
       yield (row, num_control_tags)
 
   # Partition rows into test measurements and control measurements
@@ -753,7 +756,7 @@ def _post_processing_satellite(rows: beam.pvalue.PCollection[Row]) -> beam.pvalu
       rows | 'key by dates and domains' >>
       beam.Map(lambda row: ((row['date'], row['domain']), row))
       | 'partition test and control' >>
-      beam.Partition(lambda row, p: int(row[1]['blocked'] == None), 2))
+      beam.Partition(lambda row, p: int(row[1]['blocked'] is None), 2))
 
   num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(_total_tags)
 
@@ -791,7 +794,7 @@ def _unflatten_satellite(flattened_measurement: List[Dict[str, Any]]) -> Iterato
 
 
 def _process_satellite(lines: beam.pvalue.PCollection[Tuple[str, str]],
-              lines2: beam.pvalue.PCollection[Tuple[str, str]]):
+              lines2: beam.pvalue.PCollection[Tuple[str, str]]) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags."""
   rows = (
       lines | 'flatten json' >>
@@ -805,7 +808,7 @@ def _process_satellite(lines: beam.pvalue.PCollection[Tuple[str, str]],
   return rows_with_metadata
 
 
-def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2) -> int:
+def _partition_satellite_input(line: Tuple[str, str], num_partitions: int = 2) -> int:  # pylint: disable=unused-argument
   """Partitions Satellite input into tags (0) and rows (1)."""
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
@@ -828,7 +831,7 @@ def _calculate_confidence(scan: Dict[str, Any], num_control_tags: int) -> Dict[s
         'untagged_controls': True if all control IPs have no tags
         'untagged_response': True if all answer IPs have no tags
   """
-  confidence = {
+  confidence: Dict[str, Any] = {
     'matches': [],
     'untagged_controls': num_control_tags == 0,
     'untagged_response': True
@@ -854,10 +857,10 @@ def _calculate_confidence(scan: Dict[str, Any], num_control_tags: int) -> Dict[s
     # calculate percentage of matching tags
     if 'ip' in matches_control:
       # ip is in control response
-      ip_match = 100
+      ip_match = 100.0
     else:
       if total_tags == 0:
-        ip_match = 0
+        ip_match = 0.0
       else:
         ip_match = matching_tags * 100 / total_tags
     confidence['matches'].append(ip_match)
@@ -912,7 +915,7 @@ def _make_date_ip_key(row: Row) -> DateIpKey:
   return (row['date'], row['ip'])
 
 
-def _merge_metadata_with_rows(key: DateIpKey,
+def _merge_metadata_with_rows(key: DateIpKey,  # pylint: disable=unused-argument
                               value: Dict[str, List[Row]],
                               field: str = None) -> Iterator[Row]:
   # pyformat: disable
@@ -1008,7 +1011,7 @@ def get_table_name(dataset_name: str, scan_type: str,
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, schema: Dict[str, Tuple[str, str]],
+  def __init__(self, project: str, schema: Dict[str, Any],
                bucket: str, staging_location: str, temp_location: str,
                ip_metadata_class: type, ip_metadata_bucket_folder: str) -> None:
     """Initialize a pipeline runner.

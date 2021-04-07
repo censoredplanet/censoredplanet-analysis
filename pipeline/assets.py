@@ -1,3 +1,4 @@
+"""Filenames for analysis assets."""
 import os.path
 
 root = os.path.dirname(os.path.abspath(__file__))
