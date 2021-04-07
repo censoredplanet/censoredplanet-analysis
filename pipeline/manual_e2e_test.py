@@ -118,7 +118,8 @@ def run_local_pipeline_satellite() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_3  # type: ignore
 
-  test_runner.run_beam_pipeline('dns', True, JOB_NAME, BEAM_TEST_TABLE, None, None)
+  test_runner.run_beam_pipeline('dns', True, JOB_NAME, BEAM_TEST_TABLE, None,
+                                None)
   # pylint: enable=protected-access
 
 
@@ -164,7 +165,8 @@ class PipelineManualE2eTest(unittest.TestCase):
       expected_single_domains = [
           'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
           'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info',
-          'biblegateway.com','ar.m.wikipedia.org', 'www.ecequality.org', 'www.usacasino.com'
+          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
+          'www.usacasino.com'
       ]
       expected_triple_domains = ['www.arabhra.org']
       expected_sextuple_domains = [
