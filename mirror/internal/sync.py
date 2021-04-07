@@ -1,7 +1,10 @@
-import os
-import requests
+"""Sync local copies of Censored Planet resources."""
+
 import json
-from typing import List
+import os
+from typing import Any, Dict, List, Optional
+
+import requests
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FILE_HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.json")
@@ -9,9 +12,9 @@ FILE_HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history
 class RepositoryMirror():
   """Sync resources with Github respository."""
 
-  def __init__(self, owner: str, repository: str,
+  def __init__(self, owner: Optional[str], repository: str,  # pylint: disable=dangerous-default-value
                destination: str, files: List[str] = [],
-               source_tree: bool = True, github: bool = False):
+               source_tree: bool = True, github: bool = False) -> None:
     """Initialize repository mirror.
 
       Args:
@@ -30,7 +33,7 @@ class RepositoryMirror():
     self.github = github
     self.history = self._load_history()
 
-  def _load_history(self):
+  def _load_history(self) -> Dict[str, Any]:  # pylint: disable=no-self-use
     """Load history for local versions of files."""
     if not os.path.exists(FILE_HISTORY):
       return {}
@@ -38,7 +41,7 @@ class RepositoryMirror():
       history = f.read()
     return json.loads(history)
 
-  def _download_file(self, path: str):
+  def _download_file(self, path: str) -> None:
     """Downloads a file from the repository.
 
       Args:
@@ -65,9 +68,9 @@ class RepositoryMirror():
       headers['If-None-Match'] = etag
 
     # Download file
-    r = requests.get(url, headers=headers, stream=True)
-    
-    if r.status_code == 200:
+    req = requests.get(url, headers=headers, stream=True)
+
+    if req.status_code == 200:
       print("Status 200: Downloading...")
       # Create parent directory
       repo_parent = path.split("/")
@@ -81,22 +84,22 @@ class RepositoryMirror():
       os.makedirs(local_parent, exist_ok=True)
       file = os.path.join(local_parent, filename)
 
-      with open(file, 'wb') as f:
-        for chunk in r.iter_content():
-            f.write(chunk)
+      with open(file, 'wb') as file1:
+        for chunk in req.iter_content():
+            file1.write(chunk)
 
       # Update history with new etag
-      etag = r.headers.get('ETag')
+      etag = req.headers.get('ETag')
       self.history[url] = etag
-      with open(FILE_HISTORY, 'w') as f:
-        f.write(json.dumps(self.history))
+      with open(FILE_HISTORY, 'w') as file2:
+        file2.write(json.dumps(self.history))
 
-    elif r.status_code == 304:
+    elif req.status_code == 304:
       print("Status 304: File {0} not modified".format(url))
     else:
-      print("Status {0}: error for file {1}".format(r.status_code, url))
+      print("Status {0}: error for file {1}".format(req.status_code, url))
 
-  def sync(self, input_files: List[str] = []):
+  def sync(self, input_files: List[str] = []) -> None:  # pylint: disable=dangerous-default-value
     """Update repository resources.
 
       Args:
@@ -110,7 +113,7 @@ class RepositoryMirror():
       self._download_file(file)
 
 
-def get_censoredplanet_mirror():
+def get_censoredplanet_mirror() -> RepositoryMirror:
   """Factory function to get mirror for Censored Planet repository."""
   repo = 'https://assets.censoredplanet.org'
   destination = os.path.join(PROJECT_ROOT, 'pipeline/assets/')
