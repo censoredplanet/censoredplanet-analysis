@@ -23,7 +23,6 @@ import time
 from google.cloud import error_reporting
 import schedule
 
-
 from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
 from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from mirror.internal.sync import get_censoredplanet_mirror

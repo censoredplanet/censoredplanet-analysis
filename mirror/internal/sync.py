@@ -6,15 +6,23 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-FILE_HISTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.json")
+PROJECT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FILE_HISTORY = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "history.json")
+
 
 class RepositoryMirror():
   """Sync resources with Github respository."""
 
-  def __init__(self, owner: Optional[str], repository: str,  # pylint: disable=dangerous-default-value
-               destination: str, files: List[str] = [],
-               source_tree: bool = True, github: bool = False) -> None:
+  def __init__(  # pylint: disable=dangerous-default-value
+      self,
+      owner: Optional[str],
+      repository: str,
+      destination: str,
+      files: List[str] = [],
+      source_tree: bool = True,
+      github: bool = False) -> None:
     """Initialize repository mirror.
 
       Args:
@@ -50,12 +58,13 @@ class RepositoryMirror():
     if self.github:
       # Reference https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api
       # in case of API changes
-      url = 'https://api.github.com/repos/{0}/{1}/contents/{2}'.format(self.owner, self.repository, path)
+      url = 'https://api.github.com/repos/{0}/{1}/contents/{2}'.format(
+          self.owner, self.repository, path)
       # Get Github token from environment variable 'GITHUBTOKEN'
       # Using Github API v3 (raw output)
       headers = {
-        'Authorization': 'token {}'.format(os.environ.get('GITHUBTOKEN', '')),
-        'Accept': 'application/vnd.github.v3.raw'
+          'Authorization': 'token {}'.format(os.environ.get('GITHUBTOKEN', '')),
+          'Accept': 'application/vnd.github.v3.raw'
       }
     else:
       url = self.repository + path
@@ -86,7 +95,7 @@ class RepositoryMirror():
 
       with open(file, 'wb') as file1:
         for chunk in req.iter_content():
-            file1.write(chunk)
+          file1.write(chunk)
 
       # Update history with new etag
       etag = req.headers.get('ETag')
@@ -117,12 +126,9 @@ def get_censoredplanet_mirror() -> RepositoryMirror:
   """Factory function to get mirror for Censored Planet repository."""
   repo = 'https://assets.censoredplanet.org'
   destination = os.path.join(PROJECT_ROOT, 'pipeline/assets/')
-  files = [
-    '/false_positive_signatures.json',
-    '/blockpage_signatures.json'
-  ]
-  return RepositoryMirror(None, repo, destination,
-                          files=files, source_tree=False)
+  files = ['/false_positive_signatures.json', '/blockpage_signatures.json']
+  return RepositoryMirror(
+      None, repo, destination, files=files, source_tree=False)
 
 
 if __name__ == "__main__":
