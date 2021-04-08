@@ -16,6 +16,8 @@
 import datetime
 from typing import Dict, List
 import unittest
+import os.path
+import json
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
@@ -24,8 +26,10 @@ import apache_beam.testing.util as beam_test_util
 
 from pipeline import beam_tables
 from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
+from pipeline.assets import MAXMIND_CITY
 
 
+# pylint: disable=too-many-lines
 class PipelineMainTest(unittest.TestCase):
   """Unit tests for beam pipeline steps."""
 
@@ -179,11 +183,12 @@ class PipelineMainTest(unittest.TestCase):
     expected = {
         'received_status': '403 Forbidden',
         'received_body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
-        'received_headers': []
+        'received_headers': [],
+        'blockpage': True,
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -198,11 +203,12 @@ class PipelineMainTest(unittest.TestCase):
     expected = {
         'received_status': '403 Forbidden',
         'received_body': '<test-body>',
-        'received_headers': []
+        'received_headers': [],
+        'blockpage': None,
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -244,10 +250,11 @@ class PipelineMainTest(unittest.TestCase):
             'Server: AkamaiGHost',
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
+        'blockpage': False,
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received)
+    parsed = beam_tables._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self) -> None:
@@ -420,6 +427,7 @@ class PipelineMainTest(unittest.TestCase):
             'Location: https://www.csmonitor.com/',
             'Server: HTTP Proxy/1.0',
         ],
+        'blockpage': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': True,
         'success': False,
@@ -437,6 +445,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_flatten_measurement_https(self) -> None:
     """Test parsing an unsuccessful HTTPS measurement."""
+    # yapf: disable
     line = """{
       "Server":"213.175.166.157",
       "Keyword":"www.arabhra.org",
@@ -477,6 +486,8 @@ class PipelineMainTest(unittest.TestCase):
       "StatefulBlock":false
     }
     """
+    # yapf: enable
+
     filename = 'gs://firehook-scans/http/CP_Quack-https-2020-11-06-15-15-31/results.json'
 
     # yapf: disable
@@ -504,6 +515,7 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: TS016c74f4=01671efb9a1a400535e215d6f76498a5887425fed793ca942baa75f16076e60e1350988222922fa06fc16f53ef016d9ecd38535fcabf14861525811a7c3459e91086df326f; Path=/',
             'X-Frame-Options: SAMEORIGIN',
         ],
+        'blockpage': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': False,
         'success': False,
@@ -623,7 +635,8 @@ class PipelineMainTest(unittest.TestCase):
                                                     FakeIpMetadata, '')
 
     metadatas = list(
-        runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+        runner._add_ip_metadata('2020-01-01',
+                                ['1.1.1.1', '8.8.8.8', '1.1.1.3']))
 
     expected_key_1: beam_tables.DateIpKey = ('2020-01-01', '1.1.1.1')
     expected_value_1: beam_tables.Row = {
@@ -645,8 +658,23 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }
 
+    # Test Maxmind lookup when country data is missing
+    # Cloudflare IPs return Australia
+    expected_key_3 = ('2020-01-01', '1.1.1.3')
+    expected_value_3 = {
+        'netblock': '1.0.0.1/24',
+        'asn': 13335,
+        'as_name': 'CLOUDFLARENET',
+        'as_full_name': 'Cloudflare Inc.',
+        'as_class': 'Content',
+        'country': None,
+    }
+    if os.path.exists(MAXMIND_CITY):
+      expected_value_3['country'] = 'AU'
+
     self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
-                                     (expected_key_2, expected_value_2)])
+                                     (expected_key_2, expected_value_2),
+                                     (expected_key_3, expected_value_3)])
 
   def test_merge_metadata_with_rows(self) -> None:
     """Test merging IP metadata pcollection with rows pcollection."""
@@ -697,6 +725,526 @@ class PipelineMainTest(unittest.TestCase):
 
     rows_with_metadata = list(beam_tables._merge_metadata_with_rows(key, value))
     self.assertListEqual(rows_with_metadata, expected_rows)
+
+  def test_blockpage_matching(self) -> None:
+    """Test blockpage matching for data with detected anomalies."""
+    matcher = beam_tables.BlockpageMatcher()
+
+    # yapf: disable
+    pages = [
+      '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eError\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nAn error occurred while processing your request.\u003cp\u003e\nReference\u0026#32;\u0026#35;218\u0026#46;7714d23c\u0026#46;1568241844\u0026#46;522b6\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
+      'URL blocked by SpIDer Gate',
+      '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eA Website\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nThis site is not blocked!\u003cp\u003e\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
+      'HTTP/1.1 302 Moved Temporarily\r\nLocation: iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
+      'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
+      '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eéç¾è³è¨å®å¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: éç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
+    ]
+    # yapf: enable
+
+    expected_matches = [
+        False,
+        True,
+        None,
+        True,
+        True,
+        True,
+    ]
+
+    matches = [matcher.match_page(page) for page in pages]
+    self.assertListEqual(matches, expected_matches)
+
+  def test_flatten_measurement_dns(self) -> None:
+    """Test flattening of Satellite measurements."""
+
+    filenames = [
+        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/dns/CP_Satellite-2021-03-01-12-00-01/interference.json'
+    ]
+
+    # yapf: disable
+    interference = [
+        """{
+          "resolver":"67.69.184.215",
+          "query":"asana.com",
+          "answers":{
+            "151.101.1.184":["ip", "http", "cert", "asnum", "asname"],
+            "151.101.129.184":["ip", "http", "cert", "asnum", "asname"],
+            "151.101.193.184":["ip", "http", "cert", "asnum", "asname"],
+            "151.101.65.184":["ip", "cert", "asnum", "asname"]
+          },
+          "passed":true
+        }
+        """,
+        """{
+          "resolver":"145.239.6.50",
+          "query":"www.ecequality.org",
+          "answers":{
+            "160.153.136.3":[]
+          },
+          "passed":false
+        }
+        """,
+        """{
+          "resolver":"185.228.168.149",
+          "query":"www.sportsinteraction.com",
+          "error":"no_answer"
+        }
+        """,
+        """{
+          "vp":"114.114.114.110",
+          "location":{
+            "country_name":"China",
+            "country_code":"CN"
+          },
+          "test_url":"abs-cbn.com",
+          "response":{
+            "104.20.161.135":[],
+            "104.20.161.134":[],
+            "rcode":["0","0","0"]
+          },
+          "passed_control":true,
+          "connect_error":false,
+          "in_control_group":true,
+          "anomaly":true,
+          "confidence":{
+            "average":0,
+            "matches":[0,0],
+            "untagged_controls":false,
+            "untagged_response":false
+          },
+          "start_time":"2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646",
+          "end_time":"2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636"
+        }
+        """
+    ]
+
+    expected = [
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.1.184', 'matches_control': 'ip http cert asnum asname'},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.129.184', 'matches_control': 'ip http cert asnum asname'},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.193.184', 'matches_control': 'ip http cert asnum asname'},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'asana.com',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': {'ip': '151.101.65.184', 'matches_control': 'ip cert asnum asname'},
+        'measurement_id': ''
+      },
+      {
+        'domain': 'www.ecequality.org',
+        'ip': '145.239.6.50',
+        'date': '2020-09-02',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '160.153.136.3', 'matches_control': ''},
+        'measurement_id': ''
+      },
+      {
+        'domain':  'www.sportsinteraction.com',
+        'ip': '185.228.168.149',
+        'date': '2020-09-02',
+        'error': "no_answer",
+        'blocked': None,
+        'success': False,
+        'received': None,
+        'measurement_id': ''
+      },
+      {
+        'domain': 'abs-cbn.com',
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'date': '2021-03-05',
+        'start_time': '2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646',
+        'end_time': '2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '104.20.161.135', 'matches_control': ''},
+        'rcode': ["0", "0", "0"],
+        'measurement_id': ''
+      },
+      {
+        'domain': 'abs-cbn.com',
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'date': '2021-03-05',
+        'start_time': '2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646',
+        'end_time': '2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': {'ip': '104.20.161.134', 'matches_control': ''},
+        'rcode': ["0", "0", "0"],
+        'measurement_id': ''
+      }
+    ]
+    # yapf: enable
+
+    result = []
+    for filename, i in zip(filenames, interference):
+      rows = beam_tables._flatten_measurement(filename, i)
+      # remove random measurement id
+      for row in rows:
+        row['measurement_id'] = ''
+        result.append(row.copy())
+    self.assertListEqual(result, expected)
+
+  def test_read_satellite_tags(self) -> None:
+    """Test reading rows from Satellite tag files."""
+    tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
+    tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
+    # yapf: disable
+    tagged_answer1 = {
+      'ip': '60.210.17.137',
+      'asname': 'CHINA169-BACKBONE CHINA UNICOM China169 Backbone',
+      'asnum': 4837,
+      'cert': 'a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
+      'http': 'e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
+    }
+
+    row1 = {'ip': '1.1.1.1', 'date': '2020-12-17', 'country': 'US'}
+    row2 = {'ip': '1.1.1.3', 'date': '2020-12-17', 'country': 'AU'}
+    row3 = {
+      'ip': '60.210.17.137',
+      'date': '2020-12-17',
+      'asname': 'CHINA169-BACKBONE CHINA UNICOM China169 Backbone',
+      'asnum': 4837,
+      'cert': 'a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
+      'http': 'e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
+    }
+    # yapf: enable
+
+    data = [
+        json.dumps(tagged_resolver1),
+        json.dumps(tagged_resolver2),
+        json.dumps(tagged_answer1)
+    ]
+    expected = [row1, row2, row3]
+    result = [
+        next(beam_tables._read_satellite_tags('2020-12-17', d)) for d in data
+    ]
+    self.assertListEqual(result, expected)
+
+  def test_process_satellite(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v1 interference and tag files."""
+    # yapf: disable
+    _data = [
+      ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'signal.org', 'answers': {'13.249.134.38': ['ip', 'http', 'asnum', 'asname'], '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],'13.249.134.74': ['ip', 'http', 'asnum', 'asname'], '13.249.134.89': ['ip', 'http', 'asnum', 'asname']}, 'passed': True}),
+      ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'adl.org', 'answers': {'192.124.249.107': ['ip', 'no_tags']}, 'passed': True}),
+    ]
+
+    data = [(filename, json.dumps(d)) for filename, d in _data]
+
+    _tags = [
+        ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", {'name': 'special','resolver': '1.1.1.3'}),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", {'resolver': '1.1.1.3', 'country': 'United States'}),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af','ip': '13.249.134.38'}),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71','ip': '13.249.134.44'}),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe','ip': '13.249.134.74'}),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac','ip': '13.249.134.89'})
+    ]
+
+    tags = [(filename, json.dumps(t)) for filename, t in _tags]
+
+    expected = [
+        {
+          'ip': '1.1.1.3',
+          'country': 'US',
+          'name': 'special',
+          'domain': 'signal.org',
+          'error': None,
+          'blocked': False,
+          'success': True,
+          'received': [
+              {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
+              {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
+              {'ip': '13.249.134.74', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
+              {'ip': '13.249.134.89', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+          ],
+          'date': '2020-09-02'
+        },
+        {
+          'ip': '1.1.1.3',
+          'country': 'US',
+          'name': 'special',
+          'domain': 'adl.org',
+          'error': None,
+          'blocked': False,
+          'success': True,
+          'received': [
+              {'ip': '192.124.249.107', 'matches_control': 'ip'}
+          ],
+          'date': '2020-09-02'
+        }
+    ]
+    # yapf: enable
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+      lines2 = p | 'create tags' >> beam.Create(tags)
+
+      final = beam_tables._process_satellite(lines, lines2)
+      beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
+
+  def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v2 interference and tag files."""
+    # yapf: disable
+    data = [
+      ("CP_Satellite-2021-03-01-12-00-01/results.json", """{"vp":"185.228.169.37","location":{"country_code":"IE","country_name":"Ireland"},"test_url":"ar.m.wikipedia.org","response":{"198.35.26.96":["cert","asnum","asname"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":false,"confidence":{"average":60,"matches":[60],"untagged_controls":false,"untagged_response":false},"start_time":"2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
+      ("CP_Satellite-2021-03-01-12-00-01/results.json", """{"vp":"156.154.71.37","location":{"country_code":"US","country_name":"United States"},"test_url":"www.usacasino.com","response":{"15.126.193.233":["no_tags"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":[0],"untagged_controls":false,"untagged_response":true},"start_time":"2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
+    ]
+
+    tags = [
+      ("CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"IE","country_name":"Ireland"},"vp":"185.228.169.37"}"""),
+      ("CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"US","country_name":"United States"},"vp":"156.154.71.37"}"""),
+      ("CP_Satellite-2021-03-01-12-00-01/resolvers.json", """{"name":"rdns37b.ultradns.net.","vp":"156.154.71.37"}"""),
+      ("CP_Satellite-2021-03-01-12-00-01/resolvers.json", """{"name":"customfilter37-dns2.cleanbrowsing.org.","vp":"185.228.169.37"}"""),
+      ("CP_Satellite-2021-03-01-12-00-01/tagged_responses.json", """{"asname":"WIKIMEDIA","asnum":14907,"cert":"9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10","http":"7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca","ip":"198.35.26.96"}""")
+    ]
+
+    expected = [
+      {
+        'ip': '185.228.169.37',
+        'country': 'IE',
+        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        'domain': 'ar.m.wikipedia.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '198.35.26.96', 'asname': 'WIKIMEDIA','asnum': 14907,'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10','http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca', 'matches_control': 'cert asnum asname'},
+        ],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701',
+        'end_time': '2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001'
+      },
+      {
+        'ip': '156.154.71.37',
+        'country': 'US',
+        'name': 'rdns37b.ultradns.net.',
+        'domain': 'www.usacasino.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [
+            {'ip': '15.126.193.233', 'matches_control': ''},
+        ],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701',
+        'end_time': '2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001'
+      }
+    ]
+    # yapf: enable
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+      lines2 = p | 'create tags' >> beam.Create(tags)
+
+      final = beam_tables._process_satellite(lines, lines2)
+      beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
+
+  def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
+    """Test partitioning of Satellite tag and answer input files."""
+    data = [("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
+            ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row"),
+            ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")]
+
+    expected_tags = data[0:6]
+    expected_rows = data[6:]
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+
+      tags, rows = lines | beam.Partition(
+          beam_tables._partition_satellite_input, 2)
+
+      beam_test_util.assert_that(
+          tags,
+          beam_test_util.equal_to(expected_tags),
+          label='assert_that/tags')
+      beam_test_util.assert_that(
+          rows,
+          beam_test_util.equal_to(expected_rows),
+          label='assert_that/rows')
+
+  def test_calculate_confidence(self) -> None:
+    """Test calculating the confidence metrics for Satellite v1 data."""
+    # yapf: disable
+    scans: List[beam_tables.Row] = [
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'abs-cbn.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.74', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+        ],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': False,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname': 'AS1','asnum': 11111,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
+            {'ip': '13.249.134.44', 'asname': 'AS2','asnum': 22222,'cert': 'cert','http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'asnum asname'},
+            {'ip': '13.249.134.74', 'asname': 'AS2','asnum': 22222,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89', 'asname': 'AS2','asnum': 22222,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+        ],
+        'date': '2020-09-02'
+      }
+    ]
+
+    expected = [
+      {
+        'average': 0,
+        'matches': [0],
+        'untagged_controls': False,
+        'untagged_response': True
+      },
+      {
+        'average': 100,
+        'matches': [100, 100, 100, 100],
+        'untagged_controls': False,
+        'untagged_response': False
+      },
+      {
+        'average': 62.5,
+        'matches': [0, 50, 100, 100],
+        'untagged_controls': False,
+        'untagged_response': False
+      }
+    ]
+    # yapf: enable
+    result = [
+        beam_tables._calculate_confidence(scan, 1)['confidence']
+        for scan in scans
+    ]
+    self.assertListEqual(result, expected)
+
+  def test_verify(self) -> None:
+    """Test verification of Satellite v1 data."""
+    # yapf: disable
+    scans: List[beam_tables.Row] = [
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'abs-cbn.com',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '114.114.114.110',
+        'country': 'CN',
+        'name': 'name',
+        'domain': 'ar.m.wikipedia.org',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [{'ip': '198.35.26.96', 'matches_control': ''}],
+        'date': '2020-09-02'
+      },
+      {
+        'ip': '1.1.1.3',
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'error': None,
+        'blocked': True,
+        'success': True,
+        'received': [
+            {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
+            {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': ''},
+        ],
+        'date': '2020-09-02'
+      },
+    ]
+    # yapf: enable
+
+    # mock data for the global interference IP - DOMAIN mapping
+    beam_tables.INTERFERENCE_IPDOMAIN = {
+        '104.20.161.134': {'abs-cbn.com', 'xyz.com', 'blah.com'},
+        '198.35.26.96': {'ar.m.wikipedia.org'},
+    }
+    expected = [
+        # answer IP is returned for multiple domains: likely to be interference
+        (False, ''),
+        # answer IP is returned for one domain: false positive
+        (True, 'domain_below_threshold'),
+        # answer IPs are CDN: false positive
+        (True, 'is_CDN is_CDN'),
+    ]
+    result = []
+    for scan in scans:
+      scan = beam_tables._verify(scan)
+      result.append(
+          (scan['verify']['excluded'], scan['verify']['exclude_reason']))
+
+    self.assertListEqual(result, expected)
 
   # pylint: enable=protected-access
 

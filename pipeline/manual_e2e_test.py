@@ -67,6 +67,16 @@ def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   ]
 
 
+def local_data_to_load_3(*_: List[Any]) -> List[str]:
+  return [
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/resolvers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_resolvers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_answers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/answers_control.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-01-01/interference.json'
+  ]
+
+
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
@@ -98,6 +108,18 @@ def run_local_pipeline(incremental: bool = False) -> None:
 
   test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite() -> None:
+  # run_local_pipeline for satellite - scan_type must be 'dns'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_3  # type: ignore
+
+  test_runner.run_beam_pipeline('dns', True, JOB_NAME, BEAM_TEST_TABLE, None,
+                                None)
   # pylint: enable=protected-access
 
 
@@ -133,11 +155,18 @@ class PipelineManualE2eTest(unittest.TestCase):
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
       self.assertEqual(len(written_rows), 53)
 
+      run_local_pipeline_satellite()
+
+      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      self.assertEqual(len(written_rows), 57)
+
       # Domain appear different numbers of times in the test table depending on
       # how their measurement succeeded/failed.
       expected_single_domains = [
           'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
-          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info'
+          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info',
+          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
+          'www.usacasino.com'
       ]
       expected_triple_domains = ['www.arabhra.org']
       expected_sextuple_domains = [
