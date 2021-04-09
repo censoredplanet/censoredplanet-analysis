@@ -97,7 +97,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
 );
 
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.merged_net_as`
 PARTITION BY date
 CLUSTER BY netblock
 AS (
@@ -105,16 +105,24 @@ AS (
     date,
     netblock,
     asn,
-    as_full_name AS as_full_name
+    as_full_name,
+    as_class,
+    users as as_size,
   FROM (
-    SELECT * FROM `firehook-censoredplanet.base.discard_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.echo_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.http_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.https_scan`
+    SELECT DISTINCT date, netblock, asn, as_full_name, as_class FROM `firehook-censoredplanet.base.discard_scan` UNION ALL
+    SELECT DISTINCT date, netblock, asn, as_full_name, as_class FROM `firehook-censoredplanet.base.echo_scan` UNION ALL
+    SELECT DISTINCT date, netblock, asn, as_full_name, as_class FROM `firehook-censoredplanet.base.http_scan` UNION ALL
+    SELECT DISTINCT date, netblock, asn, as_full_name, as_class FROM `firehook-censoredplanet.base.https_scan`
   )
+  FULL JOIN
+  (SELECT asn,
+          users
+   FROM `firehook-censoredplanet.laplante.apnic_aspop`)
+  USING (asn)
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
+/**
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.merged_reduced_scans_no_as`
 PARTITION BY date
 CLUSTER BY source, country, domain, netblock
 AS (
@@ -174,13 +182,14 @@ WITH
 SELECT *
 FROM AllScans
 );
+**/
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
 DROP FUNCTION CleanError;
 DROP FUNCTION ClassifyError;
 
-CREATE OR REPLACE VIEW `firehook-censoredplanet.derived.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.laplante.merged_reduced_scans`
 OPTIONS(
   friendly_name="Reduced Scan View",
   description="A join of reduced scans with ASN info."
@@ -194,10 +203,12 @@ AS (
     netblock,
     asn,
     as_full_name AS as_name,
+    as_class,
+    as_size,
     result,
     error,
     count
-  FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
-  LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
+  FROM `firehook-censoredplanet.laplante.merged_reduced_scans_no_as`
+  LEFT JOIN `firehook-censoredplanet.laplante.merged_net_as`
   USING (date, netblock)
 );

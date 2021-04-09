@@ -33,7 +33,7 @@ def run_query(filepath: str) -> cloud_bigquery.table.RowIterator:
 
 
 def rebuild_all_tables() -> None:
-  for filepath in glob.glob('table/queries/*.sql'):
+  for filepath in ['table/queries/merged_reduced_scans.sql']:
     try:
       run_query(filepath)
     except Exception as ex:

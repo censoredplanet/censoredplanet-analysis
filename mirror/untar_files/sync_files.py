@@ -163,6 +163,9 @@ class ScanfileMirror():
     ]
     return path_ends
 
+    # and (pathlib.PurePosixPath(blob.name).parts[-1] == 'results.json' or
+    #             pathlib.PurePosixPath(blob.name).parts[-1] == 'results.json.gz')
+
   def sync(self) -> None:
     """Untar all files that exist only in the tarred bucket.
 
@@ -171,7 +174,11 @@ class ScanfileMirror():
     tarred_files = self._get_all_tarred_filenames()
     untarred_files = self._get_all_untarred_filepaths()
     new_files = _get_missing_tarred_files(tarred_files, untarred_files)
+    extra_files = _get_missing_tarred_files(untarred_files, tarred_files)
 
+    pprint(("extra files", extra_files))
+    pprint(("missing files", new_files))
+    """
     files_with_extensions = [f'{filename}.tar.gz' for filename in new_files]
 
     if not files_with_extensions:
@@ -181,6 +188,7 @@ class ScanfileMirror():
       pprint(('untarring file: ', filename))
       self._untar_file(filename)
       pprint(('untarred file: ', filename))
+    """
 
 
 def get_firehook_scanfile_mirror() -> ScanfileMirror:
