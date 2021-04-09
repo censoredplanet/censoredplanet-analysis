@@ -1,0 +1,18 @@
+msc {
+  arcgradient="10";
+
+  probe,attacker,remote;
+
+  |||;
+  --- [label="Establishing TCP Connection"];
+  probe=>remote [ label = "SYN" ];
+  probe<=remote [ label = "SYN+ACK" ];
+  probe=>remote [ label = "ACK" ];
+  
+  --- [label="Establishing TLS Connection"];
+  probe=>remote [ label = "ClientHello (includes SNI)" ];
+  probe<=attacker [ label = "RST" ];
+  probe box probe [label="Connection Reset"];
+
+  probe<=remote [ label = "ServerHello" ];
+}

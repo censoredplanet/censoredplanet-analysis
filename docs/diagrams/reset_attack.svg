@@ -1,0 +1,111 @@
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1"
+ width="600px" height="379px"
+ viewBox="0 0 600 379"
+ xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges"
+ stroke-width="1" text-rendering="geometricPrecision">
+<polygon fill="white" points="83,7 115,7 115,16 83,16"/>
+<text x="100" y="16" textLength="31" font-family="Helvetica" font-size="12" fill="black" text-anchor="middle">
+
+probe
+</text>
+<polygon fill="white" points="277,7 321,7 321,16 277,16"/>
+<text x="300" y="16" textLength="43" font-family="Helvetica" font-size="12" fill="black" text-anchor="middle">
+
+attacker
+</text>
+<polygon fill="white" points="480,7 518,7 518,16 480,16"/>
+<text x="500" y="16" textLength="37" font-family="Helvetica" font-size="12" fill="black" text-anchor="middle">
+
+remote
+</text>
+<line x1="100" y1="22" x2="100" y2="49" stroke="black"/>
+<line x1="300" y1="22" x2="300" y2="49" stroke="black"/>
+<line x1="500" y1="22" x2="500" y2="49" stroke="black"/>
+<line x1="100" y1="49" x2="100" y2="76" stroke="black"/>
+<line x1="300" y1="49" x2="300" y2="76" stroke="black"/>
+<line x1="500" y1="49" x2="500" y2="76" stroke="black"/>
+<line x1="50" y1="54" x2="550" y2="54" stroke="black" stroke-dasharray="2,2"/>
+<polygon fill="white" points="220,55 378,55 378,64 220,64"/>
+<text x="221" y="64" textLength="156" font-family="Helvetica" font-size="12" fill="black">
+Establishing TCP Connection
+</text>
+<line x1="100" y1="76" x2="100" y2="114" stroke="black"/>
+<line x1="300" y1="76" x2="300" y2="114" stroke="black"/>
+<line x1="500" y1="76" x2="500" y2="114" stroke="black"/>
+<line x1="100" y1="87" x2="500" y2="97" stroke="black"/>
+<polygon fill="black" points="500,97 490,103 490,91"/>
+<polygon fill="white" points="286,82 313,82 313,91 286,91"/>
+<text x="287" y="91" textLength="25" font-family="Helvetica" font-size="12" fill="black">
+SYN
+</text>
+<line x1="100" y1="114" x2="100" y2="152" stroke="black"/>
+<line x1="300" y1="114" x2="300" y2="152" stroke="black"/>
+<line x1="500" y1="114" x2="500" y2="152" stroke="black"/>
+<line x1="500" y1="125" x2="100" y2="135" stroke="black"/>
+<polygon fill="black" points="100,135 110,141 110,129"/>
+<polygon fill="white" points="270,120 328,120 328,129 270,129"/>
+<text x="271" y="129" textLength="56" font-family="Helvetica" font-size="12" fill="black">
+SYN+ACK
+</text>
+<line x1="100" y1="152" x2="100" y2="190" stroke="black"/>
+<line x1="300" y1="152" x2="300" y2="190" stroke="black"/>
+<line x1="500" y1="152" x2="500" y2="190" stroke="black"/>
+<line x1="100" y1="163" x2="500" y2="173" stroke="black"/>
+<polygon fill="black" points="500,173 490,179 490,167"/>
+<polygon fill="white" points="286,158 313,158 313,167 286,167"/>
+<text x="287" y="167" textLength="25" font-family="Helvetica" font-size="12" fill="black">
+ACK
+</text>
+<line x1="100" y1="190" x2="100" y2="217" stroke="black"/>
+<line x1="300" y1="190" x2="300" y2="217" stroke="black"/>
+<line x1="500" y1="190" x2="500" y2="217" stroke="black"/>
+<line x1="50" y1="195" x2="550" y2="195" stroke="black" stroke-dasharray="2,2"/>
+<polygon fill="white" points="221,196 377,196 377,205 221,205"/>
+<text x="222" y="205" textLength="154" font-family="Helvetica" font-size="12" fill="black">
+Establishing TLS Connection
+</text>
+<line x1="100" y1="217" x2="100" y2="255" stroke="black"/>
+<line x1="300" y1="217" x2="300" y2="255" stroke="black"/>
+<line x1="500" y1="217" x2="500" y2="255" stroke="black"/>
+<line x1="100" y1="228" x2="500" y2="238" stroke="black"/>
+<polygon fill="black" points="500,238 490,244 490,232"/>
+<polygon fill="white" points="230,223 369,223 369,232 230,232"/>
+<text x="231" y="232" textLength="137" font-family="Helvetica" font-size="12" fill="black">
+ClientHello (includes SNI)
+</text>
+<line x1="100" y1="255" x2="100" y2="293" stroke="black"/>
+<line x1="300" y1="255" x2="300" y2="293" stroke="black"/>
+<line x1="500" y1="255" x2="500" y2="293" stroke="black"/>
+<line x1="300" y1="266" x2="100" y2="276" stroke="black"/>
+<polygon fill="black" points="100,276 110,282 110,270"/>
+<polygon fill="white" points="186,261 212,261 212,270 186,270"/>
+<text x="187" y="270" textLength="24" font-family="Helvetica" font-size="12" fill="black">
+RST
+</text>
+<line x1="100" y1="293" x2="100" y2="331" stroke="black"/>
+<line x1="300" y1="293" x2="300" y2="331" stroke="black"/>
+<line x1="500" y1="293" x2="500" y2="331" stroke="black"/>
+<polygon fill="white" points="8,293 192,293 192,315 8,315"/>
+<line x1="8" y1="293" x2="192" y2="293" stroke="black"/>
+<line x1="8" y1="315" x2="192" y2="315" stroke="black"/>
+<line x1="8" y1="293" x2="8" y2="315" stroke="black"/>
+<line x1="192" y1="293" x2="192" y2="315" stroke="black"/>
+<polygon fill="white" points="51,300 148,300 148,309 51,309"/>
+<text x="52" y="309" textLength="95" font-family="Helvetica" font-size="12" fill="black">
+Connection Reset
+</text>
+<line x1="100" y1="331" x2="100" y2="369" stroke="black"/>
+<line x1="300" y1="331" x2="300" y2="369" stroke="black"/>
+<line x1="500" y1="331" x2="500" y2="369" stroke="black"/>
+<line x1="500" y1="342" x2="100" y2="352" stroke="black"/>
+<polygon fill="black" points="100,352 110,358 110,346"/>
+<polygon fill="white" points="267,337 332,337 332,346 267,346"/>
+<text x="268" y="346" textLength="63" font-family="Helvetica" font-size="12" fill="black">
+ServerHello
+</text>
+<line x1="100" y1="353" x2="100" y2="379" stroke="black"/>
+<line x1="300" y1="353" x2="300" y2="379" stroke="black"/>
+<line x1="500" y1="353" x2="500" y2="379" stroke="black"/>
+</svg>
