@@ -26,7 +26,7 @@ import pwd
 from typing import Optional, List
 
 from pipeline import beam_tables
-from pipeline.metadata import ip_metadata
+from pipeline.metadata import caida_ip_metadata
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
@@ -121,7 +121,7 @@ def get_firehook_beam_pipeline_runner(
   return beam_tables.ScanDataBeamPipelineRunner(
       firehook_resources.PROJECT_NAME, beam_tables.SCAN_BIGQUERY_SCHEMA,
       firehook_resources.INPUT_BUCKET, firehook_resources.BEAM_STAGING_LOCATION,
-      firehook_resources.BEAM_TEMP_LOCATION, ip_metadata.IpMetadata,
+      firehook_resources.BEAM_TEMP_LOCATION, caida_ip_metadata.CaidaIpMetadata,
       firehook_resources.CAIDA_FILE_LOCATION)
 
 

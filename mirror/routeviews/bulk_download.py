@@ -80,7 +80,7 @@ def download_days_routeview(bucket: storage.bucket.Bucket,
 
 def download_manual_routeviews_firehook() -> None:
   client = storage.Client()
-  bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)
+  bucket = client.get_bucket(firehook_resources.METADATA_BUCKET)
 
   download_manual_routeviews(bucket)
 

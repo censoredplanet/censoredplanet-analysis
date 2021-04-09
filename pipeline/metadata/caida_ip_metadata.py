@@ -23,7 +23,7 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
-from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
+from pipeline.metadata.caida_ip_metadata_interface import CaidaIpMetadataInterface
 
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
@@ -186,8 +186,8 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class IpMetadata(IpMetadataInterface):
-  """A lookup table which contains network metadata about IPs."""
+class CaidaIpMetadata(CaidaIpMetadataInterface):
+  """A lookup table which contains CAIDA metadata about IPs."""
 
   def __init__(
       self,
@@ -195,7 +195,7 @@ class IpMetadata(IpMetadataInterface):
       cloud_data_location: str,
       allow_previous_day: bool,
   ) -> None:
-    """Create an IP Metadata object by reading/parsing all needed data.
+    """Create an CAIDA IP Metadata object by reading/parsing all needed data.
 
     Args:
       date: a date to initialize the asn database to
@@ -302,11 +302,11 @@ class IpMetadata(IpMetadataInterface):
       raise FileNotFoundError(filepath_pattern) from ex
 
 
-def get_firehook_ip_metadata_db(
+def get_firehook_caida_ip_metadata_db(
     date: datetime.date,
     allow_previous_day: bool = False,
-) -> IpMetadata:
-  """Factory to return an IPMetadata object which reads in firehook files.
+) -> CaidaIpMetadata:
+  """Factory to return an CaidaIpMetadata object which reads in firehook files.
 
   Args:
     date: a date to initialize the asn database to
@@ -319,5 +319,5 @@ def get_firehook_ip_metadata_db(
   """
   # import here to avoid beam pickling issues
   import firehook_resources  # pylint: disable=import-outside-toplevel
-  return IpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
-                    allow_previous_day)
+  return CaidaIpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
+                         allow_previous_day)

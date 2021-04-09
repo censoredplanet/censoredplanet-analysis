@@ -11,21 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Test IPMetadata file parsing and database access."""
+"""Test CaidaIpMetadata file parsing and database access."""
 
 import unittest
 
-from pipeline.metadata import ip_metadata
+from pipeline.metadata import caida_ip_metadata
 
 
-class IpMetadataTest(unittest.TestCase):
-  """Test IPMetadata database."""
+class CaidaIpMetadataTest(unittest.TestCase):
+  """Test CaidaIpMetadata database."""
 
   # pylint: disable=protected-access
 
   def test_read_compressed_file(self) -> None:
     filepath = "pipeline/metadata/test_file.txt.gz"
-    lines = list(ip_metadata._read_compressed_file(filepath))
+    lines = list(caida_ip_metadata._read_compressed_file(filepath))
     self.assertListEqual(lines, ["test line 1", "test line 2"])
 
   def test_parse_asn_db(self) -> None:
@@ -36,7 +36,7 @@ class IpMetadataTest(unittest.TestCase):
         "8.8.8.0\t24\t15169",
     ])
     # yapf: enable
-    asn_db = ip_metadata._parse_asn_db(routeview_file_content)
+    asn_db = caida_ip_metadata._parse_asn_db(routeview_file_content)
 
     self.assertEqual(asn_db.lookup("1.0.0.1"), (13335, "1.0.0.0/24"))
     self.assertEqual(asn_db.lookup("8.8.8.8"), (15169, "8.8.8.0/24"))
@@ -58,7 +58,7 @@ class IpMetadataTest(unittest.TestCase):
     ])
     # yapf: enable
 
-    as2org_map = ip_metadata._parse_as_to_org_map(as2org_file_content)
+    as2org_map = caida_ip_metadata._parse_as_to_org_map(as2org_file_content)
     self.assertEqual(
         as2org_map, {
             1: ("LVLT-1", "Level 3 Communications, Inc.", "US"),
@@ -81,7 +81,7 @@ class IpMetadataTest(unittest.TestCase):
     ])
     # yapf: enable
 
-    as2type_map = ip_metadata._parse_as_to_type_map(as2type_file_content)
+    as2type_map = caida_ip_metadata._parse_as_to_type_map(as2type_file_content)
     self.assertEqual(as2type_map, {1: "Transit/Access", 4: "Content"})
 
   # pylint: enable=protected-access

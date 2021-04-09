@@ -21,9 +21,10 @@ TARRED_BUCKET = 'firehook-censoredplanetscanspublic'
 UNTARRED_BUCKET = 'firehook-scans'
 INPUT_BUCKET = f'gs://{UNTARRED_BUCKET}/'
 
-# Buckets that store CAIDA information
-CAIDA_BUCKET = 'censoredplanet_geolocation'
-CAIDA_FILE_LOCATION = f'gs://{CAIDA_BUCKET}/caida/'
+# Buckets that store METADATA information
+# TODO change this bucket name to something metadata related.
+METADATA_BUCKET = 'censoredplanet_geolocation'
+CAIDA_FILE_LOCATION = f'gs://{METADATA_BUCKET}/caida/'
 ROUTEVIEW_PATH = 'caida/routeviews/'
 
 # Temp Buckets

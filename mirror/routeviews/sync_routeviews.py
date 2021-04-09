@@ -113,7 +113,7 @@ class RouteviewMirror():
 def get_firehook_routeview_mirror() -> RouteviewMirror:
   """Factory function to get a RouteviewUpdater with our project values."""
   client = storage.Client()
-  bucket = client.get_bucket(firehook_resources.CAIDA_BUCKET)
+  bucket = client.get_bucket(firehook_resources.METADATA_BUCKET)
 
   return RouteviewMirror(bucket, firehook_resources.ROUTEVIEW_PATH)
 

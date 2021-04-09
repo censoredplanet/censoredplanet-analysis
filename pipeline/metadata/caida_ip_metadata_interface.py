@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Interface for IPMetadata class and its fake."""
+"""Interface for CaidaIpMetadata class and its fake."""
 
 import datetime
 from typing import Optional, Tuple
 
 
-class IpMetadataInterface:
-  """Interface for an IP Metadata lookup database."""
+class CaidaIpMetadataInterface:
+  """Interface for an CAIDA IP Metadata lookup database."""
 
   def __init__(
       self,

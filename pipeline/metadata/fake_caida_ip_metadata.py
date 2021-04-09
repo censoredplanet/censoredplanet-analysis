@@ -11,16 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Fake IpMetadata implementation for use in testing."""
+"""Fake CaidaIpMetadata implementation for use in testing."""
 
 import datetime
 from typing import Optional, Tuple
 
-from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
+from pipeline.metadata.caida_ip_metadata_interface import CaidaIpMetadataInterface
 
 
-class FakeIpMetadata(IpMetadataInterface):
-  """A fake lookup table for testing IpMetadata."""
+class FakeCaidaIpMetadata(CaidaIpMetadataInterface):
+  """A fake lookup table for testing CaidaIpMetadata."""
 
   def __init__(
       self,

@@ -33,7 +33,7 @@ from google.cloud.exceptions import NotFound
 
 import firehook_resources
 from pipeline import run_beam_tables
-from pipeline.metadata import ip_metadata
+from pipeline.metadata import caida_ip_metadata
 
 # The test table is written into the <project>:<username> dataset
 username = pwd.getpwuid(os.getuid()).pw_name
@@ -187,9 +187,9 @@ class PipelineManualE2eTest(unittest.TestCase):
   def test_ipmetadata_init(self) -> None:
     # This E2E test requires the user to have access to the
     # gs://censoredplanet_geolocation bucket.
-    ip_metadata_db = ip_metadata.get_firehook_ip_metadata_db(
+    caida_ip_metadata_db = caida_ip_metadata.get_firehook_caida_ip_metadata_db(
         datetime.date(2018, 7, 27))
-    metadata = ip_metadata_db.lookup('1.1.1.1')
+    metadata = caida_ip_metadata_db.lookup('1.1.1.1')
 
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
                                 'Cloudflare, Inc.', 'Content', 'US'))

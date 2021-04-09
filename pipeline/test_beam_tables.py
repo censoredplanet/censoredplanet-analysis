@@ -25,7 +25,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
 from pipeline import beam_tables
-from pipeline.metadata.fake_ip_metadata import FakeIpMetadata
+from pipeline.metadata.fake_caida_ip_metadata import FakeCaidaIpMetadata
 from pipeline.assets import MAXMIND_CITY
 
 
@@ -98,7 +98,7 @@ class PipelineMainTest(unittest.TestCase):
   def test_get_full_table_name(self) -> None:
     project = 'firehook-censoredplanet'
     runner = beam_tables.ScanDataBeamPipelineRunner(project, {}, '', '', '',
-                                                    FakeIpMetadata, '')
+                                                    FakeCaidaIpMetadata, '')
 
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
@@ -573,7 +573,7 @@ class PipelineMainTest(unittest.TestCase):
     rows = (p | beam.Create(rows))
 
     runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
-                                                    FakeIpMetadata, '')
+                                                    FakeCaidaIpMetadata, '')
 
     rows_with_metadata = runner._add_metadata(rows)
     beam_test_util.assert_that(
@@ -632,7 +632,7 @@ class PipelineMainTest(unittest.TestCase):
   def test_add_ip_metadata(self) -> None:
     """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
-                                                    FakeIpMetadata, '')
+                                                    FakeCaidaIpMetadata, '')
 
     metadatas = list(
         runner._add_ip_metadata('2020-01-01',
