@@ -33,7 +33,7 @@ from google.cloud.exceptions import NotFound
 
 import firehook_resources
 from pipeline import run_beam_tables
-from pipeline.metadata import caida_ip_metadata
+from pipeline.metadata import caida_ip_metadata, maxmind
 
 # The test table is written into the <project>:<username> dataset
 username = pwd.getpwuid(os.getuid()).pw_name
@@ -193,6 +193,16 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
                                 'Cloudflare, Inc.', 'Content', 'US'))
+
+  def test_maxmind_init(self) -> None:
+    # This E2E test requires the user to have access to the
+    # gs://censoredplanet_geolocation bucket.
+    # TODO factor out
+    maxmind_db = maxmind.MaxmindIpMetadata(
+        'gs://censoredplanet_geolocation/maxmind/')
+    metadata = maxmind_db.lookup('1.1.1.1')
+    self.assertEqual(metadata,
+                     ('1.1.1.0/24', 13335, 'CLOUDFLARENET', None, None, 'AU'))
 
 
 # This test is not run by default in unittest because it takes about a minute

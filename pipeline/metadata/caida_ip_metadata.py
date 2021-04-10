@@ -23,7 +23,7 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
-from pipeline.metadata.caida_ip_metadata_interface import CaidaIpMetadataInterface
+from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
@@ -186,7 +186,7 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class CaidaIpMetadata(CaidaIpMetadataInterface):
+class CaidaIpMetadata(IpMetadataInterface):
   """A lookup table which contains CAIDA metadata about IPs."""
 
   def __init__(
@@ -204,7 +204,7 @@ class CaidaIpMetadata(CaidaIpMetadataInterface):
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
-    super().__init__(date, cloud_data_location, allow_previous_day)
+    super()
     self.cloud_data_location = cloud_data_location
 
     self.as_to_org_map = self._get_asn2org_map()

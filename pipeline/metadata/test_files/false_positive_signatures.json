@@ -1,0 +1,6 @@
+{"fingerprint":"x_fpru_amazon","pattern":"copy; 2019, Amazon Web Services, Inc. or its affiliates. All rights reserved."}
+{"fingerprint":"x_fpru_nginx","pattern":"<p><em>Thank you for using nginx.</em></p>"}
+{"fingerprint":"x_fpru_cgi","pattern":"<html><head><META HTTP-EQUIV=\"Cache-control\" CONTENT=\"no-cache\"><META HTTP-EQUIV=\"refresh\" CONTENT=\"0;URL=/cgi-sys/defaultwebpage.cgi\"></head><body></body></html>"}
+{"fingerprint":"x_fpru_site_unavailable","pattern":"<title>Site Unavailable</title>"}
+{"fingerprint":"x_fpru_betting","pattern":"<title>Букмекерская контора Винлайн. Онлайн ставки на спорт!</title>"}
+{"fingerprint":"x_on_this_server","pattern":"%You don%t have permission to access%on this server.<P>%"}
