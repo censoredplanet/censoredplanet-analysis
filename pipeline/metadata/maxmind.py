@@ -118,12 +118,14 @@ class MaxmindIpMetadata(IpMetadataInterface):
 
 
 class FakeMaxmindIpMetadata(IpMetadataInterface):
+  """A fake lookup table for testing MaxmindIpMetadata."""
 
   def __init__(self, _: str) -> None:
     super()
 
+  # pylint: disable=no-self-use
   def lookup(
-      self, ip: str
+      self, _: str
   ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
              Optional[str]]:
     return ('101.103.0.0/16', 1221, 'ASN-TELSTRA', None, None, 'AU')
