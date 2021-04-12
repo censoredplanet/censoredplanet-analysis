@@ -1018,7 +1018,8 @@ class ScanDataBeamPipelineRunner():
 
   def __init__(self, project: str, schema: Dict[str, Any], bucket: str,
                staging_location: str, temp_location: str,
-               ip_metadata_class: type, ip_metadata_bucket_folder: str) -> None:
+               caida_ip_metadata_class: type,
+               caida_ip_metadata_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -1027,18 +1028,18 @@ class ScanDataBeamPipelineRunner():
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
-      ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
-      ip_metadata_bucket_folder: gcs folder with ip metadata files
+      caida_ip_metadata_class: an CaidaIpMetadataInterface subclass (class, not instance)
+      caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
     """
     self.project = project
     self.schema = schema
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
-    # Because an instantiated IpMetadata object is too big for beam's
+    # Because an instantiated CaidaIpMetadata object is too big for beam's
     # serlalization to pass around we pass in the class to instantiate instead.
-    self.ip_metadata_class = ip_metadata_class
-    self.ip_metadata_bucket_folder = ip_metadata_bucket_folder
+    self.caida_ip_metadata_class = caida_ip_metadata_class
+    self.caida_ip_metadata_bucket_folder = caida_ip_metadata_bucket_folder
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -1178,14 +1179,15 @@ class ScanDataBeamPipelineRunner():
       Tuples (DateIpKey, metadata_dict)
       where metadata_dict is a row Dict[column_name, values]
     """
-    ip_metadata_db = self.ip_metadata_class(
-        datetime.date.fromisoformat(date), self.ip_metadata_bucket_folder, True)
+    caida_ip_metadata_db = self.caida_ip_metadata_class(
+        datetime.date.fromisoformat(date), self.caida_ip_metadata_bucket_folder,
+        True)
     for ip in ips:
       metadata_key = (date, ip)
 
       try:
         (netblock, asn, as_name, as_full_name, as_type,
-         country) = ip_metadata_db.lookup(ip)
+         country) = caida_ip_metadata_db.lookup(ip)
         metadata_values = {
             'netblock': netblock,
             'asn': asn,
