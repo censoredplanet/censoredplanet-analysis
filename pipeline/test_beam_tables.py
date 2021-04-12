@@ -16,7 +16,6 @@
 import datetime
 from typing import Dict, List
 import unittest
-import os.path
 import json
 
 import apache_beam as beam
@@ -25,6 +24,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
 from pipeline import beam_tables
+from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.fake_caida_ip_metadata import FakeCaidaIpMetadata
 from pipeline.metadata.maxmind import FakeMaxmindIpMetadata
 
@@ -177,7 +177,6 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_parse_received_data_http(self) -> None:
     """Test parsing sample HTTP data."""
-    self.maxDiff = None
     # yapf: disable
     received = {
         'status_line': '403 Forbidden',
@@ -193,7 +192,10 @@ class PipelineMainTest(unittest.TestCase):
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received, True)
+    parsed = beam_tables._parse_received_data(
+        received,
+        True,
+        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -213,12 +215,14 @@ class PipelineMainTest(unittest.TestCase):
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received, True)
+    parsed = beam_tables._parse_received_data(
+        received,
+        True,
+        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
     """Test parsing example HTTPS data."""
-    self.maxDiff = None
     # yapf: disable
     received = {
         'status_line': '403 Forbidden',
@@ -260,7 +264,10 @@ class PipelineMainTest(unittest.TestCase):
     }
     # yapf: enable
 
-    parsed = beam_tables._parse_received_data(received, True)
+    parsed = beam_tables._parse_received_data(
+        received,
+        True,
+        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self) -> None:
@@ -382,7 +389,11 @@ class PipelineMainTest(unittest.TestCase):
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
-    row = list(beam_tables._flatten_measurement(filename, line))[0]
+    row = list(
+        beam_tables._flatten_measurement(
+            filename,
+            line,
+            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -444,7 +455,11 @@ class PipelineMainTest(unittest.TestCase):
     }
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
-    row = list(beam_tables._flatten_measurement(filename, line))[0]
+    row = list(
+        beam_tables._flatten_measurement(
+            filename,
+            line,
+            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -532,7 +547,11 @@ class PipelineMainTest(unittest.TestCase):
     }
     # yapf: enable
 
-    row = list(beam_tables._flatten_measurement(filename, line))[0]
+    row = list(
+        beam_tables._flatten_measurement(
+            filename,
+            line,
+            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
 
@@ -737,14 +756,14 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_blockpage_matching(self) -> None:
     """Test blockpage matching for data with detected anomalies."""
-    matcher = beam_tables.BlockpageMatcher(FAKE_SIGNATURE_FOLDER)
+    matcher = BlockpageMatcher(FAKE_SIGNATURE_FOLDER)
 
     # yapf: disable
     pages = [
       '<p><em>Thank you for using nginx.</em></p>',
       'URL is blocked by SpIDer Gate',
       '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eA Website\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nThis site is not blocked!\u003cp\u003e\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
-      'HTTP/1.1 302 Moved Temporarily\r\nLocation: iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2F\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
+      '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       '<br/>Attack ID: 20000'
     ]

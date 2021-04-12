@@ -1,3 +1,5 @@
+"""Small module to convert country names to codes."""
+
 CODES = {
     "Andorra": "AD",
     "United Arab Emirates": "AE",

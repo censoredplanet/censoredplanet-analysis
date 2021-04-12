@@ -23,7 +23,6 @@ import re
 from collections import defaultdict
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union, Set
 import uuid
-from pprint import pprint
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
@@ -1168,10 +1167,8 @@ class ScanDataBeamPipelineRunner():
       else:
         # PCollection[Row]
         rows = (
-            lines | 'flatten json' >> beam.FlatMapTuple(
-                _flatten_measurement,
-                blockpage_matcher=self.blockpage_matcher).with_output_types(Row)
-        )
+            lines | 'flatten json' >>
+            beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(rows)

@@ -13,7 +13,6 @@
 # limitations under the License.
 """Interface for CaidaIPMetadata class and its fake."""
 
-import datetime
 from typing import Optional, Tuple
 
 
@@ -37,4 +36,3 @@ class IpMetadataInterface:
     Raises:
       KeyError: when the IP's ASN can't be found
     """
-    pass

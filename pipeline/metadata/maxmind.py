@@ -1,9 +1,11 @@
+"""Module to initialize Maxmind databases and lookup IP metadata."""
+
 import logging
 import os
-from typing import Any, Optional, Tuple
-from pprint import pprint
+from typing import Optional, Tuple
 
 import geoip2.database
+from geoip2.database import MODE_MEMORY
 import apache_beam.io.filesystems as apache_filesystems
 
 from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
@@ -12,7 +14,30 @@ MAXMIND_CITY = 'GeoLite2-City.mmdb'
 MAXMIND_ASN = 'GeoLite2-ASN.mmdb'
 
 
+def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
+  """Return a reader for the Maxmind database.
+
+    Args:
+      filepath: gcs or local fileststem path to Maxmind .mmdb file
+
+    Returns:
+      geoip2.database.Reader
+  """
+  f = apache_filesystems.FileSystems.open(filepath)
+
+  # MaxMind Reader will only take a filepath,
+  # so we need to write the file to local disk
+  disk_filename = os.path.join('/tmp', os.path.basename(filepath))
+  disk_file = open(disk_filename, 'wb')
+  disk_file.write(f.read())
+  disk_file.close()
+  database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
+  os.remove(disk_filename)
+  return database
+
+
 class MaxmindIpMetadata(IpMetadataInterface):
+  """Lookup database for Maxmind ASN and country metadata."""
 
   def __init__(self, maxmind_folder: str) -> None:
     """Create a Maxmind Database.
@@ -24,8 +49,8 @@ class MaxmindIpMetadata(IpMetadataInterface):
     maxmind_city_path = os.path.join(maxmind_folder, MAXMIND_CITY)
     maxmind_asn_path = os.path.join(maxmind_folder, MAXMIND_ASN)
 
-    self.maxmind_city = self._maxmind_reader(maxmind_city_path)
-    self.maxmind_asn = self._maxmind_reader(maxmind_asn_path)
+    self.maxmind_city = _maxmind_reader(maxmind_city_path)
+    self.maxmind_asn = _maxmind_reader(maxmind_asn_path)
 
   def lookup(
       self, ip: str
@@ -51,27 +76,6 @@ class MaxmindIpMetadata(IpMetadataInterface):
       raise KeyError("No Maxmind entry for {}".format(ip))
 
     return (netblock, asn, as_name, None, None, country)
-
-  def _maxmind_reader(self, filepath: str) -> geoip2.database.Reader:
-    """Return a reader for the Maxmind database.
-
-      Args:
-        filepath: gcs or local fileststem path to Maxmind .mmdb file
-
-      Returns:
-        geoip2.database.Reader
-    """
-    f = apache_filesystems.FileSystems.open(filepath)
-
-    # MaxMind reader will only take a filepath,
-    # so we need to write the file to local disk
-    disk_filename = os.path.join('/tmp', os.path.basename(filepath))
-    disk_file = open(disk_filename, 'wb')
-    disk_file.write(f.read())
-    disk_file.close()
-    return geoip2.database.Reader(
-        disk_filename, mode=geoip2.database.maxminddb.MODE_MEMORY)
-    os.remove(disk_filename)
 
   def _get_country_code(self, vp_ip: str) -> Optional[str]:
     """Get country code for IP address.
@@ -115,7 +119,7 @@ class MaxmindIpMetadata(IpMetadataInterface):
 
 class FakeMaxmindIpMetadata(IpMetadataInterface):
 
-  def __init__(self, folder: str) -> None:
+  def __init__(self, _: str) -> None:
     super()
 
   def lookup(
