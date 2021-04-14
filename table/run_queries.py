@@ -23,7 +23,9 @@ from pprint import pprint
 
 from google.cloud import bigquery as cloud_bigquery
 
-client = cloud_bigquery.Client()
+import firehook_resources
+
+client = cloud_bigquery.Client(project=firehook_resources.PROJECT_NAME)
 
 
 def run_query(filepath: str) -> cloud_bigquery.table.RowIterator:
