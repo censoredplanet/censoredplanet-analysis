@@ -4,3 +4,4 @@
 {"fingerprint":"x_fpru_site_unavailable","pattern":"<title>Site Unavailable</title>"}
 {"fingerprint":"x_fpru_betting","pattern":"<title>Букмекерская контора Винлайн. Онлайн ставки на спорт!</title>"}
 {"fingerprint":"x_on_this_server","pattern":"%You don%t have permission to access%on this server.<P>%"}
+{"fingerprint":"x_generic_akamai_error","pattern":"An error occurred while processing your request.<p>"}

@@ -3,7 +3,9 @@
 {"fingerprint":"prod_fortinet_1","pattern":"FortiGuard Web Filtering    "}
 {"fingerprint":"prod_fortinet_2","pattern":"fortinet.net"}
 {"fingerprint":"prod_fortinet_3","pattern":"<br/>Attack ID: 20000"}
-{"fingerprint":"prod_spirdergate","pattern":"URL is blocked by SpIDer Gate"}
-{"fingerprint":"isp_ru_iterika","pattern":"iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
 {"fingerprint":"r_blk_54","pattern":"https://www.divo.ru/"}
 {"fingerprint":"nat_ir_national_1","pattern":"10.10.34.35"}
+{"fingerprint":"c_isp_ru_iterika","pattern":"iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
+{"fingerprint":"c_isp_ru_divo_2","pattern":"https://www.divo.ru/"}
+{"fingerprint":"e_unk_style_red","pattern":"<span style=%color:red;%>(æ¡æ"}
+{"fingerprint":"a_prod_drweb_3","pattern":"URL % Sp%er Gate"}
