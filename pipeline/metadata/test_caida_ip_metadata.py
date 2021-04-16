@@ -24,7 +24,7 @@ class CaidaIpMetadataTest(unittest.TestCase):
   # pylint: disable=protected-access
 
   def test_read_compressed_file(self) -> None:
-    filepath = "pipeline/metadata/test_file.txt.gz"
+    filepath = "pipeline/metadata/test_files/test_file.txt.gz"
     lines = list(caida_ip_metadata._read_compressed_file(filepath))
     self.assertListEqual(lines, ["test line 1", "test line 2"])
 

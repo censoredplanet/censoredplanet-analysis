@@ -25,13 +25,14 @@ from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union, 
 import uuid
 
 import apache_beam as beam
-import geoip2.database
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
-from pipeline.assets import FALSE_POSITIVES, BLOCKPAGES, MAXMIND_CITY, MAXMIND_ASN, COUNTRY_CODES
+
+from pipeline.lookup_country_code import country_name_to_code
+from pipeline.metadata.blockpage import BlockpageMatcher
 
 # Custom Types
 #
@@ -135,158 +136,6 @@ SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
-
-
-# pylint: disable=too-many-lines
-class BlockpageMatcher:
-  """Matcher to confirm blockpages or false positives."""
-
-  def __init__(self) -> None:
-    self.false_positives = self._load_signatures(FALSE_POSITIVES)
-    self.blockpages = self._load_signatures(BLOCKPAGES)
-
-  def _load_signatures(self, filename: str) -> Dict[str, re.Pattern]:  # pylint: disable=no-self-use
-    """Load signatures for blockpage matching.
-
-    Args:
-      filename: json file containing signatures
-
-    Returns:
-      Dictionary mapping fingerprints to signature patterns
-    """
-    signatures = {}
-    with open(filename) as f:
-      for line in f:
-        try:
-          signature = json.loads(line.strip())
-          # Patterns stored in BigQuery syntax,
-          # so % represents any number of characters
-          pattern = signature['pattern']
-          # Convert to Python regex
-          pattern = re.escape(pattern)
-          pattern = pattern.replace('%', '.*')
-          signatures[signature["fingerprint"]] = re.compile(pattern, re.DOTALL)
-        except (json.decoder.JSONDecodeError, KeyError) as e:
-          pass
-    return signatures
-
-  def match_page(self, page: str) -> Optional[bool]:
-    """Check if the input page matches a known blockpage or false positive.
-
-    Args:
-      page: a string containing the HTTP body of the potential blockpage
-
-    Returns:
-      False if page matches a false positive signature.
-      True if page matches a blockpage signature.
-      None otherwise.
-    """
-
-    # Check false positives
-    for fingerprint, pattern in self.false_positives.items():
-      if pattern.search(page):
-        return False
-
-    # Check blockpages
-    for fingerprint, pattern in self.blockpages.items():
-      if pattern.search(page):
-        return True
-
-    # No signature match
-    return None
-
-
-def _maxmind_reader(filepath: str) -> Optional[geoip2.database.Reader]:
-  """Return a reader for the Maxmind database.
-
-  Args:
-    filepath: Maxmind .mmdb file
-
-  Returns:
-    geoip2.database.Reader
-  """
-  if not os.path.exists(filepath):
-    logging.warning('Path to Maxmind db not found: %s\n', filepath)
-    return None
-  return geoip2.database.Reader(filepath)
-
-
-def _read_json(filepath: str) -> Dict[str, str]:
-  """Load a JSON file to a dictionary."""
-  if os.path.exists(filepath):
-    with open(filepath) as f:
-      dictionary = json.loads(f.read())
-    return dictionary
-  return {}
-
-
-blockpage_matcher = BlockpageMatcher()
-maxmind_city = _maxmind_reader(MAXMIND_CITY)
-maxmind_asn = _maxmind_reader(MAXMIND_ASN)
-country_name_to_code = _read_json(COUNTRY_CODES)
-
-
-def _get_country_code(vp_ip: str) -> Optional[str]:
-  """Get country code for IP address.
-
-  Args:
-    vp_ip: IP address of vantage point (as string)
-
-  Returns:
-    2-letter ISO country code
-  """
-  if maxmind_city:
-    try:
-      vp_info = maxmind_city.city(vp_ip)
-      return vp_info.country.iso_code
-    except (ValueError, geoip2.errors.AddressNotFoundError) as e:
-      logging.warning('Maxmind: %s\n', e)
-  return None
-
-
-def _get_maxmind_asn(vp_ip: str) -> Tuple[Optional[int], Optional[str], Any]:
-  """Get ASN information for IP address.
-
-  Args:
-    vp_ip: IP address of vantage point (as string)
-
-  Returns:
-    Tuple containing AS num, AS org, and netblock
-  """
-  if maxmind_asn:
-    try:
-      vp_info = maxmind_asn.asn(vp_ip)
-      return vp_info.autonomous_system_number, vp_info.autonomous_system_organization, vp_info.network
-    except (ValueError, geoip2.errors.AddressNotFoundError) as e:
-      logging.warning('Maxmind: %s\n', e)
-  return None, None, None
-
-
-def _get_censys(ips: List[str]) -> cloud_bigquery.table.RowIterator:
-  """Get additional IP information from Censys.
-
-    Args:
-      ips: list of IP addresses (as strings)
-
-    Returns:
-      BigQuery RowIterator for query results
-  """
-  censys = cloud_bigquery.Client()
-
-  # currently using CP Table
-  query = """
-    SELECT
-      ip,
-      asname as asname,
-      http as http,
-      cert as cert,
-      asnum as asnum
-    FROM censoredplanet-v1.cp.as_info_from_censys WHERE ip IN UNNEST({})
-  """.format(ips)
-
-  job = censys.query(query)
-  rows = job.result()
-  return rows
 
 
 def _get_beam_bigquery_schema(
@@ -461,12 +310,15 @@ def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   return flat_headers
 
 
-def _parse_received_data(received: Union[str, Dict[str, Any]],
-                         anomaly: bool) -> Row:
+def _parse_received_data(
+    received: Union[str, Dict[str, Any]],
+    anomaly: bool,
+    blockpage_matcher: Optional[BlockpageMatcher] = None) -> Row:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
     received: a dict parsed from json data, or a str
+    blockpage_matcher: BlockpageMatcher
 
   Returns:
     a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
@@ -481,7 +333,7 @@ def _parse_received_data(received: Union[str, Dict[str, Any]],
       'blockpage': None,
   }
 
-  if anomaly:  # check response for blockpage
+  if anomaly and blockpage_matcher:  # check response for blockpage
     row['blockpage'] = blockpage_matcher.match_page(received['body'])
 
   tls = received.get('tls', None)
@@ -496,7 +348,10 @@ def _parse_received_data(received: Union[str, Dict[str, Any]],
   return row
 
 
-def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
+def _flatten_measurement(
+    filename: str,
+    line: str,
+    blockpage_matcher: Optional[BlockpageMatcher] = None) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -506,6 +361,7 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
      'Server': '1.2.3.4',
      'Results': [{'Success': true},
                  {'Success': false}]}
+    blockpage_matcher: BlockpageMatcher
 
   Yields:
     Dicts containing individual roundtrip information
@@ -592,7 +448,8 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
 
       if 'Received' in result:
         received = result.get('Received', '')
-        received_fields = _parse_received_data(received, scan['Blocked'])
+        received_fields = _parse_received_data(
+            received, scan['Blocked'], blockpage_matcher=blockpage_matcher)
         row.update(received_fields)
 
       if 'Error' in result:
@@ -629,7 +486,7 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Dict[str, Any]]:
     # convert to country code
     tags = {
         'ip': scan['resolver'],
-        'country': country_name_to_code.get(scan['country'], scan['country'])
+        'country': country_name_to_code(scan['country'])
     }
   else:
     # from tagged_answers.json
@@ -1019,7 +876,9 @@ class ScanDataBeamPipelineRunner():
   def __init__(self, project: str, schema: Dict[str, Any], bucket: str,
                staging_location: str, temp_location: str,
                caida_ip_metadata_class: type,
-               caida_ip_metadata_bucket_folder: str) -> None:
+               caida_ip_metadata_bucket_folder: str,
+               signature_bucket_folder: str, maxmind_class: type,
+               maxmind_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -1028,8 +887,11 @@ class ScanDataBeamPipelineRunner():
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
-      caida_ip_metadata_class: an CaidaIpMetadataInterface subclass (class, not instance)
+      caida_ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
       caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
+      signature_bucket_folder: gcs folder with signatures files
+      maxmind_class: an IpMetadataInterface subclass (class, not instance)
+      maxmind_bucket_folder: gcs folder with maxmind files
     """
     self.project = project
     self.schema = schema
@@ -1040,6 +902,10 @@ class ScanDataBeamPipelineRunner():
     # serlalization to pass around we pass in the class to instantiate instead.
     self.caida_ip_metadata_class = caida_ip_metadata_class
     self.caida_ip_metadata_bucket_folder = caida_ip_metadata_bucket_folder
+    self.blockpage_matcher = BlockpageMatcher(signature_bucket_folder)
+    # Maxmind is also too big to pass around
+    self.maxmind_class = maxmind_class
+    self.maxmind_bucket_folder = maxmind_bucket_folder
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -1182,6 +1048,8 @@ class ScanDataBeamPipelineRunner():
     caida_ip_metadata_db = self.caida_ip_metadata_class(
         datetime.date.fromisoformat(date), self.caida_ip_metadata_bucket_folder,
         True)
+    maxmind_db = self.maxmind_class(self.maxmind_bucket_folder)
+
     for ip in ips:
       metadata_key = (date, ip)
 
@@ -1197,7 +1065,9 @@ class ScanDataBeamPipelineRunner():
             'country': country,
         }
         if not metadata_values['country']:  # try Maxmind
-          metadata_values['country'] = _get_country_code(ip)
+          (netblock, asn, as_name, as_full_name, as_type,
+           country) = maxmind_db.lookup(ip)
+          metadata_values['country'] = country
 
       except KeyError as e:
         logging.warning('KeyError: %s\n', e)

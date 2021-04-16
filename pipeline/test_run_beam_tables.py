@@ -102,6 +102,8 @@ class RunBeamTablesTest(unittest.TestCase):
                    None, None)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call1, call2, call3, call4], any_order=True)
+      # No extra calls
+      self.assertEqual(4, mock_runner.run_beam_pipeline.call_count)
 
   # pylint: enable=no-self-use
 

@@ -13,22 +13,16 @@
 # limitations under the License.
 """Fake CaidaIpMetadata implementation for use in testing."""
 
-import datetime
-from typing import Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
-from pipeline.metadata.caida_ip_metadata_interface import CaidaIpMetadataInterface
+from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 
 
-class FakeCaidaIpMetadata(CaidaIpMetadataInterface):
+class FakeCaidaIpMetadata(IpMetadataInterface):
   """A fake lookup table for testing CaidaIpMetadata."""
 
-  def __init__(
-      self,
-      date: datetime.date,
-      cloud_data_location: str,
-      allow_previous_day: bool,
-  ) -> None:
-    super().__init__(date, cloud_data_location, allow_previous_day)
+  def __init__(self, *_: List[Any]) -> None:
+    super()
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",

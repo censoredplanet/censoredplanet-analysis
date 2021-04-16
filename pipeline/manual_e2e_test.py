@@ -33,7 +33,7 @@ from google.cloud.exceptions import NotFound
 
 import firehook_resources
 from pipeline import run_beam_tables
-from pipeline.metadata import caida_ip_metadata
+from pipeline.metadata import blockpage, caida_ip_metadata, maxmind
 
 # The test table is written into the <project>:<username> dataset
 username = pwd.getpwuid(os.getuid()).pw_name
@@ -185,14 +185,33 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_bq_table(client, BQ_TEST_TABLE)
 
   def test_ipmetadata_init(self) -> None:
-    # This E2E test requires the user to have access to the
-    # gs://censoredplanet_geolocation bucket.
     caida_ip_metadata_db = caida_ip_metadata.get_firehook_caida_ip_metadata_db(
         datetime.date(2018, 7, 27))
     metadata = caida_ip_metadata_db.lookup('1.1.1.1')
 
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
                                 'Cloudflare, Inc.', 'Content', 'US'))
+
+  def test_maxmind_init(self) -> None:
+    maxmind_db = maxmind.MaxmindIpMetadata(
+        firehook_resources.MAXMIND_FILE_LOCATION)
+    metadata = maxmind_db.lookup('1.1.1.1')
+
+    self.assertEqual(metadata,
+                     ('1.1.1.0/24', 13335, 'CLOUDFLARENET', None, None, 'AU'))
+
+  def test_blockpage_matcher(self) -> None:
+    """Test the blockpage matcher by instantiating it with the full lists."""
+    matcher = blockpage.BlockpageMatcher(
+        firehook_resources.SIGNATURE_FILE_LOCATION)
+
+    # yapf: disable
+    blocked_page = '<html><head><meta http-equiv="Content-Type" conte>nt="text/html; charset=windows-1256"<title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'
+    false_positive_page = '<p><em>Thank you for using nginx.</em></p>'
+    # yapf: enable
+
+    self.assertTrue(matcher.match_page(blocked_page))
+    self.assertFalse(matcher.match_page(false_positive_page))
 
 
 # This test is not run by default in unittest because it takes about a minute
