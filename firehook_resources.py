@@ -26,7 +26,6 @@ INPUT_BUCKET = f'gs://{UNTARRED_BUCKET}/'
 METADATA_BUCKET = 'censoredplanet_geolocation'
 ROUTEVIEW_PATH = 'caida/routeviews/'
 CAIDA_FILE_LOCATION = f'gs://{METADATA_BUCKET}/caida/'
-SIGNATURE_FILE_LOCATION = f'gs://{METADATA_BUCKET}/signatures/'
 MAXMIND_FILE_LOCATION = f'gs://{METADATA_BUCKET}/maxmind/'
 
 # Temp Buckets

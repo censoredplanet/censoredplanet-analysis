@@ -219,8 +219,7 @@ class PipelineManualE2eTest(unittest.TestCase):
 
   def test_blockpage_matcher(self) -> None:
     """Test the blockpage matcher by instantiating it with the full lists."""
-    matcher = blockpage.BlockpageMatcher(
-        firehook_resources.SIGNATURE_FILE_LOCATION)
+    matcher = blockpage.BlockpageMatcher()
 
     # yapf: disable
     blocked_page = '<html><head><meta http-equiv="Content-Type" conte>nt="text/html; charset=windows-1256"<title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'

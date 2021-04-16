@@ -28,8 +28,6 @@ from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.fake_caida_ip_metadata import FakeCaidaIpMetadata
 from pipeline.metadata.maxmind import FakeMaxmindIpMetadata
 
-FAKE_SIGNATURE_FOLDER = 'pipeline/metadata/test_files'
-
 
 # pylint: disable=too-many-lines
 class PipelineMainTest(unittest.TestCase):
@@ -113,7 +111,6 @@ class PipelineMainTest(unittest.TestCase):
     project = 'firehook-censoredplanet'
     runner = beam_tables.ScanDataBeamPipelineRunner(project, '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     full_name = runner._get_full_table_name('prod.echo_scan')
@@ -205,9 +202,7 @@ class PipelineMainTest(unittest.TestCase):
     # yapf: enable
 
     parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+        received, True, blockpage_matcher=BlockpageMatcher())
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -228,9 +223,7 @@ class PipelineMainTest(unittest.TestCase):
     # yapf: enable
 
     parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+        received, True, blockpage_matcher=BlockpageMatcher())
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -277,9 +270,7 @@ class PipelineMainTest(unittest.TestCase):
     # yapf: enable
 
     parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+        received, True, blockpage_matcher=BlockpageMatcher())
     self.assertDictEqual(parsed, expected)
 
   def test_flatten_measurement_echo(self) -> None:
@@ -401,11 +392,7 @@ class PipelineMainTest(unittest.TestCase):
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -467,11 +454,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
@@ -558,11 +541,7 @@ class PipelineMainTest(unittest.TestCase):
     }
     # yapf: enable
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    row = list(beam_tables._flatten_measurement(filename, line))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
 
@@ -610,7 +589,6 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     rows_with_metadata = runner._add_metadata(rows)
@@ -671,7 +649,6 @@ class PipelineMainTest(unittest.TestCase):
     """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     metadatas = list(
@@ -767,7 +744,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_blockpage_matching(self) -> None:
     """Test blockpage matching for data with detected anomalies."""
-    matcher = BlockpageMatcher(FAKE_SIGNATURE_FOLDER)
+    matcher = BlockpageMatcher()
 
     # yapf: disable
     pages = [
@@ -777,13 +754,9 @@ class PipelineMainTest(unittest.TestCase):
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eé
-
 ç¾è³è¨å®å
-
 ¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: é
-
 ç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è
-
 :\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
     ]
     # yapf: enable

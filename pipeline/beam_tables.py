@@ -68,6 +68,7 @@ SCAN_BIGQUERY_SCHEMA = {
     'stateful_block': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
+    'blockpage': ('boolean', 'nullable'),
 
     # received columns
     # Column filled in all tables
@@ -90,7 +91,6 @@ SCAN_BIGQUERY_SCHEMA = {
 }
 # Future fields
 """
-    'blockpage': ('boolean', 'nullable'),
     'domain_category': ('string', 'nullable'),
     'as_traffic': ('integer', 'nullable'),
 """
@@ -367,10 +367,7 @@ def _parse_received_data(
   return row
 
 
-def _flatten_measurement(
-    filename: str,
-    line: str,
-    blockpage_matcher: Optional[BlockpageMatcher] = None) -> Iterator[Row]:
+def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
   """Flatten a measurement string into several roundtrip rows.
 
   Args:
@@ -380,7 +377,6 @@ def _flatten_measurement(
      'Server': '1.2.3.4',
      'Results': [{'Success': true},
                  {'Success': false}]}
-    blockpage_matcher: BlockpageMatcher
 
   Yields:
     Dicts containing individual roundtrip information
@@ -396,6 +392,8 @@ def _flatten_measurement(
     logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
                     line)
     return
+
+  blockpage_matcher = BlockpageMatcher()
 
   # Add a unique id per-measurement so single retry rows can be reassembled
   random_measurement_id = uuid.uuid4().hex
@@ -570,7 +568,7 @@ def _add_satellite_tags(
   grouped_received_metadata_and_rows = (({
       IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
       ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
-  }) | 'group by received ip keys ' >> beam.CoGroupByKey())
+  }) | 'group by received ip keys' >> beam.CoGroupByKey())
 
   rows_with_tags = (
       grouped_received_metadata_and_rows | 'tag received ips' >>
@@ -894,8 +892,7 @@ class ScanDataBeamPipelineRunner():
 
   def __init__(self, project: str, bucket: str, staging_location: str,
                temp_location: str, caida_ip_metadata_class: type,
-               caida_ip_metadata_bucket_folder: str,
-               signature_bucket_folder: str, maxmind_class: type,
+               caida_ip_metadata_bucket_folder: str, maxmind_class: type,
                maxmind_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
@@ -907,7 +904,6 @@ class ScanDataBeamPipelineRunner():
       temp_location: gcs bucket name, used for temp beam data
       caida_ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
       caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
-      signature_bucket_folder: gcs folder with signatures files
       maxmind_class: an IpMetadataInterface subclass (class, not instance)
       maxmind_bucket_folder: gcs folder with maxmind files
     """
@@ -919,7 +915,6 @@ class ScanDataBeamPipelineRunner():
     # serlalization to pass around we pass in the class to instantiate instead.
     self.caida_ip_metadata_class = caida_ip_metadata_class
     self.caida_ip_metadata_bucket_folder = caida_ip_metadata_bucket_folder
-    self.blockpage_matcher = BlockpageMatcher(signature_bucket_folder)
     # Maxmind is also too big to pass around
     self.maxmind_class = maxmind_class
     self.maxmind_bucket_folder = maxmind_bucket_folder

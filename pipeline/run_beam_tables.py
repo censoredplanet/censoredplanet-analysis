@@ -123,8 +123,7 @@ def get_firehook_beam_pipeline_runner(
       firehook_resources.PROJECT_NAME, firehook_resources.INPUT_BUCKET,
       firehook_resources.BEAM_STAGING_LOCATION,
       firehook_resources.BEAM_TEMP_LOCATION, caida_ip_metadata.CaidaIpMetadata,
-      firehook_resources.CAIDA_FILE_LOCATION,
-      firehook_resources.SIGNATURE_FILE_LOCATION, maxmind.MaxmindIpMetadata,
+      firehook_resources.CAIDA_FILE_LOCATION, maxmind.MaxmindIpMetadata,
       firehook_resources.MAXMIND_FILE_LOCATION)
 
 
