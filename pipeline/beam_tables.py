@@ -330,75 +330,103 @@ def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   return flat_headers
 
 
-def _parse_received_data(
-    received: Union[str, Dict[str, Any]],
-    anomaly: bool,
-    blockpage_matcher: Optional[BlockpageMatcher] = None) -> Row:
-  """Parse a received field into a section of a row to write to bigquery.
+class FlattenMeasurement(beam.DoFn):
+  """DoFn class for flattening lines of json text into Rows."""
 
-  Args:
-    received: a dict parsed from json data, or a str
-    blockpage_matcher: BlockpageMatcher
+  def setup(self) -> None:
+    self.blockpage_matcher = BlockpageMatcher()  #pylint: disable=attribute-defined-outside-init
 
-  Returns:
-    a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
-  """
-  if isinstance(received, str):
-    return {'received_status': received}
+  def process(self, element: Tuple[str, str]) -> Iterator[Row]:
+    """Flatten a measurement string into several roundtrip Rows.
 
-  row = {
-      'received_status': received['status_line'],
-      'received_body': received['body'],
-      'received_headers': _parse_received_headers(received.get('headers', {})),
-  }
+    Args:
+      element: Tuple(filepath, line)
+        filename: a filepath string
+        line: a json string describing a censored planet measurement. example
+        {'Keyword': 'test.com',
+        'Server': '1.2.3.4',
+        'Results': [{'Success': true},
+                    {'Success': false}]}
 
-  if anomaly and blockpage_matcher:  # check response for blockpage
-    row['blockpage'] = blockpage_matcher.match_page(received['body'])
+    Yields:
+      Row dicts containing individual roundtrip information
+      {'column_name': field_value}
+      examples:
+      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
+      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': false}
+    """
+    (filename, line) = element
 
-  tls = received.get('tls', None)
-  if tls:
-    tls_row = {
-        'received_tls_version': tls['version'],
-        'received_tls_cipher_suite': tls['cipher_suite'],
-        'received_tls_cert': tls['cert']
-    }
-    row.update(tls_row)
+    # pylint: disable=too-many-branches
+    try:
+      scan = json.loads(line)
+    except json.decoder.JSONDecodeError as e:
+      logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+                      line)
+      return
 
-  return row
+    # Add a unique id per-measurement so single retry rows can be reassembled
+    random_measurement_id = uuid.uuid4().hex
 
+    if 'Satellite' in filename:
+      yield from self._process_satellite(filename, scan, random_measurement_id)
+    else:
+      yield from self._process_non_satellite(filename, scan,
+                                             random_measurement_id)
 
-def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
-  """Flatten a measurement string into several roundtrip rows.
+  def _process_non_satellite(self, filename: str, scan: Any,
+                             random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Echo/Discard/HTTP/S data.
 
-  Args:
-    filename: a filepath string
-    line: a json string describing a censored planet measurement. example
-    {'Keyword': 'test.com',
-     'Server': '1.2.3.4',
-     'Results': [{'Success': true},
-                 {'Success': false}]}
+    Args:
+      filename: a filepath string
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
 
-  Yields:
-    Dicts containing individual roundtrip information
-    {'column_name': field_value}
-    examples:
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-    {'domain': 'test.com', 'ip': '1.2.3.4', 'success': false}
-  """
-  # pylint: disable=too-many-branches
-  try:
-    scan = json.loads(line)
-  except json.decoder.JSONDecodeError as e:
-    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
-                    line)
-    return
+    Yields:
+      Rows
+    """
+    for result in scan.get('Results', []):
+      date = result['StartTime'][:10]
+      row = {
+          'domain': scan['Keyword'],
+          'ip': scan['Server'],
+          'date': date,
+          'start_time': result['StartTime'],
+          'end_time': result['EndTime'],
+          'retries': scan['Retries'],
+          'sent': result['Sent'],
+          'blocked': scan['Blocked'],
+          'success': result['Success'],
+          'fail_sanity': scan['FailSanity'],
+          'stateful_block': scan['StatefulBlock'],
+          'measurement_id': random_measurement_id,
+          'source': _source_from_filename(filename),
+      }
 
-  blockpage_matcher = BlockpageMatcher()
+      if 'Received' in result:
+        received = result.get('Received', '')
+        received_fields = self._parse_received_data(received, scan['Blocked'])
+        row.update(received_fields)
 
-  # Add a unique id per-measurement so single retry rows can be reassembled
-  random_measurement_id = uuid.uuid4().hex
+      if 'Error' in result:
+        row['error'] = result['Error']
 
-  if 'Satellite' in filename:
+      yield row
+
+  def _process_satellite(  # pylint: disable=no-self-use
+      self, filename: str, scan: Any,
+      random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Satellite data.
+
+    Args:
+      filename: a filepath string
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
+
+    Yields:
+      Rows
+    """
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
     if date < "2021-03":
       row = {
@@ -444,35 +472,45 @@ def _flatten_measurement(filename: str, line: str) -> Iterator[Row]:
         row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
             [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
       yield row
-  else:
-    for result in scan.get('Results', []):
-      date = result['StartTime'][:10]
-      row = {
-          'domain': scan['Keyword'],
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'retries': scan['Retries'],
-          'sent': result['Sent'],
-          'blocked': scan['Blocked'],
-          'success': result['Success'],
-          'fail_sanity': scan['FailSanity'],
-          'stateful_block': scan['StatefulBlock'],
-          'measurement_id': random_measurement_id,
-          'source': _source_from_filename(filename),
+
+  def _parse_received_data(self, received: Union[str, Dict[str, Any]],
+                           anomaly: bool) -> Row:
+    """Parse a received field into a section of a row to write to bigquery.
+
+    Args:
+      received: a dict parsed from json data, or a str
+      anomaly: whether data may indivate blocking
+
+    Returns:
+      a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
+    """
+    if isinstance(received, str):
+      return {'received_status': received}
+
+    row = {
+        'received_status':
+            received['status_line'],
+        'received_body':
+            received['body'],
+        'received_headers':
+            _parse_received_headers(received.get('headers', {})),
+        'blockpage':
+            None,
+    }
+
+    if anomaly:  # check response for blockpage
+      row['blockpage'] = self.blockpage_matcher.match_page(received['body'])
+
+    tls = received.get('tls', None)
+    if tls:
+      tls_row = {
+          'received_tls_version': tls['version'],
+          'received_tls_cipher_suite': tls['cipher_suite'],
+          'received_tls_cert': tls['cert']
       }
+      row.update(tls_row)
 
-      if 'Received' in result:
-        received = result.get('Received', '')
-        received_fields = _parse_received_data(
-            received, scan['Blocked'], blockpage_matcher=blockpage_matcher)
-        row.update(received_fields)
-
-      if 'Error' in result:
-        row['error'] = result['Error']
-
-      yield row
+    return row
 
 
 def _read_satellite_tags(filename: str, line: str) -> Iterator[Dict[str, Any]]:
@@ -671,8 +709,8 @@ def _process_satellite(
 ) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags."""
   rows = (
-      lines | 'flatten json' >>
-      beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
+      lines |
+      'flatten json' >> beam.ParDo(FlattenMeasurement()).with_output_types(Row))
   tag_rows = (
       lines2 | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
@@ -1183,8 +1221,8 @@ class ScanDataBeamPipelineRunner():
       else:
         # PCollection[Row]
         rows = (
-            lines | 'flatten json' >>
-            beam.FlatMapTuple(_flatten_measurement).with_output_types(Row))
+            lines | 'flatten json' >> beam.ParDo(
+                FlattenMeasurement()).with_output_types(Row))
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(rows)
