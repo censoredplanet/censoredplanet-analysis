@@ -479,7 +479,7 @@ class FlattenMeasurement(beam.DoFn):
 
     Args:
       received: a dict parsed from json data, or a str
-      anomaly: whether data may indivate blocking
+      anomaly: whether data may indicate blocking
 
     Returns:
       a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
@@ -1174,8 +1174,10 @@ class ScanDataBeamPipelineRunner():
         temp_location=self.temp_location,
         job_name=job_name,
         runtime_type_check=False,  # slow in prod
-        experiments=['enable_execution_details_collection',
-                     'use_monitoring_state_manager'],
+        experiments=[
+            'enable_execution_details_collection',
+            'use_monitoring_state_manager'
+        ],
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
 

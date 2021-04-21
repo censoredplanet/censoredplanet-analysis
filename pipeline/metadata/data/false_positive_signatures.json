@@ -305,7 +305,7 @@
 {"fingerprint":"x_busy","pattern":"BUSY"}
 {"fingerprint":"x_obj_not_found","pattern":"bject not found"}
 {"fingerprint":"x_suspended","pattern":"Your internet is suspended"}
-{"fingerprint":"x_timestamp","pattern":"%<br><br>% +0300%"}
+{"fingerprint":"x_timestamp","pattern":"<br><br>% +0300"}
 {"fingerprint":"x_taikoo","pattern":"(taikoo/"}
 {"fingerprint":"x_msg_id","pattern":"{\"msg\":%\"id\":"}
 {"fingerprint":"x_reg_redi","pattern":"Regional Redirect"}
@@ -319,8 +319,8 @@
 {"fingerprint":"x_quickcash","pattern":"<script>document.location = %https://qua.express-cash.pt/ExpressCashPL/Default.aspx%;</script>"}
 {"fingerprint":"x_hp","pattern":"<META HTTP-EQUIV=REFRESH CONTENT=\"0;URL=/script/main/hp.asp\">"}
 {"fingerprint":"x_�\u001a","pattern":"�%�"}
-{"fingerprint":"x_on_this_server","pattern":"%You don%t have permission to access%on this server.<P>%"}
-{"fingerprint":"x_user_check","pattern":"%UserCheck/PortalMain%"}
+{"fingerprint":"x_on_this_server","pattern":"You don't have permission to access%on this server.<P>"}
+{"fingerprint":"x_user_check","pattern":"UserCheck/PortalMain"}
 {"fingerprint":"x_msn","pattern":"<title>MSN | Outlook, Office, Skype, Bing, Breaking News, and Latest Videos</title>"}
 {"fingerprint":"x_us_command","pattern":"U.S.%Command"}
 {"fingerprint":"x_blogger","pattern":"Blogger Template Style"}

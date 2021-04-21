@@ -3,11 +3,19 @@
 import json
 import pkgutil
 import re
-from typing import Optional, Dict
+from typing import Optional, Dict, Pattern
 
 # Signature filenames
 FALSE_POSITIVES = 'data/false_positive_signatures.json'
 BLOCKPAGES = 'data/blockpage_signatures.json'
+
+
+def _create_regex(pattern: str) -> Pattern:
+  pattern = re.escape(pattern)
+  # Patterns stored in BigQuery syntax,
+  # so % represents any number of characters
+  pattern = pattern.replace('%', '.*')
+  return re.compile(pattern, re.DOTALL)
 
 
 def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
@@ -30,13 +38,10 @@ def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
   for line in lines:
     if line != '':
       signature = json.loads(line.strip())
-      # Patterns stored in BigQuery syntax,
-      # so % represents any number of characters
       pattern = signature['pattern']
-      # Convert to Python regex
-      pattern = re.escape(pattern)
-      pattern = pattern.replace('%', '.*')
-      signatures[signature['fingerprint']] = re.compile(pattern, re.DOTALL)
+      fingerprint = signature['fingerprint']
+
+      signatures[fingerprint] = _create_regex(pattern)
   return signatures
 
 
@@ -59,12 +64,10 @@ class BlockpageMatcher:
       True if page matches a blockpage signature.
       None otherwise.
     """
-    # Check false positives
     for fingerprint, pattern in self.false_positives.items():
       if pattern.search(page):
         return False
 
-    # Check blockpages
     for fingerprint, pattern in self.blockpages.items():
       if pattern.search(page):
         return True

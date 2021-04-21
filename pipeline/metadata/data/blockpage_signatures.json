@@ -123,7 +123,7 @@
 {"fingerprint":"isp_ru_ugmk","pattern":"blocked.ugmk-telecom.ru"}
 {"fingerprint":"isp_ru_spacenet","pattern":"deny.spacenet.ru/"}
 {"fingerprint":"isp_ru_acme","pattern":"intel.acmetelecom.ru/block.htm"}
-{"fingerprint":"isp_ru_iterika","pattern":"iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
+{"fingerprint":"isp_ru_iterika","pattern":"iterika.ru/blocked.html?UrlRedir="}
 {"fingerprint":"isp_ru_mosnet","pattern":"mosnet.ru/customers/obsluzhivanie/blocked-site.html"}
 {"fingerprint":"isp_ru_metronet","pattern":"https://www.metro-set.ru/zapret"}
 {"fingerprint":"isp_ru_redcom","pattern":"https://redcom.ru/law/index.html"}
@@ -302,7 +302,7 @@
 {"fingerprint":"gen_blocked_9","pattern":"Alert : Your Access Blocked"}
 {"fingerprint":"gen_blocked_10","pattern":"PÃ¡gina web bloqueada"}
 {"fingerprint":"gen_blocked_11","pattern":"APLICACION BLOQUEADA"}
-{"fingerprint":"gen_blocked_12","pattern":"You don%t have permission to access the URL on this server."}
+{"fingerprint":"gen_blocked_12","pattern":"You don't have permission to access the URL on this server."}
 {"fingerprint":"gen_blocked_13","pattern":"<title>Web Page Blocked!</title>"}
 {"fingerprint":"gen_blocked_14","pattern":"URLBlocked"}
 {"fingerprint":"gen_blocked_15","pattern":"block.html"}
@@ -313,7 +313,7 @@
 {"fingerprint":"gen_blocked_20","pattern":"<h1>An Error Was Encountered</h1>"}
 {"fingerprint":"gen_blocked_21","pattern":"forbidden-access-black-list"}
 {"fingerprint":"gen_blocked_22","pattern":"Request not allowed"}
-{"fingerprint":"gen_blocked_23","pattern":"<p>Sorry, but the URL you% requesting is prohibited!</p>"}
+{"fingerprint":"gen_blocked_23","pattern":"<p>Sorry, but the URL you're requesting is prohibited!</p>"}
 {"fingerprint":"gen_blocked_24","pattern":"blockedURL"}
 {"fingerprint":"gen_blocked_25","pattern":"Block policy:"}
 {"fingerprint":"gen_blocked_26","pattern":"Block reason:"}
@@ -347,7 +347,7 @@
 {"fingerprint":"r_blk_51","pattern":"http://zapret.2090000.ru"}
 {"fingerprint":"r_blk_52","pattern":"https://hold.taiget.ru/block?"}
 {"fingerprint":"r_blk_54","pattern":"https://www.divo.ru/"}
-{"fingerprint":"r_blk_55","pattern":"http://iterika.ru/blocked.html?"}
+{"fingerprint":"r_blk_55","pattern":"iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
 {"fingerprint":"r_blk_56","pattern":"http://www.teleseti.com/"}
 {"fingerprint":"r_blk_57","pattern":"http://block.rosintel.tk/?"}
 {"fingerprint":"r_blk_58","pattern":"http://176.55.252.4:8080"}
@@ -369,7 +369,7 @@
 {"fingerprint":"r_blk_74","pattern":"Location: http://91.245.35.26/"}
 {"fingerprint":"r_blk_75","pattern":"Sorry, the site you visit contain porn & gambler stuff"}
 {"fingerprint":"r_blk_76","pattern":"site is still blocked"}
-{"fingerprint":"r_blk_77","pattern":"<h1>This web site has been blocked as per NTA%s policy</h1>"}
+{"fingerprint":"r_blk_77","pattern":"<h1>This web site has been blocked as per NTA's policy</h1>"}
 {"fingerprint":"r_blk_78","pattern":"www.coljuegos.gov.co/"}
 {"fingerprint":"r_blk_79","pattern":"禁止访问"}
 {"fingerprint":"r_blk_80","pattern":"mailto:filter-stopside@tdc.dk"}
