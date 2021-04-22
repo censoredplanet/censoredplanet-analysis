@@ -414,9 +414,8 @@ class FlattenMeasurement(beam.DoFn):
 
       yield row
 
-  def _process_satellite(  # pylint: disable=no-self-use
-      self, filename: str, scan: Any,
-      random_measurement_id: str) -> Iterator[Row]:
+  def _process_satellite(self, filename: str, scan: Any,
+                         random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
@@ -429,33 +428,73 @@ class FlattenMeasurement(beam.DoFn):
     """
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
     if date < "2021-03":
-      row = {
-          'domain': scan['query'],
-          'ip': scan['resolver'],
-          'date': date,
-          'error': scan.get('error', None),
-          'blocked': not scan['passed'] if 'passed' in scan else None,
-          'success': 'error' not in scan,
-          'received': None,
-          'measurement_id': random_measurement_id,
-      }
-      received_ips = scan.get('answers')
+      yield from self._process_satellite_v1(date, scan, random_measurement_id)
     else:
-      row = {
-          'domain': scan['test_url'],
-          'ip': scan['vp'],
-          'country': scan['location']['country_code'],
-          'date': scan['start_time'][:10],
-          'start_time': scan['start_time'],
-          'end_time': scan['end_time'],
-          'error': scan.get('error', None),
-          'blocked': scan['anomaly'],
-          'success': not scan['connect_error'],
-          'received': None,
-          'measurement_id': random_measurement_id
-      }
-      received_ips = scan.get('response')
+      yield from self._process_satellite_v2(scan, random_measurement_id)
 
+  def _process_satellite_v1(  # pylint: disable=no-self-use
+      self, date: str, scan: Any, random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Satellite data.
+
+    Args:
+      date: a date string YYYY-mm-DD
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
+
+    Yields:
+      Rows
+    """
+    row = {
+        'domain': scan['query'],
+        'ip': scan['resolver'],
+        'date': date,
+        'error': scan.get('error', None),
+        'blocked': not scan['passed'] if 'passed' in scan else None,
+        'success': 'error' not in scan,
+        'received': None,
+        'measurement_id': random_measurement_id,
+    }
+    received_ips = scan.get('answers')
+    yield from self._process_received_ips(row, received_ips)
+
+  def _process_satellite_v2(self, scan: Any,
+                            random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Satellite data.
+
+    Args:
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
+
+    Yields:
+      Rows
+    """
+    row = {
+        'domain': scan['test_url'],
+        'ip': scan['vp'],
+        'country': scan['location']['country_code'],
+        'date': scan['start_time'][:10],
+        'start_time': scan['start_time'],
+        'end_time': scan['end_time'],
+        'error': scan.get('error', None),
+        'blocked': scan['anomaly'],
+        'success': not scan['connect_error'],
+        'received': None,
+        'measurement_id': random_measurement_id
+    }
+    received_ips = scan.get('response')
+    yield from self._process_received_ips(row, received_ips)
+
+  def _process_received_ips(  # pylint: disable=no-self-use
+      self, row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+    """Add received_ip metadata to a Satellite row
+
+    Args:
+      row: existing row of satellite data
+      received_ips: data on the response from the resolver (error or ips)
+
+    Yields:
+      Rows
+    """
     if not received_ips:
       yield row
       return

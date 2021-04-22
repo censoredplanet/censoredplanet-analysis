@@ -1,6 +1,7 @@
 """Matcher for response pages to blockpage signatures."""
 
 import json
+import io
 import pkgutil
 import re
 from typing import Optional, Dict, Pattern
@@ -30,13 +31,11 @@ def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
   data = pkgutil.get_data(__name__, filepath)
   if not data:
     raise FileNotFoundError(f"Couldn't find file {filepath}")
-
-  content = data.decode('utf-8')
-  lines = content.split('\n')
+  content = io.TextIOWrapper(io.BytesIO(data), encoding='utf-8')
 
   signatures = {}
-  for line in lines:
-    if line != '':
+  for line in content.readlines():
+    if line != '\n':
       signature = json.loads(line.strip())
       pattern = signature['pattern']
       fingerprint = signature['fingerprint']
