@@ -26,19 +26,19 @@ CREATE TEMP FUNCTION CleanError(error STRING) AS (
 # Input is a nullable error string from the raw data
 # Source is one of "ECHO", "Discard, "HTTP", "HTTPS"
 #
-# Output is a string of the format "step/error_enum"
+# Output is a string of the format "stage/outcome"
 # Documentation of this enum is at
-# https://github.com/Jigsaw-Code/censoredplanet-analysis/blob/master/docs/tables.md#error-classification
+# https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
 CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
   CASE
     # Success
-    WHEN (error is NULL OR error = "") then "final/success"
+    WHEN (error is NULL OR error = "") then "complete/success"
 
     # System failures
-    WHEN ENDS_WITH(error, "address already in use") THEN "setup/system"
-    WHEN ENDS_WITH(error, "protocol error") THEN "setup/system"
-    WHEN ENDS_WITH(error, "protocol not available") THEN "setup/system" # ipv4 vs 6 error
-    WHEN ENDS_WITH(error, "too many open files") THEN "setup/system"
+    WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol error") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol not available") THEN "setup/system_failure" # ipv4 vs 6 error
+    WHEN ENDS_WITH(error, "too many open files") THEN "setup/system_failure"
 
     # Dial failures
     WHEN ENDS_WITH(error, "network is unreachable") THEN "dial/ip.network_unreachable"
@@ -69,7 +69,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
     # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
     # find a way to diffentiate this case.
     WHEN ENDS_WITH(error, "read: connection reset by peer") THEN "read/tcp.reset"
-    
+
     # HTTP content verification failures
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "unexpected EOF")) THEN "read/http.truncated_response"
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "EOF")) THEN "read/http.empty"
@@ -127,10 +127,10 @@ WITH
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "DISCARD") as error,
+    ClassifyError(error, "DISCARD") as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.discard_scan`
-  GROUP BY date, source, country, domain, netblock, result, error
+  GROUP BY date, source, country, domain, netblock, result, outcome
 
   UNION ALL
   SELECT
@@ -140,10 +140,10 @@ WITH
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "ECHO") as error,
+    ClassifyError(error, "ECHO") as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.echo_scan`
-  GROUP BY date, source, country, domain, netblock, result, error
+  GROUP BY date, source, country, domain, netblock, result, outcome
 
   UNION ALL
   SELECT
@@ -153,10 +153,10 @@ WITH
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTP") as error,
+    ClassifyError(error, "HTTP") as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.http_scan`
-  GROUP BY date, source, country, domain, netblock, result, error
+  GROUP BY date, source, country, domain, netblock, result, outcome
 
   UNION ALL
   SELECT
@@ -166,10 +166,10 @@ WITH
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTPS") as error,
+    ClassifyError(error, "HTTPS") as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.https_scan`
-  GROUP BY date, source, country, domain, netblock, result, error
+  GROUP BY date, source, country, domain, netblock, result, outcome
 )
 SELECT *
 FROM AllScans
@@ -195,7 +195,7 @@ AS (
     asn,
     as_full_name AS as_name,
     result,
-    error,
+    outcome,
     count
   FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
   LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
