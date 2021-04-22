@@ -347,7 +347,7 @@
 {"fingerprint":"r_blk_51","pattern":"http://zapret.2090000.ru"}
 {"fingerprint":"r_blk_52","pattern":"https://hold.taiget.ru/block?"}
 {"fingerprint":"r_blk_54","pattern":"https://www.divo.ru/"}
-{"fingerprint":"r_blk_55","pattern":"iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
+{"fingerprint":"r_blk_55","pattern":"https://iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f"}
 {"fingerprint":"r_blk_56","pattern":"http://www.teleseti.com/"}
 {"fingerprint":"r_blk_57","pattern":"http://block.rosintel.tk/?"}
 {"fingerprint":"r_blk_58","pattern":"http://176.55.252.4:8080"}
