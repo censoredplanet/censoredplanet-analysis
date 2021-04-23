@@ -4,19 +4,11 @@ import json
 import io
 import pkgutil
 import re
-from typing import Optional, Dict, Pattern
+from typing import Optional, Dict
 
 # Signature filenames
 FALSE_POSITIVES = 'data/false_positive_signatures.json'
 BLOCKPAGES = 'data/blockpage_signatures.json'
-
-
-def _create_regex(pattern: str) -> Pattern:
-  pattern = re.escape(pattern)
-  # Patterns stored in BigQuery syntax,
-  # so % represents any number of characters
-  pattern = pattern.replace('%', '.*')
-  return re.compile(pattern, re.DOTALL)
 
 
 def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
@@ -40,7 +32,7 @@ def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
       pattern = signature['pattern']
       fingerprint = signature['fingerprint']
 
-      signatures[fingerprint] = _create_regex(pattern)
+      signatures[fingerprint] = re.compile(pattern, re.DOTALL)
   return signatures
 
 
