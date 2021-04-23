@@ -43,16 +43,16 @@ Reduced Scans
 | asn        | INTEGER | Autonomous system number, eg. `13335` |
 | as_name    | STRING  | Autonomous system long name, eg. `Cloudflare, Inc.` |
 | result     | STRING  | `null` (meaning success) or error returned. eg. `Incorrect web response: status lines don't match`. Errors come either from the probe system, or directly from [Go's net package](https://golang.org/pkg/net/) |
-| error      | STRING  | An error classification, explained below. eg `read/timeout` |
+| outcome    | STRING  | An outcome classification, explained below. eg `read/timeout` |
 | count      | INTEGER | How many measurements fit the exact pattern of this row? |
 
-## Error Classification
+## Outcome Classification
 
-The `error` field classifies the result of a test into an enumeration of the different types of high-level errors. Error strings are of the format `stage/error_class`. For example `read/timeout` means the test received a TCP timeout during the read stage. `final/success` means a test finished successfully.
+The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `complete/success` means a test finished successfully.
 
 ### Stages
 
-Stages are listed here in order. If a test reaches a later step like `content` then it successfully passed the earlier steps like `dial` and `read`. 
+Stages are listed here in order. If a test reaches a later stage like `content` then it successfully passed the earlier stages like `dial` and `read`.
 
 | Stage       | Explanation |
 | ----------- | ----------- |
@@ -63,12 +63,12 @@ Stages are listed here in order. If a test reaches a later step like `content` t
 | read        | Reading from the remote |
 | http        | Verification of HTTP headers. `HTTP/S` only |
 | content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
-| final       | Reaching the final stage without encountering any problems in the previous stages |
-| unknown     | Unknown stage. Usually these are new errors which should be investigated and classified |
+| complete    | Reaching the final stage without encountering any problems in the previous stages |
+| unknown     | Unknown stage. Usually these are new outcomes which should be investigated and classified |
 
 #### Stages per Probe
 
-Not all tests include every stage depending on the type of test. For example since the Echo protocol does not involve TLS Echo tests will never fail with errors classified as `tls`. Here are the stages for each test type.
+Not all tests include every stage depending on the type of test. For example since the Echo protocol does not involve TLS Echo tests will never fail with outcomes classified as `tls`. Here are the stages for each test type.
 
 ##### Discard
 
@@ -86,22 +86,22 @@ Not all tests include every stage depending on the type of test. For example sin
 
 ![https connection diagram](diagrams/https.svg)
 
-### Error Classes
+### Outcome Classes
 
-Basic errors represent simplest types of errors, as well as the `success` case (no error detected).
+Basic outcomes represent simplest types of errors, as well as the `success` case (no error detected).
 
 Protocol errors are similar but not identical to the Network Error Logging standard's [Predefined Network Error Types](https://www.w3.org/TR/network-error-logging/#predefined-network-error-types). These errors may represent normal network failures and noise, but they may also expose interference by a middlebox to disrupt a connection. For example China and Iran are both known to use [TCP Reset Attacks](https://en.wikipedia.org/wiki/TCP_reset_attack) as a censorship method.
 
 Mismatch Errors are used when the connection is successful, but the content received does not match the content expected. This can happen in the case of blockpages, remote servers with unusual behavior, or complicated CDN networks serving many sites.
 
-| Error Class             | Explanation |
+| Outcome Class           | Explanation |
 | ----------------------- | ----------- |
 |                         |
-| **Basic Errors**        |
+| **Basic Outcomes**      |
 |                         |
 | success                 | The test completed successfully and no interference was detected |
-| system                  | There was a test system failure, rendering the test invalid |
-| unknown                 | The class of the error was not known. Usually these are new errors which should be investigated and classified |
+| system_failure          | There was a test system failure, rendering the test invalid |
+| unknown                 | The class of the outcome was not known. Usually these are new errors which should be investigated and classified |
 |                         |
 | **Protocol Errors**     | There were errors in the connection protocol |
 |                         |
