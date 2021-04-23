@@ -155,18 +155,11 @@ class PipelineManualE2eTest(unittest.TestCase):
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
       self.assertEqual(len(written_rows), 53)
 
-      run_local_pipeline_satellite()
-
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 57)
-
       # Domain appear different numbers of times in the test table depending on
       # how their measurement succeeded/failed.
       expected_single_domains = [
           'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
-          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info',
-          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
-          'www.usacasino.com'
+          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info'
       ]
       expected_triple_domains = ['www.arabhra.org']
       expected_sextuple_domains = [
@@ -176,6 +169,30 @@ class PipelineManualE2eTest(unittest.TestCase):
       all_expected_domains = (
           expected_single_domains + expected_triple_domains * 3 +
           expected_sextuple_domains * 6)
+
+      written_domains = [row[0] for row in written_rows]
+      self.assertListEqual(
+          sorted(written_domains), sorted(all_expected_domains))
+
+    finally:
+      clean_up_bq_table(client, BQ_TEST_TABLE)
+
+  def test_satellite_pipeline_e2e(self) -> None:
+    """Test the satellite pipeline by running it locally."""
+    # Suppress some unittest socket warnings in beam code we don't control
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = cloud_bigquery.Client()
+
+    try:
+      run_local_pipeline_satellite()
+
+      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      self.assertEqual(len(written_rows), 4)
+
+      all_expected_domains = [
+          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
+          'www.usacasino.com'
+      ]
 
       written_domains = [row[0] for row in written_rows]
       self.assertListEqual(
