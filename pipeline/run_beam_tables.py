@@ -120,8 +120,8 @@ def get_firehook_beam_pipeline_runner(
   import firehook_resources  # pylint: disable=import-outside-toplevel
 
   return beam_tables.ScanDataBeamPipelineRunner(
-      firehook_resources.PROJECT_NAME, beam_tables.SCAN_BIGQUERY_SCHEMA,
-      firehook_resources.INPUT_BUCKET, firehook_resources.BEAM_STAGING_LOCATION,
+      firehook_resources.PROJECT_NAME, firehook_resources.INPUT_BUCKET,
+      firehook_resources.BEAM_STAGING_LOCATION,
       firehook_resources.BEAM_TEMP_LOCATION, caida_ip_metadata.CaidaIpMetadata,
       firehook_resources.CAIDA_FILE_LOCATION,
       firehook_resources.SIGNATURE_FILE_LOCATION, maxmind.MaxmindIpMetadata,

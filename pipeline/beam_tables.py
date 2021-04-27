@@ -68,7 +68,6 @@ SCAN_BIGQUERY_SCHEMA = {
     'stateful_block': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
-    'name': ('string', 'nullable'),
 
     # received columns
     # Column filled in all tables
@@ -76,12 +75,29 @@ SCAN_BIGQUERY_SCHEMA = {
     # Columns filled only in HTTP/HTTPS tables
     'received_body': ('string', 'nullable'),
     'received_headers': ('string', 'repeated'),
-    'blockpage': ('boolean', 'nullable'),
     # Columns filled only in HTTPS tables
     'received_tls_version': ('integer', 'nullable'),
     'received_tls_cipher_suite': ('integer', 'nullable'),
     'received_tls_cert': ('string', 'nullable'),
-    # SATELLITE
+
+    # Columns added from CAIDA data
+    'netblock': ('string', 'nullable'),
+    'asn': ('integer', 'nullable'),
+    'as_name': ('string', 'nullable'),
+    'as_full_name': ('string', 'nullable'),
+    'as_class': ('string', 'nullable'),
+    'country': ('string', 'nullable'),
+}
+# Future fields
+"""
+    'blockpage': ('boolean', 'nullable'),
+    'domain_category': ('string', 'nullable'),
+    'as_traffic': ('integer', 'nullable'),
+"""
+
+# Additional bigquery fields for the satellite data
+SATELLITE_BIGQUERY_SCHEMA = {
+    'name': ('string', 'nullable'),
     'received': ('record', 'repeated', {
         'ip': ('string', 'nullable'),
         'asnum': ('integer', 'nullable'),
@@ -100,21 +116,8 @@ SCAN_BIGQUERY_SCHEMA = {
     'verify': ('record', 'nullable', {
         'excluded': ('boolean', 'nullable'),
         'exclude_reason': ('string', 'nullable'),
-    }),
-
-    # Columns added from CAIDA data
-    'netblock': ('string', 'nullable'),
-    'asn': ('integer', 'nullable'),
-    'as_name': ('string', 'nullable'),
-    'as_full_name': ('string', 'nullable'),
-    'as_class': ('string', 'nullable'),
-    'country': ('string', 'nullable'),
+    })
 }
-# Future fields
-"""
-    'domain_category': ('string', 'nullable'),
-    'as_traffic': ('integer', 'nullable'),
-"""
 
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.
@@ -136,6 +139,23 @@ SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
+
+
+def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
+  """Get the appropriate schema for the given scan type.
+
+  Args:
+    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'dns'
+
+  Returns:
+    A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
+  """
+  if scan_type == 'dns':
+    full_schema: Dict[str, Any] = {}
+    full_schema.update(SCAN_BIGQUERY_SCHEMA)
+    full_schema.update(SATELLITE_BIGQUERY_SCHEMA)
+    return full_schema
+  return SCAN_BIGQUERY_SCHEMA
 
 
 def _get_beam_bigquery_schema(
@@ -330,7 +350,6 @@ def _parse_received_data(
       'received_status': received['status_line'],
       'received_body': received['body'],
       'received_headers': _parse_received_headers(received.get('headers', {})),
-      'blockpage': None,
   }
 
   if anomaly and blockpage_matcher:  # check response for blockpage
@@ -873,9 +892,8 @@ def get_table_name(dataset_name: str, scan_type: str,
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, schema: Dict[str, Any], bucket: str,
-               staging_location: str, temp_location: str,
-               caida_ip_metadata_class: type,
+  def __init__(self, project: str, bucket: str, staging_location: str,
+               temp_location: str, caida_ip_metadata_class: type,
                caida_ip_metadata_bucket_folder: str,
                signature_bucket_folder: str, maxmind_class: type,
                maxmind_bucket_folder: str) -> None:
@@ -894,7 +912,6 @@ class ScanDataBeamPipelineRunner():
       maxmind_bucket_folder: gcs folder with maxmind files
     """
     self.project = project
-    self.schema = schema
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
@@ -1075,11 +1092,13 @@ class ScanDataBeamPipelineRunner():
 
       yield (metadata_key, metadata_values)
 
-  def _write_to_bigquery(self, rows: beam.pvalue.PCollection[Row],
-                         table_name: str, incremental_load: bool) -> None:
+  def _write_to_bigquery(self, scan_type: str,
+                         rows: beam.pvalue.PCollection[Row], table_name: str,
+                         incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
+      scan_type: one of 'echo', 'discard', 'http', 'https', 'dns'
       rows: PCollection[Row] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
@@ -1089,6 +1108,8 @@ class ScanDataBeamPipelineRunner():
     Raises:
       Exception: if any arguments are invalid.
     """
+    schema = _get_beam_bigquery_schema(_get_bigquery_schema(scan_type))
+
     if incremental_load:
       write_mode = beam.io.BigQueryDisposition.WRITE_APPEND
     else:
@@ -1096,7 +1117,7 @@ class ScanDataBeamPipelineRunner():
 
     (rows | 'Write' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
-        schema=_get_beam_bigquery_schema(self.schema),
+        schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
         additional_bq_parameters=_get_partition_params()))
@@ -1132,7 +1153,7 @@ class ScanDataBeamPipelineRunner():
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https'
+      scan_type: one of 'echo', 'discard', 'http', 'https' or 'dns'
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
@@ -1173,4 +1194,5 @@ class ScanDataBeamPipelineRunner():
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(rows)
 
-      self._write_to_bigquery(rows_with_metadata, table_name, incremental_load)
+      self._write_to_bigquery(scan_type, rows_with_metadata, table_name,
+                              incremental_load)

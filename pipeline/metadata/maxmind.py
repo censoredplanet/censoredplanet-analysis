@@ -28,9 +28,8 @@ def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
   # MaxMind Reader will only take a filepath,
   # so we need to write the file to local disk
   disk_filename = os.path.join('/tmp', os.path.basename(filepath))
-  disk_file = open(disk_filename, 'wb')
-  disk_file.write(f.read())
-  disk_file.close()
+  with open(disk_filename, 'wb') as disk_file:
+    disk_file.write(f.read())
   database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
   os.remove(disk_filename)
   return database

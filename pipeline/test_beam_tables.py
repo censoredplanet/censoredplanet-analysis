@@ -37,6 +37,18 @@ class PipelineMainTest(unittest.TestCase):
 
   # pylint: disable=protected-access
 
+  def test_get_bigquery_schema(self) -> None:
+    """Test getting the right bigquery schema for data types."""
+    echo_schema = beam_tables._get_bigquery_schema('echo')
+    self.assertEqual(echo_schema, beam_tables.SCAN_BIGQUERY_SCHEMA)
+
+    dns_schema = beam_tables._get_bigquery_schema('dns')
+    all_satellite_top_level_columns = (
+        list(beam_tables.SCAN_BIGQUERY_SCHEMA.keys()) +
+        list(beam_tables.SATELLITE_BIGQUERY_SCHEMA.keys()))
+    self.assertListEqual(
+        list(dns_schema.keys()), all_satellite_top_level_columns)
+
   def test_get_beam_bigquery_schema(self) -> None:
     """Test making a bigquery schema for beam's table writing."""
     test_field = {
@@ -99,7 +111,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_get_full_table_name(self) -> None:
     project = 'firehook-censoredplanet'
-    runner = beam_tables.ScanDataBeamPipelineRunner(project, {}, '', '', '',
+    runner = beam_tables.ScanDataBeamPipelineRunner(project, '', '', '',
                                                     FakeCaidaIpMetadata, '',
                                                     FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
@@ -536,7 +548,6 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: TS016c74f4=01671efb9a1a400535e215d6f76498a5887425fed793ca942baa75f16076e60e1350988222922fa06fc16f53ef016d9ecd38535fcabf14861525811a7c3459e91086df326f; Path=/',
             'X-Frame-Options: SAMEORIGIN',
         ],
-        'blockpage': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': False,
         'success': False,
@@ -597,7 +608,7 @@ class PipelineMainTest(unittest.TestCase):
     p = TestPipeline()
     rows = (p | beam.Create(rows))
 
-    runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
+    runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
                                                     FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
@@ -658,7 +669,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_add_ip_metadata(self) -> None:
     """Test merging given IP metadata with given measurements."""
-    runner = beam_tables.ScanDataBeamPipelineRunner('', {}, '', '', '',
+    runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
                                                     FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
@@ -765,7 +776,15 @@ class PipelineMainTest(unittest.TestCase):
       '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eA Website\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nThis site is not blocked!\u003cp\u003e\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
-      '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eéç¾è³è¨å®å¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: éç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
+      '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eé
+
+ç¾è³è¨å®å
+
+¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: é
+
+ç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è
+
+:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
     ]
     # yapf: enable
 

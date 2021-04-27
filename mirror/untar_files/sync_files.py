@@ -105,25 +105,24 @@ class ScanfileMirror():
         tmp_filepath, timeout=TIMEOUT_5_MINUTES)
 
     # Un-gzip and untar the folder
-    tfile = tarfile.open(tmp_filepath, 'r:gz')
-    for entry in tfile:
-      if entry.isfile():
-        unzipped_file = tfile.extractfile(entry)
-        if unzipped_file is None:
-          raise Exception(f'No data associated with member {entry}')
-        with unzipped_file:
-          # Re-zip the individual files for upload
-          filename_rezipped = pathlib.PurePosixPath(entry.name).name + '.gz'
-          filepath_rezipped = os.path.join(tmp_folder, filename_rezipped)
+    with tarfile.open(tmp_filepath, 'r:gz') as tfile:
+      for entry in tfile:
+        if entry.isfile():
+          unzipped_file = tfile.extractfile(entry)
+          if unzipped_file is None:
+            raise Exception(f'No data associated with member {entry}')
+          with unzipped_file:
+            # Re-zip the individual files for upload
+            filename_rezipped = pathlib.PurePosixPath(entry.name).name + '.gz'
+            filepath_rezipped = os.path.join(tmp_folder, filename_rezipped)
 
-          with gzip.open(filepath_rezipped, mode='wb') as rezipped_file:
-            shutil.copyfileobj(unzipped_file, rezipped_file)
-          output_blob = self.untarred_bucket.blob(
-              os.path.join(scan_type, tar_folder, filename_rezipped))
-          output_blob.upload_from_filename(
-              filepath_rezipped, timeout=TIMEOUT_5_MINUTES)
-          os.remove(filepath_rezipped)
-
+            with gzip.open(filepath_rezipped, mode='wb') as rezipped_file:
+              shutil.copyfileobj(unzipped_file, rezipped_file)
+            output_blob = self.untarred_bucket.blob(
+                os.path.join(scan_type, tar_folder, filename_rezipped))
+            output_blob.upload_from_filename(
+                filepath_rezipped, timeout=TIMEOUT_5_MINUTES)
+            os.remove(filepath_rezipped)
     os.remove(tmp_filepath)
     shutil.rmtree(tmp_folder)
 
