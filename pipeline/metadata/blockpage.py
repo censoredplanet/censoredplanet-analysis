@@ -39,6 +39,8 @@ def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
 class BlockpageMatcher:
   """Matcher to confirm blockpages or false positives."""
 
+  # TODO update this class to input signatures for easier testability.
+
   def __init__(self) -> None:
     """Create a Blockpage Matcher."""
     self.false_positives = _load_signatures(FALSE_POSITIVES)
@@ -55,6 +57,8 @@ class BlockpageMatcher:
       True if page matches a blockpage signature.
       None otherwise.
     """
+    # TODO update this interface
+    # to expose blockpage data in a more user-friendly way.
     for fingerprint, pattern in self.false_positives.items():
       if pattern.search(page):
         return False
