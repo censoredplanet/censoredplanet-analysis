@@ -650,7 +650,7 @@ def _add_satellite_tags(
   received_keyed_by_ip_and_date = (
       rows_with_metadata |
       'key by received ips and dates' >> beam.Map(lambda row: (
-          (row['date'], row['received']['ip']), row)).with_output_types(
+          _make_date_received_ip_key(row), row)).with_output_types(
               Tuple[DateIpKey, Row]))
 
   grouped_received_metadata_and_rows = (({
@@ -892,6 +892,13 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
   return scan
 
 
+def _make_date_received_ip_key(row: Row) -> DateIpKey:
+  """Makes a tuple key of the date and received ip from a given row dict."""
+  if row['received']:
+    return (row['date'], row['received']['ip'])
+  return (row['date'], '')
+
+
 def _make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
@@ -929,8 +936,9 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
     new_row: Row = {}
     new_row.update(row)
     if field == 'received':
-      new_row['received'].update(ip_metadata)
-      new_row['received'].pop('date', None)
+      if new_row['received']:
+        new_row['received'].update(ip_metadata)
+        new_row['received'].pop('date', None)
     else:
       new_row.update(ip_metadata)
     yield new_row
