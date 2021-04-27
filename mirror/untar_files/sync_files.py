@@ -123,8 +123,8 @@ class ScanfileMirror():
             output_blob.upload_from_filename(
                 filepath_rezipped, timeout=TIMEOUT_5_MINUTES)
             os.remove(filepath_rezipped)
-      os.remove(tmp_filepath)
-      shutil.rmtree(tmp_folder)
+    os.remove(tmp_filepath)
+    shutil.rmtree(tmp_folder)
 
   def _get_all_tarred_filenames(self) -> List[str]:
     """Get a list of all tarred filenames, minus the file extension.

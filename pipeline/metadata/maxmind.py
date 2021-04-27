@@ -30,10 +30,9 @@ def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
   disk_filename = os.path.join('/tmp', os.path.basename(filepath))
   with open(disk_filename, 'wb') as disk_file:
     disk_file.write(f.read())
-    disk_file.close()
-    database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
-    os.remove(disk_filename)
-    return database
+  database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
+  os.remove(disk_filename)
+  return database
 
 
 class MaxmindIpMetadata(IpMetadataInterface):
