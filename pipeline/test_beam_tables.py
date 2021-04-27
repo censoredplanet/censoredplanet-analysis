@@ -28,8 +28,6 @@ from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.fake_caida_ip_metadata import FakeCaidaIpMetadata
 from pipeline.metadata.maxmind import FakeMaxmindIpMetadata
 
-FAKE_SIGNATURE_FOLDER = 'pipeline/metadata/test_files'
-
 
 # pylint: disable=too-many-lines
 class PipelineMainTest(unittest.TestCase):
@@ -113,7 +111,6 @@ class PipelineMainTest(unittest.TestCase):
     project = 'firehook-censoredplanet'
     runner = beam_tables.ScanDataBeamPipelineRunner(project, '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     full_name = runner._get_full_table_name('prod.echo_scan')
@@ -203,11 +200,9 @@ class PipelineMainTest(unittest.TestCase):
         'blockpage': True,
     }
     # yapf: enable
-
-    parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -226,11 +221,9 @@ class PipelineMainTest(unittest.TestCase):
         'blockpage': None,
     }
     # yapf: enable
-
-    parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -275,14 +268,12 @@ class PipelineMainTest(unittest.TestCase):
         'blockpage': False,
     }
     # yapf: enable
-
-    parsed = beam_tables._parse_received_data(
-        received,
-        True,
-        blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER))
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
-  def test_flatten_measurement_echo(self) -> None:
+  def test_flattenmeasurement_echo(self) -> None:
     """Test parsing an example Echo measurement."""
     line = """{
       "Server":"1.2.3.4",
@@ -346,7 +337,10 @@ class PipelineMainTest(unittest.TestCase):
     }]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-    rows = list(beam_tables._flatten_measurement(filename, line))
+
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    rows = list(flattener.process((filename, line)))
     self.assertEqual(len(rows), 2)
 
     # Measurement ids should be the same
@@ -358,7 +352,7 @@ class PipelineMainTest(unittest.TestCase):
 
     self.assertListEqual(rows, expected_rows)
 
-  def test_flatten_measurement_http_success(self) -> None:
+  def test_flattenmeasurement_http_success(self) -> None:
     """Test parsing an example successful HTTP measurement
 
     Not all measurements recieve any data/errors,
@@ -401,16 +395,14 @@ class PipelineMainTest(unittest.TestCase):
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    row = list(flattener.process((filename, line)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_http(self) -> None:
+  def test_flattenmeasurement_http(self) -> None:
     """Test parsing an unsuccessful HTTP measurement."""
     line = """{
       "Server":"184.50.171.225",
@@ -467,16 +459,14 @@ class PipelineMainTest(unittest.TestCase):
     }
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    row = list(flattener.process((filename, line)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_https(self) -> None:
+  def test_flattenmeasurement_https(self) -> None:
     """Test parsing an unsuccessful HTTPS measurement."""
     # yapf: disable
     line = """{
@@ -555,25 +545,26 @@ class PipelineMainTest(unittest.TestCase):
         'stateful_block': False,
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
+        'blockpage': None,
     }
     # yapf: enable
 
-    row = list(
-        beam_tables._flatten_measurement(
-            filename,
-            line,
-            blockpage_matcher=BlockpageMatcher(FAKE_SIGNATURE_FOLDER)))[0]
+    flattener = beam_tables.FlattenMeasurement()
+    flattener.setup()
+    row = list(flattener.process((filename, line)))[0]
     # We can't test the measurement id because it's random
     row['measurement_id'] = ''
 
     self.assertEqual(row, expected_row)
 
-  def test_flatten_measurement_invalid_json(self) -> None:
+  def test_flattenmeasurement_invalid_json(self) -> None:
     """Test logging an error when parsing invalid JSON."""
     line = 'invalid json'
 
     with self.assertLogs(level='WARNING') as cm:
-      rows = list(beam_tables._flatten_measurement('test_filename.json', line))
+      flattener = beam_tables.FlattenMeasurement()
+      flattener.setup()
+      rows = list(flattener.process(('test_filename.json', line)))
       self.assertEqual(
           cm.output[0], 'WARNING:root:JSONDecodeError: '
           'Expecting value: line 1 column 1 (char 0)\n'
@@ -610,7 +601,6 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     rows_with_metadata = runner._add_metadata(rows)
@@ -671,7 +661,6 @@ class PipelineMainTest(unittest.TestCase):
     """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FAKE_SIGNATURE_FOLDER,
                                                     FakeMaxmindIpMetadata, '')
 
     metadatas = list(
@@ -767,7 +756,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_blockpage_matching(self) -> None:
     """Test blockpage matching for data with detected anomalies."""
-    matcher = BlockpageMatcher(FAKE_SIGNATURE_FOLDER)
+    matcher = BlockpageMatcher()
 
     # yapf: disable
     pages = [
@@ -778,11 +767,19 @@ class PipelineMainTest(unittest.TestCase):
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eé
 
+
+
 ç¾è³è¨å®å
+
+
 
 ¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: é
 
+
+
 ç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è
+
+
 
 :\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
     ]
@@ -800,7 +797,7 @@ class PipelineMainTest(unittest.TestCase):
     matches = [matcher.match_page(page) for page in pages]
     self.assertListEqual(matches, expected_matches)
 
-  def test_flatten_measurement_dns(self) -> None:
+  def test_flattenmeasurement_dns(self) -> None:
     """Test flattening of Satellite measurements."""
 
     filenames = [
@@ -961,7 +958,9 @@ class PipelineMainTest(unittest.TestCase):
 
     result = []
     for filename, i in zip(filenames, interference):
-      rows = beam_tables._flatten_measurement(filename, i)
+      flattener = beam_tables.FlattenMeasurement()
+      flattener.setup()
+      rows = flattener.process((filename, i))
       # remove random measurement id
       for row in rows:
         row['measurement_id'] = ''

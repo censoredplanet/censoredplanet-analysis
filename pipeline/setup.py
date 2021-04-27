@@ -25,6 +25,7 @@ setuptools.setup(
         'pipeline.metadata': './metadata',
         'pipeline': './'
     },
-    url='https://github.com/Jigsaw-Code/censoredplanet-analysis',
+    package_data={'pipeline': ['metadata/data/*.json']},
+    url='https://github.com/censoredplanet/censoredplanet-analysis',
     author='Sarah Laplante',
     author_email='laplante@google.com')

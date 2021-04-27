@@ -1,55 +1,50 @@
 """Matcher for response pages to blockpage signatures."""
 
 import json
-import os
+import io
+import pkgutil
 import re
 from typing import Optional, Dict
 
-import apache_beam.io.filesystems as apache_filesystems
-
 # Signature filenames
-FALSE_POSITIVES = 'false_positive_signatures.json'
-BLOCKPAGES = 'blockpage_signatures.json'
+FALSE_POSITIVES = 'data/false_positive_signatures.json'
+BLOCKPAGES = 'data/blockpage_signatures.json'
 
 
-def _load_signatures(path: str) -> Dict[str, re.Pattern]:
+def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
   """Load signatures for blockpage matching.
 
   Args:
-    path: path to json file containing signatures
+    filepath: relative path to json file containing signatures
 
   Returns:
     Dictionary mapping fingerprints to signature patterns
   """
+  data = pkgutil.get_data(__name__, filepath)
+  if not data:
+    raise FileNotFoundError(f"Couldn't find file {filepath}")
+  content = io.TextIOWrapper(io.BytesIO(data), encoding='utf-8')
+
   signatures = {}
-  with apache_filesystems.FileSystems.open(path) as f:
-    for line in f:
-      if line != b'\n':
-        signature = json.loads(line.strip())
-        # Patterns stored in BigQuery syntax,
-        # so % represents any number of characters
-        pattern = signature['pattern']
-        # Convert to Python regex
-        pattern = re.escape(pattern)
-        pattern = pattern.replace('%', '.*')
-        signatures[signature['fingerprint']] = re.compile(pattern, re.DOTALL)
+  for line in content.readlines():
+    if line != '\n':
+      signature = json.loads(line.strip())
+      pattern = signature['pattern']
+      fingerprint = signature['fingerprint']
+
+      signatures[fingerprint] = re.compile(pattern, re.DOTALL)
   return signatures
 
 
 class BlockpageMatcher:
   """Matcher to confirm blockpages or false positives."""
 
-  def __init__(self, signature_folder: str) -> None:
-    """Create a Blockpage Matcher.
-    Args:
-      signature_folder: a folder containing signature files.
-        Either a gcs filepath or a local system folder.
-    """
-    false_positive_path = os.path.join(signature_folder, FALSE_POSITIVES)
-    blockpage_path = os.path.join(signature_folder, BLOCKPAGES)
+  # TODO update this class to input signatures for easier testability.
 
-    self.false_positives = _load_signatures(false_positive_path)
-    self.blockpages = _load_signatures(blockpage_path)
+  def __init__(self) -> None:
+    """Create a Blockpage Matcher."""
+    self.false_positives = _load_signatures(FALSE_POSITIVES)
+    self.blockpages = _load_signatures(BLOCKPAGES)
 
   def match_page(self, page: str) -> Optional[bool]:
     """Check if the input page matches a known blockpage or false positive.
@@ -62,12 +57,12 @@ class BlockpageMatcher:
       True if page matches a blockpage signature.
       None otherwise.
     """
-    # Check false positives
+    # TODO update this interface
+    # to expose blockpage data in a more user-friendly way.
     for fingerprint, pattern in self.false_positives.items():
       if pattern.search(page):
         return False
 
-    # Check blockpages
     for fingerprint, pattern in self.blockpages.items():
       if pattern.search(page):
         return True
