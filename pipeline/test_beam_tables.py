@@ -40,12 +40,12 @@ class PipelineMainTest(unittest.TestCase):
     echo_schema = beam_tables._get_bigquery_schema('echo')
     self.assertEqual(echo_schema, beam_tables.SCAN_BIGQUERY_SCHEMA)
 
-    dns_schema = beam_tables._get_bigquery_schema('dns')
+    satellite_schema = beam_tables._get_bigquery_schema('satellite')
     all_satellite_top_level_columns = (
         list(beam_tables.SCAN_BIGQUERY_SCHEMA.keys()) +
         list(beam_tables.SATELLITE_BIGQUERY_SCHEMA.keys()))
     self.assertListEqual(
-        list(dns_schema.keys()), all_satellite_top_level_columns)
+        list(satellite_schema.keys()), all_satellite_top_level_columns)
 
   def test_get_beam_bigquery_schema(self) -> None:
     """Test making a bigquery schema for beam's table writing."""
@@ -801,10 +801,10 @@ class PipelineMainTest(unittest.TestCase):
     """Test flattening of Satellite measurements."""
 
     filenames = [
-        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
-        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
-        'gs://firehook-scans/dns/CP_Satellite-2020-09-02-12-00-01/interference.json',
-        'gs://firehook-scans/dns/CP_Satellite-2021-03-01-12-00-01/interference.json'
+        'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json'
     ]
 
     # yapf: disable
@@ -1003,7 +1003,7 @@ class PipelineMainTest(unittest.TestCase):
     ]
     self.assertListEqual(result, expected)
 
-  def test_process_satellite(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
     # yapf: disable
     _data = [
@@ -1061,7 +1061,7 @@ class PipelineMainTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = beam_tables._process_satellite(lines, lines2)
+      final = beam_tables._process_satellite_with_tags(lines, lines2)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
@@ -1120,7 +1120,7 @@ class PipelineMainTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = beam_tables._process_satellite(lines, lines2)
+      final = beam_tables._process_satellite_with_tags(lines, lines2)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
