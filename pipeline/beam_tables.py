@@ -482,7 +482,7 @@ class FlattenMeasurement(beam.DoFn):
     row = {
         'domain': scan['test_url'],
         'ip': scan['vp'],
-        'country': scan['location']['country_code'],
+        'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
         'start_time': scan['start_time'],
         'end_time': scan['end_time'],
