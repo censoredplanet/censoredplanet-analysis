@@ -67,7 +67,7 @@ def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   ]
 
 
-def local_data_to_load_3(*_: List[Any]) -> List[str]:
+def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/resolvers.json',
       'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_resolvers.json',
@@ -112,14 +112,14 @@ def run_local_pipeline(incremental: bool = False) -> None:
 
 
 def run_local_pipeline_satellite() -> None:
-  # run_local_pipeline for satellite - scan_type must be 'dns'
+  # run_local_pipeline for satellite - scan_type must be 'satellite'
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_3  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
 
-  test_runner.run_beam_pipeline('dns', True, JOB_NAME, BEAM_TEST_TABLE, None,
-                                None)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+                                None, None)
   # pylint: enable=protected-access
 
 

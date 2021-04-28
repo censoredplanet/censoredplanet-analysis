@@ -126,7 +126,7 @@ SCAN_TYPES_TO_ZONES = {
     'http': 'us-east4',
     'echo': 'us-west1',
     'discard': 'us-central1',
-    'dns': None
+    'satellite': 'us-west2'
 }
 
 ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
@@ -140,17 +140,28 @@ CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 
+# Data files for the Satellite pipeline
+# Satellite v1 has several output files
+# TODO: check date for v1 vs. v2
+SATELLITE_FILES = [
+    'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
+    'answers_control.json', 'interference.json', 'interference_err.json',
+    'tagged_responses.json', 'results.json'
+]
+# Data files for the non-Satellite pipelines
+SCAN_FILES = ['results.json']
+
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
 
   Args:
-    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'dns'
+    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'satellite'
 
   Returns:
     A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
   """
-  if scan_type == 'dns':
+  if scan_type == 'satellite':
     full_schema: Dict[str, Any] = {}
     full_schema.update(SCAN_BIGQUERY_SCHEMA)
     full_schema.update(SATELLITE_BIGQUERY_SCHEMA)
@@ -218,7 +229,7 @@ def _get_existing_datasources(table_name: str) -> List[str]:
     List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
   """
   # This needs to be created locally
-  # because bigquery client objects are unpickable.
+  # because bigquery client objects are unpickleable.
   # So passing in a client to the class breaks the pickling beam uses
   # to send state to remote machines.
   client = cloud_bigquery.Client()
@@ -742,16 +753,24 @@ def _unflatten_satellite(
     yield combined
 
 
-def _process_satellite(
-    lines: beam.pvalue.PCollection[Tuple[str, str]],
-    lines2: beam.pvalue.PCollection[Tuple[str, str]]
+def _process_satellite_with_tags(
+    row_lines: beam.pvalue.PCollection[Tuple[str, str]],
+    tag_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[Row]:
-  """Process Satellite measurements and tags."""
+  """Process Satellite measurements and tags.
+
+  Args:
+    row_lines: Row objects
+    tag_lines: various
+
+  Returns:
+    PCollection[Row] of rows with tag metadata added
+  """
   rows = (
-      lines |
+      row_lines |
       'flatten json' >> beam.ParDo(FlattenMeasurement()).with_output_types(Row))
   tag_rows = (
-      lines2 | 'tag rows' >>
+      tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   rows_with_metadata = _add_satellite_tags(rows, tag_rows)
@@ -762,7 +781,15 @@ def _process_satellite(
 def _partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = 2) -> int:  # pylint: disable=unused-argument
-  """Partitions Satellite input into tags (0) and rows (1)."""
+  """Partitions Satellite input into tags (0) and rows (1).
+
+  Args:
+    line: an input line Tuple[filename, line_content]
+    num_partitions: number of partitions to use, always 2
+
+  Returns:
+    int, 0 if line is a tag file, 1 if not
+  """
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
     # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
@@ -1018,7 +1045,7 @@ class ScanDataBeamPipelineRunner():
 
     Args:
       gcs: GCSFileSystem object
-      scan_type: one of 'echo', 'discard', 'http', 'https', 'dns'
+      scan_type: one of 'echo', 'discard', 'http', 'https', 'satellite'
       incremental_load: boolean. If true, only read the latest new data
       table_name: dataset.table name like 'base.scan_echo'
       start_date: date object, only files after or at this date will be read
@@ -1035,16 +1062,10 @@ class ScanDataBeamPipelineRunner():
     else:
       existing_sources = []
 
-    if scan_type == 'dns':
-      # Satellite v1 has several output files
-      # TODO: check date for v1 vs. v2
-      files_to_load = [
-          'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
-          'answers_control.json', 'interference.json', 'interference_err.json',
-          'tagged_responses.json', 'results.json'
-      ]
+    if scan_type == 'satellite':
+      files_to_load = SATELLITE_FILES
     else:
-      files_to_load = ['results.json']
+      files_to_load = SCAN_FILES
 
     # Both zipped and unzipped data to be read in
     zipped_regex = self.bucket + scan_type + '/**/{0}.gz'
@@ -1170,7 +1191,7 @@ class ScanDataBeamPipelineRunner():
     """Write out row to a bigquery table.
 
     Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https', 'dns'
+      scan_type: one of 'echo', 'discard', 'http', 'https', 'satellite'
       rows: PCollection[Row] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
@@ -1229,7 +1250,7 @@ class ScanDataBeamPipelineRunner():
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https' or 'dns'
+      scan_type: one of 'echo', 'discard', 'http', 'https' or 'satellite'
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
@@ -1250,16 +1271,15 @@ class ScanDataBeamPipelineRunner():
                                        table_name, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load incrementally')
-      return
 
     with beam.Pipeline(options=pipeline_options) as p:
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == 'dns':
+      if scan_type == 'satellite':
         tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
 
-        rows_with_metadata = _process_satellite(lines, tags)
+        rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)
       else:
         # PCollection[Row]
