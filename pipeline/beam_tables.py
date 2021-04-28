@@ -490,6 +490,7 @@ class FlattenMeasurement(beam.DoFn):
         'blocked': scan['anomaly'],
         'success': not scan['connect_error'],
         'received': None,
+        'rcode': [],
         'measurement_id': random_measurement_id
     }
     received_ips = scan.get('response')
@@ -512,7 +513,12 @@ class FlattenMeasurement(beam.DoFn):
 
     # separate into one answer ip per row for tagging
     if 'rcode' in received_ips:
-      row['rcode'] = received_ips.pop('rcode', None)
+      row['rcode'] = received_ips.pop('rcode', [])
+
+    if not received_ips:
+      yield row
+      return
+
     for ip in received_ips:
       row['received'] = {'ip': ip}
       if row['blocked']:
@@ -648,9 +654,8 @@ def _add_satellite_tags(
   # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
 
   received_keyed_by_ip_and_date = (
-      rows_with_metadata |
-      'key by received ips and dates' >> beam.Map(lambda row: (
-          _make_date_received_ip_key(row), row)).with_output_types(
+      rows_with_metadata | 'key by received ips and dates' >> beam.Map(
+          lambda row: (_make_date_received_ip_key(row), row)).with_output_types(
               Tuple[DateIpKey, Row]))
 
   grouped_received_metadata_and_rows = (({
@@ -747,7 +752,9 @@ def _unflatten_satellite(
     # Get common fields and update 'received' with array of all answer IPs
     combined = flattened_measurement[0]
     combined['received'] = [
-        answer['received'] for answer in flattened_measurement
+        answer['received']
+        for answer in flattened_measurement
+        if answer['received']
     ]
     combined.pop('measurement_id')
     yield combined
