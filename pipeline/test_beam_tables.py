@@ -198,6 +198,7 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
         'received_headers': [],
         'blockpage': True,
+        'blockpage_signature': 'b_nat_ir_national_1',
     }
     # yapf: enable
     flattener = beam_tables.FlattenMeasurement()
@@ -219,6 +220,7 @@ class PipelineMainTest(unittest.TestCase):
         'received_body': '<test-body>',
         'received_headers': [],
         'blockpage': None,
+        'blockpage_signature': None,
     }
     # yapf: enable
     flattener = beam_tables.FlattenMeasurement()
@@ -266,6 +268,7 @@ class PipelineMainTest(unittest.TestCase):
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
         'blockpage': False,
+        'blockpage_signature': 'x_on_this_server',
     }
     # yapf: enable
     flattener = beam_tables.FlattenMeasurement()
@@ -449,6 +452,7 @@ class PipelineMainTest(unittest.TestCase):
             'Server: HTTP Proxy/1.0',
         ],
         'blockpage': None,
+        'blockpage_signature': None,
         'error': 'Incorrect web response: status lines don\'t match',
         'blocked': True,
         'success': False,
@@ -545,7 +549,6 @@ class PipelineMainTest(unittest.TestCase):
         'stateful_block': False,
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
-        'blockpage': None,
     }
     # yapf: enable
 
@@ -765,23 +768,7 @@ class PipelineMainTest(unittest.TestCase):
       '\u003cHTML\u003e\u003cHEAD\u003e\u003cTITLE\u003eA Website\u003c/TITLE\u003e\u003c/HEAD\u003e\u003cBODY\u003e\nThis site is not blocked!\u003cp\u003e\n\u003c/BODY\u003e\u003c/HTML\u003e\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: iterika.ru/blocked.html?UrlRedir=http%3A%2F%2Fblackberry.com%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
       'HTTP/1.1 302 Moved Temporarily\r\nLocation: https://www.divo.ru/%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D0%B9-%D1%80%D0%B5%D1%81%D1%83%D1%80%D1%81-%D0%B7%D0%B0%D0%B1%D0%BB%D0%BE%D0%BA%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD/?UrlRedir=http%3A%2F%2Fwww.hizb-ut-tahrir.org%2f\r\nContent-Length: 0\r\nCache-Control: max-age=0, no-cache, no-store, must-revalidate\r\nPragma: no-cache\r\nConnection: close\r\n\r\n',
-      '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eé
-
-
-
-ç¾è³è¨å®å
-
-
-
-¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: é
-
-
-
-ç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è
-
-
-
-:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
+      '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eéç¾è³è¨å®å¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: éç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
     ]
     # yapf: enable
 
@@ -793,9 +780,15 @@ class PipelineMainTest(unittest.TestCase):
         True,
         True,
     ]
+    expected_signatures = [
+        'x_generic_akamai_error', 'a_prod_drweb_3', None, 'c_isp_ru_iterika',
+        'c_isp_ru_divo_2', 'e_unk_style_red'
+    ]
 
-    matches = [matcher.match_page(page) for page in pages]
-    self.assertListEqual(matches, expected_matches)
+    match_pairs = [matcher.match_page(page) for page in pages]
+    matches, signatures = zip(*match_pairs)
+    self.assertListEqual(list(matches), expected_matches)
+    self.assertListEqual(list(signatures), expected_signatures)
 
   def test_flattenmeasurement_dns(self) -> None:
     """Test flattening of Satellite measurements."""
