@@ -12,19 +12,24 @@ class BlockpageTest(unittest.TestCase):
   def test_simple_blockpage_matches(self) -> None:
     matcher = blockpage.BlockpageMatcher()
 
-    self.assertFalse(matcher.match_page("Thank you for using nginx."))
-    self.assertTrue(matcher.match_page("fortinet.net"))
-    self.assertIsNone(matcher.match_page("Not a blockpage or false positive"))
+    self.assertFalse(matcher.match_page("Thank you for using nginx.")[0])
+    self.assertTrue(matcher.match_page("fortinet.net")[0])
+    self.assertIsNone(
+        matcher.match_page("Not a blockpage or false positive")[0])
 
   def test_iran_blockpage_match(self) -> None:
     matcher = blockpage.BlockpageMatcher()
     page = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'
-    self.assertTrue(matcher.match_page(page))
+    match, signature = matcher.match_page(page)
+    self.assertTrue(match)
+    self.assertEqual(signature, 'b_nat_ir_national_1')
 
   def test_permission_false_positive_match(self) -> None:
     matcher = blockpage.BlockpageMatcher()
     page = '<HTML><HEAD>\n<TITLE>Access Denied</TITLE>\n</HEAD><BODY>\n<H1>Access Denied</H1>\n \nYou don\'t have permission to access "discover.com" on this server.<P>\nReference 18b535dd581604694259a71c660\n</BODY>\n</HTML>\n'
-    self.assertFalse(matcher.match_page(page))
+    match, signature = matcher.match_page(page)
+    self.assertFalse(match)
+    self.assertEqual(signature, 'x_on_this_server')
 
   def test_long_blockpage_performance(self) -> None:
     """Performance test for the blockpage matcher.
@@ -51,4 +56,5 @@ class BlockpageTest(unittest.TestCase):
     matcher = blockpage.BlockpageMatcher()
     # Page classification should be None
     # to ensure that it exercises all regexes in the performance test
-    self.assertIsNone(matcher.match_page(page))
+    match, signature = matcher.match_page(page)
+    self.assertIsNone(match)

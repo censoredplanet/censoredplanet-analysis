@@ -69,8 +69,8 @@ SCAN_BIGQUERY_SCHEMA = {
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
     'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
 
-    # received columns
     # Column filled in all tables
     'received_status': ('string', 'nullable'),
     # Columns filled only in HTTP/HTTPS tables
@@ -544,12 +544,12 @@ class FlattenMeasurement(beam.DoFn):
             received['body'],
         'received_headers':
             _parse_received_headers(received.get('headers', {})),
-        'blockpage':
-            None,
     }
 
     if anomaly:  # check response for blockpage
-      row['blockpage'] = self.blockpage_matcher.match_page(received['body'])
+      blockpage, signature = self.blockpage_matcher.match_page(received['body'])
+      row['blockpage'] = blockpage
+      row['page_signature'] = signature
 
     tls = received.get('tls', None)
     if tls:

@@ -84,6 +84,11 @@ The json data is processed into a flat table format which looks like this.
 | received_tls_cipher_suite | INTEGER      | The TLS cipher suite number </br> eg. `49199` (meaning TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) </br> :warning: only present in HTTPS tables |
 | received_tls_cert         | STRING       | The TLS certificate eg. `MIIG1DCCBb...` (truncated) </br> :warning: only present in HTTPS tables |
 |                           |
+| **Blockpages**            |
+|                           |
+| blockpage                 | BOOLEAN      | True if the received page matches a blockpage, False if it matches a known false positive blockpage, None otherwise. |
+| page_signature            | STRING      | A string describing the matched page </br> ex: `a_prod_cisco` (a know blockpage) or `x_document_moved` (a known false positive). </br> To see the pattern a signature matches check [blockpage signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json) or [false positive signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/false_positive_signatures.json) |
+|                           |
 | **Analysis**              |
 |                           |
 | success                   | BOOLEAN      | Did the individual roundtrip measurement succeed? |
