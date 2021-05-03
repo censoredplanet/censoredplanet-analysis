@@ -515,6 +515,10 @@ class FlattenMeasurement(beam.DoFn):
     if 'rcode' in received_ips:
       row['rcode'] = received_ips.pop('rcode', [])
 
+    if 'error' in received_ips:
+      error = received_ips.pop('error', [])
+      row['error'] = ' | '.join(error)
+
     if not received_ips:
       yield row
       return
