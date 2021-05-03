@@ -87,7 +87,7 @@ The json data is processed into a flat table format which looks like this.
 | **Blockpages**            |
 |                           |
 | blockpage                 | BOOLEAN      | True if the received page matches a blockpage, False if it matches a known false positive blockpage, None otherwise. |
-| blockpage_signature       | STRING      | A string describing the matched blockpage/false positive </br> ex: `a_prod_cisco` (a know blockpage) or `x_document_moved` (a known false positive). </br> To see the pattern a signature matches check [blockpage signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json) or [false positive signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/false_positive_signatures.json) |
+| page_signature            | STRING      | A string describing the matched page </br> ex: `a_prod_cisco` (a know blockpage) or `x_document_moved` (a known false positive). </br> To see the pattern a signature matches check [blockpage signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json) or [false positive signatures](https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/false_positive_signatures.json) |
 |                           |
 | **Analysis**              |
 |                           |
