@@ -18,11 +18,8 @@ from __future__ import absolute_import
 import datetime
 import json
 import logging
-import os
 import re
-from collections import defaultdict
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union, Set
-import uuid
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
@@ -32,16 +29,9 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
 
 from pipeline.lookup_country_code import country_name_to_code
-from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.flatten import Row
+from pipeline.metadata import flatten
 
-# Custom Types
-#
-# All or part of a scan row to be written to bigquery
-# ex (only scan data): {'domain': 'test.com', 'ip': '1.2.3.4', 'success' true}
-# ex (only ip metadata): {'asn': 13335, 'as_name': 'CLOUDFLAREINC'}
-# ex (both): {'domain': 'test.com', 'ip': '1.2.3.4', 'asn': 13335}
-Row = Dict[str, Any]
-#
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
 DateIpKey = Tuple[str, str]
@@ -135,10 +125,8 @@ ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
-SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
-INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
@@ -197,25 +185,7 @@ def _get_beam_bigquery_schema(
         subfield_schema.mode = submode
         field_schema.fields.append(subfield_schema)
     table_schema.fields.append(field_schema)
-
   return table_schema
-
-
-def _source_from_filename(filepath: str) -> str:
-  """Get the source string from a scan filename.
-
-  Source represents the .tar.gz container which held this file.
-
-  Args:
-    filepath:
-    'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-
-  Returns:
-    Just the 'CP_Quack-echo-2020-08-23-06-01-02' source
-  """
-  path = os.path.split(filepath)[0]
-  path_end = os.path.split(path)[1]
-  return path_end
 
 
 def _get_existing_datasources(table_name: str) -> List[str]:
@@ -242,7 +212,6 @@ def _get_existing_datasources(table_name: str) -> List[str]:
       table=fixed_table_name)
   rows = client.query(query)
   sources = [row.source for row in rows]
-
   return sources
 
 
@@ -262,8 +231,7 @@ def _read_scan_text(
 
   Returns:
     A PCollection[Tuple[filename, line]] of all the lines in the files keyed
-    by
-    filename
+    by filename
   """
   # List[PCollection[Tuple[filename,line]]]
   line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
@@ -271,21 +239,18 @@ def _read_scan_text(
   for filename in filenames:
     # PCollection[line]
     lines = p | 'read file ' + filename >> beam.io.ReadFromText(filename)
-
     step_name = 'annotate filename ' + filename
 
     # PCollection[Tuple[filename,line]]
     lines_with_filenames = (
         lines | step_name >> beam.Map(_make_tuple, filename).with_output_types(
             Tuple[str, str]))
-
     line_pcollections_per_file.append(lines_with_filenames)
 
   # PCollection[Tuple[filename,line]]
   lines = (
       tuple(line_pcollections_per_file) | 'flatten lines' >>
       beam.Flatten(pipeline=p).with_output_types(Tuple[str, str]))
-
   return lines
 
 
@@ -311,256 +276,7 @@ def _between_dates(filename: str,
     return start_date <= date
   if end_date:
     return date <= end_date
-
   return True
-
-
-def _parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
-  """Flatten headers from a dictionary of headers to value lists.
-
-  Args:
-    headers: Dict from a header key to a list of headers.
-      {"Content-Language": ["en", "fr"],
-       "Content-Type": ["text/html; charset=iso-8859-1"]}
-
-  Returns:
-    A list of key-value headers pairs as flat strings.
-    ["Content-Language: en",
-     "Content-Language: fr",
-     "Content-Type: text/html; charset=iso-8859-1"]
-  """
-  # TODO decide whether the right approach here is turning each value into its
-  # own string, or turning each key into its own string with the values as a
-  # comma seperated list.
-  # The right answer depends on whether people will be querying mostly for
-  # individual values, or for specific combinations of values.
-  flat_headers = []
-  for key, values in headers.items():
-    for value in values:
-      flat_headers.append(key + ': ' + value)
-  return flat_headers
-
-
-class FlattenMeasurement(beam.DoFn):
-  """DoFn class for flattening lines of json text into Rows."""
-
-  def setup(self) -> None:
-    self.blockpage_matcher = BlockpageMatcher()  #pylint: disable=attribute-defined-outside-init
-
-  def process(self, element: Tuple[str, str]) -> Iterator[Row]:
-    """Flatten a measurement string into several roundtrip Rows.
-
-    Args:
-      element: Tuple(filepath, line)
-        filename: a filepath string
-        line: a json string describing a censored planet measurement. example
-        {'Keyword': 'test.com',
-        'Server': '1.2.3.4',
-        'Results': [{'Success': true},
-                    {'Success': false}]}
-
-    Yields:
-      Row dicts containing individual roundtrip information
-      {'column_name': field_value}
-      examples:
-      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}
-      {'domain': 'test.com', 'ip': '1.2.3.4', 'success': false}
-    """
-    (filename, line) = element
-
-    # pylint: disable=too-many-branches
-    try:
-      scan = json.loads(line)
-    except json.decoder.JSONDecodeError as e:
-      logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
-                      line)
-      return
-
-    # Add a unique id per-measurement so single retry rows can be reassembled
-    random_measurement_id = uuid.uuid4().hex
-
-    if 'Satellite' in filename:
-      yield from self._process_satellite(filename, scan, random_measurement_id)
-    else:
-      yield from self._process_non_satellite(filename, scan,
-                                             random_measurement_id)
-
-  def _process_non_satellite(self, filename: str, scan: Any,
-                             random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Echo/Discard/HTTP/S data.
-
-    Args:
-      filename: a filepath string
-      scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
-
-    Yields:
-      Rows
-    """
-    for result in scan.get('Results', []):
-      date = result['StartTime'][:10]
-      row = {
-          'domain': scan['Keyword'],
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'retries': scan['Retries'],
-          'sent': result['Sent'],
-          'blocked': scan['Blocked'],
-          'success': result['Success'],
-          'fail_sanity': scan['FailSanity'],
-          'stateful_block': scan['StatefulBlock'],
-          'measurement_id': random_measurement_id,
-          'source': _source_from_filename(filename),
-      }
-
-      if 'Received' in result:
-        received = result.get('Received', '')
-        received_fields = self._parse_received_data(received, scan['Blocked'])
-        row.update(received_fields)
-
-      if 'Error' in result:
-        row['error'] = result['Error']
-
-      yield row
-
-  def _process_satellite(self, filename: str, scan: Any,
-                         random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite data.
-
-    Args:
-      filename: a filepath string
-      scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
-
-    Yields:
-      Rows
-    """
-    date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
-    if date < "2021-03":
-      yield from self._process_satellite_v1(date, scan, random_measurement_id)
-    else:
-      yield from self._process_satellite_v2(scan, random_measurement_id)
-
-  def _process_satellite_v1(  # pylint: disable=no-self-use
-      self, date: str, scan: Any, random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite data.
-
-    Args:
-      date: a date string YYYY-mm-DD
-      scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
-
-    Yields:
-      Rows
-    """
-    row = {
-        'domain': scan['query'],
-        'ip': scan['resolver'],
-        'date': date,
-        'error': scan.get('error', None),
-        'blocked': not scan['passed'] if 'passed' in scan else None,
-        'success': 'error' not in scan,
-        'received': None,
-        'measurement_id': random_measurement_id,
-    }
-    received_ips = scan.get('answers')
-    yield from self._process_received_ips(row, received_ips)
-
-  def _process_satellite_v2(self, scan: Any,
-                            random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite data.
-
-    Args:
-      scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
-
-    Yields:
-      Rows
-    """
-    row = {
-        'domain': scan['test_url'],
-        'ip': scan['vp'],
-        'country': scan['location']['country_code'],
-        'date': scan['start_time'][:10],
-        'start_time': scan['start_time'],
-        'end_time': scan['end_time'],
-        'error': scan.get('error', None),
-        'blocked': scan['anomaly'],
-        'success': not scan['connect_error'],
-        'received': None,
-        'measurement_id': random_measurement_id
-    }
-    received_ips = scan.get('response')
-    yield from self._process_received_ips(row, received_ips)
-
-  def _process_received_ips(  # pylint: disable=no-self-use
-      self, row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
-    """Add received_ip metadata to a Satellite row
-
-    Args:
-      row: existing row of satellite data
-      received_ips: data on the response from the resolver (error or ips)
-
-    Yields:
-      Rows
-    """
-    if not received_ips:
-      yield row
-      return
-
-    # separate into one answer ip per row for tagging
-    if 'rcode' in received_ips:
-      row['rcode'] = received_ips.pop('rcode', None)
-    for ip in received_ips:
-      row['received'] = {'ip': ip}
-      if row['blocked']:
-        # Track domains per IP for interference
-        INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
-      if isinstance(received_ips, dict):
-        row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
-            [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-      yield row
-
-  def _parse_received_data(self, received: Union[str, Dict[str, Any]],
-                           anomaly: bool) -> Row:
-    """Parse a received field into a section of a row to write to bigquery.
-
-    Args:
-      received: a dict parsed from json data, or a str
-      anomaly: whether data may indicate blocking
-
-    Returns:
-      a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
-    """
-    if isinstance(received, str):
-      return {'received_status': received}
-
-    row = {
-        'received_status':
-            received['status_line'],
-        'received_body':
-            received['body'],
-        'received_headers':
-            _parse_received_headers(received.get('headers', {})),
-    }
-
-    if anomaly:  # check response for blockpage
-      blockpage, signature = self.blockpage_matcher.match_page(received['body'])
-      row['blockpage'] = blockpage
-      row['page_signature'] = signature
-
-    tls = received.get('tls', None)
-    if tls:
-      tls_row = {
-          'received_tls_version': tls['version'],
-          'received_tls_cipher_suite': tls['cipher_suite'],
-          'received_tls_cert': tls['cert']
-      }
-      row.update(tls_row)
-
-    return row
 
 
 def _read_satellite_tags(filename: str, line: str) -> Iterator[Dict[str, Any]]:
@@ -690,7 +406,7 @@ def _post_processing_satellite(
   def _total_tags(key: Tuple[str, str],
                   row: Row) -> Tuple[Tuple[str, str], int]:
     total_tags = 0
-    for tag_type in SATELLITE_TAGS:
+    for tag_type in flatten.SATELLITE_TAGS:
       if tag_type != 'ip':
         type_tags = {
             ans[tag_type] for ans in row['received'] if ans.get(tag_type)
@@ -723,7 +439,6 @@ def _post_processing_satellite(
           beam.FlatMapTuple(_flat_rows_controls) |
           'calculate confidence' >> beam.MapTuple(_calculate_confidence) |
           'verify interference' >> beam.Map(_verify).with_output_types(Row))
-
   return post
 
 
@@ -767,14 +482,13 @@ def _process_satellite_with_tags(
     PCollection[Row] of rows with tag metadata added
   """
   rows = (
-      row_lines |
-      'flatten json' >> beam.ParDo(FlattenMeasurement()).with_output_types(Row))
+      row_lines | 'flatten json' >> beam.ParDo(
+          flatten.FlattenMeasurement()).with_output_types(Row))
   tag_rows = (
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   rows_with_metadata = _add_satellite_tags(rows, tag_rows)
-
   return rows_with_metadata
 
 
@@ -825,7 +539,7 @@ def _calculate_confidence(scan: Dict[str, Any],
     matching_tags = 0
 
     # calculate number of tags IP has and how many match controls
-    for tag in SATELLITE_TAGS:
+    for tag in flatten.SATELLITE_TAGS:
       if tag != 'ip' and answer.get(tag):
         total_tags += 1
         if tag in matches_control:
@@ -852,7 +566,6 @@ def _calculate_confidence(scan: Dict[str, Any],
   # Sanity check for untagged responses: do not claim interference
   if confidence['untagged_response'] or confidence['untagged_controls']:
     scan['blocked'] = False
-
   return scan
 
 
@@ -871,7 +584,6 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
       'excluded': None,
       'exclude_reason': None,
   }
-
   if scan['blocked']:
     scan['verify']['excluded'] = False
     reasons = []
@@ -882,13 +594,12 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
         # CDN IPs
         scan['verify']['excluded'] = True
         reasons.append('is_CDN')
-      unique_domains = INTERFERENCE_IPDOMAIN.get(received['ip'])
+      unique_domains = flatten.INTERFERENCE_IPDOMAIN.get(received['ip'])
       if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
         # IPs that appear <= threshold times across all interference
         scan['verify']['excluded'] = True
         reasons.append('domain_below_threshold')
     scan['verify']['exclude_reason'] = ' '.join(reasons)
-
   return scan
 
 
@@ -969,10 +680,8 @@ def get_job_name(table_name: str, incremental_load: bool) -> str:
   """
   # no underscores or periods are allowed in beam job names
   fixed_table_name = table_name.replace('_', '-').replace('.', '-')
-
   if incremental_load:
     return 'append-' + fixed_table_name
-
   return 'write-' + fixed_table_name
 
 
@@ -1002,7 +711,6 @@ class ScanDataBeamPipelineRunner():
 
     Args:
       project: google cluod project name
-      schema: bigquery schema
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
@@ -1087,7 +795,7 @@ class ScanDataBeamPipelineRunner():
     filtered_filenames = [
         filename for (filename, file_size) in zip(filenames, file_sizes)
         if (_between_dates(filename, start_date, end_date) and
-            _source_from_filename(filename) not in existing_sources and
+            flatten.source_from_filename(filename) not in existing_sources and
             file_size != 0)
     ]
     return filtered_filenames
@@ -1178,11 +886,9 @@ class ScanDataBeamPipelineRunner():
           (netblock, asn, as_name, as_full_name, as_type,
            country) = maxmind_db.lookup(ip)
           metadata_values['country'] = country
-
       except KeyError as e:
         logging.warning('KeyError: %s\n', e)
         metadata_values = {}  # values are missing, but entry should still exist
-
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,
@@ -1240,7 +946,6 @@ class ScanDataBeamPipelineRunner():
         ],
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
-
     return pipeline_options
 
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
@@ -1285,7 +990,7 @@ class ScanDataBeamPipelineRunner():
         # PCollection[Row]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
-                FlattenMeasurement()).with_output_types(Row))
+                flatten.FlattenMeasurement()).with_output_types(Row))
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(rows)
