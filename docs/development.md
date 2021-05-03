@@ -42,3 +42,13 @@ To test an appending data reload. (This requires a table to already exist):
  `python -m pipeline.run_beam_tables --env=user --scan_type=http`
 
 Options for `scan_type` are `echo`, `discard`, `http`, `https` and `satellite`
+
+## Access
+
+If you're authenticating to `firehook-censoredplanet` as the user represented
+by `~/.config/gcloud/application_default_credentials.json` then authentication
+should work by default. If you're using another key file then run
+
+`export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"`
+
+to make your credential accessible.

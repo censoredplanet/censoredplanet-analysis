@@ -86,10 +86,19 @@ fail because of a schema mismatch.
 
 Here are the steps to run a backfill:
 
+*    Checkout master and make sure you're synced to the latest changes.
 *    `./deploy.sh delete` turn off the nightly pipeline so it doesn't conflict
      with the backfill
 *    `python -m pipeline.run_beam_tables --env=prod --scan_type=all` to run
      manual backfill jobs, this can take several hours.
+*    Make sure a job is running for each scan type in dataflow. If some scan
+     types didn't take then re-run them by hand.
 *    Check if the backfill worked the next day
 *    if so run `./deploy.sh prod` at head to turn the pipeline back on with
      the new code
+
+## Access
+
+If you can't upload a docker build, run:
+
+`gcloud auth configure-docker --project firehook-censoredplanet`
