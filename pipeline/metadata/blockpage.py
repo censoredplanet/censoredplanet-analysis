@@ -4,7 +4,7 @@ import json
 import io
 import pkgutil
 import re
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 # Signature filenames
 FALSE_POSITIVES = 'data/false_positive_signatures.json'
@@ -46,26 +46,26 @@ class BlockpageMatcher:
     self.false_positives = _load_signatures(FALSE_POSITIVES)
     self.blockpages = _load_signatures(BLOCKPAGES)
 
-  def match_page(self, page: str) -> Optional[bool]:
+  def match_page(self, page: str) -> Tuple[Optional[bool], Optional[str]]:
     """Check if the input page matches a known blockpage or false positive.
 
     Args:
       page: a string containing the HTTP body of the potential blockpage
 
     Returns:
-      False if page matches a false positive signature.
-      True if page matches a blockpage signature.
-      None otherwise.
+      (match_outcome, match_fingerprint)
+      match_outcome is
+        True if page matches a blockpage signature.
+        False if page matches a false positive signature.
+        None otherwise.
+      match_fingerprint is a signature for a blockpage/fp like 'a_prod_cisco'
     """
-    # TODO update this interface
-    # to expose blockpage data in a more user-friendly way.
     for fingerprint, pattern in self.false_positives.items():
       if pattern.search(page):
-        return False
+        return (False, fingerprint)
 
     for fingerprint, pattern in self.blockpages.items():
       if pattern.search(page):
-        return True
+        return (True, fingerprint)
 
-    # No signature match
-    return None
+    return (None, None)
