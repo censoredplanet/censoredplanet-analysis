@@ -53,15 +53,26 @@ if [[ "${action}" == "local" ]]; then
   ${project}
 
 elif [[ "${action}" == "prod" ]]; then
-  gcloud builds submit . --tag gcr.io/${project}/pipeline
+  # For builders outside the VPC security perimeter the build will succeed
+  # but throw a logging error, so we ignore errors here
+  gcloud builds submit . --tag gcr.io/${project}/pipeline || true
 
-  # if instance already exists
+  # Instead check that the latest build succeeded
+  if gcloud builds list --limit=1 | grep SUCCESS; then
+    echo "Latest build was successful"
+  else
+    echo "Latest build did not succeed"
+    gcloud builds list --limit=1
+    exit 1
+  fi
+
+  # If the instance already exists
   if gcloud compute instances list | grep -q ${project}; then
     # update
     gcloud compute instances update-container ${project} \
     --container-image gcr.io/${project}/pipeline:latest
   else
-    # otherwise create new instance
+    # otherwise create a new instance
     gcloud compute instances create-with-container ${project} \
     --container-image gcr.io/${project}/pipeline:latest \
     --machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 50GB \
