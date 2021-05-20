@@ -68,6 +68,21 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
+def format_timestamp(timestamp: str) -> str:
+  """Format the timestamp in ISO8601 format for BigQuery.
+
+  Args:
+    timestamp: Satellite format timestamp
+      "2021-04-18 14:49:01.62448452 -0400 EDT m=+10140.555964129"
+
+  Returns:
+    ISO8601 formatted string "2021-04-18T14:49:01.62448452-04:00"
+  """
+  elements = timestamp.split()
+  return '{0}T{1}{2}:{3}'.format(elements[0], elements[1], elements[2][0:-2],
+                                 elements[2][-2:])
+
+
 class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into Rows."""
 
@@ -211,8 +226,8 @@ class FlattenMeasurement(beam.DoFn):
         'ip': scan['vp'],
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
-        'start_time': scan['start_time'],
-        'end_time': scan['end_time'],
+        'start_time': format_timestamp(scan['start_time']),
+        'end_time': format_timestamp(scan['end_time']),
         'error': scan.get('error', None),
         'blocked': scan['anomaly'],
         'success': not scan['connect_error'],

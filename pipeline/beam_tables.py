@@ -130,7 +130,6 @@ VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
-# TODO: check date for v1 vs. v2
 SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
@@ -361,31 +360,22 @@ def _add_satellite_tags(
       grouped_metadata_and_rows | 'merge metadata with rows' >>
       beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
-  # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
-
-  received_keyed_by_ip_and_date = (
-      rows_with_metadata | 'key by received ips and dates' >> beam.Map(
-          lambda row: (_make_date_received_ip_key(row), row)).with_output_types(
-              Tuple[DateIpKey, Row]))
-
-  grouped_received_metadata_and_rows = (({
-      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
-  }) | 'group by received ip keys' >> beam.CoGroupByKey())
-
-  rows_with_tags = (
-      grouped_received_metadata_and_rows | 'tag received ips' >>
-      beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(
-          k, v, field='received')).with_output_types(Row))
-
   # 3. Measurements are currently flattened to one answer IP per row ->
   #    Unflatten so that each row contains a array of answer IPs
 
+  # PCollection[Tuple[str,Row]]
+  keyed_by_measurement_id = (
+      rows_with_metadata | 'key by measurement id' >>
+      beam.Map(lambda row:
+               (row['measurement_id'], row)).with_output_types(Tuple[str, Row]))
+
+  # PCollection[Tuple[str,Iterable[Row]]]
+  grouped_by_measurement_id = (
+      keyed_by_measurement_id | 'group by measurement id' >> beam.GroupByKey())
+
+  # PCollection[Row]
   unflattened_rows = (
-      rows_with_tags | 'key by measurement id' >>
-      beam.Map(lambda row: (row['measurement_id'], row)).with_output_types(
-          Tuple[str, Row]) | 'group by measurement id' >> beam.GroupByKey() |
-      'unflatten rows' >> beam.FlatMapTuple(
+      grouped_by_measurement_id | 'unflatten rows' >> beam.FlatMapTuple(
           lambda k, v: _unflatten_satellite(v)).with_output_types(Row))
 
   return unflattened_rows
@@ -441,8 +431,7 @@ def _post_processing_satellite(
   return post
 
 
-def _unflatten_satellite(
-    flattened_measurement: List[Dict[str, Any]]) -> Iterator[Row]:
+def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
   """Unflatten a Satellite measurement.
 
   Args:
@@ -459,13 +448,16 @@ def _unflatten_satellite(
   """
   if flattened_measurement:
     # Get common fields and update 'received' with array of all answer IPs
-    combined = flattened_measurement[0]
-    combined['received'] = [
-        answer['received']
-        for answer in flattened_measurement
-        if answer['received']
-    ]
+    combined: Row = {'received': []}
+    for answer in flattened_measurement:
+      received = answer.pop('received', None)
+      combined.update(answer)
+      if received:
+        combined['received'].append(received)
     combined.pop('measurement_id')
+    # temp fix to remove extra vantage point tags
+    for tag in {'asname', 'asnum', 'http', 'cert'}:
+      combined.pop(tag, None)
     yield combined
 
 
@@ -528,6 +520,7 @@ def _calculate_confidence(scan: Dict[str, Any],
         'untagged_response': True if all answer IPs have no tags
   """
   confidence: Dict[str, Any] = {
+      'average': 0,
       'matches': [],
       'untagged_controls': num_control_tags == 0,
       'untagged_response': True
@@ -561,8 +554,9 @@ def _calculate_confidence(scan: Dict[str, Any],
         ip_match = matching_tags * 100 / total_tags
     confidence['matches'].append(ip_match)
 
-  confidence['average'] = sum(confidence['matches']) / len(
-      confidence['matches'])
+  if len(confidence['matches']) > 0:
+    confidence['average'] = sum(confidence['matches']) / len(
+        confidence['matches'])
   scan['confidence'] = confidence
   # Sanity check for untagged responses: do not claim interference
   if confidence['untagged_response'] or confidence['untagged_controls']:
