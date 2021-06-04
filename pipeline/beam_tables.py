@@ -700,6 +700,19 @@ def get_table_name(dataset_name: str, scan_type: str,
   return f'{dataset_name}.{scan_type}_{base_table_name}'
 
 
+def _raise_exception_if_zero(num: int) -> None:
+  if num == 0:
+    raise Exception("Zero rows were created even though there were new files.")
+
+
+def _raise_error_if_collection_empty(
+    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection:
+  count_collection = (
+      rows | "Count" >> beam.combiners.Count.Globally() |
+      "Error if empty" >> beam.Map(_raise_exception_if_zero))
+  return count_collection
+
+
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
@@ -994,6 +1007,8 @@ class ScanDataBeamPipelineRunner():
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(rows)
+
+      _raise_error_if_collection_empty(rows_with_metadata)
 
       self._write_to_bigquery(scan_type, rows_with_metadata, table_name,
                               incremental_load)
