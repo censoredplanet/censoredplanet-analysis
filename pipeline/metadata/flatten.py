@@ -24,6 +24,20 @@ Row = Dict[str, Any]
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 
+# For Hyperquack v1
+SENT_PATTERNS = [
+    "GET / HTTP/1.1\r\nHost: (.*)\r\n",  # echo/discard
+    # some historical discard probes sent this pattern in error
+    # TODO should this pattern return None since it's not a valid test?
+    "GET (.*) HTTP/1.1\r\nHost: /\r\n"  # discard error
+]
+
+# For Hyperquack v1
+CONTROL_URLS = [
+    'example5718349450314.com',  # echo/discard
+    'rtyutgyhefdafioasfjhjhi.com'  # HTTP/S
+]
+
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   """Flatten headers from a dictionary of headers to value lists.
@@ -68,6 +82,55 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
+def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
+  """Get the url out of a 'sent' field in a measurement.
+
+  Args:
+    sent: string like either
+
+      "" meaning the sent packet wasn't recorded.
+      "GET / HTTP/1.1\r\nHost: example5718349450314.com\r\n" (echo/discard)
+      "GET www.bbc.co.uk HTTP/1.1\r\nHost: /\r\n" (discard error)
+      or just "www.apple.com" (HTTP/S)
+
+    Returns: just the url or None
+  """
+  if sent == '':
+    return None
+
+  for pattern in SENT_PATTERNS:
+    match = re.search(pattern, sent)
+    if match:
+      return match.group(1)
+
+  if ' ' not in sent:
+    return sent
+
+  raise Exception(f"unknown sent field format: {sent}")
+
+
+def _is_control_url(url: Optional[str]) -> bool:
+  return url in CONTROL_URLS
+
+
+def _controls_failed_v1(scan: Any) -> bool:
+  """Determine if any control measurement for a given scan failed.
+
+  Only relevant for hyperquack v1 measurements.
+
+  Args:
+    scan: a loaded json object containing the parsed content of the line
+
+  Returns: bool
+  """
+  for result in scan.get('Results', []):
+    actual_domain = _extract_domain_from_sent_field(result['Sent'])
+    is_control = _is_control_url(actual_domain)
+    if is_control and not result['Success']:
+      return True
+  return False
+
+
 class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into Rows."""
 
@@ -109,11 +172,10 @@ class FlattenMeasurement(beam.DoFn):
     if 'Satellite' in filename:
       yield from self._process_satellite(filename, scan, random_measurement_id)
     else:
-      yield from self._process_non_satellite(filename, scan,
-                                             random_measurement_id)
+      yield from self._process_hyperquack(filename, scan, random_measurement_id)
 
-  def _process_non_satellite(self, filename: str, scan: Any,
-                             random_measurement_id: str) -> Iterator[Row]:
+  def _process_hyperquack(self, filename: str, scan: Any,
+                          random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Echo/Discard/HTTP/S data.
 
     Args:
@@ -124,20 +186,51 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
+    if 'Server' in scan:
+      yield from self._process_hyperquack_v1(filename, scan,
+                                             random_measurement_id)
+    elif 'vp' in scan:
+      yield from self._process_hyperquack_v2(filename, scan,
+                                             random_measurement_id)
+    else:
+      raise Exception(f"Line with unknown hyperquack format:\n{scan}")
+
+  def _process_hyperquack_v1(self, filename: str, scan: Any,
+                             random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Echo/Discard/HTTP/S data in HyperQuack V1 format.
+
+    https://github.com/censoredplanet/censoredplanet/blob/master/docs/hyperquackv1.rst
+
+    Args:
+      filename: a filepath string
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
+
+    Yields:
+      Rows
+    """
+    control_failed = _controls_failed_v1(scan)
+
     for result in scan.get('Results', []):
       date = result['StartTime'][:10]
+
+      domain = _extract_domain_from_sent_field(result['Sent'])
+      if not domain:
+        domain = scan['Keyword']
+
       row = {
-          'domain': scan['Keyword'],
+          'domain': domain,
           'ip': scan['Server'],
           'date': date,
           'start_time': result['StartTime'],
           'end_time': result['EndTime'],
-          'retries': scan['Retries'],
-          'sent': result['Sent'],
-          'blocked': scan['Blocked'],
+          'sent': result['Sent'],  # TODO remove?
+          'anomaly': scan['Blocked'],
           'success': result['Success'],
-          'fail_sanity': scan['FailSanity'],
+          'fail_sanity': scan['FailSanity'],  # TODO remove?
           'stateful_block': scan['StatefulBlock'],
+          'is_control': _is_control_url(domain),
+          'control_failed': control_failed,  #TODO use fail_sanity?
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
       }
@@ -149,6 +242,48 @@ class FlattenMeasurement(beam.DoFn):
 
       if 'Error' in result:
         row['error'] = result['Error']
+
+      yield row
+
+  def _process_hyperquack_v2(self, filename: str, scan: Any,
+                             random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Echo/Discard/HTTP/S data in HyperQuack V2 format.
+
+    https://github.com/censoredplanet/censoredplanet/blob/master/docs/hyperquackv2.rst
+
+    Args:
+      filename: a filepath string
+      scan: a loaded json object containing the parsed content of the line
+      random_measurement_id: a hex id identifying this individual measurement
+
+    Yields:
+      Rows
+    """
+    for response in scan.get('response', []):
+      date = response['start_time'][:10]
+
+      row = {
+          'domain': response.get('control_url', scan['test_url']),
+          'ip': scan['vp'],
+          'date': date,
+          'start_time': response['start_time'],
+          'end_time': response['end_time'],
+          'anomaly': scan['anomaly'],
+          'success': response['matches_template'],
+          'stateful_block': scan['stateful_block'],
+          'is_control': 'control_url' in response,
+          'control_failed': scan.get('controls_failed', None),
+          'measurement_id': random_measurement_id,
+          'source': source_from_filename(filename),
+      }
+
+      if 'response' in response:
+        received = response.get('response', '')
+        received_fields = self._parse_received_data(received, scan['anomaly'])
+        row.update(received_fields)
+
+      if 'error' in response:
+        row['error'] = response['error']
 
       yield row
 
@@ -187,7 +322,7 @@ class FlattenMeasurement(beam.DoFn):
         'ip': scan['resolver'],
         'date': date,
         'error': scan.get('error', None),
-        'blocked': not scan['passed'] if 'passed' in scan else None,
+        'anomaly': not scan['passed'] if 'passed' in scan else None,
         'success': 'error' not in scan,
         'received': None,
         'measurement_id': random_measurement_id,
@@ -214,7 +349,7 @@ class FlattenMeasurement(beam.DoFn):
         'start_time': scan['start_time'],
         'end_time': scan['end_time'],
         'error': scan.get('error', None),
-        'blocked': scan['anomaly'],
+        'anomaly': scan['anomaly'],
         'success': not scan['connect_error'],
         'received': None,
         'measurement_id': random_measurement_id
@@ -242,7 +377,7 @@ class FlattenMeasurement(beam.DoFn):
       row['rcode'] = received_ips.pop('rcode', None)
     for ip in received_ips:
       row['received'] = {'ip': ip}
-      if row['blocked']:
+      if row['anomaly']:
         # Track domains per IP for interference
         INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
       if isinstance(received_ips, dict):
@@ -275,12 +410,22 @@ class FlattenMeasurement(beam.DoFn):
       row['blockpage'] = blockpage
       row['page_signature'] = signature
 
+    # hyperquack v1 TLS format
     tls = received.get('tls', None)
     if tls:
       tls_row = {
           'received_tls_version': tls['version'],
           'received_tls_cipher_suite': tls['cipher_suite'],
           'received_tls_cert': tls['cert']
+      }
+      row.update(tls_row)
+
+    # hyperquack v2 TLS format
+    if 'TlsVersion' in received:
+      tls_row = {
+          'received_tls_version': received['TlsVersion'],
+          'received_tls_cipher_suite': received['CipherSuite'],
+          'received_tls_cert': received['Certificate']
       }
       row.update(tls_row)
 
