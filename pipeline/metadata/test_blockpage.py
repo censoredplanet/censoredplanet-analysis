@@ -9,6 +9,18 @@ from pipeline.metadata import blockpage
 class BlockpageTest(unittest.TestCase):
   """Tests for the blockpage matcher."""
 
+  def test_signature_ordering(self) -> None:
+    "Check first/last signatures in the blockpage dicts match file order"
+    matcher = blockpage.BlockpageMatcher()
+
+    blockpage_signatures = list(matcher.blockpages.keys())
+    self.assertEqual("a_prod_barracuda_1", blockpage_signatures[0])
+    self.assertEqual("f_gen_pl_access_denied", blockpage_signatures[-1])
+
+    false_positive_signatures = list(matcher.false_positives.keys())
+    self.assertEqual("x_fpru_amazon", false_positive_signatures[0])
+    self.assertEqual("x_moved_here", false_positive_signatures[-1])
+
   def test_simple_blockpage_matches(self) -> None:
     matcher = blockpage.BlockpageMatcher()
 
@@ -20,7 +32,6 @@ class BlockpageTest(unittest.TestCase):
   def test_iran_blockpage(self) -> None:
     matcher = blockpage.BlockpageMatcher()
     page = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'
-    print(type(page))
     match, signature = matcher.match_page(page)
     self.assertTrue(match)
     self.assertEqual(signature, 'b_nat_ir_national_1')
@@ -74,6 +85,62 @@ class BlockpageTest(unittest.TestCase):
     self.assertTrue(match)
     self.assertEqual(signature, 'e_unk_style_red')
 
+  def test_ordered_signatures(self) -> None:
+    """Test page with multiple matching signatures returns the first."""
+    matcher = blockpage.BlockpageMatcher()
+
+    page = '''<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+              <html>
+              <head>
+              <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                  <title>Application Control Violation</title>
+                  <style type="text/css">
+                      html, body { margin: 0; padding: 0; font-family: Verdana, Arial, sans-serif; font-size: 10pt; }
+                      h1, h2 { height: 82px; text-indent: -999em; margin: 0; padding: 0; margin: 0; }
+                      div { margin: 0; padding: 0; }
+                      div.header { background: url(http://url.fortinet.net:8008/XX/YY/ZZ/CI/MGPGHGPGPFGHCDPFGGOGFGEH) 0 0 repeat-x; height: 82px; }
+                      div.header h1 { background: url(http://url.fortinet.net:8008/XX/YY/ZZ/CI/MGPGHGPGPFGHCDPFGGHGFHBGCHEGPFBGAHAH) 0 0 no-repeat; }
+                      div.header h2 { background: url(http://url.fortinet.net:8008/XX/YY/ZZ/CI/MGPGHGPGPFGHCDPFGGOGFGEH) 0 -82px no-repeat; width: 160px; float: right; }
+                      div.sidebar { width: 195px; height: 200px; float: left; }
+                      div.main { padding: 5px; margin-left: 195px; }
+                      div.buttons { margin-top: 30px; text-align: right; }
+                      div.app-title { background:url(http://www.fortiguard.com/app_logos/large36774.png) no-repeat; margin: 8px 0px; height: 32px; text-indent: 36px; line-height: 20px; font-size: 17px; padding-top:5px; }
+                      div.app-info { padding-bottom: 5px; text-indent: 18px; }
+                      h3 { margin: 36px 0; font-size: 16pt; }
+                      .blocked      h3 { color: #c00; }
+                      h2.fgd_icon { background: url(http://url.fortinet.net:8008/XX/YY/ZZ/CI/MGPGHGPGPFGHCDPFGGOGFGEH) 0 -166px repeat-x; width: 90px; height: 92px; margin: 48px auto; }
+                      .blocked      h2.fgd_icon { background-position: 0 -166px; }
+                      form { width: 300px; margin: 30px 0; }
+                      label { display: block; width: 300px; margin: 5px 0; line-height: 25px; }
+                      label input { width: 200px; border: 1px solid #7f9db9; height: 20px; float: right; }
+                  </style>
+              </head>
+              <body class="blocked">
+                  <div class="header">
+                      <h2>Powered By Fortinet</h2>
+                      <h1>FortiGate Application Control</h1>
+                  </div>
+                  <div class="sidebar">
+                      <h2 class="fgd_icon">blocked</h2>
+                  </div>
+                  <div class="main">
+              <h3>Application Blocked!</h3>
+              <div class="notice">You have attempted to use an application which is in violation of your internet usage policy.</div>
+              <div class="app-title">Hola.Unblocker</div>
+              <div class="app-info">Category: Proxy</div>
+              <div class="app-info">URL: http://hola.org/</div>
+              <div class="app-info">User name: </div>
+              <div class="app-info">Group name: </div>
+              <div class="app-info">Policy: cc3e8682-9551-51ea-65c7-758f3c094ffc</div>    </div>
+              </body>
+              </html>'''
+
+    match, signature = matcher.match_page(page)
+    self.assertTrue(match)
+    self.assertEqual(signature, 'a_prod_fortinet_2')
+    # This page matches multiple a_prod_fortinet_* signatures.
+    # This test makes sure we return the match for the earliest one.
+
   def test_unicode(self) -> None:
     """Test to check unicode string matching in Chinese."""
     matcher = blockpage.BlockpageMatcher()
@@ -117,7 +184,7 @@ class BlockpageTest(unittest.TestCase):
     """Performance test for the blockpage matcher.
 
     Adding pathologically slow regexes to the false_positive_signatures.json
-    or blockpage_signatures.json files can cause a performance hit that makes
+    or blockpage_signatures.json files can cause a performance hit that causes
     the overall pipeline to fail to complete. This test is designed to catch
     those regexes in case they're added in the future.
     """
