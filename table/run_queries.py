@@ -21,7 +21,7 @@ python3 tables/run_queries.py
 import glob
 from pprint import pprint
 
-from google.cloud import bigquery as cloud_bigquery
+from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 import firehook_resources
 

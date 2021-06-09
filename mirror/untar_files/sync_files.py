@@ -37,7 +37,7 @@ from typing import List
 
 import requests
 from retry import retry
-from google.cloud import storage
+from google.cloud import storage  # type: ignore
 
 import firehook_resources
 

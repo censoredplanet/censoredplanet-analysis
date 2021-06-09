@@ -26,7 +26,7 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from google.cloud import bigquery as cloud_bigquery
+from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.lookup_country_code import country_name_to_code
 from pipeline.metadata.flatten import Row

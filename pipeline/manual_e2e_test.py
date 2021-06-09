@@ -28,8 +28,8 @@ import unittest
 import warnings
 
 from apache_beam.options.pipeline_options import PipelineOptions
-from google.cloud import bigquery as cloud_bigquery
-from google.cloud.exceptions import NotFound
+from google.cloud import bigquery as cloud_bigquery  # type: ignore
+from google.cloud.exceptions import NotFound  # type: ignore
 
 import firehook_resources
 from pipeline import run_beam_tables

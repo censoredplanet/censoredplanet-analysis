@@ -19,7 +19,7 @@ from pprint import pprint
 from typing import List
 import urllib.request
 
-from google.cloud import storage
+from google.cloud import storage  # type: ignore
 
 import firehook_resources
 

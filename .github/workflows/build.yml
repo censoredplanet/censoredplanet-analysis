@@ -15,17 +15,21 @@ jobs:
         python-version: 3.8
     - name: Install dependencies
       run: |
+
         python -m pip install --upgrade pip
         pip install mypy yapf pylint -r requirements.txt
     - name: Check types with mypy
       # Get all files with find because ** doesn't expand correctly.
+      # Run mypy twice, once to find missing stub packeges, then again after installing them.
       run: |
+        find . -iname '*.py' | xargs mypy --namespace-packages --explicit-package-bases || true
+        yes | mypy --install-types
         find . -iname '*.py' | xargs mypy --namespace-packages --explicit-package-bases
     - name: Check formatting with yapf
       run: |
         yapf --diff --recursive .
     - name: Check for lint errors with pylint
-    # Get all files with find because ** doesn't expand correctly.
+      # Get all files with find because ** doesn't expand correctly.
       run: |
         find . -iname '*.py' | xargs python -m pylint --rcfile=setup.cfg
     - name: Test with unittest

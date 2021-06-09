@@ -18,7 +18,7 @@ import urllib.request
 
 import requests
 
-from google.cloud import storage
+from google.cloud import storage  # type: ignore
 
 import firehook_resources
 
