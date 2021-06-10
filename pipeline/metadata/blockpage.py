@@ -1,5 +1,6 @@
 """Matcher for response pages to blockpage signatures."""
 
+from collections import OrderedDict
 import json
 import io
 import pkgutil
@@ -25,7 +26,7 @@ def _load_signatures(filepath: str) -> Dict[str, re.Pattern]:
     raise FileNotFoundError(f"Couldn't find file {filepath}")
   content = io.TextIOWrapper(io.BytesIO(data), encoding='utf-8')
 
-  signatures = {}
+  signatures = OrderedDict()
   for line in content.readlines():
     if line != '\n':
       signature = json.loads(line.strip())

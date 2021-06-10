@@ -20,7 +20,7 @@ import subprocess
 import sys
 import time
 
-from google.cloud import error_reporting
+from google.cloud import error_reporting  # type: ignore
 import schedule
 
 from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
