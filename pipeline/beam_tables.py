@@ -45,6 +45,7 @@ PROD_DATASET_NAME = 'base'
 SCAN_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
     'domain': ('string', 'nullable'),
+    'category': ('string', 'nullable'),
     'ip': ('string', 'nullable'),
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
@@ -81,7 +82,6 @@ SCAN_BIGQUERY_SCHEMA = {
 }
 # Future fields
 """
-    'domain_category': ('string', 'nullable'),
     'as_traffic': ('integer', 'nullable'),
 """
 

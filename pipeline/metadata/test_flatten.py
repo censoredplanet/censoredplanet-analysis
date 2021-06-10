@@ -11,6 +11,9 @@ class FlattenMeasurementTest(unittest.TestCase):
 
   # pylint: disable=protected-access
 
+  def setUp(self) -> None:
+    self.maxDiff = None  # pylint: disable=invalid-name
+
   def test_source_from_filename(self) -> None:
     """Test getting the data source name from the filename."""
     self.assertEqual(
@@ -162,6 +165,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'www.example.com',
+        'category': None,
         'ip': '1.2.3.4',
         'date': '2020-09-20',
         'start_time': '2020-09-20T07:45:09.643770291-04:00',
@@ -178,6 +182,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'source': 'CP_Quack-echo-2020-08-23-06-01-02',
     }, {
         'domain': 'www.example.com',
+        'category': None,
         'ip': '1.2.3.4',
         'date': '2020-09-20',
         'start_time': '2020-09-20T07:45:16.170427683-04:00',
@@ -237,6 +242,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_row = {
         'domain': 'scribd.com',
+        'category': "File-sharing",
         'ip': '170.248.33.11',
         'date': '2020-11-09',
         'start_time': '2020-11-09T01:10:47.826486107-05:00',
@@ -292,6 +298,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_row = {
         'domain': 'www.csmonitor.com',
+        'category': 'News Media',
         'ip': '184.50.171.225',
         'date': '2020-09-13',
         'start_time': '2020-09-13T01:10:57.499263112-04:00',
@@ -375,6 +382,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     # yapf: disable
     expected_row: flatten.Row = {
         'domain': 'www.arabhra.org',
+        'category': 'Intergovernmental Organizations',
         'ip': '213.175.166.157',
         'date': '2020-11-06',
         'start_time': '2020-11-06T15:24:21.124508839-05:00',
@@ -500,6 +508,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     expected = [
       {
         'domain': 'asana.com',
+        'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
@@ -510,6 +519,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'asana.com',
+        'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
@@ -520,6 +530,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'asana.com',
+        'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
@@ -530,6 +541,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'asana.com',
+        'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
@@ -540,6 +552,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'www.ecequality.org',
+        'category': 'E-commerce',
         'ip': '145.239.6.50',
         'date': '2020-09-02',
         'error': None,
@@ -550,6 +563,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain':  'www.sportsinteraction.com',
+        'category': 'Gambling',
         'ip': '185.228.168.149',
         'date': '2020-09-02',
         'error': "no_answer",
@@ -560,6 +574,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'abs-cbn.com',
+        'category': 'Culture',
         'ip': '114.114.114.110',
         'country': 'CN',
         'date': '2021-03-05',
@@ -574,6 +589,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'abs-cbn.com',
+        'category': 'Culture',
         'ip': '114.114.114.110',
         'country': 'CN',
         'date': '2021-03-05',
