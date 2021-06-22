@@ -69,7 +69,7 @@ The json data is processed into a flat table format which looks like this.
 | anomaly                   | BOOLEAN      | Was interference detected in the overall measurement? |
 | fail_sanity               | BOOLEAN      | Was the ip being tested malfunctioning/down? </br> :warning: only present in v1 data |
 | stateful_block            | BOOLEAN      | Was stateful interference detected? |
-| control_failed            | BOOLEAN      | Did the control measurements connected to this measurement fail? |
+| controls_failed            | BOOLEAN     | Did all the control measurements connected to this measurement fail? |
 |                           |
 | **Internal**              |
 |                           |

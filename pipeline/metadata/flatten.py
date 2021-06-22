@@ -113,24 +113,6 @@ def _is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
 
 
-def _controls_failed_v1(scan: Any) -> bool:
-  """Determine if any control measurement for a given scan failed.
-
-  Only relevant for hyperquack v1 measurements.
-
-  Args:
-    scan: a loaded json object containing the parsed content of the line
-
-  Returns: bool
-  """
-  for result in scan.get('Results', []):
-    actual_domain = _extract_domain_from_sent_field(result['Sent'])
-    is_control = _is_control_url(actual_domain)
-    if is_control and not result['Success']:
-      return True
-  return False
-
-
 class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into Rows."""
 
@@ -209,8 +191,6 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
-    control_failed = _controls_failed_v1(scan)
-
     for result in scan.get('Results', []):
       date = result['StartTime'][:10]
 
@@ -227,10 +207,9 @@ class FlattenMeasurement(beam.DoFn):
           'sent': result['Sent'],  # TODO remove?
           'anomaly': scan['Blocked'],
           'success': result['Success'],
-          'fail_sanity': scan['FailSanity'],  # TODO remove?
           'stateful_block': scan['StatefulBlock'],
           'is_control': _is_control_url(domain),
-          'control_failed': control_failed,  #TODO use fail_sanity?
+          'controls_failed': scan['FailSanity'],
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
       }
@@ -272,7 +251,7 @@ class FlattenMeasurement(beam.DoFn):
           'success': response['matches_template'],
           'stateful_block': scan['stateful_block'],
           'is_control': 'control_url' in response,
-          'control_failed': scan.get('controls_failed', None),
+          'controls_failed': scan.get('controls_failed', None),
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
       }

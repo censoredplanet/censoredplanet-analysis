@@ -183,7 +183,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         }
       ],
       "Blocked":true,
-      "FailSanity":false,
+      "FailSanity":true,
       "StatefulBlock":false
     }"""
 
@@ -198,10 +198,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': 'Incorrect echo response',
         'anomaly': True,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': True,
+        'controls_failed': True,
         'measurement_id': '',
         'source': 'CP_Quack-echo-2020-08-23-06-01-02',
     }, {
@@ -215,10 +214,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': 'Incorrect echo response',
         'anomaly': True,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': True,
+        'controls_failed': True,
         'measurement_id': '',
         'source': 'CP_Quack-echo-2020-08-23-06-01-02',
     }]
@@ -284,7 +282,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': True,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-echo-2021-05-30-01-01-01',
     }, {
@@ -297,7 +295,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': True,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-echo-2021-05-30-01-01-01',
     }, {
@@ -321,7 +319,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             False,
         'is_control':
             False,
-        'control_failed':
+        'controls_failed':
             False,
         'measurement_id':
             '',
@@ -394,7 +392,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': True,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-discard-2021-05-31-12-43-21',
     }, {
@@ -420,7 +418,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             False,
         'is_control':
             False,
-        'control_failed':
+        'controls_failed':
             False,
         'measurement_id':
             '',
@@ -436,7 +434,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': True,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-discard-2021-05-31-12-43-21',
     }]
@@ -493,10 +491,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         'sent': 'scribd.com',
         'anomaly': False,
         'success': True,
-        'fail_sanity': False,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2020-11-09-01-02-08',
     }
@@ -560,10 +557,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': 'Incorrect web response: status lines don\'t match',
         'anomaly': True,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2020-09-13-01-02-07',
     }
@@ -639,7 +635,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': True,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2021-05-30-01-01-01',
     }, {
@@ -662,7 +658,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': False,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2021-05-30-01-01-01',
     }]
@@ -757,10 +753,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': 'Incorrect web response: status lines don\'t match',
         'anomaly': False,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
         'is_control': False,
-        'control_failed': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
     }
@@ -837,7 +832,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'success': False,
         'stateful_block': False,
         'is_control': True,
-        'control_failed': True,
+        'controls_failed': True,
         'measurement_id': '',
         'source': 'CP_Quack-https-2021-04-26-04-21-46',
     }

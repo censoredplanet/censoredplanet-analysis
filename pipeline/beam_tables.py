@@ -53,10 +53,9 @@ SCAN_BIGQUERY_SCHEMA = {
     'error': ('string', 'nullable'),
     'anomaly': ('boolean', 'nullable'),
     'success': ('boolean', 'nullable'),
-    'fail_sanity': ('boolean', 'nullable'),  # v1 only
     'stateful_block': ('boolean', 'nullable'),
     'is_control': ('boolean', 'nullable'),
-    'control_failed': ('boolean', 'nullable'),
+    'controls_failed': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
     'blockpage': ('boolean', 'nullable'),

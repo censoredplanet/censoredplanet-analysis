@@ -157,7 +157,7 @@ def get_bq_rows(client: cloud_bigquery.Client, table_name: str) -> List:
 class PipelineManualE2eTest(unittest.TestCase):
   """Manual tests that require access to cloud project resources."""
 
-  def test_pipeline_e2e(self) -> None:
+  def test_hyperquack_pipeline_e2e(self) -> None:
     """Test the full pipeline by running it twice locally on a few files."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
