@@ -49,7 +49,6 @@ SCAN_BIGQUERY_SCHEMA = {
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
-    'sent': ('string', 'nullable'),  # v1 only
     'error': ('string', 'nullable'),
     'anomaly': ('boolean', 'nullable'),
     'success': ('boolean', 'nullable'),

@@ -166,20 +166,36 @@ class FlattenMeasurementTest(unittest.TestCase):
       "Retries":1,
       "Results":[
         {
-          "Sent":"GET / HTTP/1.1\\r\\nHost: example5718349450314.com\\r\\n\\r\\n",
-          "Received":"HTTP/1.1 403 Forbidden",
-          "Success":false,
-          "Error":"Incorrect echo response",
-          "StartTime":"2020-09-20T07:45:09.643770291-04:00",
-          "EndTime":"2020-09-20T07:45:10.088851843-04:00"
-        },
-        {
           "Sent":"GET / HTTP/1.1\\r\\nHost: www.test.com\\r\\n\\r\\n",
           "Received": "HTTP/1.1 503 Service Unavailable",
           "Success":false,
           "Error":"Incorrect echo response",
+          "StartTime":"2020-09-20T07:45:09.643770291-04:00",
+          "EndTime":"2020-09-20T07:45:10.088851843-04:00"
+
+        },
+        {
+          "Sent":"",
+          "Received":"",
+          "Success":false,
+          "Error":"timeout",
+          "StartTime":"2020-09-20T07:45:12.643770291-04:00",
+          "EndTime":"2020-09-20T07:45:13.088851843-04:00"
+        },
+        {
+          "Sent":"",
+          "Success":false,
+          "Error":"timeout",
           "StartTime":"2020-09-20T07:45:16.170427683-04:00",
           "EndTime":"2020-09-20T07:45:16.662093893-04:00"
+        },
+        {
+          "Sent":"GET / HTTP/1.1\\r\\nHost: example5718349450314.com\\r\\n\\r\\n",
+          "Received":"HTTP/1.1 403 Forbidden",
+          "Success":false,
+          "Error":"Incorrect echo response",
+          "StartTime":"2020-09-20T07:45:18.170427683-04:00",
+          "EndTime":"2020-09-20T07:45:18.662093893-04:00"
         }
       ],
       "Blocked":true,
@@ -187,53 +203,91 @@ class FlattenMeasurementTest(unittest.TestCase):
       "StatefulBlock":false
     }"""
 
-    expected_rows: List[flatten.Row] = [{
-        'domain': 'example5718349450314.com',
-        'ip': '1.2.3.4',
-        'date': '2020-09-20',
-        'start_time': '2020-09-20T07:45:09.643770291-04:00',
-        'end_time': '2020-09-20T07:45:10.088851843-04:00',
-        'sent': 'GET / HTTP/1.1\r\nHost: example5718349450314.com\r\n\r\n',
-        'received_status': 'HTTP/1.1 403 Forbidden',
-        'error': 'Incorrect echo response',
-        'anomaly': True,
-        'success': False,
-        'stateful_block': False,
-        'is_control': True,
-        'controls_failed': True,
-        'measurement_id': '',
-        'source': 'CP_Quack-echo-2020-08-23-06-01-02',
-    }, {
-        'domain': 'www.test.com',
-        'ip': '1.2.3.4',
-        'date': '2020-09-20',
-        'start_time': '2020-09-20T07:45:16.170427683-04:00',
-        'end_time': '2020-09-20T07:45:16.662093893-04:00',
-        'sent': 'GET / HTTP/1.1\r\nHost: www.test.com\r\n\r\n',
-        'received_status': 'HTTP/1.1 503 Service Unavailable',
-        'error': 'Incorrect echo response',
-        'anomaly': True,
-        'success': False,
-        'stateful_block': False,
-        'is_control': False,
-        'controls_failed': True,
-        'measurement_id': '',
-        'source': 'CP_Quack-echo-2020-08-23-06-01-02',
-    }]
+    expected_rows: List[flatten.Row] = [
+        {
+            'domain': 'www.test.com',
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:09.643770291-04:00',
+            'end_time': '2020-09-20T07:45:10.088851843-04:00',
+            'received_status': 'HTTP/1.1 503 Service Unavailable',
+            'error': 'Incorrect echo response',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': False,
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain':
+                'www.test.com',  # domain is populated even though sent was empty
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:12.643770291-04:00',
+            'end_time': '2020-09-20T07:45:13.088851843-04:00',
+            'received_status': '',
+            'error': 'timeout',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': False,  # calculated even though sent was empty
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain':
+                '',  # missing control domain is not populated when sent is empty
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:16.170427683-04:00',
+            'end_time': '2020-09-20T07:45:16.662093893-04:00',
+            'error': 'timeout',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': True,  # calculated even though sent was empty
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain': 'example5718349450314.com',
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:18.170427683-04:00',
+            'end_time': '2020-09-20T07:45:18.662093893-04:00',
+            'received_status': 'HTTP/1.1 403 Forbidden',
+            'error': 'Incorrect echo response',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': True,
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+    ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
     rows = list(flattener.process((filename, line)))
-    self.assertEqual(len(rows), 2)
+    self.assertEqual(len(rows), 4)
 
     # Measurement ids should be the same
     self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[2]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[3]['measurement_id'])
     # But they're randomly generated,
     # so we can't test them against the full expected rows.
     rows[0]['measurement_id'] = ''
     rows[1]['measurement_id'] = ''
+    rows[2]['measurement_id'] = ''
+    rows[3]['measurement_id'] = ''
 
     self.assertListEqual(rows, expected_rows)
 
@@ -488,7 +542,6 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-11-09',
         'start_time': '2020-11-09T01:10:47.826486107-05:00',
         'end_time': '2020-11-09T01:10:47.84869292-05:00',
-        'sent': 'scribd.com',
         'anomaly': False,
         'success': True,
         'stateful_block': False,
@@ -543,7 +596,6 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-09-13',
         'start_time': '2020-09-13T01:10:57.499263112-04:00',
         'end_time': '2020-09-13T01:10:58.077524926-04:00',
-        'sent': 'www.csmonitor.com',
         'received_status': '301 Moved Permanently',
         'received_body': 'test body',
         'received_headers': [
@@ -733,7 +785,6 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-11-06',
         'start_time': '2020-11-06T15:24:21.124508839-05:00',
         'end_time': '2020-11-06T15:24:21.812075476-05:00',
-        'sent': 'www.arabhra.org',
         'received_status': '302 Found',
         # The received_body field in the json has a lot of unicode escapes
         # but the interpreted string in the output should not.

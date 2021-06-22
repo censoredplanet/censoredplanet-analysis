@@ -46,7 +46,6 @@ The json data is processed into a flat table format which looks like this.
 | start_time                | TIMESTAMP    | Start time of the individual measurement |
 | end_time                  | TIMESTAMP    | End time of the individual measurement |
 | measurement_id            | STRING       | A uuid which is the same for observations which are part of the same measurement. </br> If there are 5 retries of a scan they will all have the same id. </br> eg. `a08df2fe70d54092916b8df87e330f47` |
-| sent                      | STRING       | The content sent over the wire, eg. `GET / HTTP/1.1 Host: example.com` </br> :warning: only present in v1 data |
 | error                     | STRING       | Any error, eg. `Network Timeout` |
 |                           |
 | **Received Fields**       |              | :warning: These fields differ between scan types |
@@ -67,7 +66,6 @@ The json data is processed into a flat table format which looks like this.
 |                           |
 | success                   | BOOLEAN      | Did the individual roundtrip measurement succeed? |
 | anomaly                   | BOOLEAN      | Was interference detected in the overall measurement? |
-| fail_sanity               | BOOLEAN      | Was the ip being tested malfunctioning/down? </br> :warning: only present in v1 data |
 | stateful_block            | BOOLEAN      | Was stateful interference detected? |
 | controls_failed            | BOOLEAN     | Did all the control measurements connected to this measurement fail? |
 |                           |

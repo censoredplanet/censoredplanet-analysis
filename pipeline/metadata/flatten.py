@@ -191,12 +191,20 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
-    for result in scan.get('Results', []):
+    for index, result in enumerate(scan.get('Results', [])):
       date = result['StartTime'][:10]
 
       domain = _extract_domain_from_sent_field(result['Sent'])
+      is_control = _is_control_url(domain)
+      # Due to a bug the sent field sometimes isn't populated
+      # when the measurement failed due to network timeout.
       if not domain:
-        domain = scan['Keyword']
+        # Control measurements come at the end, and are not counted as retries.
+        is_control = index > scan['Retries']
+        if is_control:
+          domain = ""
+        else:
+          domain = scan['Keyword']
 
       row = {
           'domain': domain,
@@ -204,11 +212,10 @@ class FlattenMeasurement(beam.DoFn):
           'date': date,
           'start_time': result['StartTime'],
           'end_time': result['EndTime'],
-          'sent': result['Sent'],  # TODO remove?
           'anomaly': scan['Blocked'],
           'success': result['Success'],
           'stateful_block': scan['StatefulBlock'],
-          'is_control': _is_control_url(domain),
+          'is_control': is_control,
           'controls_failed': scan['FailSanity'],
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
