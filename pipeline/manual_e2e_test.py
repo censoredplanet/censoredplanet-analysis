@@ -28,8 +28,8 @@ import unittest
 import warnings
 
 from apache_beam.options.pipeline_options import PipelineOptions
-from google.cloud import bigquery as cloud_bigquery
-from google.cloud.exceptions import NotFound
+from google.cloud import bigquery as cloud_bigquery  # type: ignore
+from google.cloud.exceptions import NotFound  # type: ignore
 
 import firehook_resources
 from pipeline import run_beam_tables
@@ -77,6 +77,10 @@ def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   ]
 
 
+def local_data_to_load_invalid(*_: List[Any]) -> List[str]:
+  return ['pipeline/e2e_test_data/invalid_results.json']
+
+
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
@@ -119,6 +123,17 @@ def run_local_pipeline_satellite() -> None:
   test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
 
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+                                None, None)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_invalid() -> None:
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_invalid  # type: ignore
+
+  test_runner.run_beam_pipeline('invalid', True, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
   # pylint: enable=protected-access
 
@@ -200,6 +215,12 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     finally:
       clean_up_bq_table(client, BQ_TEST_TABLE)
+
+  def test_invalid_pipeline(self) -> None:
+    with self.assertRaises(Exception) as context:
+      run_local_pipeline_invalid()
+    self.assertIn('Zero rows were created even though there were new files.',
+                  str(context.exception))
 
   def test_ipmetadata_init(self) -> None:
     caida_ip_metadata_db = caida_ip_metadata.get_firehook_caida_ip_metadata_db(
