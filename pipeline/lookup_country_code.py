@@ -255,11 +255,6 @@ CODES = {
     "Zimbabwe": "ZW"
 }
 
-PARTITIONS = {CODES[country]: i for i, country in enumerate(CODES)}
-NUM_PARTITIONS = len(PARTITIONS) + 1
 
 def country_name_to_code(name: str) -> str:
   return CODES.get(name, name)
-
-def country_partition(code: str) -> int:
-  return PARTITIONS.get(code, NUM_PARTITIONS - 1)

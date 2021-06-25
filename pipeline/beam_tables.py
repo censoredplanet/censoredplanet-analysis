@@ -28,7 +28,8 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery
 
-from pipeline.lookup_country_code import country_name_to_code, country_partition, NUM_PARTITIONS
+from pipeline.lookup_country_code import country_name_to_code
+from pipeline.lookup_domain import domain_partition, DOMAIN_PARTITIONS
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
 
@@ -362,33 +363,38 @@ def _add_satellite_tags(
 
   # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
 
+  # PCollection[Tuple[DateIpKey,Row]]
   received_keyed_by_ip_and_date = (
       rows_with_metadata | 'key by received ips and dates' >> beam.Map(
           lambda row: (_make_date_received_ip_key(row), row)).with_output_types(
               Tuple[DateIpKey, Row]))
 
-  partition_by_country = (
-      received_keyed_by_ip_and_date | 'partition by country' >>
-      beam.Partition(lambda keyed_row, p: country_partition(keyed_row[1].get('country')), NUM_PARTITIONS)
-    )
+  partition_by_domain = (
+      received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
+          lambda keyed_row, p: domain_partition(keyed_row[1].get('domain')),
+          DOMAIN_PARTITIONS))
 
   collections = []
-  for i in range(0, NUM_PARTITIONS):
-    elements = partition_by_country[i]
+  for i in range(0, DOMAIN_PARTITIONS):
+    elements = partition_by_domain[i]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
     grouped_received_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: elements
     }) | 'group by received ip keys {0}'.format(i) >> beam.CoGroupByKey())
 
-    country_rows_with_tags = (
+    # PCollection[Row]
+    domain_rows_with_tags = (
         grouped_received_metadata_and_rows | 'tag received ips {0}'.format(i) >>
         beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(
             k, v, field='received')).with_output_types(Row))
 
-    collections.append(country_rows_with_tags)
+    collections.append(domain_rows_with_tags)
 
+  # PCollection[Row]
   rows_with_tags = (
-    collections | 'merge country collections' >> beam.Flatten().with_output_types(Row))
+      collections |
+      'merge domain collections' >> beam.Flatten().with_output_types(Row))
 
   # 3. Measurements are currently flattened to one answer IP per row ->
   #    Unflatten so that each row contains a array of answer IPs
@@ -675,6 +681,7 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
       if new_row['received']:
         new_row['received'].update(ip_metadata)
         new_row['received'].pop('date', None)
+        new_row['received'].pop('name', None)
     else:
       new_row.update(ip_metadata)
     yield new_row
