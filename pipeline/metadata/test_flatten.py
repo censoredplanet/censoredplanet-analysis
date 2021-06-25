@@ -23,6 +23,33 @@ class FlattenMeasurementTest(unittest.TestCase):
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
+  def test_extract_domain_from_sent_field_echo_discard(self) -> None:
+    """Test parsing url from sent field in echo and discard tests."""
+    sent = "GET / HTTP/1.1\r\nHost: example5718349450314.com\r\n"
+    self.assertEqual("example5718349450314.com",
+                     flatten._extract_domain_from_sent_field(sent))
+
+  def test_extract_domain_from_sent_field_discard_error(self) -> None:
+    """Test parsing url from sent field."""
+    # This sent format is an error
+    # but it appears in the data, so we parse it.
+    sent = "GET www.bbc.co.uk HTTP/1.1\r\nHost: /\r\n"
+    self.assertEqual("www.bbc.co.uk",
+                     flatten._extract_domain_from_sent_field(sent))
+
+  def test_extract_domain_from_sent_field_http(self) -> None:
+    """Test parsing url from sent field for HTTP/S"""
+    sent = "www.apple.com"
+    self.assertEqual("www.apple.com",
+                     flatten._extract_domain_from_sent_field(sent))
+
+  def test_extract_domain_from_sent_field_invalid(self) -> None:
+    """Test parsing url from sent field."""
+    sent = "Get sdkfjhsd something incorrect"
+    with self.assertRaises(Exception) as context:
+      flatten._extract_domain_from_sent_field(sent)
+    self.assertIn('unknown sent field format:', str(context.exception))
+
   def test_parse_received_headers(self) -> None:
     """Test parsing HTTP/S header fields into a flat format."""
     headers = {
@@ -131,87 +158,361 @@ class FlattenMeasurementTest(unittest.TestCase):
     parsed = flattener._parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
-  def test_flattenmeasurement_echo(self) -> None:
-    """Test parsing an example Echo measurement."""
+  def test_flattenmeasurement_echo_v1(self) -> None:
+    """Test parsing an example Echo v1 measurement."""
     line = """{
       "Server":"1.2.3.4",
-      "Keyword":"www.example.com",
+      "Keyword":"www.test.com",
       "Retries":1,
       "Results":[
         {
-          "Sent":"GET / HTTP/1.1 Host: www.example.com",
-          "Received":"HTTP/1.1 403 Forbidden",
+          "Sent":"GET / HTTP/1.1\\r\\nHost: www.test.com\\r\\n\\r\\n",
+          "Received": "HTTP/1.1 503 Service Unavailable",
           "Success":false,
           "Error":"Incorrect echo response",
           "StartTime":"2020-09-20T07:45:09.643770291-04:00",
           "EndTime":"2020-09-20T07:45:10.088851843-04:00"
+
         },
         {
-          "Sent":"GET / HTTP/1.1 Host: www.example.com",
-          "Received": "HTTP/1.1 503 Service Unavailable",
+          "Sent":"",
+          "Received":"",
           "Success":false,
-          "Error":"Incorrect echo response",
+          "Error":"timeout",
+          "StartTime":"2020-09-20T07:45:12.643770291-04:00",
+          "EndTime":"2020-09-20T07:45:13.088851843-04:00"
+        },
+        {
+          "Sent":"",
+          "Success":false,
+          "Error":"timeout",
           "StartTime":"2020-09-20T07:45:16.170427683-04:00",
           "EndTime":"2020-09-20T07:45:16.662093893-04:00"
+        },
+        {
+          "Sent":"GET / HTTP/1.1\\r\\nHost: example5718349450314.com\\r\\n\\r\\n",
+          "Received":"HTTP/1.1 403 Forbidden",
+          "Success":false,
+          "Error":"Incorrect echo response",
+          "StartTime":"2020-09-20T07:45:18.170427683-04:00",
+          "EndTime":"2020-09-20T07:45:18.662093893-04:00"
         }
       ],
       "Blocked":true,
-      "FailSanity":false,
+      "FailSanity":true,
       "StatefulBlock":false
     }"""
 
-    expected_rows: List[flatten.Row] = [{
-        'domain': 'www.example.com',
-        'ip': '1.2.3.4',
-        'date': '2020-09-20',
-        'start_time': '2020-09-20T07:45:09.643770291-04:00',
-        'end_time': '2020-09-20T07:45:10.088851843-04:00',
-        'retries': 1,
-        'sent': 'GET / HTTP/1.1 Host: www.example.com',
-        'received_status': 'HTTP/1.1 403 Forbidden',
-        'error': 'Incorrect echo response',
-        'blocked': True,
-        'success': False,
-        'fail_sanity': False,
-        'stateful_block': False,
-        'measurement_id': '',
-        'source': 'CP_Quack-echo-2020-08-23-06-01-02',
-    }, {
-        'domain': 'www.example.com',
-        'ip': '1.2.3.4',
-        'date': '2020-09-20',
-        'start_time': '2020-09-20T07:45:16.170427683-04:00',
-        'end_time': '2020-09-20T07:45:16.662093893-04:00',
-        'retries': 1,
-        'sent': 'GET / HTTP/1.1 Host: www.example.com',
-        'received_status': 'HTTP/1.1 503 Service Unavailable',
-        'error': 'Incorrect echo response',
-        'blocked': True,
-        'success': False,
-        'fail_sanity': False,
-        'stateful_block': False,
-        'measurement_id': '',
-        'source': 'CP_Quack-echo-2020-08-23-06-01-02',
-    }]
+    expected_rows: List[flatten.Row] = [
+        {
+            'domain': 'www.test.com',
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:09.643770291-04:00',
+            'end_time': '2020-09-20T07:45:10.088851843-04:00',
+            'received_status': 'HTTP/1.1 503 Service Unavailable',
+            'error': 'Incorrect echo response',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': False,
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain':
+                'www.test.com',  # domain is populated even though sent was empty
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:12.643770291-04:00',
+            'end_time': '2020-09-20T07:45:13.088851843-04:00',
+            'received_status': '',
+            'error': 'timeout',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': False,  # calculated even though sent was empty
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain':
+                '',  # missing control domain is not populated when sent is empty
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:16.170427683-04:00',
+            'end_time': '2020-09-20T07:45:16.662093893-04:00',
+            'error': 'timeout',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': True,  # calculated even though sent was empty
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+        {
+            'domain': 'example5718349450314.com',
+            'ip': '1.2.3.4',
+            'date': '2020-09-20',
+            'start_time': '2020-09-20T07:45:18.170427683-04:00',
+            'end_time': '2020-09-20T07:45:18.662093893-04:00',
+            'received_status': 'HTTP/1.1 403 Forbidden',
+            'error': 'Incorrect echo response',
+            'anomaly': True,
+            'success': False,
+            'stateful_block': False,
+            'is_control': True,
+            'controls_failed': True,
+            'measurement_id': '',
+            'source': 'CP_Quack-echo-2020-08-23-06-01-02',
+        },
+    ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
     rows = list(flattener.process((filename, line)))
-    self.assertEqual(len(rows), 2)
+    self.assertEqual(len(rows), 4)
 
     # Measurement ids should be the same
     self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[2]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[3]['measurement_id'])
     # But they're randomly generated,
     # so we can't test them against the full expected rows.
     rows[0]['measurement_id'] = ''
     rows[1]['measurement_id'] = ''
+    rows[2]['measurement_id'] = ''
+    rows[3]['measurement_id'] = ''
 
     self.assertListEqual(rows, expected_rows)
 
-  def test_flattenmeasurement_http_success(self) -> None:
-    """Test parsing an example successful HTTP measurement
+  def test_flattenmeasurement_echo_v2(self) -> None:
+    """Test parsing an example successful Echo v2 measurement."""
+    line = """{
+      "vp": "146.112.255.132",
+      "location": {
+        "country_name": "United States",
+        "country_code": "US"
+      },
+      "service": "echo",
+      "test_url": "104.com.tw",
+      "response": [
+        {
+          "matches_template": true,
+          "control_url": "control-9f26cf1579e1e31d.com",
+          "start_time": "2021-05-30T01:01:03.783547451-04:00",
+          "end_time": "2021-05-30T01:01:03.829470254-04:00"
+        },
+        {
+          "matches_template": true,
+          "start_time": "2021-05-30T01:01:03.829473355-04:00",
+          "end_time": "2021-05-30T01:01:03.855786298-04:00"
+        },
+        {
+          "matches_template": false,
+          "error": "dial tcp 0.0.0.0:0->204.116.44.177:7: bind: address already in use",
+          "start_time": "2021-05-30T01:01:41.43715135-04:00",
+          "end_time": "2021-05-30T01:01:41.484703377-04:00"
+        }
+      ],
+      "anomaly": true,
+      "controls_failed": false,
+      "stateful_block": false,
+      "tag": "2021-05-30T01:01:01"
+    }"""
+
+    expected_rows: List[flatten.Row] = [{
+        'domain': 'control-9f26cf1579e1e31d.com',
+        'ip': '146.112.255.132',
+        'date': '2021-05-30',
+        'start_time': '2021-05-30T01:01:03.783547451-04:00',
+        'end_time': '2021-05-30T01:01:03.829470254-04:00',
+        'anomaly': True,
+        'success': True,
+        'stateful_block': False,
+        'is_control': True,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-echo-2021-05-30-01-01-01',
+    }, {
+        'domain': '104.com.tw',
+        'ip': '146.112.255.132',
+        'date': '2021-05-30',
+        'start_time': '2021-05-30T01:01:03.829473355-04:00',
+        'end_time': '2021-05-30T01:01:03.855786298-04:00',
+        'anomaly': True,
+        'success': True,
+        'stateful_block': False,
+        'is_control': False,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-echo-2021-05-30-01-01-01',
+    }, {
+        'domain':
+            '104.com.tw',
+        'ip':
+            '146.112.255.132',
+        'date':
+            '2021-05-30',
+        'start_time':
+            '2021-05-30T01:01:41.43715135-04:00',
+        'end_time':
+            '2021-05-30T01:01:41.484703377-04:00',
+        "error":
+            "dial tcp 0.0.0.0:0->204.116.44.177:7: bind: address already in use",
+        'anomaly':
+            True,
+        'success':
+            False,
+        'stateful_block':
+            False,
+        'is_control':
+            False,
+        'controls_failed':
+            False,
+        'measurement_id':
+            '',
+        'source':
+            'CP_Quack-echo-2021-05-30-01-01-01',
+    }]
+
+    filename = 'gs://firehook-scans/echo/CP_Quack-echo-2021-05-30-01-01-01/results.json'
+
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    rows = list(flattener.process((filename, line)))
+    self.assertEqual(len(rows), 3)
+
+    # Measurement ids should be the same
+    self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[2]['measurement_id'])
+    # But they're randomly generated,
+    # so we can't test them against the full expected rows.
+    rows[0]['measurement_id'] = ''
+    rows[1]['measurement_id'] = ''
+    rows[2]['measurement_id'] = ''
+
+    self.assertListEqual(rows, expected_rows)
+
+  def test_flattenmeasurement_discard_v2(self) -> None:
+    """Test parsing an example failed Discard v2 measurement."""
+    line = """{
+      "vp": "117.78.42.54",
+      "location": {
+        "country_name": "China",
+        "country_code": "CN"
+      },
+      "service": "discard",
+      "test_url": "123rf.com",
+      "response": [
+        {
+          "matches_template": true,
+          "control_url": "control-2e116cc633eb1fbd.com",
+          "start_time": "2021-05-31T12:46:33.600692607-04:00",
+          "end_time": "2021-05-31T12:46:35.244736764-04:00"
+        },
+        {
+          "matches_template": false,
+          "response": "",
+          "error": "read tcp 141.212.123.235:11397->117.78.42.54:9: read: connection reset by peer",
+          "start_time": "2021-05-31T12:46:45.544781756-04:00",
+          "end_time": "2021-05-31T12:46:45.971628233-04:00"
+        },
+        {
+          "matches_template": true,
+          "control_url": "control-be2b77e1cde11c02.com",
+          "start_time": "2021-05-31T12:46:48.97188782-04:00",
+          "end_time": "2021-05-31T12:46:50.611808471-04:00"
+        }
+      ],
+      "anomaly": true,
+      "controls_failed": false,
+      "stateful_block": false,
+      "tag": "2021-05-31T12:43:21"
+    }"""
+
+    expected_rows: List[flatten.Row] = [{
+        'domain': 'control-2e116cc633eb1fbd.com',
+        'ip': '117.78.42.54',
+        'date': '2021-05-31',
+        'start_time': '2021-05-31T12:46:33.600692607-04:00',
+        'end_time': '2021-05-31T12:46:35.244736764-04:00',
+        'anomaly': True,
+        'success': True,
+        'stateful_block': False,
+        'is_control': True,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-discard-2021-05-31-12-43-21',
+    }, {
+        'domain':
+            '123rf.com',
+        'ip':
+            '117.78.42.54',
+        'date':
+            '2021-05-31',
+        'start_time':
+            '2021-05-31T12:46:45.544781756-04:00',
+        'end_time':
+            '2021-05-31T12:46:45.971628233-04:00',
+        'error':
+            'read tcp 141.212.123.235:11397->117.78.42.54:9: read: connection reset by peer',
+        'received_status':
+            '',
+        'anomaly':
+            True,
+        'success':
+            False,
+        'stateful_block':
+            False,
+        'is_control':
+            False,
+        'controls_failed':
+            False,
+        'measurement_id':
+            '',
+        'source':
+            'CP_Quack-discard-2021-05-31-12-43-21',
+    }, {
+        'domain': 'control-be2b77e1cde11c02.com',
+        'ip': '117.78.42.54',
+        'date': '2021-05-31',
+        'start_time': '2021-05-31T12:46:48.97188782-04:00',
+        'end_time': '2021-05-31T12:46:50.611808471-04:00',
+        'anomaly': True,
+        'success': True,
+        'stateful_block': False,
+        'is_control': True,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-discard-2021-05-31-12-43-21',
+    }]
+
+    filename = 'gs://firehook-scans/discard/CP_Quack-discard-2021-05-31-12-43-21/results.json'
+
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    rows = list(flattener.process((filename, line)))
+    self.assertEqual(len(rows), 3)
+
+    # Measurement ids should be the same
+    self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
+    self.assertEqual(rows[0]['measurement_id'], rows[2]['measurement_id'])
+    # But they're randomly generated,
+    # so we can't test them against the full expected rows.
+    rows[0]['measurement_id'] = ''
+    rows[1]['measurement_id'] = ''
+    rows[2]['measurement_id'] = ''
+
+    self.assertListEqual(rows, expected_rows)
+
+  def test_flattenmeasurement_http_success_v1(self) -> None:
+    """Test parsing an example successful HTTP v1 measurement
 
     Not all measurements recieve any data/errors,
     in that case the received_ and error fields should not exist
@@ -241,12 +542,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-11-09',
         'start_time': '2020-11-09T01:10:47.826486107-05:00',
         'end_time': '2020-11-09T01:10:47.84869292-05:00',
-        'retries': 0,
-        'sent': 'scribd.com',
-        'blocked': False,
+        'anomaly': False,
         'success': True,
-        'fail_sanity': False,
         'stateful_block': False,
+        'is_control': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2020-11-09-01-02-08',
     }
@@ -260,8 +560,8 @@ class FlattenMeasurementTest(unittest.TestCase):
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flattenmeasurement_http(self) -> None:
-    """Test parsing an unsuccessful HTTP measurement."""
+  def test_flattenmeasurement_http_v1(self) -> None:
+    """Test parsing an unsuccessful HTTP v1 measurement."""
     line = """{
       "Server":"184.50.171.225",
       "Keyword":"www.csmonitor.com",
@@ -296,8 +596,6 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-09-13',
         'start_time': '2020-09-13T01:10:57.499263112-04:00',
         'end_time': '2020-09-13T01:10:58.077524926-04:00',
-        'retries': 0,
-        'sent': 'www.csmonitor.com',
         'received_status': '301 Moved Permanently',
         'received_body': 'test body',
         'received_headers': [
@@ -309,10 +607,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': None,
         'page_signature': None,
         'error': 'Incorrect web response: status lines don\'t match',
-        'blocked': True,
+        'anomaly': True,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
+        'is_control': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-http-2020-09-13-01-02-07',
     }
@@ -325,8 +624,115 @@ class FlattenMeasurementTest(unittest.TestCase):
     row['measurement_id'] = ''
     self.assertEqual(row, expected_row)
 
-  def test_flattenmeasurement_https(self) -> None:
-    """Test parsing an unsuccessful HTTPS measurement."""
+  def test_flattenmeasurement_http_v2(self) -> None:
+    """Test parsing an unsuccessful HTTP v2 measurement."""
+    line = """{
+      "vp": "167.207.140.67",
+      "location": {
+        "country_name": "United States",
+        "country_code": "US"
+      },
+      "service": "http",
+      "test_url": "1337x.to",
+      "response": [
+        {
+          "matches_template": true,
+          "control_url": "control-a459b35b8d53c7eb.com",
+          "start_time": "2021-05-30T01:02:13.620124638-04:00",
+          "end_time": "2021-05-30T01:02:14.390201235-04:00"
+        },
+        {
+          "matches_template": false,
+          "response": {
+            "status_line": "503 Service Unavailable",
+            "headers": {
+              "Cache-Control": [
+                "no-store, no-cache"
+              ],
+              "Content-Length": [
+                "1395"
+              ],
+              "Content-Type": [
+                "text/html; charset=UTF-8"
+              ],
+              "Expires": [
+                "Thu, 01 Jan 1970 00:00:00 GMT"
+              ],
+              "P3p": [
+                "CP=\\"CAO PSA OUR\\""
+              ],
+              "Pragma": [
+                "no-cache"
+              ]
+            },
+            "body": "<html>short body for test</html>"
+          },
+          "start_time": "2021-05-30T01:02:14.390233996-04:00",
+          "end_time": "2021-05-30T01:02:15.918981416-04:00"
+        }
+      ],
+      "anomaly": true,
+      "controls_failed": false,
+      "stateful_block": false,
+      "tag": "2021-05-30T01:01:01"
+    }"""
+
+    expected_rows: List[flatten.Row] = [{
+        'domain': 'control-a459b35b8d53c7eb.com',
+        'ip': '167.207.140.67',
+        'date': '2021-05-30',
+        'start_time': '2021-05-30T01:02:13.620124638-04:00',
+        'end_time': '2021-05-30T01:02:14.390201235-04:00',
+        'anomaly': True,
+        'success': True,
+        'stateful_block': False,
+        'is_control': True,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-http-2021-05-30-01-01-01',
+    }, {
+        'domain': '1337x.to',
+        'ip': '167.207.140.67',
+        'date': '2021-05-30',
+        'start_time': '2021-05-30T01:02:14.390233996-04:00',
+        'end_time': '2021-05-30T01:02:15.918981416-04:00',
+        'received_status': '503 Service Unavailable',
+        'received_body': '<html>short body for test</html>',
+        'received_headers': [
+            'Cache-Control: no-store, no-cache', 'Content-Length: 1395',
+            'Content-Type: text/html; charset=UTF-8',
+            'Expires: Thu, 01 Jan 1970 00:00:00 GMT', 'P3p: CP=\"CAO PSA OUR\"',
+            'Pragma: no-cache'
+        ],
+        'blockpage': None,
+        'page_signature': None,
+        'anomaly': True,
+        'success': False,
+        'stateful_block': False,
+        'is_control': False,
+        'controls_failed': False,
+        'measurement_id': '',
+        'source': 'CP_Quack-http-2021-05-30-01-01-01',
+    }]
+
+    filename = 'gs://firehook-scans/http/CP_Quack-http-2021-05-30-01-01-01/results.json'
+
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    rows = list(flattener.process((filename, line)))
+    self.assertEqual(len(rows), 2)
+
+    # Measurement ids should be the same
+    self.assertEqual(rows[0]['measurement_id'], rows[1]['measurement_id'])
+    # But they're randomly generated,
+    # so we can't test them against the full expected rows.
+    rows[0]['measurement_id'] = ''
+    rows[1]['measurement_id'] = ''
+
+    self.assertListEqual(rows, expected_rows)
+
+  def test_flattenmeasurement_https_v1(self) -> None:
+    """Test parsing an unsuccessful HTTPS v1 measurement."""
     # yapf: disable
     line = """{
       "Server":"213.175.166.157",
@@ -379,8 +785,6 @@ class FlattenMeasurementTest(unittest.TestCase):
         'date': '2020-11-06',
         'start_time': '2020-11-06T15:24:21.124508839-05:00',
         'end_time': '2020-11-06T15:24:21.812075476-05:00',
-        'retries': 2,
-        'sent': 'www.arabhra.org',
         'received_status': '302 Found',
         # The received_body field in the json has a lot of unicode escapes
         # but the interpreted string in the output should not.
@@ -398,12 +802,90 @@ class FlattenMeasurementTest(unittest.TestCase):
             'X-Frame-Options: SAMEORIGIN',
         ],
         'error': 'Incorrect web response: status lines don\'t match',
-        'blocked': False,
+        'anomaly': False,
         'success': False,
-        'fail_sanity': False,
         'stateful_block': False,
+        'is_control': False,
+        'controls_failed': False,
         'measurement_id': '',
         'source': 'CP_Quack-https-2020-11-06-15-15-31',
+    }
+    # yapf: enable
+
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    row = list(flattener.process((filename, line)))[0]
+    # We can't test the measurement id because it's random
+    row['measurement_id'] = ''
+
+    self.assertEqual(row, expected_row)
+
+  def test_flattenmeasurement_https_v2(self) -> None:
+    """Test parsing an unsuccessful HTTPS v2 measurement."""
+    # yapf: disable
+    line = """{
+      "vp": "41.0.4.132",
+      "location": {
+        "country_name": "South Africa",
+        "country_code": "ZA"
+      },
+      "service": "https",
+      "test_url": "antivigilancia.org",
+      "response": [
+        {
+          "matches_template": false,
+          "response": {
+            "status_line": "200 OK",
+            "headers": {
+              "Cache-Control": [
+                "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+              ],
+              "Charset": [
+                "utf-8"
+              ]
+            },
+            "body": "<!DOCTYPE html> replaced long body",
+            "TlsVersion": 771,
+            "CipherSuite": 49199,
+            "Certificate": "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"
+          },
+          "control_url": "control-1b13950f35f3208b.com",
+          "start_time": "2021-04-26T04:38:36.78214922-04:00",
+          "end_time": "2021-04-26T04:38:39.114151569-04:00"
+        }
+      ],
+      "anomaly": false,
+      "controls_failed": true,
+      "stateful_block": false,
+      "tag": "2021-04-26T04:21:46"
+    }"""
+    # yapf: enable
+
+    filename = 'gs://firehook-scans/https/CP_Quack-https-2021-04-26-04-21-46/results.json'
+
+    # yapf: disable
+    expected_row: flatten.Row = {
+        'domain': 'control-1b13950f35f3208b.com',
+        'ip': '41.0.4.132',
+        'date': '2021-04-26',
+        'start_time': '2021-04-26T04:38:36.78214922-04:00',
+        'end_time': '2021-04-26T04:38:39.114151569-04:00',
+        'received_status': '200 OK',
+        'received_body': '<!DOCTYPE html> replaced long body',
+        'received_tls_version': 771,
+        'received_tls_cipher_suite': 49199,
+        'received_tls_cert': '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',
+        'received_headers': [
+            'Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
+            'Charset: utf-8'
+        ],
+        'anomaly': False,
+        'success': False,
+        'stateful_block': False,
+        'is_control': True,
+        'controls_failed': True,
+        'measurement_id': '',
+        'source': 'CP_Quack-https-2021-04-26-04-21-46',
     }
     # yapf: enable
 
@@ -503,7 +985,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.1.184', 'matches_control': 'ip http cert asnum asname'},
         'measurement_id': ''
@@ -513,7 +995,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.129.184', 'matches_control': 'ip http cert asnum asname'},
         'measurement_id': ''
@@ -523,7 +1005,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.193.184', 'matches_control': 'ip http cert asnum asname'},
         'measurement_id': ''
@@ -533,7 +1015,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '67.69.184.215',
         'date': '2020-09-02',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.65.184', 'matches_control': 'ip cert asnum asname'},
         'measurement_id': ''
@@ -543,7 +1025,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '145.239.6.50',
         'date': '2020-09-02',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': {'ip': '160.153.136.3', 'matches_control': ''},
         'measurement_id': ''
@@ -553,7 +1035,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '185.228.168.149',
         'date': '2020-09-02',
         'error': "no_answer",
-        'blocked': None,
+        'anomaly': None,
         'success': False,
         'received': None,
         'measurement_id': ''
@@ -566,7 +1048,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'start_time': '2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646',
         'end_time': '2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': {'ip': '104.20.161.135', 'matches_control': ''},
         'rcode': ["0", "0", "0"],
@@ -580,7 +1062,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'start_time': '2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646',
         'end_time': '2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': {'ip': '104.20.161.134', 'matches_control': ''},
         'rcode': ["0", "0", "0"],

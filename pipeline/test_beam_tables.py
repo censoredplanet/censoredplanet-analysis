@@ -401,7 +401,7 @@ class PipelineMainTest(unittest.TestCase):
           'name': 'special',
           'domain': 'signal.org',
           'error': None,
-          'blocked': False,
+          'anomaly': False,
           'success': True,
           'received': [
               {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
@@ -417,7 +417,7 @@ class PipelineMainTest(unittest.TestCase):
           'name': 'special',
           'domain': 'adl.org',
           'error': None,
-          'blocked': False,
+          'anomaly': False,
           'success': True,
           'received': [
               {'ip': '192.124.249.107', 'matches_control': 'ip'}
@@ -457,7 +457,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': [
             {'ip': '198.35.26.96', 'asname': 'WIKIMEDIA','asnum': 14907,'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10','http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca', 'matches_control': 'cert asnum asname'},
@@ -473,7 +473,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'rdns37b.ultradns.net.',
         'domain': 'www.usacasino.com',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': [
             {'ip': '15.126.193.233', 'matches_control': ''},
@@ -532,7 +532,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'name',
         'domain': 'abs-cbn.com',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
         'date': '2020-09-02'
@@ -543,7 +543,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'special',
         'domain': 'signal.org',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': [
             {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
@@ -559,7 +559,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'special',
         'domain': 'signal.org',
         'error': None,
-        'blocked': False,
+        'anomaly': False,
         'success': True,
         'received': [
             {'ip': '13.249.134.38', 'asname': 'AS1','asnum': 11111,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
@@ -608,7 +608,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'name',
         'domain': 'abs-cbn.com',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
         'date': '2020-09-02'
@@ -619,7 +619,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'name',
         'domain': 'ar.m.wikipedia.org',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': [{'ip': '198.35.26.96', 'matches_control': ''}],
         'date': '2020-09-02'
@@ -630,7 +630,7 @@ class PipelineMainTest(unittest.TestCase):
         'name': 'special',
         'domain': 'signal.org',
         'error': None,
-        'blocked': True,
+        'anomaly': True,
         'success': True,
         'received': [
             {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},

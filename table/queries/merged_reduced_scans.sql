@@ -122,7 +122,7 @@ WITH
   AllScans AS (
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     "DISCARD" AS source,
     country,
     netblock,
@@ -135,7 +135,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     "ECHO" AS source,
     country,
     netblock,
@@ -148,7 +148,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     "HTTP" AS source,
     country,
     netblock,
@@ -161,7 +161,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     "HTTPS" AS source,
     country,
     netblock,

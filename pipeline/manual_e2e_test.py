@@ -55,15 +55,19 @@ JOB_NAME = 'manual_test_job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/http_results.json',
-      'pipeline/e2e_test_data/https_results.json'
+      'pipeline/e2e_test_data/http_results_v1.json',
+      'pipeline/e2e_test_data/http_results_v2.json',
+      'pipeline/e2e_test_data/https_results_v1.json',
+      'pipeline/e2e_test_data/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/discard_results.json',
-      'pipeline/e2e_test_data/echo_results.json'
+      'pipeline/e2e_test_data/discard_results_v1.json',
+      'pipeline/e2e_test_data/discard_results_v2.json',
+      'pipeline/e2e_test_data/echo_results_v1.json',
+      'pipeline/e2e_test_data/echo_results_v2.json'
   ]
 
 
@@ -153,7 +157,7 @@ def get_bq_rows(client: cloud_bigquery.Client, table_name: str) -> List:
 class PipelineManualE2eTest(unittest.TestCase):
   """Manual tests that require access to cloud project resources."""
 
-  def test_pipeline_e2e(self) -> None:
+  def test_hyperquack_pipeline_e2e(self) -> None:
     """Test the full pipeline by running it twice locally on a few files."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
@@ -163,27 +167,47 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline(incremental=False)
 
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 28)
+      self.assertEqual(len(written_rows), 61)
 
       run_local_pipeline(incremental=True)
 
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 53)
+      self.assertEqual(len(written_rows), 110)
 
       # Domain appear different numbers of times in the test table depending on
       # how their measurement succeeded/failed.
       expected_single_domains = [
           'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
-          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info'
+          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info',
+          'control-28f3538a12dcd07e.com', 'control-2aed3d1eae675e01.com',
+          'control-2e116cc633eb1fbd.com', 'control-2fa1129e0ced3941.com',
+          'control-3346cfc3f6ba4d5e.com', 'control-5e01baa8e02fd6cf.com',
+          'control-7d00e0a5b4f9ebac.com', 'control-871d61ac277df48c.com',
+          'control-8a43da6690421398.com', 'control-8c258f2d90e104.com',
+          'control-97b36316feffeed9.com', 'control-9e1c7dca7bd10e0a.com',
+          'control-a3fa2c2977b9c77.com', 'control-a459b35b8d53c7eb.com',
+          'control-ad88d13fb7c5b656.com', 'control-b2849cd760ca4fca.com',
+          'control-be2b77e1cde11c02.com', 'control-d29fb22f62c2bd40.com',
+          'control-db579422b821f74b.com', 'control-dd8e504254d52549.com',
+          'control-e1c5ab5ba568f444.com', 'control-e243174b2299d39e.com',
+          'control-ec72f7d094d37572.com'
       ]
-      expected_triple_domains = ['www.arabhra.org']
-      expected_sextuple_domains = [
-          'discover.com', 'peacefire.org', 'secondlife.com', 'www.89.com',
-          'www.casinotropez.com', 'www.epa.gov', 'www.sex.com'
+      expected_triple_domains = [
+          'www.arabhra.org', 'rtyutgyhefdafioasfjhjhi.com'
       ]
+      expected_quad_domains = [
+          '123rf.com', '1337x.to', 'www.youporn.com', 'xhamster.com',
+          'example5718349450314.com'
+      ]
+      expected_quintuple_domains = [
+          'discover.com', 'peacefire.org', 'secondlife.com', 'www.epa.gov',
+          'www.sex.com', 'www.89.com', 'www.casinotropez.com'
+      ]
+      expected_18_domain = ['104.com.tw']
       all_expected_domains = (
           expected_single_domains + expected_triple_domains * 3 +
-          expected_sextuple_domains * 6)
+          expected_quad_domains * 4 + expected_quintuple_domains * 5 +
+          expected_18_domain * 18)
 
       written_domains = [row[0] for row in written_rows]
       self.assertListEqual(
