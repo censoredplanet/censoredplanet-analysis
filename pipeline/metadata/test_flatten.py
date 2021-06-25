@@ -37,6 +37,22 @@ class FlattenMeasurementTest(unittest.TestCase):
     self.assertEqual("www.bbc.co.uk",
                      flatten._extract_domain_from_sent_field(sent))
 
+  def test_extract_url_from_sent_field(self) -> None:
+    """Test parsing full url from sent field in echo and discard tests."""
+    sent = "GET /videos/news/fresh-incidents-of-violence-in-assam/videoshow/15514015.cms HTTP/1.1\r\nHost: timesofindia.indiatimes.com\r\n"
+    self.assertEqual(
+        "timesofindia.indiatimes.com/videos/news/fresh-incidents-of-violence-in-assam/videoshow/15514015.cms",
+        flatten._extract_domain_from_sent_field(sent))
+
+  def test_extract_url_from_sent_field_error(self) -> None:
+    """Test parsing full url from sent field in echo and discard tests."""
+    # This sent format is an error
+    # but it appears in the data, so we parse it.
+    sent = "GET www.guaribas.pi.gov.br HTTP/1.1\r\nHost: /portal1/intro.asp?iIdMun=100122092\r\n"
+    self.assertEqual(
+        "www.guaribas.pi.gov.br/portal1/intro.asp?iIdMun=100122092",
+        flatten._extract_domain_from_sent_field(sent))
+
   def test_extract_domain_from_sent_field_http(self) -> None:
     """Test parsing url from sent field for HTTP/S"""
     sent = "www.apple.com"
