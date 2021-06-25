@@ -43,6 +43,21 @@ To test an appending data reload. (This requires a table to already exist):
 
 Options for `scan_type` are `echo`, `discard`, `http`, `https` and `satellite`
 
+To test specific dates run a pipeline like
+
+`python -m pipeline.run_beam_tables --env=user --scan_type=http --start_date=2021-01-01 --end_date=2021-01-30`
+
+If only `start_date` is specified the pipeline will run from that date until
+the latest data.
+
+If only `end_date` is specified the pipeline will run from the earliest data
+to that date.
+
+If neither is specified the pipeline will automatically pick some reasonable
+dates to help avoid unintentially running test pipelines over large amounts of
+data. For appending pipelines this will be the latest week of data, and for
+full pipelines it will be the previous week of data.
+
 ## Access
 
 If you're authenticating to `firehook-censoredplanet` as the user represented

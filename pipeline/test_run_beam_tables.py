@@ -14,6 +14,7 @@
 """Test top-level runner for beam pipelines."""
 
 import argparse
+from collections import namedtuple
 import datetime
 import unittest
 from unittest.mock import call, patch, MagicMock
@@ -52,7 +53,7 @@ class RunBeamTablesTest(unittest.TestCase):
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'laplante',
-                                           ['http', 'https'], False)
+                                           ['http', 'https'], False, None, None)
 
     call1 = call('http', False, 'write-laplante-http-scan',
                  'laplante.http_scan', None, None)
@@ -66,7 +67,8 @@ class RunBeamTablesTest(unittest.TestCase):
     """Test running a user pipeline with automatically chosen dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
-    run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], False)
+    run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], False,
+                                       None, None)
 
     mock_runner.run_beam_pipeline.assert_called_with(
         'echo', False, 'write-laplante-echo-scan', 'laplante.echo_scan',
@@ -77,19 +79,37 @@ class RunBeamTablesTest(unittest.TestCase):
     """Test running a user pipeline with automatic incremental dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
-    run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], True)
+    run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], True,
+                                       None, None)
 
     mock_runner.run_beam_pipeline.assert_called_with(
         'echo', True, 'append-laplante-echo-scan', 'laplante.echo_scan',
         datetime.date(2020, 1, 8), datetime.date(2020, 1, 15))
 
-  def test_main(self) -> None:
-    """Test arg parsing."""
+  def test_run_user_pipeline_dated(self) -> None:
+    """Test running a user pipeline with automatic incremental dates."""
+    mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+
+    run_beam_tables.run_user_pipelines(mock_runner, 'laplante', ['echo'], True,
+                                       datetime.date(2021, 1, 8),
+                                       datetime.date(2021, 1, 15))
+
+    mock_runner.run_beam_pipeline.assert_called_with(
+        'echo', True, 'append-laplante-echo-scan', 'laplante.echo_scan',
+        datetime.date(2021, 1, 8), datetime.date(2021, 1, 15))
+
+  def test_main_prod(self) -> None:
+    """Test arg parsing for prod pipelines."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
                lambda: mock_runner):
-      args = argparse.Namespace(full=False, scan_type='all', env='prod')
+      args = argparse.Namespace(
+          full=False,
+          scan_type='all',
+          env='prod',
+          start_date=None,
+          end_date=None)
       run_beam_tables.main(args)
 
       call1 = call('echo', True, 'append-base-echo-scan', 'base.echo_scan',
@@ -104,6 +124,72 @@ class RunBeamTablesTest(unittest.TestCase):
           [call1, call2, call3, call4], any_order=True)
       # No extra calls
       self.assertEqual(4, mock_runner.run_beam_pipeline.call_count)
+
+  @patch('pwd.getpwuid', lambda x: namedtuple('mock_uid', ['pw_name'])
+         ('laplante'))
+  def test_main_user_dates(self) -> None:
+    """Test arg parsing for a user pipeline with dates."""
+    mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+
+    with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
+               lambda: mock_runner):
+      args = argparse.Namespace(
+          full=False,
+          scan_type='echo',
+          env='user',
+          start_date=datetime.date(2021, 1, 8),
+          end_date=datetime.date(2021, 1, 15))
+      run_beam_tables.main(args)
+
+      call1 = call('echo', True, 'append-laplante-echo-scan',
+                   'laplante.echo_scan', datetime.date(2021, 1, 8),
+                   datetime.date(2021, 1, 15))
+      mock_runner.run_beam_pipeline.assert_has_calls([call1])
+      self.assertEqual(1, mock_runner.run_beam_pipeline.call_count)
+
+  @freeze_time('2020-01-15')
+  @patch('pwd.getpwuid', lambda x: namedtuple('mock_uid', ['pw_name'])
+         ('laplante'))
+  def test_main_user_no_dates(self) -> None:
+    """Test arg parsing for a user pipeline with no dates."""
+    mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+
+    with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
+               lambda: mock_runner):
+      args = argparse.Namespace(
+          full=False,
+          scan_type='echo',
+          env='user',
+          start_date=None,
+          end_date=None)
+      run_beam_tables.main(args)
+
+      call1 = call('echo', True, 'append-laplante-echo-scan',
+                   'laplante.echo_scan', datetime.date(2020, 1, 8),
+                   datetime.date(2020, 1, 15))
+      mock_runner.run_beam_pipeline.assert_has_calls([call1])
+      self.assertEqual(1, mock_runner.run_beam_pipeline.call_count)
+
+  @patch('pwd.getpwuid', lambda x: namedtuple('mock_uid', ['pw_name'])
+         ('laplante'))
+  def test_main_user_mixed_dates(self) -> None:
+    """Test arg parsing for a user pipeline with one date specified."""
+    mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+
+    with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
+               lambda: mock_runner):
+      args = argparse.Namespace(
+          full=False,
+          scan_type='echo',
+          env='user',
+          start_date=datetime.date(2021, 1, 8),
+          end_date=None)
+      run_beam_tables.main(args)
+
+      call1 = call('echo', True, 'append-laplante-echo-scan',
+                   'laplante.echo_scan', datetime.date(2021, 1, 8), None)
+      mock_runner.run_beam_pipeline.assert_has_calls([call1])
+      self.assertEqual(1, mock_runner.run_beam_pipeline.call_count)
 
   # pylint: enable=no-self-use
 
