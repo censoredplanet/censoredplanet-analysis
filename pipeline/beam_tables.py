@@ -1028,7 +1028,8 @@ class ScanDataBeamPipelineRunner():
     new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
                                        table_name, start_date, end_date)
     if not new_filenames:
-      logging.info('No new files to load incrementally')
+      logging.info('No new files to load')
+      return
 
     with beam.Pipeline(options=pipeline_options) as p:
       # PCollection[Tuple[filename,line]]
