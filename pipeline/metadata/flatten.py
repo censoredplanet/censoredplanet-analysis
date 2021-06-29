@@ -25,12 +25,8 @@ SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 
 # For Hyperquack v1
-SENT_PATTERNS = [
-    "GET / HTTP/1.1\r\nHost: (.*)\r\n",  # echo/discard
-    # some historical discard probes sent this pattern in error
-    # TODO should this pattern return None since it's not a valid test?
-    "GET (.*) HTTP/1.1\r\nHost: /\r\n"  # discard error
-]
+# echo/discard domain and url content
+SENT_PATTERN = "GET (.*) HTTP/1.1\r\nHost: (.*)\r\n"
 
 # For Hyperquack v1
 CONTROL_URLS = [
@@ -90,7 +86,7 @@ def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
 
       "" meaning the sent packet wasn't recorded.
       "GET / HTTP/1.1\r\nHost: example5718349450314.com\r\n" (echo/discard)
-      "GET www.bbc.co.uk HTTP/1.1\r\nHost: /\r\n" (discard error)
+      "GET www.bbc.co.uk HTTP/1.1\r\nHost: /content.html\r\n" (discard error)
       or just "www.apple.com" (HTTP/S)
 
     Returns: just the url or None
@@ -98,10 +94,21 @@ def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
   if sent == '':
     return None
 
-  for pattern in SENT_PATTERNS:
-    match = re.search(pattern, sent)
-    if match:
-      return match.group(1)
+  match = re.search(SENT_PATTERN, sent)
+  if match:
+    path = match.group(1)
+    domain = match.group(2)
+
+    # This is a bug where the domain and path were reversed in content sent.
+    # We do our best to reconstruct the intended url
+    # by swapping them to their intended position
+    # TODO should we do something else instead because the test is invalid?
+    if domain[0] == '/':
+      domain, path = path, domain
+
+    if path == '/':
+      return domain
+    return domain + path
 
   if ' ' not in sent:
     return sent
