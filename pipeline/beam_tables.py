@@ -682,6 +682,7 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
         new_row['received'].update(ip_metadata)
         new_row['received'].pop('date', None)
         new_row['received'].pop('name', None)
+        new_row['received'].pop('country', None)
     else:
       new_row.update(ip_metadata)
     yield new_row
