@@ -50,13 +50,12 @@ SCAN_BIGQUERY_SCHEMA = {
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
-    'retries': ('integer', 'nullable'),
-    'sent': ('string', 'nullable'),
     'error': ('string', 'nullable'),
-    'blocked': ('boolean', 'nullable'),
+    'anomaly': ('boolean', 'nullable'),
     'success': ('boolean', 'nullable'),
-    'fail_sanity': ('boolean', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
+    'is_control': ('boolean', 'nullable'),
+    'controls_failed': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
     'blockpage': ('boolean', 'nullable'),
@@ -447,11 +446,11 @@ def _post_processing_satellite(
       yield (row, num_control_tags)
 
   # Partition rows into test measurements and control measurements
-  # 'blocked' is None for control measurements
+  # 'anomaly' is None for control measurements
   rows, controls = (
       rows | 'key by dates and domains' >> beam.Map(lambda row: (
           (row['date'], row['domain']), row)) | 'partition test and control' >>
-      beam.Partition(lambda row, p: int(row[1]['blocked'] is None), 2))
+      beam.Partition(lambda row, p: int(row[1]['anomaly'] is None), 2))
 
   num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(
       _total_tags)
@@ -596,7 +595,7 @@ def _calculate_confidence(scan: Dict[str, Any],
   scan['confidence'] = confidence
   # Sanity check for untagged responses: do not claim interference
   if confidence['untagged_response'] or confidence['untagged_controls']:
-    scan['blocked'] = False
+    scan['anomaly'] = False
   return scan
 
 
@@ -615,7 +614,7 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
       'excluded': None,
       'exclude_reason': None,
   }
-  if scan['blocked']:
+  if scan['anomaly']:
     scan['verify']['excluded'] = False
     reasons = []
     # Check received IPs for false positive reasons

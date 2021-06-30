@@ -24,13 +24,17 @@ CREATE TEMP FUNCTION CleanError(error STRING) AS (
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
-# Source is one of "ECHO", "Discard, "HTTP", "HTTPS"
+# Source is one of "ECHO", "DISCARD, "HTTP", "HTTPS"
 #
 # Output is a string of the format "stage/outcome"
 # Documentation of this enum is at
 # https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
-CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
+CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING, template_match BOOL) AS (
   CASE
+    # Content mismatch for hyperquack v2 which doesn't write
+    # content verification failures in the error field.
+    WHEN (NOT template_match AND (error is NULL OR error = "")) then "content/template_mismatch"
+
     # Success
     WHEN (error is NULL OR error = "") then "complete/success"
 
@@ -57,6 +61,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
     WHEN ENDS_WITH(error, "readLoopPeekFailLocked: <nil>") THEN "tls/tls.failed"
     WHEN ENDS_WITH(error, "missing ServerKeyExchange message") THEN "tls/tls.failed"
     WHEN ENDS_WITH(error, "no mutual cipher suite") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "TLS handshake timeout") THEN "tls/timeout"
 
     # Write failures
     WHEN ENDS_WITH(error, "write: connection reset by peer") THEN "write/tcp.reset"
@@ -68,12 +73,12 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING) AS (
     WHEN ENDS_WITH(error, "shutdown: transport endpoint is not connected") THEN "read/system"
     # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
     # find a way to diffentiate this case.
-    WHEN ENDS_WITH(error, "read: connection reset by peer") THEN "read/tcp.reset"
+    WHEN REGEXP_CONTAINS(error, "read: connection reset by peer") THEN "read/tcp.reset"
 
     # HTTP content verification failures
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "unexpected EOF")) THEN "read/http.truncated_response"
     WHEN (source != "ECHO" AND REGEXP_CONTAINS(error, "EOF")) THEN "read/http.empty"
-    WHEN ENDS_WITH(error, "http: server closed idle connection") THEN "read/http.truncated_response"
+    WHEN REGEXP_CONTAINS(error, "http: server closed idle connection") THEN "read/http.truncated_response"
     WHEN ENDS_WITH(error, "trailer header without chunked transfer encoding") THEN "http/http.invalid"
     WHEN ENDS_WITH(error, "response missing Location header") THEN "http/http.invalid"
     WHEN REGEXP_CONTAINS(error, "bad Content-Length") THEN "http/http.invalid"
@@ -122,12 +127,12 @@ WITH
   AllScans AS (
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     "DISCARD" AS source,
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "DISCARD") as outcome,
+    ClassifyError(error, "DISCARD", success) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.discard_scan`
   GROUP BY date, source, country, domain, netblock, result, outcome
@@ -135,12 +140,12 @@ WITH
   UNION ALL
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     "ECHO" AS source,
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "ECHO") as outcome,
+    ClassifyError(error, "ECHO", success) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.echo_scan`
   GROUP BY date, source, country, domain, netblock, result, outcome
@@ -148,12 +153,12 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     "HTTP" AS source,
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTP") as outcome,
+    ClassifyError(error, "HTTP", success) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.http_scan`
   GROUP BY date, source, country, domain, netblock, result, outcome
@@ -161,12 +166,12 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     "HTTPS" AS source,
     country,
     netblock,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTPS") as outcome,
+    ClassifyError(error, "HTTPS", success) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.https_scan`
   GROUP BY date, source, country, domain, netblock, result, outcome

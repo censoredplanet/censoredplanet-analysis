@@ -29,7 +29,7 @@ WITH
   AllScans AS (
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     ip,
     "DISCARD" AS source,
     error,
@@ -42,7 +42,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    if(sent != "", TRIM(REGEXP_EXTRACT(sent, "Host: (.*)")), domain) as domain,
+    domain,
     ip,
     "ECHO" AS source,
     error,
@@ -55,7 +55,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     ip,
     "HTTP" AS source,
     error,
@@ -68,7 +68,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    IF(domain != sent AND sent != "", sent, domain) AS domain,
+    domain,
     ip,
     "HTTPS" AS source,
     error,
