@@ -117,7 +117,10 @@ Mismatch Errors are used when the connection is successful, but the content rece
 |                         |
 | **Mismatch Errors**     | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
 |                         |
+| HyperQuack v1 only      |
 | response_mismatch       | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. |
 | status_mismatch         | The HTTP status code didn't match, eg. `403` instead of `200` |
 | body_mismatch           | The HTTP body didn't match, potentially a blockpage |
 | tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
+| HyperQuack v1 and v2    |
+| template_mismatch       | Some element of the response did not match the expected template |
