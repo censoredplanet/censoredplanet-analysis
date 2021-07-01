@@ -50,6 +50,7 @@ SCAN_BIGQUERY_SCHEMA = {
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
     'error': ('string', 'nullable'),
+    'outcome': ('string', 'nullable'),
     'anomaly': ('boolean', 'nullable'),
     'success': ('boolean', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
@@ -77,6 +78,8 @@ SCAN_BIGQUERY_SCHEMA = {
     'as_full_name': ('string', 'nullable'),
     'as_class': ('string', 'nullable'),
     'country': ('string', 'nullable'),
+    # Clolumns from DBIP
+    'organization': ('string', 'nullable'),
 }
 # Future fields
 """
@@ -718,7 +721,8 @@ class ScanDataBeamPipelineRunner():
   def __init__(self, project: str, bucket: str, staging_location: str,
                temp_location: str, caida_ip_metadata_class: type,
                caida_ip_metadata_bucket_folder: str, maxmind_class: type,
-               maxmind_bucket_folder: str) -> None:
+               maxmind_bucket_folder: str, dbip_class: type,
+               dbip_bucket_folder: str) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -730,6 +734,8 @@ class ScanDataBeamPipelineRunner():
       caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
       maxmind_class: an IpMetadataInterface subclass (class, not instance)
       maxmind_bucket_folder: gcs folder with maxmind files
+      dbip_class: a DbipMetadata class (class, not instance)
+      dbip_bucket_folder: gcs folder with dbip files
     """
     self.project = project
     self.bucket = bucket
@@ -742,6 +748,9 @@ class ScanDataBeamPipelineRunner():
     # Maxmind is also too big to pass around
     self.maxmind_class = maxmind_class
     self.maxmind_bucket_folder = maxmind_bucket_folder
+    # DBIP is also too big to pass around
+    self.dbip_class = dbip_class
+    self.dbip_bucket_folder = dbip_bucket_folder
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -879,6 +888,7 @@ class ScanDataBeamPipelineRunner():
         datetime.date.fromisoformat(date), self.caida_ip_metadata_bucket_folder,
         True)
     maxmind_db = self.maxmind_class(self.maxmind_bucket_folder)
+    dbip_db = self.dbip_class(self.dbip_bucket_folder)
 
     for ip in ips:
       metadata_key = (date, ip)
@@ -894,6 +904,11 @@ class ScanDataBeamPipelineRunner():
             'as_class': as_type,
             'country': country,
         }
+
+        org = dbip_db.get_org(ip)
+        if org:
+          metadata_values['organization'] = org
+
         if not metadata_values['country']:  # try Maxmind
           (netblock, asn, as_name, as_full_name, as_type,
            country) = maxmind_db.lookup(ip)
