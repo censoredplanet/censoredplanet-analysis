@@ -389,7 +389,6 @@ class FlattenMeasurement(beam.DoFn):
 
     if not received_ips:
       yield row
-      return
 
     for ip in received_ips:
       row['received'] = {'ip': ip}
