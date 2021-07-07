@@ -127,7 +127,7 @@ WITH
   AllScans AS (
   SELECT
     date,
-    domain,
+    IF(is_control, "CONTROL", domain) as domain,
     "DISCARD" AS source,
     country,
     netblock,
@@ -140,7 +140,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    domain,
+    IF(is_control, "CONTROL", domain) as domain,
     "ECHO" AS source,
     country,
     netblock,
@@ -153,7 +153,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    domain,
+    IF(is_control, "CONTROL", domain) as domain,
     "HTTP" AS source,
     country,
     netblock,
@@ -166,7 +166,7 @@ WITH
   UNION ALL
   SELECT
     date,
-    domain,
+    IF(is_control, "CONTROL", domain) as domain,
     "HTTPS" AS source,
     country,
     netblock,
