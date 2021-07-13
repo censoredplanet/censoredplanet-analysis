@@ -2021,9 +2021,10 @@ DOMAINS = {
     "zoom.us": 2015
 }
 
-DOMAIN_PARTITIONS = 100
+DOMAIN_PARTITIONS = 200
 
 
 def domain_partition(domain: str) -> int:
-  return DOMAINS.get(domain, randint(0,
-                                     DOMAIN_PARTITIONS - 1)) % DOMAIN_PARTITIONS
+  return hash(domain) % DOMAIN_PARTITIONS
+  #return DOMAINS.get(domain, randint(0,
+  #                                   DOMAIN_PARTITIONS - 1)) % DOMAIN_PARTITIONS

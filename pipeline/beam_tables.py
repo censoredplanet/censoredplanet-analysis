@@ -116,7 +116,7 @@ SCAN_TYPES_TO_ZONES = {
     'http': 'us-east4',
     'echo': 'us-west1',
     'discard': 'us-central1',
-    'satellite': 'us-west2'
+    'satellite': 'us-west3'
 }
 
 ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
