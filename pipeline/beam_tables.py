@@ -368,6 +368,7 @@ def _add_satellite_tags(
           lambda row: (_make_date_received_ip_key(row), row)).with_output_types(
               Tuple[DateIpKey, Row]))
 
+  # Iterable[PCollection[Tuple[DateIpKey,Row]]]
   partition_by_domain = (
       received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
           lambda keyed_row, p: domain_partition(keyed_row[1].get('domain')),
@@ -380,11 +381,11 @@ def _add_satellite_tags(
     grouped_received_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: elements
-    }) | 'group by received ip keys {0}'.format(i) >> beam.CoGroupByKey())
+    }) | f'group by received ip keys {i}' >> beam.CoGroupByKey())
 
     # PCollection[Row]
     domain_rows_with_tags = (
-        grouped_received_metadata_and_rows | 'tag received ips {0}'.format(i) >>
+        grouped_received_metadata_and_rows | f'tag received ips {i}' >>
         beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(
             k, v, field='received')).with_output_types(Row))
 
@@ -490,7 +491,8 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
       if received:
         combined['received'].append(received)
     combined.pop('measurement_id')
-    # temp fix to remove extra vantage point tags
+    # Remove extra tag fields from the measurement. These may be added
+    # during the tagging step if a vantage point also appears as a response IP.
     for tag in {'asname', 'asnum', 'http', 'cert'}:
       combined.pop(tag, None)
     yield combined
