@@ -371,8 +371,8 @@ def _add_satellite_tags(
   # Iterable[PCollection[Tuple[DateIpKey,Row]]]
   partition_by_domain = (
       received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
-          lambda keyed_row, p: hash(keyed_row[1].get('domain')) % DOMAIN_PARTITIONS,
-          DOMAIN_PARTITIONS))
+          lambda keyed_row, p: hash(keyed_row[1].get('domain')) %
+          DOMAIN_PARTITIONS, DOMAIN_PARTITIONS))
 
   collections = []
   for i in range(0, DOMAIN_PARTITIONS):
