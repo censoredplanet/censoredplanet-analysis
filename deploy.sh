@@ -71,7 +71,7 @@ elif [[ "${action}" == "prod" ]]; then
   # If the instance already exists
   if gcloud compute instances list --project ${project} | grep -q ${project}; then
     # update
-    gcloud compute instances update-container ${project} \
+    gcloud compute instances update-container ${project} --zone ${zone} \
     --container-image gcr.io/${project}/pipeline:latest --project ${project}
   else
     # otherwise create a new instance
