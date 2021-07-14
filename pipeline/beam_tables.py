@@ -29,7 +29,6 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.lookup_country_code import country_name_to_code
-from pipeline.lookup_domain import domain_partition, DOMAIN_PARTITIONS
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
 
@@ -127,6 +126,7 @@ ROWS_PCOLLECION_NAME = 'rows'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
+DOMAIN_PARTITIONS = 250
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
@@ -371,7 +371,7 @@ def _add_satellite_tags(
   # Iterable[PCollection[Tuple[DateIpKey,Row]]]
   partition_by_domain = (
       received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
-          lambda keyed_row, p: domain_partition(keyed_row[1].get('domain')),
+          lambda keyed_row, p: hash(keyed_row[1].get('domain')) % DOMAIN_PARTITIONS,
           DOMAIN_PARTITIONS))
 
   collections = []
