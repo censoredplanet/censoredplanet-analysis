@@ -36,6 +36,8 @@ action=$1
 project="firehook-censoredplanet"
 # Int id of a cloud service account with the correct access permissions
 service_account_id="654632410498"
+# GCP zone to deploy to
+zone="us-east1-b"
 
 if [[ "${action}" == "local" ]]; then
   docker build --tag ${project} .
@@ -55,33 +57,33 @@ if [[ "${action}" == "local" ]]; then
 elif [[ "${action}" == "prod" ]]; then
   # For builders outside the VPC security perimeter the build will succeed
   # but throw a logging error, so we ignore errors here
-  gcloud builds submit . --tag gcr.io/${project}/pipeline || true
+  gcloud builds submit . --tag gcr.io/${project}/pipeline --project ${project} || true
 
   # Instead check that the latest build succeeded
-  if gcloud builds list --limit=1 | grep SUCCESS; then
+  if gcloud builds list --limit=1 --project ${project} | grep SUCCESS; then
     echo "Latest build was successful"
   else
     echo "Latest build did not succeed"
-    gcloud builds list --limit=1
+    gcloud builds list --limit=1 --project ${project}
     exit 1
   fi
 
   # If the instance already exists
-  if gcloud compute instances list | grep -q ${project}; then
+  if gcloud compute instances list --project ${project} | grep -q ${project}; then
     # update
-    gcloud compute instances update-container ${project} \
-    --container-image gcr.io/${project}/pipeline:latest
+    gcloud compute instances update-container ${project} --zone ${zone} \
+    --container-image gcr.io/${project}/pipeline:latest --project ${project}
   else
     # otherwise create a new instance
     gcloud compute instances create-with-container ${project} \
     --container-image gcr.io/${project}/pipeline:latest \
-    --machine-type e2-highmem-4 --zone us-east1-b --boot-disk-size 50GB \
+    --machine-type e2-highmem-4 --zone ${zone} --boot-disk-size 50GB \
     --service-account ${service_account_id}-compute@developer.gserviceaccount.com \
-    --scopes=bigquery,cloud-platform,default
+    --scopes=bigquery,cloud-platform,default --project ${project}
   fi
 
 elif [[ "${action}" == "delete" ]]; then
-  gcloud compute instances delete ${project}
+  gcloud compute instances delete ${project} --project ${project} --zone ${zone}
 
 else
   echo "Unknown action ${action}"
