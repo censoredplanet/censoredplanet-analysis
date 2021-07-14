@@ -78,6 +78,21 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
+def format_timestamp(timestamp: str) -> str:
+  """Format the timestamp in ISO8601 format for BigQuery.
+
+  Args:
+    timestamp: Satellite format timestamp
+      "2021-04-18 14:49:01.62448452 -0400 EDT m=+10140.555964129"
+
+  Returns:
+    ISO8601 formatted string "2021-04-18T14:49:01.62448452-04:00"
+  """
+  elements = timestamp.split()
+  return '{0}T{1}{2}:{3}'.format(elements[0], elements[1], elements[2][0:-2],
+                                 elements[2][-2:])
+
+
 def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
   """Get the url out of a 'sent' field in a measurement.
 
@@ -337,14 +352,15 @@ class FlattenMeasurement(beam.DoFn):
     row = {
         'domain': scan['test_url'],
         'ip': scan['vp'],
-        'country': scan['location']['country_code'],
+        'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
-        'start_time': scan['start_time'],
-        'end_time': scan['end_time'],
+        'start_time': format_timestamp(scan['start_time']),
+        'end_time': format_timestamp(scan['end_time']),
         'error': scan.get('error', None),
         'anomaly': scan['anomaly'],
         'success': not scan['connect_error'],
         'received': None,
+        'rcode': [],
         'measurement_id': random_measurement_id
     }
     received_ips = scan.get('response')
@@ -367,7 +383,13 @@ class FlattenMeasurement(beam.DoFn):
 
     # separate into one answer ip per row for tagging
     if 'rcode' in received_ips:
-      row['rcode'] = received_ips.pop('rcode', None)
+      row['rcode'] = received_ips.pop('rcode', [])
+    if 'error' in received_ips:
+      row['error'] = ' | '.join(received_ips.pop('error', []))
+
+    if not received_ips:
+      yield row
+
     for ip in received_ips:
       row['received'] = {'ip': ip}
       if row['anomaly']:

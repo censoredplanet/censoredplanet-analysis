@@ -81,6 +81,14 @@ def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   ]
 
 
+def local_data_to_load_satellite_v2(*_: List[Any]) -> List[str]:
+  return [
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_resolvers.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_responses.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json'
+  ]
+
+
 def local_data_to_load_invalid(*_: List[Any]) -> List[str]:
   return ['pipeline/e2e_test_data/invalid_results.json']
 
@@ -125,6 +133,18 @@ def run_local_pipeline_satellite() -> None:
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
+
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+                                None, None)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v2() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
@@ -231,6 +251,30 @@ class PipelineManualE2eTest(unittest.TestCase):
       all_expected_domains = [
           'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
           'www.usacasino.com'
+      ]
+
+      written_domains = [row[0] for row in written_rows]
+      self.assertListEqual(
+          sorted(written_domains), sorted(all_expected_domains))
+
+    finally:
+      clean_up_bq_table(client, BQ_TEST_TABLE)
+
+  def test_satellite_v2_pipeline_e2e(self) -> None:
+    """Test the satellite v2 pipeline by running it locally."""
+    # Suppress some unittest socket warnings in beam code we don't control
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = cloud_bigquery.Client()
+
+    try:
+      run_local_pipeline_satellite_v2()
+
+      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      self.assertEqual(len(written_rows), 4)
+
+      all_expected_domains = [
+          'www.americorps.gov', 'custhelp.com', 'www.mainichi.co.jp',
+          'www.unwatch.org'
       ]
 
       written_domains = [row[0] for row in written_rows]

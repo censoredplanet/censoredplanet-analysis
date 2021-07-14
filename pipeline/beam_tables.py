@@ -126,10 +126,10 @@ ROWS_PCOLLECION_NAME = 'rows'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
+DOMAIN_PARTITIONS = 250
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
-# TODO: check date for v1 vs. v2
 SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
@@ -362,30 +362,56 @@ def _add_satellite_tags(
 
   # 2. Add tags for answer ips (field received.ip) - asnum, asname, http, cert
 
+  # PCollection[Tuple[DateIpKey,Row]]
   received_keyed_by_ip_and_date = (
-      rows_with_metadata |
-      'key by received ips and dates' >> beam.Map(lambda row: (
-          (row['date'], row['received']['ip']), row)).with_output_types(
+      rows_with_metadata | 'key by received ips and dates' >> beam.Map(
+          lambda row: (_make_date_received_ip_key(row), row)).with_output_types(
               Tuple[DateIpKey, Row]))
 
-  grouped_received_metadata_and_rows = (({
-      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: received_keyed_by_ip_and_date
-  }) | 'group by received ip keys' >> beam.CoGroupByKey())
+  # Iterable[PCollection[Tuple[DateIpKey,Row]]]
+  partition_by_domain = (
+      received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
+          lambda keyed_row, p: hash(keyed_row[1].get('domain')) %
+          DOMAIN_PARTITIONS, DOMAIN_PARTITIONS))
 
+  collections = []
+  for i in range(0, DOMAIN_PARTITIONS):
+    elements = partition_by_domain[i]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    grouped_received_metadata_and_rows = (({
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: elements
+    }) | f'group by received ip keys {i}' >> beam.CoGroupByKey())
+
+    # PCollection[Row]
+    domain_rows_with_tags = (
+        grouped_received_metadata_and_rows | f'tag received ips {i}' >>
+        beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(
+            k, v, field='received')).with_output_types(Row))
+
+    collections.append(domain_rows_with_tags)
+
+  # PCollection[Row]
   rows_with_tags = (
-      grouped_received_metadata_and_rows | 'tag received ips' >>
-      beam.FlatMapTuple(lambda k, v: _merge_metadata_with_rows(
-          k, v, field='received')).with_output_types(Row))
+      collections |
+      'merge domain collections' >> beam.Flatten().with_output_types(Row))
 
   # 3. Measurements are currently flattened to one answer IP per row ->
   #    Unflatten so that each row contains a array of answer IPs
 
-  unflattened_rows = (
+  # PCollection[Tuple[str,Row]]
+  keyed_by_measurement_id = (
       rows_with_tags | 'key by measurement id' >>
-      beam.Map(lambda row: (row['measurement_id'], row)).with_output_types(
-          Tuple[str, Row]) | 'group by measurement id' >> beam.GroupByKey() |
-      'unflatten rows' >> beam.FlatMapTuple(
+      beam.Map(lambda row:
+               (row['measurement_id'], row)).with_output_types(Tuple[str, Row]))
+
+  # PCollection[Tuple[str,Iterable[Row]]]
+  grouped_by_measurement_id = (
+      keyed_by_measurement_id | 'group by measurement id' >> beam.GroupByKey())
+
+  # PCollection[Row]
+  unflattened_rows = (
+      grouped_by_measurement_id | 'unflatten rows' >> beam.FlatMapTuple(
           lambda k, v: _unflatten_satellite(v)).with_output_types(Row))
 
   return unflattened_rows
@@ -441,8 +467,7 @@ def _post_processing_satellite(
   return post
 
 
-def _unflatten_satellite(
-    flattened_measurement: List[Dict[str, Any]]) -> Iterator[Row]:
+def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
   """Unflatten a Satellite measurement.
 
   Args:
@@ -459,11 +484,17 @@ def _unflatten_satellite(
   """
   if flattened_measurement:
     # Get common fields and update 'received' with array of all answer IPs
-    combined = flattened_measurement[0]
-    combined['received'] = [
-        answer['received'] for answer in flattened_measurement
-    ]
+    combined: Row = {'received': []}
+    for answer in flattened_measurement:
+      received = answer.pop('received', None)
+      combined.update(answer)
+      if received:
+        combined['received'].append(received)
     combined.pop('measurement_id')
+    # Remove extra tag fields from the measurement. These may be added
+    # during the tagging step if a vantage point also appears as a response IP.
+    for tag in {'asname', 'asnum', 'http', 'cert'}:
+      combined.pop(tag, None)
     yield combined
 
 
@@ -526,6 +557,7 @@ def _calculate_confidence(scan: Dict[str, Any],
         'untagged_response': True if all answer IPs have no tags
   """
   confidence: Dict[str, Any] = {
+      'average': 0,
       'matches': [],
       'untagged_controls': num_control_tags == 0,
       'untagged_response': True
@@ -559,8 +591,9 @@ def _calculate_confidence(scan: Dict[str, Any],
         ip_match = matching_tags * 100 / total_tags
     confidence['matches'].append(ip_match)
 
-  confidence['average'] = sum(confidence['matches']) / len(
-      confidence['matches'])
+  if len(confidence['matches']) > 0:
+    confidence['average'] = sum(confidence['matches']) / len(
+        confidence['matches'])
   scan['confidence'] = confidence
   # Sanity check for untagged responses: do not claim interference
   if confidence['untagged_response'] or confidence['untagged_controls']:
@@ -602,6 +635,13 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
   return scan
 
 
+def _make_date_received_ip_key(row: Row) -> DateIpKey:
+  """Makes a tuple key of the date and received ip from a given row dict."""
+  if row['received']:
+    return (row['date'], row['received']['ip'])
+  return (row['date'], '')
+
+
 def _make_date_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (row['date'], row['ip'])
@@ -639,8 +679,11 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
     new_row: Row = {}
     new_row.update(row)
     if field == 'received':
-      new_row['received'].update(ip_metadata)
-      new_row['received'].pop('date', None)
+      if new_row['received']:
+        new_row['received'].update(ip_metadata)
+        new_row['received'].pop('date', None)
+        new_row['received'].pop('name', None)
+        new_row['received'].pop('country', None)
     else:
       new_row.update(ip_metadata)
     yield new_row
