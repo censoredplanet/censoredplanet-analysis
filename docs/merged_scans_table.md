@@ -13,8 +13,8 @@ This table is created by the script
 
 The tables are time-partitioned along the `date` field.
 
-The tables are clustered along the `source`, `country`, `domain`, and then
-`result` fields.
+The tables are clustered along the `source`, `country`, `category`, `domain`,
+and then `result` fields.
 
 ## Table format
 
@@ -22,6 +22,7 @@ The tables are clustered along the `source`, `country`, `domain`, and then
 | ---------- | ------- | -------- |
 | date       | DATE    | Date that an individual measurement was taken |
 | domain     | STRING  | The domain being tested, eg. `example.com` |
+| category   | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
 | country    | STRING  | Autonomous system country, eg. `US`  |
 | asn        | INTEGER | Autonomous system number, eg. `13335` |
 | as_name    | STRING  | Autonomous system short name, eg. `CLOUDFLARENET` |

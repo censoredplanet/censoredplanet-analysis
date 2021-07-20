@@ -13,6 +13,7 @@ import uuid
 import apache_beam as beam
 
 from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # Custom Type
 # All or part of a scan row to be written to bigquery
@@ -140,6 +141,7 @@ class FlattenMeasurement(beam.DoFn):
 
   def setup(self) -> None:
     self.blockpage_matcher = BlockpageMatcher()  #pylint: disable=attribute-defined-outside-init
+    self.category_matcher = DomainCategoryMatcher()  #pylint: disable=attribute-defined-outside-init
 
   def process(self, element: Tuple[str, str]) -> Iterator[Row]:
     """Flatten a measurement string into several roundtrip Rows.
@@ -230,6 +232,7 @@ class FlattenMeasurement(beam.DoFn):
 
       row = {
           'domain': domain,
+          'category': self.category_matcher.match_url(scan['Keyword']),
           'ip': scan['Server'],
           'date': date,
           'start_time': result['StartTime'],
@@ -269,9 +272,11 @@ class FlattenMeasurement(beam.DoFn):
     """
     for response in scan.get('response', []):
       date = response['start_time'][:10]
+      domain = response.get('control_url', scan['test_url'])
 
       row = {
-          'domain': response.get('control_url', scan['test_url']),
+          'domain': domain,
+          'category': self.category_matcher.match_url(domain),
           'ip': scan['vp'],
           'date': date,
           'start_time': response['start_time'],
@@ -327,6 +332,7 @@ class FlattenMeasurement(beam.DoFn):
     """
     row = {
         'domain': scan['query'],
+        'category': self.category_matcher.match_url(scan['query']),
         'ip': scan['resolver'],
         'date': date,
         'error': scan.get('error', None),
@@ -351,6 +357,7 @@ class FlattenMeasurement(beam.DoFn):
     """
     row = {
         'domain': scan['test_url'],
+        'category': self.category_matcher.match_url(scan['test_url']),
         'ip': scan['vp'],
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],

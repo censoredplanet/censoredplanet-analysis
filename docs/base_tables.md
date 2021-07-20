@@ -29,6 +29,7 @@ The json data is processed into a flat table format which looks like this.
 |                           |
 | domain                    | STRING       | The domain being tested, eg. `example.com` |
 | is_control                | STRING       | If the measured domain a control domain? |
+| category                  | STRING       | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
 |                           |
 | **Vantage Point Server**  |
 |                           |

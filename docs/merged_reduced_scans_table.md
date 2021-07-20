@@ -28,7 +28,7 @@ The sub-tables are time-partitioned along the `date` field.
 field.
 
 `firehook-censoredplanet.merged_net_as` is clustered along the `country`,
-`domains` and then `netblock` fields.
+`category`, `domain` and then `netblock` fields.
 
 ## Table Format
 
@@ -38,6 +38,7 @@ Reduced Scans
 | ---------- | ------- | -------- |
 | date       | DATE    | Date that an individual measurement was taken |
 | domain     | STRING  | The domain being tested, eg. `example.com` |
+| category   | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
 | country    | STRING  | Autonomous system country, eg. `US`  |
 | netblock   | STRING  | Netblock of the IP, eg. `1.1.1.0/24`  |
 | asn        | INTEGER | Autonomous system number, eg. `13335` |
