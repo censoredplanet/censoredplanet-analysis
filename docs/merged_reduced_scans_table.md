@@ -124,3 +124,4 @@ Mismatch Errors are used when the connection is successful, but the content rece
 | tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
 | HyperQuack v1 and v2    |
 | template_mismatch       | Some element of the response did not match the expected template |
+| blockpage               | The response was unexpected and matched a [known blockpage]((https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json)) |
