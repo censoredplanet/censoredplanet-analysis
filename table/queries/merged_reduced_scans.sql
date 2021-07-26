@@ -90,6 +90,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING, template_match B
 
     # Content verification failures
     WHEN (source = "ECHO" AND ENDS_WITH(error, "EOF")) THEN "content/response_mismatch" # Echo
+    # Hyperquack v1 errors
     WHEN (error = "Incorrect echo response") THEN "content/response_mismatch" # Echo
     WHEN (error = "Received response") THEN "content/response_mismatch" # Discard
     WHEN (error = "Incorrect web response: status lines don't match") THEN "content/status_mismatch" # HTTP/S
@@ -97,6 +98,14 @@ CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING, template_match B
     WHEN (error = "Incorrect web response: certificates don't match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Incorrect web response: cipher suites don't match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Incorrect web response: TLS versions don't match") THEN "content/tls_mismatch" # HTTPS
+    # Hyperquack v2 errors
+    WHEN (error = "echo response does not match echo request") THEN "content/response_mismatch" # Echo
+    WHEN (error = "discard response is not empty") THEN "content/response_mismatch" # Discard
+    WHEN (error = "Status lines does not match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Bodies do not match") THEN "content/body_mismatch" # HTTP/S
+    WHEN (error = "Certificates do not match") THEN "content/tls_mismatch" # HTTPS
+    WHEN (error = "Cipher suites do not match") THEN "content/tls_mismatch" # HTTPS
+    WHEN (error = "TLS versions do not match") THEN "content/tls_mismatch" # HTTPS
 
     # Unknown errors
     ELSE "unknown/unknown"
