@@ -301,9 +301,17 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
     Yields:
       A row dict of the format
         {'ip': '1.1.1.1',
-         'name': 'one.one.one.one.com', # optional
+         'date': '2020-01-01'
+
+         And then one of:
+         'name': 'special',
+         or
          'country': 'US',
-         'date': '2021-01-01'
+         or
+         'http': ''e3c1d3...' # optional
+         'cert': 'a2fed1...' # optional
+         'asname': 'CLOUDFLARENET' # optional
+         'asnum': 13335 # optional
         }
       Or an empty dictionary
   """
