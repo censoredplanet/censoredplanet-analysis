@@ -624,7 +624,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_row = {
         'domain': 'www.csmonitor.com',
-        'category': 'News Media',
+        'category': 'Religion',
         'ip': '184.50.171.225',
         'date': '2020-09-13',
         'start_time': '2020-09-13T01:10:57.499263112-04:00',
@@ -726,7 +726,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'source': 'CP_Quack-http-2021-05-30-01-01-01',
     }, {
         'domain': '1337x.to',
-        'category': 'Illegal',
+        'category': 'Media sharing',
         'ip': '167.207.140.67',
         'date': '2021-05-30',
         'start_time': '2021-05-30T01:02:14.390233996-04:00',
@@ -1063,7 +1063,7 @@ class FlattenMeasurementTest(unittest.TestCase):
       },
       {
         'domain': 'www.ecequality.org',
-        'category': 'E-commerce',
+        'category': 'LGBT',
         'ip': '145.239.6.50',
         'date': '2020-09-02',
         'error': None,

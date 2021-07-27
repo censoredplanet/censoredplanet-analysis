@@ -462,7 +462,7 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'IE',
         'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
-        'category': 'E-commerce',
+        'category': 'Culture',
         'error': None,
         'anomaly': False,
         'success': True,

@@ -31,7 +31,7 @@ class BlockpageTest(unittest.TestCase):
 
   def test_match_url(self) -> None:
     matcher = domain_categories.DomainCategoryMatcher()
-    self.assertEqual('Political Criticism',
+    self.assertEqual('LGBT',
                      matcher.match_url('76crimes.com/anti-lgbt-laws-malaysia/'))
 
   def test_match_ip_url(self) -> None:
