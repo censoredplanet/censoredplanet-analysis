@@ -2,6 +2,7 @@
 
 import logging
 import os
+import tempfile
 from typing import Optional, Tuple
 
 import geoip2.database
@@ -27,12 +28,11 @@ def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
 
   # MaxMind Reader will only take a filepath,
   # so we need to write the file to local disk
-  disk_filename = os.path.join('/tmp', os.path.basename(filepath))
-  with open(disk_filename, 'wb') as disk_file:
+  with tempfile.NamedTemporaryFile() as disk_file:
     disk_file.write(f.read())
-  database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
-  os.remove(disk_filename)
-  return database
+    disk_filename = disk_file.name
+    database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
+    return database
 
 
 class MaxmindIpMetadata(IpMetadataInterface):
