@@ -29,9 +29,13 @@ CREATE TEMP FUNCTION CleanError(error STRING) AS (
 # Output is a string of the format "stage/outcome"
 # Documentation of this enum is at
 # https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
-CREATE TEMP FUNCTION ClassifyError(error STRING, source STRING, template_match BOOL, blockpage_match BOOL) AS (
+CREATE TEMP FUNCTION ClassifyError(error STRING,
+                                   source STRING,
+                                   template_match BOOL,
+                                   blockpage_match BOOL,
+                                   blockpage_id STRING) AS (
   CASE
-    WHEN blockpage_match then "content/blockpage"
+    WHEN blockpage_match then CONCAT("content/blockpage:", blockpage_id)
 
     # Content mismatch for hyperquack v2 which doesn't write
     # content verification failures in the error field.
@@ -144,7 +148,7 @@ WITH
     netblock,
     controls_failed,
     CleanError(error) AS result,
-    ClassifyError(error, "DISCARD", success, blockpage) as outcome,
+    ClassifyError(error, "DISCARD", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.discard_scan`
   GROUP BY date, source, country, domain, netblock, controls_failed, result, outcome
@@ -158,7 +162,7 @@ WITH
     netblock,
     controls_failed,
     CleanError(error) AS result,
-    ClassifyError(error, "ECHO", success, blockpage) as outcome,
+    ClassifyError(error, "ECHO", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.echo_scan`
   GROUP BY date, source, country, domain, netblock, controls_failed, result, outcome
@@ -172,7 +176,7 @@ WITH
     netblock,
     controls_failed,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTP", success, blockpage) as outcome,
+    ClassifyError(error, "HTTP", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.http_scan`
   GROUP BY date, source, country, domain, netblock, controls_failed, result, outcome
@@ -186,7 +190,7 @@ WITH
     netblock,
     controls_failed,
     CleanError(error) AS result,
-    ClassifyError(error, "HTTPS", success, blockpage) as outcome,
+    ClassifyError(error, "HTTPS", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.https_scan`
   GROUP BY date, source, country, domain, netblock, controls_failed, result, outcome
