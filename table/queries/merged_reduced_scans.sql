@@ -136,13 +136,14 @@ AS (
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
 PARTITION BY date
-CLUSTER BY source, country, domain, netblock
+CLUSTER BY source, country, category, domain, netblock
 AS (
 WITH
   AllScans AS (
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
+    category,
     "DISCARD" AS source,
     country,
     netblock,
@@ -157,6 +158,7 @@ WITH
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
+    category,
     "ECHO" AS source,
     country,
     netblock,
@@ -171,6 +173,7 @@ WITH
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
+    category,
     "HTTP" AS source,
     country,
     netblock,
@@ -185,6 +188,7 @@ WITH
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
+    category,
     "HTTPS" AS source,
     country,
     netblock,
@@ -213,6 +217,7 @@ AS (
   SELECT
     date,
     domain,
+    category,
     source,
     country,
     netblock,
