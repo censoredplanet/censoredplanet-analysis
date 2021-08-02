@@ -25,7 +25,7 @@ setuptools.setup(
         'pipeline.metadata': './metadata',
         'pipeline': './'
     },
-    package_data={'pipeline': ['metadata/data/*.json']},
+    package_data={'pipeline': ['metadata/data/*']},
     url='https://github.com/censoredplanet/censoredplanet-analysis',
     author='Sarah Laplante',
     author_email='laplante@google.com')
