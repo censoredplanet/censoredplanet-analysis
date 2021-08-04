@@ -23,7 +23,7 @@ CREATE TEMP FUNCTION CleanError(error string) AS (
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_error_scans`
 PARTITION BY date
-CLUSTER BY source, country, category, domain, result
+CLUSTER BY source, country, domain, result
 as (
 WITH
   AllScans AS (
