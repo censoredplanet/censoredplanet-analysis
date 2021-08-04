@@ -357,7 +357,7 @@ def _add_vantage_point_tags(
   """
   # PCollection[Tuple[DateIpKey,Row]]
   rows_keyed_by_ip_and_date = (
-      rows | 'key by ips and dates' >>
+      rows | 'add vp tags: key by ips and dates' >>
       beam.Map(lambda row: (_make_date_ip_key(row), row)).with_output_types(
           Tuple[DateIpKey, Row]))
 
@@ -365,17 +365,17 @@ def _add_vantage_point_tags(
   grouped_metadata_and_rows = (({
       IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
       ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-  }) | 'group by keys' >> beam.CoGroupByKey())
+  }) | 'add vp tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Row]
   rows_with_metadata = (
-      grouped_metadata_and_rows | 'merge metadata with rows' >>
+      grouped_metadata_and_rows | 'add vp tags: merge metadata with rows' >>
       beam.FlatMapTuple(_merge_metadata_with_rows).with_output_types(Row))
 
   return rows_with_metadata
 
 
-def add_recieved_ip_tags(
+def add_received_ip_tags(
     rows: beam.pvalue.PCollection[Row],
     ips_with_metadata: beam.pvalue.PCollection[Tuple[DateIpKey, Row]]
 ) -> beam.pvalue.PCollection[Row]:
@@ -475,7 +475,7 @@ def _add_satellite_tags(
   rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
 
   # PCollection[Row]
-  rows_with_tags = add_recieved_ip_tags(rows_with_metadata, ips_with_metadata)
+  rows_with_tags = add_received_ip_tags(rows_with_metadata, ips_with_metadata)
 
   # PCollection[Row]
   return unflatten_rows(rows_with_tags)
@@ -1109,6 +1109,7 @@ class ScanDataBeamPipelineRunner():
 
         rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)
+        rows_with_metadata = self._add_metadata(rows_with_metadata)
       else:
         # PCollection[Row]
         rows = (
