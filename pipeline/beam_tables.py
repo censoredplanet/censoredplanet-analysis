@@ -483,10 +483,10 @@ def _add_satellite_tags(
   rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
 
   # PCollection[Row]
-  rows_with_tags = add_received_ip_tags(rows_with_metadata, ips_with_metadata)
+  #rows_with_tags = add_received_ip_tags(rows_with_metadata, ips_with_metadata)
 
   # PCollection[Row]
-  return unflatten_rows(rows_with_tags)
+  return unflatten_rows(rows_with_metadata)
 
 
 def _post_processing_satellite(
