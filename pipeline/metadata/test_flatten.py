@@ -232,6 +232,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'end_time': '2020-09-20T07:45:10.088851843-04:00',
             'received_status': 'HTTP/1.1 503 Service Unavailable',
             'error': 'Incorrect echo response',
+            'blockpage': False,
+            'page_signature': 'x_generic_503_4',
             'anomaly': True,
             'success': False,
             'stateful_block': False,
@@ -250,6 +252,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'end_time': '2020-09-20T07:45:13.088851843-04:00',
             'received_status': '',
             'error': 'timeout',
+            'blockpage': None,
+            'page_signature': None,
             'anomaly': True,
             'success': False,
             'stateful_block': False,
@@ -283,6 +287,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'start_time': '2020-09-20T07:45:18.170427683-04:00',
             'end_time': '2020-09-20T07:45:18.662093893-04:00',
             'received_status': 'HTTP/1.1 403 Forbidden',
+            'blockpage': None,
+            'page_signature': None,
             'error': 'Incorrect echo response',
             'anomaly': True,
             'success': False,
@@ -494,6 +500,10 @@ class FlattenMeasurementTest(unittest.TestCase):
             'read tcp 141.212.123.235:11397->117.78.42.54:9: read: connection reset by peer',
         'received_status':
             '',
+        'blockpage':
+            None,
+        'page_signature':
+            None,
         'anomaly':
             True,
         'success':

@@ -419,7 +419,9 @@ class FlattenMeasurement(beam.DoFn):
       a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
     """
     if isinstance(received, str):
-      return {'received_status': received}
+      row: Row = {'received_status': received}
+      self.add_blockpage_match(received, anomaly, row)
+      return row
 
     row = {
         'received_status': received['status_line'],
@@ -427,10 +429,7 @@ class FlattenMeasurement(beam.DoFn):
         'received_headers': parse_received_headers(received.get('headers', {})),
     }
 
-    if anomaly:  # check response for blockpage
-      blockpage, signature = self.blockpage_matcher.match_page(received['body'])
-      row['blockpage'] = blockpage
-      row['page_signature'] = signature
+    self.add_blockpage_match(received['body'], anomaly, row)
 
     # hyperquack v1 TLS format
     tls = received.get('tls', None)
@@ -452,3 +451,17 @@ class FlattenMeasurement(beam.DoFn):
       row.update(tls_row)
 
     return row
+
+  def add_blockpage_match(self, content: str, anomaly: bool, row: Row) -> None:
+    """If there's an anomaly check the content for a blockpage match and add to row
+
+    content: the string to check for blockpage matches.
+      For HTTP/S this is the HTTP body
+      For echo/discard this is the entire recieved content
+    anomaly: whether there was an anomaly in the measurement
+    row: existing row to add blpckpage info to.
+    """
+    if anomaly:
+      blockpage, signature = self.blockpage_matcher.match_page(content)
+      row['blockpage'] = blockpage
+      row['page_signature'] = signature
