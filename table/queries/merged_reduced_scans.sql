@@ -36,6 +36,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    blockpage_id STRING) AS (
   CASE
     WHEN blockpage_match then CONCAT("content/blockpage:", blockpage_id)
+    WHEN not blockpage_match then "content/false_positive_blockpage"
 
     # Content mismatch for hyperquack v2 which doesn't write
     # content verification failures in the error field.
@@ -117,7 +118,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 );
 
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.fp_merged_net_as`
 PARTITION BY date
 CLUSTER BY netblock
 AS (
@@ -134,7 +135,7 @@ AS (
   )
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.fp_merged_reduced_scans_no_as`
 PARTITION BY date
 CLUSTER BY source, country, domain, netblock
 AS (
@@ -208,7 +209,7 @@ FROM AllScans
 DROP FUNCTION CleanError;
 DROP FUNCTION ClassifyError;
 
-CREATE OR REPLACE VIEW `firehook-censoredplanet.derived.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.laplante.fp_merged_reduced_scans`
 OPTIONS(
   friendly_name="Reduced Scan View",
   description="A join of reduced scans with ASN info."
@@ -227,7 +228,7 @@ AS (
     result,
     outcome,
     count
-  FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
-  LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
+  FROM `firehook-censoredplanet.laplante.fp_merged_reduced_scans_no_as`
+  LEFT JOIN `firehook-censoredplanet.laplante.fp_merged_net_as`
   USING (date, netblock)
 );
