@@ -335,9 +335,17 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
         'ip': scan['resolver'],
         'country': country_name_to_code(scan['country'])
     }
-  else:
+  elif 'http' in scan:
     # from tagged_answers.json
-    tags = scan
+    tags = {
+        'ip': scan['ip'],
+        'http': scan['http'],
+        'cert': scan['cert'],
+        'asname': scan['asname'],
+        'asnum': scan['asnum'],
+    }
+  else:
+    raise Exception(f"Unknown satellite tag format: {scan}")
   tags['date'] = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
   yield tags
 
