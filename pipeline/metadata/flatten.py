@@ -403,16 +403,20 @@ class FlattenMeasurement(beam.DoFn):
       row['date'] = responses[0]['start_time'][:10]
       row['start_time'] = format_timestamp(responses[0]['start_time'])
       row['end_time'] = format_timestamp(responses[-1]['end_time'])
-      row['rcode'] = [str(resp['rcode']) for resp in responses]
-      row['error'] = ' | '.join(
-          [resp['error'] for resp in responses if resp['error']])
-      for resp in responses:
-        if resp['url'] == row['domain']:
+      row['rcode'] = [str(response['rcode']) for response in responses]
+      errors = [
+          response['error']
+          for response in responses
+          if response['error'] and response['error'] != 'null'
+      ]
+      row['error'] = ' | '.join(errors) if errors else None
+      for response in responses:
+        if response['url'] == row['domain']:
           # Check response for test domain
-          if resp['rcode'] == 0 and resp['has_type_a']:
+          if response['rcode'] == 0 and response['has_type_a']:
             # Valid answers
             row['has_type_a'] = True
-            for ip in resp['response']:
+            for ip in response['response']:
               row['received'] = {'ip': ip}
               yield row
 

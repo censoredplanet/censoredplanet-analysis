@@ -454,6 +454,8 @@ class PipelineMainTest(unittest.TestCase):
       ("CP_Satellite-2021-03-01-12-00-01/results.json", """{"vp":"156.154.71.37","location":{"country_code":"US","country_name":"United States"},"test_url":"www.usacasino.com","response":{"15.126.193.233":["no_tags"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":[0],"untagged_controls":false,"untagged_response":true},"start_time":"2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
       ("CP_Satellite-2021-04-18-12-00-01/results.json", """{"vp":"87.119.233.243","location":{"country_name":"Russia","country_code":"RU"},"test_url":"feedly.com","response":{},"passed_control":false,"connect_error":true,"in_control_group":true,"anomaly":false,"confidence":{"average":0,"matches":null,"untagged_controls":false,"untagged_response":false},"start_time":"2021-04-18 14:49:01.62448452 -0400 EDT m=+10140.555964129","end_time":"2021-04-18 14:49:03.624563629 -0400 EDT m=+10142.556043238"}"""),
       ("CP_Satellite-2021-04-18-12-00-01/results.json", """{"vp":"12.5.76.236","location":{"country_name":"United States","country_code":"US"},"test_url":"ultimate-guitar.com","response":{"rcode":["2"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":null,"untagged_controls":false,"untagged_response":false},"start_time":"2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890","end_time":"2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"}"""),
+      ("CP_Satellite-2021-04-18-12-00-01/responses_control.json", """{"vp":"64.6.65.6","test_url":"ultimate-guitar.com","response":[{"url":"a.root-servers.net","has_type_a":true,"response":["198.41.0.4"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:57.561175746 -0400 EDT m=+10316.492655353","end_time":"2021-04-18 14:51:57.587097567 -0400 EDT m=+10316.518577181"},{"url":"ultimate-guitar.com","has_type_a":true,"response":["178.18.22.152"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:57.587109091 -0400 EDT m=+10316.518588694","end_time":"2021-04-18 14:51:57.61294601 -0400 EDT m=+10316.544425613"}],"passed_control":true,"connect_error":false}"""),
+      ("CP_Satellite-2021-04-18-12-00-01/responses_control.json", """{"vp":"64.6.65.6","test_url":"www.awid.org","response":[{"url":"a.root-servers.net","has_type_a":true,"response":["198.41.0.4"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:45.836310062 -0400 EDT m=+10304.767789664","end_time":"2021-04-18 14:51:45.862080031 -0400 EDT m=+10304.793559633"},{"url":"www.awid.org","has_type_a":false,"response":null,"error":"read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout","rcode":-1,"start_time":"2021-04-18 14:51:45.862091022 -0400 EDT m=+10304.793570624","end_time":"2021-04-18 14:51:47.862170832 -0400 EDT m=+10306.793650435"},{"url":"www.awid.org","has_type_a":true,"response":["204.187.13.189"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:47.862183185 -0400 EDT m=+10306.793662792","end_time":"2021-04-18 14:51:48.162724942 -0400 EDT m=+10307.094204544"}],"passed_control":true,"connect_error":false}""")
     ]
 
     tags = [
@@ -464,6 +466,7 @@ class PipelineMainTest(unittest.TestCase):
       ("CP_Satellite-2021-03-01-12-00-01/tagged_responses.json", """{"asname":"WIKIMEDIA","asnum":14907,"cert":"9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10","http":"7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca","ip":"198.35.26.96"}"""),
       ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name":"87-119-233-243.saransk.ru.","vp":"87.119.233.243"}"""),
       ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name":"ns1327.ztomy.com.","vp":"12.5.76.236"}"""),
+      ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name": "rec1pubns2.ultradns.net.", "vp": "64.6.65.6"}"""),
     ]
 
     expected = [
@@ -534,6 +537,42 @@ class PipelineMainTest(unittest.TestCase):
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:07.712972288-04:00',
         'end_time': '2021-04-18T14:49:07.749265765-04:00'
+      },
+      {
+        'ip': '64.6.65.6',
+        'name': 'rec1pubns2.ultradns.net.',
+        'domain': 'ultimate-guitar.com',
+        'category': 'History arts and literature',
+        'error': None,
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'has_type_a': True,
+        'received': [
+            {'ip': '178.18.22.152'}
+        ],
+        'rcode': ['0', '0'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:51:57.561175746-04:00',
+        'end_time': '2021-04-18T14:51:57.61294601-04:00'
+      },
+      {
+        'ip': '64.6.65.6',
+        'name': 'rec1pubns2.ultradns.net.',
+        'domain': 'www.awid.org',
+        'category': 'Human Rights Issues',
+        'error': 'read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout',
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'has_type_a': True,
+        'received': [
+            {'ip': '204.187.13.189'}
+        ],
+        'rcode': ['0', '-1', '0'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:51:45.836310062-04:00',
+        'end_time': '2021-04-18T14:51:48.162724942-04:00'
       }
     ]
     # yapf: enable

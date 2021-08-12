@@ -85,6 +85,7 @@ def local_data_to_load_satellite_v2(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_resolvers.json',
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_responses.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/responses_control.json',
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json'
   ]
 
@@ -270,11 +271,12 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline_satellite_v2()
 
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 4)
+      self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
-          'www.americorps.gov', 'custhelp.com', 'www.mainichi.co.jp',
-          'www.unwatch.org'
+          'www.americorps.gov', 'www.americorps.gov', 'custhelp.com',
+          'custhelp.com', 'www.mainichi.co.jp', 'www.mainichi.co.jp',
+          'www.unwatch.org', 'www.unwatch.org'
       ]
 
       written_domains = [row[0] for row in written_rows]
