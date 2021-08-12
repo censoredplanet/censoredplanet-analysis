@@ -316,7 +316,11 @@ class FlattenMeasurement(beam.DoFn):
     if date < "2021-03":
       yield from self._process_satellite_v1(date, scan, random_measurement_id)
     else:
-      yield from self._process_satellite_v2(scan, random_measurement_id)
+      if "responses_control" in filename:
+        yield from self._process_satellite_v2_responses(scan,
+                                                        random_measurement_id)
+      else:
+        yield from self._process_satellite_v2(scan, random_measurement_id)
 
   def _process_satellite_v1(  # pylint: disable=no-self-use
       self, date: str, scan: Any, random_measurement_id: str) -> Iterator[Row]:
@@ -366,12 +370,51 @@ class FlattenMeasurement(beam.DoFn):
         'error': scan.get('error', None),
         'anomaly': scan['anomaly'],
         'success': not scan['connect_error'],
+        'controls_failed': not scan['passed_control'],
         'received': None,
         'rcode': [],
         'measurement_id': random_measurement_id
     }
     received_ips = scan.get('response')
     yield from self._process_received_ips(row, received_ips)
+
+  def _process_satellite_v2_responses(
+      self, scan: Any, random_measurement_id: str) -> Iterator[Row]:
+    """Process a line of Satellite response data.
+
+      Args:
+        scan: a loaded json object containing the parsed content of the line
+        random_measurement_id: a hex id identifying this individual measurement
+
+      Yields:
+        Rows
+    """
+    row = {
+        'domain': scan['test_url'],
+        'category': self.category_matcher.match_url(scan['test_url']),
+        'ip': scan['vp'],
+        'anomaly': None,
+        'success': not scan['connect_error'],
+        'controls_failed': not scan['passed_control'],
+        'measurement_id': random_measurement_id
+    }
+    responses = scan.get('response', [])
+    if responses:
+      row['date'] = responses[0]['start_time'][:10]
+      row['start_time'] = format_timestamp(responses[0]['start_time'])
+      row['end_time'] = format_timestamp(responses[-1]['end_time'])
+      row['rcode'] = [str(resp['rcode']) for resp in responses]
+      row['error'] = ' | '.join(
+          [resp['error'] for resp in responses if resp['error']])
+      for resp in responses:
+        if resp['url'] == row['domain']:
+          # Check response for test domain
+          if resp['rcode'] == 0 and resp['has_type_a']:
+            # Valid answers
+            row['has_type_a'] = True
+            for ip in resp['response']:
+              row['received'] = {'ip': ip}
+              yield row
 
   def _process_received_ips(  # pylint: disable=no-self-use
       self, row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:

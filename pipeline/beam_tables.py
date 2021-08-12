@@ -105,7 +105,8 @@ SATELLITE_BIGQUERY_SCHEMA = {
     'verify': ('record', 'nullable', {
         'excluded': ('boolean', 'nullable'),
         'exclude_reason': ('string', 'nullable'),
-    })
+    }),
+    'has_type_a': ('boolean', 'nullable')
 }
 
 # Mapping of each scan type to the zone to run its pipeline in.
@@ -133,7 +134,7 @@ NUM_DOMAIN_PARTITIONS = 250
 SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
-    'tagged_responses.json', 'results.json'
+    'responses_control.json', 'tagged_responses.json', 'results.json'
 ]
 # Data files for the non-Satellite pipelines
 SCAN_FILES = ['results.json']
@@ -512,14 +513,18 @@ def _post_processing_satellite(
 
   # Partition rows into test measurements and control measurements
   # 'anomaly' is None for control measurements
+
+  # PCollection[Tuple[Tuple[str, str], Row]], PCollection[Tuple[Tuple[str, str], Row]]
   rows, controls = (
       rows | 'key by dates and domains' >> beam.Map(lambda row: (
           (row['date'], row['domain']), row)) | 'partition test and control' >>
       beam.Partition(lambda row, p: int(row[1]['anomaly'] is None), 2))
 
+  # PCollection[Tuple[Tuple[str, str], int]]
   num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(
       _total_tags)
 
+  # PCollection[Row]
   post = ({
       'test': rows,
       'control': num_ctags
@@ -528,6 +533,14 @@ def _post_processing_satellite(
           beam.FlatMapTuple(_flat_rows_controls) |
           'calculate confidence' >> beam.MapTuple(_calculate_confidence) |
           'verify interference' >> beam.Map(_verify).with_output_types(Row))
+
+  # PCollection[Row]
+  controls = (
+      controls | 'unkey control' >> beam.Values().with_output_types(Row))
+
+  # PCollection[Row]
+  post = ((post, controls) | 'flatten test and control' >> beam.Flatten())
+
   return post
 
 
