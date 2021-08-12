@@ -988,7 +988,8 @@ class ScanDataBeamPipelineRunner():
     caida_ip_metadata_db = self.caida_ip_metadata_class(
         datetime.date.fromisoformat(date), self.caida_ip_metadata_bucket_folder,
         True)
-    maxmind_db = self.maxmind_class(self.maxmind_bucket_folder)
+    # TODO turn back on when using maxmind again.
+    # maxmind_db = self.maxmind_class(self.maxmind_bucket_folder)
 
     for ip in ips:
       metadata_key = (date, ip)
@@ -1004,10 +1005,11 @@ class ScanDataBeamPipelineRunner():
             'as_class': as_type,
             'country': country,
         }
-        if not metadata_values['country']:  # try Maxmind
-          (netblock, asn, as_name, as_full_name, as_type,
-           country) = maxmind_db.lookup(ip)
-          metadata_values['country'] = country
+        # Turning off maxmind data for now.
+        # if not metadata_values['country']:  # try Maxmind
+        #   (netblock, asn, as_name, as_full_name, as_type,
+        #    country) = maxmind_db.lookup(ip)
+        #   metadata_values['country'] = country
       except KeyError as e:
         logging.warning('KeyError: %s\n', e)
         metadata_values = {}  # values are missing, but entry should still exist

@@ -240,15 +240,14 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(
         beam_tables._make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
-  def test_add_ip_metadata(self) -> None:
+  def test_add_ip_metadata_caida(self) -> None:
     """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
                                                     FakeMaxmindIpMetadata, '')
 
     metadatas = list(
-        runner._add_ip_metadata('2020-01-01',
-                                ['1.1.1.1', '8.8.8.8', '1.1.1.3']))
+        runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1: beam_tables.DateIpKey = ('2020-01-01', '1.1.1.1')
     expected_value_1: beam_tables.Row = {
@@ -270,10 +269,23 @@ class PipelineMainTest(unittest.TestCase):
         'country': 'US',
     }
 
+    self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
+                                     (expected_key_2, expected_value_2)])
+
+  def disabled_test_add_ip_metadata_maxmind(self) -> None:
+    """Test merging given IP metadata with given measurements."""
+    # TODO turn back on once maxmind is reenabled.
+
+    runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
+                                                    FakeCaidaIpMetadata, '',
+                                                    FakeMaxmindIpMetadata, '')
+
+    metadatas = list(runner._add_ip_metadata('2020-01-01', ['1.1.1.3']))
+
     # Test Maxmind lookup when country data is missing
     # Cloudflare IPs return Australia
-    expected_key_3 = ('2020-01-01', '1.1.1.3')
-    expected_value_3 = {
+    expected_key_1 = ('2020-01-01', '1.1.1.3')
+    expected_value_1 = {
         'netblock': '1.0.0.1/24',
         'asn': 13335,
         'as_name': 'CLOUDFLARENET',
@@ -281,11 +293,9 @@ class PipelineMainTest(unittest.TestCase):
         'as_class': 'Content',
         'country': None,
     }
-    expected_value_3['country'] = 'AU'
+    expected_value_1['country'] = 'AU'
 
-    self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
-                                     (expected_key_2, expected_value_2),
-                                     (expected_key_3, expected_value_3)])
+    self.assertListEqual(metadatas, [(expected_key_1, expected_value_1)])
 
   def test_merge_metadata_with_rows(self) -> None:
     """Test merging IP metadata pcollection with rows pcollection."""
