@@ -466,6 +466,7 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'anomaly': False,
         'success': True,
+        'controls_failed': False,
         'received': [
             {'ip': '198.35.26.96', 'asname': 'WIKIMEDIA','asnum': 14907,'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10','http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca', 'matches_control': 'cert asnum asname'},
         ],
@@ -483,6 +484,7 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'anomaly': True,
         'success': True,
+        'controls_failed': False,
         'received': [
             {'ip': '15.126.193.233', 'matches_control': ''},
         ],
@@ -500,6 +502,7 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'anomaly': False,
         'success': False,
+        'controls_failed': True,
         'received': [],
         'rcode': [],
         'date': '2021-04-18',
@@ -515,6 +518,7 @@ class PipelineMainTest(unittest.TestCase):
         'error': None,
         'anomaly': True,
         'success': True,
+        'controls_failed': False,
         'received': [],
         'rcode': ['2'],
         'date': '2021-04-18',
