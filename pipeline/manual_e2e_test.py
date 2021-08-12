@@ -73,11 +73,11 @@ def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
 
 def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/Satellitev1_2018-01-01/resolvers.json',
-      'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_resolvers.json',
-      'pipeline/e2e_test_data/Satellitev1_2018-01-01/tagged_answers.json',
-      'pipeline/e2e_test_data/Satellitev1_2018-01-01/answers_control.json',
-      'pipeline/e2e_test_data/Satellitev1_2018-01-01/interference.json'
+      'pipeline/e2e_test_data/Satellitev1_2018-08-03/resolvers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-08-03/tagged_resolvers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-08-03/tagged_answers.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-08-03/answers_control.json',
+      'pipeline/e2e_test_data/Satellitev1_2018-08-03/interference.json'
   ]
 
 
