@@ -1094,6 +1094,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': None,
         'anomaly': True,
         'success': True,
+        'controls_failed': False,
         'received': {'ip': '104.20.161.135', 'matches_control': ''},
         'rcode': ["0", "0", "0"],
         'measurement_id': ''
@@ -1109,6 +1110,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'error': None,
         'anomaly': True,
         'success': True,
+        'controls_failed': False,
         'received': {'ip': '104.20.161.134', 'matches_control': ''},
         'rcode': ["0", "0", "0"],
         'measurement_id': ''
