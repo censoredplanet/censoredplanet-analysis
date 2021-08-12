@@ -1,2 +1,10 @@
 {"asname": "CRONON-AS Obermuensterstr. 9", "asnum": 25504, "cert": "ea6389b446002e14d21bd7fd39d4433a5356948a906634365299b79781b43e2b", "http": null, "ip": "109.235.61.172"}
 {"asname": "AMAZON-02", "asnum": 16509, "cert": null, "http": "fbb6bfaa6ba918a3835f2fac2bb0a444ad4d9396b845ed1e835f42d0d0ceaecd", "ip": "13.226.201.49"}
+{"asname": "NETDYNAMICS", "asnum": 7160, "cert": "364f8072a94a45906f9cb5b1df07ad1830e8820246aeb0698233c66c47b07baf", "http": "9d2e385a38f014effd8f29fd07951ac82c9e13360ca96e467f886aff06e5e0f3", "ip": "74.117.206.70"}
+{"asname": "WPX", "asnum": 210250, "cert": "49b7267b09d4f4a6416db0c07419b4de1d1a79d80713730f33ee833d8b59883b", "http": "e516e411cb4a1b943bfbac14948616414a04a2576cfc16479eb6eef9844d8897", "ip": "194.1.147.18"}
+{"asname": "WPX", "asnum": 210250, "cert": "49b7267b09d4f4a6416db0c07419b4de1d1a79d80713730f33ee833d8b59883b", "http": "e516e411cb4a1b943bfbac14948616414a04a2576cfc16479eb6eef9844d8897", "ip": "194.1.147.100"}
+{"asname": "AMAZON-02", "asnum": 16509, "cert": null, "http": "60ba803127e17060b2fd19e1104d05376d048ea1ef3af236b12705e8daf52afb", "ip": "52.84.129.105"}
+{"asname": "AMAZON-02", "asnum": 16509, "cert": null, "http": "23448037bcb7f5253f68c90a6d5b987642ac3575e508ab180d1ca50b78eb71be", "ip": "52.84.129.88"}
+{"asname": "AMAZON-02", "asnum": 16509, "cert": null, "http": "f271fbf319419102890b33e18e8f971dd0b4ad1d7524518a6610635545ff8276", "ip": "52.84.129.66"}
+{"asname": "AMAZON-02", "asnum": 16509, "cert": null, "http": "5b6f84972c4daddf36d4c103f64890debeb0eb1b6e2fd7e795468ef184aa4517", "ip": "52.84.129.116"}
+{"asname": "AMAZON-AES", "asnum": 14618, "cert": "df30d5ce073969650241acb2f8e0443c11c9fca370d8de5940b773afad700410", "http": "b32a73015216c2a5ac96289fff901336ecb19fca8b2060abd0eefd21178118b3", "ip": "54.172.28.123"}

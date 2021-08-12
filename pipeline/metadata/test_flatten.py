@@ -956,7 +956,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
-        'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json'
+        'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json'
     ]
 
     # yapf: disable
@@ -1012,6 +1013,51 @@ class FlattenMeasurementTest(unittest.TestCase):
           },
           "start_time":"2021-03-05 15:32:05.324807502 -0500 EST m=+6.810936646",
           "end_time":"2021-03-05 15:32:05.366104911 -0500 EST m=+6.852233636"
+        }
+        """,
+        """
+        {
+          "vp": "8.8.4.4",
+          "test_url": "login.live.com",
+          "response": [
+            {
+              "url": "www.example.com",
+              "has_type_a": true,
+              "response": [
+                "93.184.216.34"
+              ],
+              "error": "null",
+              "rcode": 0,
+              "start_time": "2021-03-15 20:02:06.996014164 -0400 EDT m=+10807.095374809",
+              "end_time": "2021-03-15 20:02:07.002365608 -0400 EDT m=+10807.101726261"
+            },
+            {
+              "url": "login.live.com",
+              "has_type_a": true,
+              "response": [
+                "40.126.31.135",
+                "40.126.31.8",
+                "40.126.31.6"
+              ],
+              "error": "null",
+              "rcode": 0,
+              "start_time": "2021-03-15 20:02:07.002380008 -0400 EDT m=+10807.101740649",
+              "end_time": "2021-03-15 20:02:07.008908491 -0400 EDT m=+10807.108269140"
+            },
+            {
+              "url": "www.example.com",
+              "has_type_a": true,
+              "response": [
+                "93.184.216.34"
+              ],
+              "error": "null",
+              "rcode": 0,
+              "start_time": "2021-03-15 20:02:07.008915491 -0400 EDT m=+10807.108276134",
+              "end_time": "2021-03-15 20:02:07.015386713 -0400 EDT m=+10807.114747357"
+            }
+          ],
+          "passed_control": true,
+          "connect_error": false
         }
         """
     ]
@@ -1114,6 +1160,54 @@ class FlattenMeasurementTest(unittest.TestCase):
         'received': {'ip': '104.20.161.134', 'matches_control': ''},
         'rcode': ["0", "0", "0"],
         'measurement_id': ''
+      },
+      {
+        'domain': 'login.live.com',
+        'category': 'Communication Tools',
+        'ip': '8.8.4.4',
+        'date': '2021-03-15',
+        'start_time': '2021-03-15T20:02:06.996014164-04:00',
+        'end_time': '2021-03-15T20:02:07.015386713-04:00',
+        'error': None,
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'received': {'ip': '40.126.31.135'},
+        'rcode': ['0', '0', '0'],
+        'measurement_id': '',
+        'has_type_a': True
+      },
+      {
+        'domain': 'login.live.com',
+        'category': 'Communication Tools',
+        'ip': '8.8.4.4',
+        'date': '2021-03-15',
+        'start_time': '2021-03-15T20:02:06.996014164-04:00',
+        'end_time': '2021-03-15T20:02:07.015386713-04:00',
+        'error': None,
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'received': {'ip': '40.126.31.8'},
+        'rcode': ['0', '0', '0'],
+        'measurement_id': '',
+        'has_type_a': True
+      },
+      {
+        'domain': 'login.live.com',
+        'category': 'Communication Tools',
+        'ip': '8.8.4.4',
+        'date': '2021-03-15',
+        'start_time': '2021-03-15T20:02:06.996014164-04:00',
+        'end_time': '2021-03-15T20:02:07.015386713-04:00',
+        'error': None,
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'received': {'ip': '40.126.31.6'},
+        'rcode': ['0', '0', '0'],
+        'measurement_id': '',
+        'has_type_a': True
       }
     ]
     # yapf: enable
