@@ -1222,13 +1222,13 @@ class FlattenMeasurementTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    result = []
+    results = []
     for filename, i in zip(filenames, interference):
       flattener = flatten.FlattenMeasurement()
       flattener.setup()
       rows = flattener.process((filename, i))
-      # remove random measurement id
-      for row in rows:
-        row['measurement_id'] = ''
-        result.append(row.copy())
-    self.assertListEqual(result, expected)
+      results += list(rows)
+    # remove random measurement id
+    for result in results:
+      result['measurement_id'] = ''
+    self.assertListEqual(results, expected)
