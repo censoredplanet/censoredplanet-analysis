@@ -389,21 +389,21 @@ class FlattenMeasurement(beam.DoFn):
       Yields:
         Rows
     """
-    row = {
-        'domain': scan['test_url'],
-        'category': self.category_matcher.match_url(scan['test_url']),
-        'ip': scan['vp'],
-        'anomaly': None,
-        'success': not scan['connect_error'],
-        'controls_failed': not scan['passed_control'],
-        'measurement_id': random_measurement_id
-    }
     responses = scan.get('response', [])
     if responses:
-      row['date'] = responses[0]['start_time'][:10]
-      row['start_time'] = format_timestamp(responses[0]['start_time'])
-      row['end_time'] = format_timestamp(responses[-1]['end_time'])
-      row['rcode'] = [str(response['rcode']) for response in responses]
+      row = {
+          'domain': scan['test_url'],
+          'category': self.category_matcher.match_url(scan['test_url']),
+          'ip': scan['vp'],
+          'date': responses[0]['start_time'][:10],
+          'start_time': format_timestamp(responses[0]['start_time']),
+          'end_time': format_timestamp(responses[-1]['end_time']),
+          'anomaly': None,
+          'success': not scan['connect_error'],
+          'controls_failed': not scan['passed_control'],
+          'rcode': [str(response['rcode']) for response in responses],
+          'measurement_id': random_measurement_id
+      }
       errors = [
           response['error']
           for response in responses
@@ -416,9 +416,10 @@ class FlattenMeasurement(beam.DoFn):
           if response['rcode'] == 0 and response['has_type_a']:
             # Valid answers
             row['has_type_a'] = True
+            # Separate into one answer IP per row for tagging
             for ip in response['response']:
               row['received'] = {'ip': ip}
-              yield row
+              yield row.copy()
 
   def _process_received_ips(  # pylint: disable=no-self-use
       self, row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
@@ -452,7 +453,7 @@ class FlattenMeasurement(beam.DoFn):
       if isinstance(received_ips, dict):
         row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
             [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-      yield row
+      yield row.copy()
 
   def _parse_received_data(self, received: Union[str, Dict[str, Any]],
                            anomaly: bool) -> Row:
