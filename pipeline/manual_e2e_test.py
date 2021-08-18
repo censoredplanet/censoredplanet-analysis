@@ -247,12 +247,12 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline_satellite()
 
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 4)
+      self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
           'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
           'www.usacasino.com'
-      ]
+      ] * 2
 
       written_domains = [row[0] for row in written_rows]
       self.assertListEqual(
