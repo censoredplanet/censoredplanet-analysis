@@ -125,7 +125,8 @@ AS (
     date,
     netblock,
     asn,
-    as_full_name AS as_full_name
+    as_full_name AS as_full_name,
+    organization AS organization
   FROM (
     SELECT * FROM `firehook-censoredplanet.base.discard_scan` UNION ALL
     SELECT * FROM `firehook-censoredplanet.base.echo_scan` UNION ALL
@@ -140,6 +141,7 @@ CLUSTER BY source, country, domain, netblock
 AS (
 WITH
   AllScans AS (
+
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
@@ -147,12 +149,13 @@ WITH
     "DISCARD" AS source,
     country,
     netblock,
+    organization,
     controls_failed,
     CleanError(error) AS result,
     ClassifyError(error, "DISCARD", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.discard_scan`
-  GROUP BY date, source, country, category, domain, netblock, controls_failed, result, outcome
+  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
   SELECT
@@ -162,14 +165,16 @@ WITH
     "ECHO" AS source,
     country,
     netblock,
+    organization,
     controls_failed,
     CleanError(error) AS result,
     ClassifyError(error, "ECHO", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.echo_scan`
-  GROUP BY date, source, country, category, domain, netblock, controls_failed, result, outcome
+  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
+
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
@@ -177,12 +182,13 @@ WITH
     "HTTP" AS source,
     country,
     netblock,
+    organization,
     controls_failed,
     CleanError(error) AS result,
     ClassifyError(error, "HTTP", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.http_scan`
-  GROUP BY date, source, country, category, domain, netblock, controls_failed, result, outcome
+  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
   SELECT
@@ -192,12 +198,13 @@ WITH
     "HTTPS" AS source,
     country,
     netblock,
+    organization,
     controls_failed,
     CleanError(error) AS result,
     ClassifyError(error, "HTTPS", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.base.https_scan`
-  GROUP BY date, source, country, category, domain, netblock, controls_failed, result, outcome
+  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 )
 SELECT *
 FROM AllScans
@@ -223,11 +230,12 @@ AS (
     netblock,
     asn,
     as_full_name AS as_name,
+    organization,
     controls_failed,
     result,
     outcome,
     count
   FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
   LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
-  USING (date, netblock)
+  USING (date, netblock, organization)
 );

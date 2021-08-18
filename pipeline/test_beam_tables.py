@@ -26,6 +26,7 @@ import apache_beam.testing.util as beam_test_util
 from pipeline import beam_tables
 from pipeline.metadata.fake_caida_ip_metadata import FakeCaidaIpMetadata
 from pipeline.metadata.maxmind import FakeMaxmindIpMetadata
+from pipeline.metadata.dbip import FakeDbipMetadata
 from pipeline.metadata import flatten
 
 
@@ -110,7 +111,8 @@ class PipelineMainTest(unittest.TestCase):
     project = 'firehook-censoredplanet'
     runner = beam_tables.ScanDataBeamPipelineRunner(project, '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FakeMaxmindIpMetadata, '')
+                                                    FakeMaxmindIpMetadata, '',
+                                                    FakeDbipMetadata, '')
 
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
@@ -184,7 +186,8 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FakeMaxmindIpMetadata, '')
+                                                    FakeMaxmindIpMetadata, '',
+                                                    FakeDbipMetadata, '')
 
     rows_with_metadata = runner._add_metadata(rows)
     beam_test_util.assert_that(
@@ -244,7 +247,8 @@ class PipelineMainTest(unittest.TestCase):
     """Test merging given IP metadata with given measurements."""
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FakeMaxmindIpMetadata, '')
+                                                    FakeMaxmindIpMetadata, '',
+                                                    FakeDbipMetadata, '')
 
     metadatas = list(
         runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
@@ -257,6 +261,7 @@ class PipelineMainTest(unittest.TestCase):
         'as_full_name': 'Cloudflare Inc.',
         'as_class': 'Content',
         'country': 'US',
+        'organization': 'Fake Cloudflare Sub-Org',
     }
 
     expected_key_2: beam_tables.DateIpKey = ('2020-01-01', '8.8.8.8')
@@ -267,6 +272,7 @@ class PipelineMainTest(unittest.TestCase):
         'as_full_name': 'Google LLC',
         'as_class': 'Content',
         'country': 'US',
+        # No organization data is added since the ASN doesn't match dbip
     }
 
     self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
@@ -278,7 +284,8 @@ class PipelineMainTest(unittest.TestCase):
 
     runner = beam_tables.ScanDataBeamPipelineRunner('', '', '', '',
                                                     FakeCaidaIpMetadata, '',
-                                                    FakeMaxmindIpMetadata, '')
+                                                    FakeMaxmindIpMetadata, '',
+                                                    FakeDbipMetadata, '')
 
     metadatas = list(runner._add_ip_metadata('2020-01-01', ['1.1.1.3']))
 
@@ -292,6 +299,7 @@ class PipelineMainTest(unittest.TestCase):
         'as_full_name': 'Cloudflare Inc.',
         'as_class': 'Content',
         'country': None,
+        'organization': 'Fake Cloudflare Sub-Org',
     }
     expected_value_1['country'] = 'AU'
 
