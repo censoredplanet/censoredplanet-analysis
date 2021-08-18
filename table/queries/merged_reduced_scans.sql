@@ -119,7 +119,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
 PARTITION BY date
-CLUSTER BY netblock
+CLUSTER BY organization
 AS (
   SELECT DISTINCT
     date,
@@ -137,7 +137,7 @@ AS (
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
 PARTITION BY date
-CLUSTER BY source, country, domain, netblock
+CLUSTER BY source, country, organization, domain
 AS (
 WITH
   AllScans AS (
