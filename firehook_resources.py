@@ -27,6 +27,7 @@ METADATA_BUCKET = 'censoredplanet_geolocation'
 ROUTEVIEW_PATH = 'caida/routeviews/'
 CAIDA_FILE_LOCATION = f'gs://{METADATA_BUCKET}/caida/'
 MAXMIND_FILE_LOCATION = f'gs://{METADATA_BUCKET}/maxmind/'
+DBIP_FILE_LOCATION = f'gs://{METADATA_BUCKET}/dbip/'
 
 # Temp Buckets
 BEAM_STAGING_LOCATION = 'gs://firehook-dataflow-test/staging'

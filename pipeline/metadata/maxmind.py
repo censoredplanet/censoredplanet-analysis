@@ -2,37 +2,15 @@
 
 import logging
 import os
-import tempfile
 from typing import Optional, Tuple
 
 import geoip2.database
-from geoip2.database import MODE_MEMORY
-import apache_beam.io.filesystems as apache_filesystems
 
 from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
+from pipeline.metadata.mmdb_reader import mmdb_reader
 
 MAXMIND_CITY = 'GeoLite2-City.mmdb'
 MAXMIND_ASN = 'GeoLite2-ASN.mmdb'
-
-
-def _maxmind_reader(filepath: str) -> geoip2.database.Reader:
-  """Return a reader for the Maxmind database.
-
-    Args:
-      filepath: gcs or local fileststem path to Maxmind .mmdb file
-
-    Returns:
-      geoip2.database.Reader
-  """
-  f = apache_filesystems.FileSystems.open(filepath)
-
-  # MaxMind Reader will only take a filepath,
-  # so we need to write the file to local disk
-  with tempfile.NamedTemporaryFile() as disk_file:
-    disk_file.write(f.read())
-    disk_filename = disk_file.name
-    database = geoip2.database.Reader(disk_filename, mode=MODE_MEMORY)
-    return database
 
 
 class MaxmindIpMetadata(IpMetadataInterface):
@@ -48,8 +26,8 @@ class MaxmindIpMetadata(IpMetadataInterface):
     maxmind_city_path = os.path.join(maxmind_folder, MAXMIND_CITY)
     maxmind_asn_path = os.path.join(maxmind_folder, MAXMIND_ASN)
 
-    self.maxmind_city = _maxmind_reader(maxmind_city_path)
-    self.maxmind_asn = _maxmind_reader(maxmind_asn_path)
+    self.maxmind_city = mmdb_reader(maxmind_city_path)
+    self.maxmind_asn = mmdb_reader(maxmind_asn_path)
 
   def lookup(
       self, ip: str

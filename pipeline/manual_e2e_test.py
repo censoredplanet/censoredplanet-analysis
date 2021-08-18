@@ -33,7 +33,7 @@ from google.cloud.exceptions import NotFound  # type: ignore
 
 import firehook_resources
 from pipeline import run_beam_tables
-from pipeline.metadata import caida_ip_metadata, maxmind
+from pipeline.metadata import caida_ip_metadata, maxmind, dbip
 
 # The test table is written into the <project>:<username> dataset
 username = pwd.getpwuid(os.getuid()).pw_name
@@ -307,6 +307,18 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     self.assertEqual(metadata,
                      ('1.1.1.0/24', 13335, 'CLOUDFLARENET', None, None, 'AU'))
+
+  def test_dbip_init(self) -> None:
+    """Test DBIP database access."""
+    dbip_data = dbip.DbipMetadata(firehook_resources.DBIP_FILE_LOCATION)
+
+    (org, asn) = dbip_data.get_org('1.211.95.160')
+    self.assertEqual(org, "Boranet")
+    self.assertEqual(asn, 3786)
+
+    (org, asn) = dbip_data.get_org('1.0.0.0')
+    self.assertEqual(org, None)
+    self.assertEqual(asn, 13335)
 
 
 # This test is not run by default in unittest because it takes about a minute
