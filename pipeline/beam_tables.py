@@ -31,6 +31,8 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 from pipeline.lookup_country_code import country_name_to_code
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
+from pipeline.ip_metadata_values import IpMetadataValuesInterface
+from pipeline.metadata.ip_metadata_chooser import IpMetadataChooser
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -849,10 +851,8 @@ class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
   def __init__(self, project: str, bucket: str, staging_location: str,
-               temp_location: str, caida_ip_metadata_class: type,
-               caida_ip_metadata_bucket_folder: str, maxmind_class: type,
-               maxmind_bucket_folder: str, dbip_class: type,
-               dbip_bucket_folder: str) -> None:
+               temp_location: str,
+               metadata_prod_values: IpMetadataValuesInterface) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -860,29 +860,13 @@ class ScanDataBeamPipelineRunner():
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
-      caida_ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
-      caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
-      maxmind_class: an IpMetadataInterface subclass (class, not instance)
-      maxmind_bucket_folder: gcs folder with maxmind files
-      dbip_class: a DbipMetadata class (class, not instance)
-      dbip_bucket_folder: gcs folder with dbip files
+      metadata_prod_values: values used to initialize an IpMetadataChooser
     """
-    # TODO refactor the metadata classes/buckets into a single holder object.
-
     self.project = project
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
-    # Because an instantiated CaidaIpMetadata object is too big for beam's
-    # serlalization to pass around we pass in the class to instantiate instead.
-    self.caida_ip_metadata_class = caida_ip_metadata_class
-    self.caida_ip_metadata_bucket_folder = caida_ip_metadata_bucket_folder
-    # Maxmind is also too big to pass around
-    self.maxmind_class = maxmind_class
-    self.maxmind_bucket_folder = maxmind_bucket_folder
-    # DBIP is also too big to pass around
-    self.dbip_class = dbip_class
-    self.dbip_bucket_folder = dbip_bucket_folder
+    self.metadata_prod_values = metadata_prod_values
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -1016,44 +1000,13 @@ class ScanDataBeamPipelineRunner():
       Tuples (DateIpKey, metadata_dict)
       where metadata_dict is a row Dict[column_name, values]
     """
-    caida_ip_metadata_db = self.caida_ip_metadata_class(
-        datetime.date.fromisoformat(date), self.caida_ip_metadata_bucket_folder,
-        True)
-    # TODO turn back on when using maxmind again.
-    # maxmind_db = self.maxmind_class(self.maxmind_bucket_folder)
-    dbip_db = self.dbip_class(self.dbip_bucket_folder)
+    ip_metadata_chooser = IpMetadataChooser(
+        datetime.date.fromisoformat(date), self.metadata_prod_values)
 
     for ip in ips:
       metadata_key = (date, ip)
+      metadata_values = ip_metadata_chooser.get_metadata(ip)
 
-      try:
-        (netblock, asn, as_name, as_full_name, as_type,
-         country) = caida_ip_metadata_db.lookup(ip)
-        metadata_values = {
-            'netblock': netblock,
-            'asn': asn,
-            'as_name': as_name,
-            'as_full_name': as_full_name,
-            'as_class': as_type,
-            'country': country,
-        }
-
-        (org, dbip_asn) = dbip_db.get_org(ip)
-        if org and asn == dbip_asn:
-          # Since we're currently using a single dated dbip table
-          # which becomes less accurate for past data
-          # we're doing the simple thing here and only including organization info
-          # if the AS from dbip matches the AS from CAIDA
-          metadata_values['organization'] = org
-
-        # Turning off maxmind data for now.
-        # if not metadata_values['country']:  # try Maxmind
-        #   (netblock, asn, as_name, as_full_name, as_type,
-        #    country) = maxmind_db.lookup(ip)
-        #   metadata_values['country'] = country
-      except KeyError as e:
-        logging.warning('KeyError: %s\n', e)
-        metadata_values = {}  # values are missing, but entry should still exist
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,

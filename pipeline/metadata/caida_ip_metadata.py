@@ -23,8 +23,6 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
-from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
-
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
 #       and get the latest file here instead.
@@ -35,6 +33,24 @@ LATEST_AS2CLASS_FILEPATH = "as-classifications/20200801.as2types.txt.gz"
 # Comment lines with these headers divide the tables.
 ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
 AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
+
+
+class CaidaIpMetadataInterface:
+  """Interface for an CAIDA IP Metadata lookup database."""
+
+  def __init__(
+      self,
+      date: datetime.date,
+      cloud_data_location: str,
+      allow_previous_day: bool,
+  ) -> None:
+    pass
+
+  def lookup(
+      self, ip: str
+  ) -> Tuple[Optional[str], int, Optional[str], Optional[str], Optional[str],
+             Optional[str]]:
+    pass
 
 
 def _read_compressed_file(filepath: str) -> Iterator[str]:
@@ -186,7 +202,7 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class CaidaIpMetadata(IpMetadataInterface):
+class CaidaIpMetadata(CaidaIpMetadataInterface):
   """A lookup table which contains CAIDA metadata about IPs."""
 
   def __init__(
@@ -204,7 +220,7 @@ class CaidaIpMetadata(IpMetadataInterface):
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
-    super()
+    super().__init__(date, cloud_data_location, allow_previous_day)
     self.cloud_data_location = cloud_data_location
 
     self.as_to_org_map = self._get_asn2org_map()
@@ -300,6 +316,33 @@ class CaidaIpMetadata(IpMetadataInterface):
       return _parse_asn_db(_read_compressed_file(filepath))
     except IndexError as ex:
       raise FileNotFoundError(filepath_pattern) from ex
+
+
+class FakeCaidaIpMetadata(CaidaIpMetadataInterface):
+  """A fake lookup table for testing CaidaIpMetadata."""
+
+  def __init__(
+      self,
+      date: datetime.date,
+      cloud_data_location: str,
+      allow_previous_day: bool,
+  ) -> None:
+    super().__init__(date, cloud_data_location, allow_previous_day)
+    # A little example data for testing.
+    self.lookup_table = {
+        "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",
+                    "Content", "US"),
+        "8.8.8.8":
+            ("8.8.8.0/24", 15169, "GOOGLE", "Google LLC", "Content", "US"),
+        "1.1.1.3": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",
+                    "Content", None),
+    }
+
+  def lookup(
+      self, ip: str
+  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
+             Optional[str]]:
+    return self.lookup_table[ip]
 
 
 def get_firehook_caida_ip_metadata_db(
