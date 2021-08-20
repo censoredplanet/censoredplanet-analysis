@@ -26,7 +26,7 @@ import pwd
 from typing import Optional, List, Tuple
 
 from pipeline import beam_tables
-from pipeline.ip_metadata_values import IpMetadataProdValues
+from pipeline.metadata.ip_metadata_chooser import get_prod_ip_metadata_chooser
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
@@ -132,12 +132,15 @@ def get_firehook_beam_pipeline_runner(
   # importing here to avoid beam pickling issues
   import firehook_resources  # pylint: disable=import-outside-toplevel
 
-  metadata_prod_values = IpMetadataProdValues()
+  matadata_chooser = get_prod_ip_metadata_chooser(
+      firehook_resources.CAIDA_FILE_LOCATION,
+      firehook_resources.MAXMIND_FILE_LOCATION,
+      firehook_resources.DBIP_FILE_LOCATION)
 
   return beam_tables.ScanDataBeamPipelineRunner(
       firehook_resources.PROJECT_NAME, firehook_resources.INPUT_BUCKET,
       firehook_resources.BEAM_STAGING_LOCATION,
-      firehook_resources.BEAM_TEMP_LOCATION, metadata_prod_values)
+      firehook_resources.BEAM_TEMP_LOCATION, matadata_chooser)
 
 
 def main(parsed_args: argparse.Namespace) -> None:

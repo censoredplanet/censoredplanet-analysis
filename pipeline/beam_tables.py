@@ -31,7 +31,6 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 from pipeline.lookup_country_code import country_name_to_code
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
-from pipeline.ip_metadata_values import IpMetadataValuesInterface
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooser
 
 # A key containing a date and IP
@@ -851,8 +850,7 @@ class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
   def __init__(self, project: str, bucket: str, staging_location: str,
-               temp_location: str,
-               metadata_prod_values: IpMetadataValuesInterface) -> None:
+               temp_location: str, metadata_chooser: IpMetadataChooser) -> None:
     """Initialize a pipeline runner.
 
     Args:
@@ -860,13 +858,13 @@ class ScanDataBeamPipelineRunner():
       bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
-      metadata_prod_values: values used to initialize an IpMetadataChooser
+      metadata_chooser: values used to initialize an IpMetadataChooser
     """
     self.project = project
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
-    self.metadata_prod_values = metadata_prod_values
+    self.ip_metadata_chooser = metadata_chooser
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -1000,12 +998,11 @@ class ScanDataBeamPipelineRunner():
       Tuples (DateIpKey, metadata_dict)
       where metadata_dict is a row Dict[column_name, values]
     """
-    ip_metadata_chooser = IpMetadataChooser(
-        datetime.date.fromisoformat(date), self.metadata_prod_values)
+    self.ip_metadata_chooser.fully_init(datetime.date.fromisoformat(date))
 
     for ip in ips:
       metadata_key = (date, ip)
-      metadata_values = ip_metadata_chooser.get_metadata(ip)
+      metadata_values = self.ip_metadata_chooser.get_metadata(ip)
 
       yield (metadata_key, metadata_values)
 
