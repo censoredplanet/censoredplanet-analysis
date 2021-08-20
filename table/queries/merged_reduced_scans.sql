@@ -119,14 +119,13 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
 PARTITION BY date
-CLUSTER BY organization
+CLUSTER BY netblock, as_name, asn
 AS (
   SELECT DISTINCT
     date,
     netblock,
     asn,
-    as_full_name AS as_full_name,
-    organization AS organization
+    as_full_name AS as_name
   FROM (
     SELECT * FROM `firehook-censoredplanet.base.discard_scan` UNION ALL
     SELECT * FROM `firehook-censoredplanet.base.echo_scan` UNION ALL
@@ -174,7 +173,6 @@ WITH
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
-
   SELECT
     date,
     IF(is_control, "CONTROL", domain) as domain,
@@ -208,6 +206,8 @@ WITH
 )
 SELECT *
 FROM AllScans
+# Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
+WHERE NOT STARTS_WITH(outcome, "setup/")
 );
 
 # Drop the temp function before creating the view
@@ -229,7 +229,7 @@ AS (
     country,
     netblock,
     asn,
-    as_full_name AS as_name,
+    as_name,
     organization,
     controls_failed,
     result,
@@ -237,5 +237,5 @@ AS (
     count
   FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
   LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
-  USING (date, netblock, organization)
+  USING (date, netblock)
 );
