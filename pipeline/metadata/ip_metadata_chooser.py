@@ -1,6 +1,7 @@
 """A module which contains a number of sources of ip metadata and chooses how to add them to ips."""
 import datetime
 import logging
+from typing import Type
 
 from pipeline.metadata import caida_ip_metadata
 from pipeline.metadata import dbip
@@ -12,9 +13,12 @@ from pipeline.metadata.flatten import Row
 class IpMetadataChooser():
   """Business logic for selecting IP metadata values from a number of sources"""
 
-  def __init__(self, caida_ip_metadata_class: type,
-               caida_ip_metadata_bucket_folder: str, maxmind_class: type,
-               maxmind_bucket_folder: str, dbip_class: type,
+  def __init__(self, caida_ip_metadata_class: Type[
+      caida_ip_metadata.CaidaIpMetadataInterface],
+               caida_ip_metadata_bucket_folder: str,
+               maxmind_class: Type[maxmind.MaxmindIpMetadataInterface],
+               maxmind_bucket_folder: str,
+               dbip_class: Type[dbip.DbipIpMetadataInterface],
                dbip_bucket_folder: str) -> None:
     """Store all the values needed to setup ip metadata databases.
 

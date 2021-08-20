@@ -17,7 +17,7 @@ import csv
 import datetime
 import logging
 import re
-from typing import Dict, Optional, Tuple, Iterator
+from typing import Dict, Optional, Tuple, Iterator, NamedTuple
 
 import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
@@ -34,6 +34,15 @@ LATEST_AS2CLASS_FILEPATH = "as-classifications/20200801.as2types.txt.gz"
 ORG_TO_COUNTRY_HEADER = "# format:org_id|changed|org_name|country|source"
 AS_TO_ORG_HEADER = "# format:aut|changed|aut_name|org_id|opaque_id|source"
 
+# Tuple(netblock, asn, as_name, as_full_name, as_type, country)
+# ex: ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.", "Content", "US")
+CaidaReturnValues = NamedTuple('CaidaReturnValues',
+                               [('netblock', Optional[str]), ('asn', int),
+                                ('as_name', Optional[str]),
+                                ('as_full_name', Optional[str]),
+                                ('as_type', Optional[str]),
+                                ('country', Optional[str])])
+
 
 class CaidaIpMetadataInterface:
   """Interface for an CAIDA IP Metadata lookup database."""
@@ -46,10 +55,7 @@ class CaidaIpMetadataInterface:
   ) -> None:
     pass
 
-  def lookup(
-      self, ip: str
-  ) -> Tuple[Optional[str], int, Optional[str], Optional[str], Optional[str],
-             Optional[str]]:
+  def lookup(self, ip: str) -> CaidaReturnValues:
     pass
 
 
@@ -227,10 +233,7 @@ class CaidaIpMetadata(CaidaIpMetadataInterface):
     self.as_to_type_map = self._get_asn2type_map()
     self.asn_db = self._get_asn_db(date, allow_previous_day)
 
-  def lookup(
-      self, ip: str
-  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
-             Optional[str]]:
+  def lookup(self, ip: str) -> CaidaReturnValues:
     """Lookup metadata infomation about an IP.
 
     Args:
@@ -258,7 +261,8 @@ class CaidaIpMetadata(CaidaIpMetadataInterface):
       logging.warning("Missing asn %s in type map", asn)
     as_type = self.as_to_type_map.get(asn, None)
 
-    return (netblock, asn, as_name, as_full_name, as_type, country)
+    return CaidaReturnValues(netblock, asn, as_name, as_full_name, as_type,
+                             country)
 
   def _get_asn2org_map(
       self) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
@@ -330,18 +334,18 @@ class FakeCaidaIpMetadata(CaidaIpMetadataInterface):
     super().__init__(date, cloud_data_location, allow_previous_day)
     # A little example data for testing.
     self.lookup_table = {
-        "1.1.1.1": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",
-                    "Content", "US"),
+        "1.1.1.1":
+            CaidaReturnValues("1.0.0.1/24", 13335, "CLOUDFLARENET",
+                              "Cloudflare Inc.", "Content", "US"),
         "8.8.8.8":
-            ("8.8.8.0/24", 15169, "GOOGLE", "Google LLC", "Content", "US"),
-        "1.1.1.3": ("1.0.0.1/24", 13335, "CLOUDFLARENET", "Cloudflare Inc.",
-                    "Content", None),
+            CaidaReturnValues("8.8.8.0/24", 15169, "GOOGLE", "Google LLC",
+                              "Content", "US"),
+        "1.1.1.3":
+            CaidaReturnValues("1.0.0.1/24", 13335, "CLOUDFLARENET",
+                              "Cloudflare Inc.", "Content", None),
     }
 
-  def lookup(
-      self, ip: str
-  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
-             Optional[str]]:
+  def lookup(self, ip: str) -> CaidaReturnValues:
     return self.lookup_table[ip]
 
 
