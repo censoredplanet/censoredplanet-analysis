@@ -393,6 +393,11 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
+
+    import time
+    from pprint import pprint
+    start = time.perf_counter()
+
     # yapf: disable
     _data = [
       ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'signal.org', 'answers': {'13.249.134.38': ['ip', 'http', 'asnum', 'asname'], '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],'13.249.134.74': ['ip', 'http', 'asnum', 'asname'], '13.249.134.89': ['ip', 'http', 'asnum', 'asname']}, 'passed': True}),
@@ -400,6 +405,8 @@ class PipelineMainTest(unittest.TestCase):
     ]
 
     data = [(filename, json.dumps(d)) for filename, d in _data]
+
+    pprint(('made data', time.perf_counter() - start))
 
     _tags = [
         ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", {'name': 'special','resolver': '1.1.1.3'}),
@@ -411,6 +418,8 @@ class PipelineMainTest(unittest.TestCase):
     ]
 
     tags = [(filename, json.dumps(t)) for filename, t in _tags]
+
+    pprint(('made tags', time.perf_counter() - start))
 
     expected = [
         {
@@ -447,12 +456,24 @@ class PipelineMainTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    with TestPipeline() as p:
-      lines = p | 'create data' >> beam.Create(data)
-      lines2 = p | 'create tags' >> beam.Create(tags)
+    pprint(('made expected', time.perf_counter() - start))
 
-      final = beam_tables._process_satellite_with_tags(lines, lines2)
-      beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
+    import profile
+
+    code = """with TestPipeline() as p:
+  lines = p | 'create data' >> beam.Create(data)
+  lines2 = p | 'create tags' >> beam.Create(tags)
+
+  pprint(('creates', time.perf_counter() - start))
+
+  final = beam_tables._process_satellite_with_tags(lines, lines2)
+  beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
+
+  pprint(('created pipeline', time.perf_counter() - start))
+    """
+    profile.runctx(code, globals(), locals(), filename="profile_output.pstat")
+
+    pprint(('ran pipeline', time.perf_counter() - start))
 
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
