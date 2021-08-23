@@ -116,7 +116,6 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
-
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
 PARTITION BY date
 CLUSTER BY netblock, as_name, asn
@@ -136,7 +135,7 @@ AS (
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
 PARTITION BY date
-CLUSTER BY source, country, organization, domain
+CLUSTER BY source, country_name, organization, domain
 AS (
 WITH
   AllScans AS (
@@ -204,8 +203,11 @@ WITH
   FROM `firehook-censoredplanet.base.https_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 )
-SELECT *
+SELECT
+  AllScans.* except (country),
+  IFNULL(country_name, country) as country_name
 FROM AllScans
+LEFT JOIN `firehook-censoredplanet.metadata.country_names` ON country_code = country
 # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
 WHERE NOT STARTS_WITH(outcome, "setup/")
 );
@@ -226,7 +228,7 @@ AS (
     domain,
     category,
     source,
-    country,
+    country_name,
     netblock,
     asn,
     as_name,
