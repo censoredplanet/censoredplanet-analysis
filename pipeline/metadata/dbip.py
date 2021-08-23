@@ -52,7 +52,7 @@ class FakeDbipMetadata(DbipMetadata):
   """A fake lookup table for testing DbipMetadata."""
 
   # pylint: disable=super-init-not-called
-  def __init__(self, dbip_folder: str) -> None:
+  def __init__(self) -> None:
     pass
 
   # pylint: disable=no-self-use

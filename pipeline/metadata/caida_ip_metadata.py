@@ -310,12 +310,7 @@ class FakeCaidaIpMetadata(CaidaIpMetadata):
   """A fake lookup table for testing CaidaIpMetadata."""
 
   # pylint: disable=super-init-not-called
-  def __init__(
-      self,
-      date: datetime.date,
-      cloud_data_location: str,
-      allow_previous_day: bool,
-  ) -> None:
+  def __init__(self) -> None:
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1":

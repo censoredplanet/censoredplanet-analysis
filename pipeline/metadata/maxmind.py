@@ -98,7 +98,7 @@ class FakeMaxmindIpMetadata(MaxmindIpMetadata):
   """A fake lookup table for testing MaxmindIpMetadata."""
 
   # pylint: disable=super-init-not-called
-  def __init__(self, maxmind_folder: str) -> None:
+  def __init__(self) -> None:
     pass
 
   # pylint: disable=no-self-use

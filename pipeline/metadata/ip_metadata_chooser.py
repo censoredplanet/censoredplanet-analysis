@@ -1,11 +1,9 @@
 """A module which contains a number of sources of ip metadata and chooses how to add them to ips."""
 import datetime
 import logging
-from typing import Type
 
 from pipeline.metadata import caida_ip_metadata
 from pipeline.metadata import dbip
-from pipeline.metadata import maxmind
 from pipeline.metadata.flatten import Row
 
 
@@ -13,34 +11,16 @@ from pipeline.metadata.flatten import Row
 class IpMetadataChooser():
   """Business logic for selecting IP metadata values from a number of sources"""
 
-  def __init__(
-      self,
-      date: datetime.date,
-      caida_ip_metadata_class: Type[caida_ip_metadata.CaidaIpMetadata],
-      caida_ip_metadata_bucket_folder: str,
-      # pylint: disable=unused-argument
-      maxmind_class: Type[maxmind.MaxmindIpMetadata],
-      maxmind_bucket_folder: str,
-      # pylint: enable=unused-argument
-      dbip_class: Type[dbip.DbipMetadata],
-      dbip_bucket_folder: str,
-  ) -> None:
+  def __init__(self, caida_db: caida_ip_metadata.CaidaIpMetadata,
+               dbip_db: dbip.DbipMetadata) -> None:
     """Store all metadata sources for future querying
 
     Args:
-      date: date to initialize caida metadata at
-      caida_ip_metadata_class: an IpMetadataInterface subclass (class, not instance)
-      caida_ip_metadata_bucket_folder: gcs folder with CAIDA ip metadata files
-      maxmind_class: an IpMetadataInterface subclass (class, not instance)
-      maxmind_bucket_folder: gcs folder with maxmind files
-      dbip_class: a DbipMetadata class (class, not instance)
-      dbip_bucket_folder: gcs folder with dbip files
+      caida: CAIDA database
+      dbip: dbip database
     """
-    self.caida = caida_ip_metadata_class(date, caida_ip_metadata_bucket_folder,
-                                         True)
-    # TODO turn back on when using maxmind again.
-    # self.maxmind = maxmind_class(maxmind_bucket_folder)
-    self.dbip = dbip_class(dbip_bucket_folder)
+    self.caida = caida_db
+    self.dbip = dbip_db
 
   def get_metadata(self, ip: str) -> Row:
     """Pick which metadata values to return for an IP from our sources."""
@@ -77,6 +57,10 @@ class IpMetadataChooser():
 
 
 class IpMetadataChooserFactory():
+  """Factory for lazily creating an IPMetadataChooser
+
+  Since it's too big for beam pass around as an initialized object.
+  """
 
   def __init__(self, caida_file_location: str, maxmind_file_location: str,
                dbip_file_location: str) -> None:
@@ -85,11 +69,13 @@ class IpMetadataChooserFactory():
     self.dbip_file_location = dbip_file_location
 
   def make_chooser(self, date: datetime.date) -> IpMetadataChooser:
-    return IpMetadataChooser(date, caida_ip_metadata.CaidaIpMetadata,
-                             self.caida_file_location,
-                             maxmind.MaxmindIpMetadata,
-                             self.maxmind_file_location, dbip.DbipMetadata,
-                             self.dbip_file_location)
+    caida_db = caida_ip_metadata.CaidaIpMetadata(date, self.caida_file_location,
+                                                 True)
+    # TODO turn back on when using maxmind again.
+    # maxmind = maxmind.MaxmindIpMetadata(self.maxmind_file_location)
+    dbip_db = dbip.DbipMetadata(self.dbip_file_location)
+
+    return IpMetadataChooser(caida_db, dbip_db)
 
 
 class FakeIpMetadataChooserFactory(IpMetadataChooserFactory):
@@ -99,6 +85,5 @@ class FakeIpMetadataChooserFactory(IpMetadataChooserFactory):
     pass
 
   def make_chooser(self, date: datetime.date) -> IpMetadataChooser:
-    return IpMetadataChooser(date, caida_ip_metadata.FakeCaidaIpMetadata, "",
-                             maxmind.FakeMaxmindIpMetadata, "",
-                             dbip.FakeDbipMetadata, "")
+    return IpMetadataChooser(caida_ip_metadata.FakeCaidaIpMetadata(),
+                             dbip.FakeDbipMetadata())
