@@ -45,7 +45,7 @@ class RepositoryMirror():
     """Load history for local versions of files."""
     if not os.path.exists(FILE_HISTORY):
       return {}
-    with open(FILE_HISTORY) as f:
+    with open(FILE_HISTORY, encoding='utf-8') as f:
       history = f.read()
     return json.loads(history)
 
@@ -100,7 +100,7 @@ class RepositoryMirror():
       # Update history with new etag
       etag = req.headers.get('ETag')
       self.history[url] = etag
-      with open(FILE_HISTORY, 'w') as file2:
+      with open(FILE_HISTORY, 'w', encoding='utf-8') as file2:
         file2.write(json.dumps(self.history))
 
     elif req.status_code == 304:
