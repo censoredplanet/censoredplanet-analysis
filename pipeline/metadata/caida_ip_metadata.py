@@ -44,21 +44,6 @@ CaidaReturnValues = NamedTuple('CaidaReturnValues',
                                 ('country', Optional[str])])
 
 
-class CaidaIpMetadataInterface:
-  """Interface for an CAIDA IP Metadata lookup database."""
-
-  def __init__(
-      self,
-      date: datetime.date,
-      cloud_data_location: str,
-      allow_previous_day: bool,
-  ) -> None:
-    pass
-
-  def lookup(self, ip: str) -> CaidaReturnValues:
-    pass
-
-
 def _read_compressed_file(filepath: str) -> Iterator[str]:
   """Read in a compressed file as a decompressed string iterator.
 
@@ -208,7 +193,7 @@ def _parse_as_to_type_map(f: Iterator[str]) -> Dict[int, str]:
   return as_to_type_map
 
 
-class CaidaIpMetadata(CaidaIpMetadataInterface):
+class CaidaIpMetadata():
   """A lookup table which contains CAIDA metadata about IPs."""
 
   def __init__(
@@ -226,7 +211,6 @@ class CaidaIpMetadata(CaidaIpMetadataInterface):
         allow the one from the previous day instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
-    super().__init__(date, cloud_data_location, allow_previous_day)
     self.cloud_data_location = cloud_data_location
 
     self.as_to_org_map = self._get_asn2org_map()
@@ -322,16 +306,16 @@ class CaidaIpMetadata(CaidaIpMetadataInterface):
       raise FileNotFoundError(filepath_pattern) from ex
 
 
-class FakeCaidaIpMetadata(CaidaIpMetadataInterface):
+class FakeCaidaIpMetadata(CaidaIpMetadata):
   """A fake lookup table for testing CaidaIpMetadata."""
 
+  # pylint: disable=super-init-not-called
   def __init__(
       self,
       date: datetime.date,
       cloud_data_location: str,
       allow_previous_day: bool,
   ) -> None:
-    super().__init__(date, cloud_data_location, allow_previous_day)
     # A little example data for testing.
     self.lookup_table = {
         "1.1.1.1":

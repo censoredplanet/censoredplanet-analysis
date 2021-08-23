@@ -19,17 +19,7 @@ MaxmindReturnValues = NamedTuple('MaxmindReturnValues',
                                   ('country', Optional[str])])
 
 
-class MaxmindIpMetadataInterface:
-  """Interface for an CAIDA IP Metadata lookup database."""
-
-  def __init__(self, maxmind_folder: str) -> None:
-    pass
-
-  def lookup(self, ip: str) -> MaxmindReturnValues:
-    pass
-
-
-class MaxmindIpMetadata(MaxmindIpMetadataInterface):
+class MaxmindIpMetadata():
   """Lookup database for Maxmind ASN and country metadata."""
 
   def __init__(self, maxmind_folder: str) -> None:
@@ -39,7 +29,6 @@ class MaxmindIpMetadata(MaxmindIpMetadataInterface):
         maxmind_folder: a folder containing maxmind files.
           Either a gcs filepath or a local system folder.
     """
-    super().__init__(maxmind_folder)
     maxmind_city_path = os.path.join(maxmind_folder, MAXMIND_CITY)
     maxmind_asn_path = os.path.join(maxmind_folder, MAXMIND_ASN)
 
@@ -105,11 +94,12 @@ class MaxmindIpMetadata(MaxmindIpMetadataInterface):
     return None, None, None
 
 
-class FakeMaxmindIpMetadata(MaxmindIpMetadataInterface):
+class FakeMaxmindIpMetadata(MaxmindIpMetadata):
   """A fake lookup table for testing MaxmindIpMetadata."""
 
+  # pylint: disable=super-init-not-called
   def __init__(self, maxmind_folder: str) -> None:
-    super().__init__(maxmind_folder)
+    pass
 
   # pylint: disable=no-self-use
   def lookup(self, _: str) -> MaxmindReturnValues:

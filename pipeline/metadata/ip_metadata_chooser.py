@@ -13,15 +13,16 @@ from pipeline.metadata.flatten import Row
 class IpMetadataChooser():
   """Business logic for selecting IP metadata values from a number of sources"""
 
-  # pylint disable:unused-argument
   def __init__(
       self,
       date: datetime.date,
-      caida_ip_metadata_class: Type[caida_ip_metadata.CaidaIpMetadataInterface],
+      caida_ip_metadata_class: Type[caida_ip_metadata.CaidaIpMetadata],
       caida_ip_metadata_bucket_folder: str,
-      maxmind_class: Type[maxmind.MaxmindIpMetadataInterface],
+      # pylint: disable=unused-argument
+      maxmind_class: Type[maxmind.MaxmindIpMetadata],
       maxmind_bucket_folder: str,
-      dbip_class: Type[dbip.DbipIpMetadataInterface],
+      # pylint: enable=unused-argument
+      dbip_class: Type[dbip.DbipMetadata],
       dbip_bucket_folder: str,
   ) -> None:
     """Store all metadata sources for future querying
@@ -92,6 +93,10 @@ class IpMetadataChooserFactory():
 
 
 class FakeIpMetadataChooserFactory(IpMetadataChooserFactory):
+
+  # pylint: disable=super-init-not-called
+  def __init__(self) -> None:
+    pass
 
   def make_chooser(self, date: datetime.date) -> IpMetadataChooser:
     return IpMetadataChooser(date, caida_ip_metadata.FakeCaidaIpMetadata, "",

@@ -16,17 +16,7 @@ DbipReturnValues = NamedTuple('DbipReturnValues', [('org_name', Optional[str]),
                                                    ('asn', Optional[int])])
 
 
-class DbipIpMetadataInterface:
-  """Interface for an CAIDA IP Metadata lookup database."""
-
-  def __init__(self, dbip_folder: str) -> None:
-    pass
-
-  def lookup(self, ip: str) -> DbipReturnValues:
-    pass
-
-
-class DbipMetadata(DbipIpMetadataInterface):
+class DbipMetadata():
   """Lookup database for DBIP ASN and organization metadata."""
 
   def __init__(self, dbip_folder: str) -> None:
@@ -36,7 +26,6 @@ class DbipMetadata(DbipIpMetadataInterface):
         dbip_folder: a folder containing a dbip file.
           Either a gcs filepath or a local system folder.
     """
-    super().__init__(dbip_folder)
     dbip_path = os.path.join(dbip_folder, DBIP_ISP)
     self.dbip_isp = mmdb_reader(dbip_path)
 
@@ -59,11 +48,12 @@ class DbipMetadata(DbipIpMetadataInterface):
     return DbipReturnValues(None, None)
 
 
-class FakeDbipMetadata(DbipIpMetadataInterface):
+class FakeDbipMetadata(DbipMetadata):
   """A fake lookup table for testing DbipMetadata."""
 
+  # pylint: disable=super-init-not-called
   def __init__(self, dbip_folder: str) -> None:
-    super().__init__(dbip_folder)
+    pass
 
   # pylint: disable=no-self-use
   def lookup(self, _: str) -> DbipReturnValues:
