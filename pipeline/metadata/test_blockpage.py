@@ -80,7 +80,9 @@ class BlockpageTest(unittest.TestCase):
 
   def test_special_characters(self) -> None:
     matcher = blockpage.BlockpageMatcher()
+    # yapf: disable
     page = '''\u003chtml\u003e\r\n\u003chead\u003e\r\n\u003ctitle\u003eæ¡æç¶²é é»æ\u003c/title\u003e\r\n\u003cmeta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"\u003e\r\n\u003cMETA HTTP-EQUIV=\"PRAGMA\" CONTENT=\"NO-CACHE\"\u003e\r\n\u003cmeta name=\"viewport\" content=\"initial-scale=1.0\"\u003e\r\n\u003cstyle\u003e\r\n  #content {\r\n    border:3px solid#aaa;\r\n    background-color:#fff;\r\n    margin:1.5em;\r\n    padding:1.5em;\r\n    font-family:Tahoma,Helvetica,Arial,sans-serif;\r\n    font-size:1em;\r\n  }\r\n  h1 {\r\n    font-size:1.3em;\r\n    font-weight:bold;\r\n    color:#196390;\r\n  }\r\n  b {\r\n    font-weight:normal;\r\n    color:#196390;\r\n  }\r\n\u003c/style\u003e\r\n\u003c/head\u003e\r\n\u003cbody bgcolor=\"#e7e8e9\"\u003e\r\n\u003cdiv id=\"content\"\u003e\r\n\u003ch1\u003eéç¾è³è¨å®å¨é²è­· - æ¡æç¶²é é»æ\u003c/h1\u003e\r\n\u003cp\u003eå¦ææ¨çå°è©²ç«é¢è³è¨ï¼è¡¨ç¤ºæ¨è¢«å¤æ·å­åéæ­£å¸¸è¡çºç¶²ç« \u003cspan style=\"color:red;\"\u003e(æ¡æç¶²ç«)\u003c/span\u003e\u003c/p\u003e\r\n\u003cp\u003eè³è¨èª²å·²å°æ­¤ç¶²é é»æï¼å¦æç¢ºå®è©²ç¶²é æ¯è¢«èª¤å¤è«è¯ç¹«: éç¾è³è¨èª²-ç³»çµ±ç¶­éçµï¼è¬è¬ã\u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eä½¿ç¨è:\u003c/b\u003e 141.212.123.175 \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eç¶²å:\u003c/b\u003e rtyutgyhefdafioasfjhjhi.com/ \u003c/p\u003e\r\n\u003cp\u003e\u003cb\u003eåé¡:\u003c/b\u003e command-and-control \u003c/p\u003e\r\n\u003c/div\u003e\r\n\u003c/body\u003e\r\n\u003c/html\u003e\r\n'''
+    # yapf: enable
     match, signature = matcher.match_page(page)
     self.assertTrue(match)
     self.assertEqual(signature, 'e_unk_style_red')
@@ -188,7 +190,9 @@ class BlockpageTest(unittest.TestCase):
     the overall pipeline to fail to complete. This test is designed to catch
     those regexes in case they're added in the future.
     """
-    page = open("pipeline/metadata/test_files/long_blockpage.html").read()
+    page = open(
+        "pipeline/metadata/test_files/long_blockpage.html",
+        encoding='utf-8').read()
     matcher = blockpage.BlockpageMatcher()
 
     start = time.perf_counter()
@@ -201,7 +205,9 @@ class BlockpageTest(unittest.TestCase):
   def test_long_blockpage(self) -> None:
     # This blockpage is a random long page take from the data.
     # It is ~65k, which is near the truncated limit.
-    page = open("pipeline/metadata/test_files/long_blockpage.html").read()
+    page = open(
+        "pipeline/metadata/test_files/long_blockpage.html",
+        encoding='utf-8').read()
     matcher = blockpage.BlockpageMatcher()
     # Page classification should be None
     # to ensure that it exercises all regexes in the performance test

@@ -580,7 +580,7 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     combined.pop('measurement_id')
     # Remove extra tag fields from the measurement. These may be added
     # during the tagging step if a vantage point also appears as a response IP.
-    for tag in {'asname', 'asnum', 'http', 'cert'}:
+    for tag in ['asname', 'asnum', 'http', 'cert']:
       combined.pop(tag, None)
     yield combined
 
