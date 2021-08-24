@@ -16,9 +16,6 @@
 
 # to run
 #
-# ./deploy local
-# to deploy to a local docker instance
-#
 # ./deploy prod
 # to deploy to production
 #
@@ -39,22 +36,7 @@ service_account_id="654632410498"
 # GCP zone to deploy to
 zone="us-east1-b"
 
-if [[ "${action}" == "local" ]]; then
-  docker build --tag ${project} .
-
-  # Get service credentials if they are missing
-  if [[ ! -f ~/.config/gcloud/${service_account_id}_compute_credentials.json ]]; then
-    gcloud iam service-accounts keys create \
-    ~/.config/gcloud/${service_account_id}_compute_credentials.json \
-    --iam-account ${service_account_id}-compute@developer.gserviceaccount.com
-  fi
-
-  docker run -it \
-  -v $HOME/.config/gcloud:$HOME/.config/gcloud \
-  -e GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/${service_account_id}_compute_credentials.json \
-  ${project}
-
-elif [[ "${action}" == "prod" ]]; then
+if [[ "${action}" == "prod" ]]; then
   # For builders outside the VPC security perimeter the build will succeed
   # but throw a logging error, so we ignore errors here
   gcloud builds submit . --tag gcr.io/${project}/pipeline --project ${project} || true
