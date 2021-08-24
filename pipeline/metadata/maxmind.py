@@ -2,18 +2,24 @@
 
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, NamedTuple
 
 import geoip2.database
 
-from pipeline.metadata.ip_metadata_interface import IpMetadataInterface
 from pipeline.metadata.mmdb_reader import mmdb_reader
 
 MAXMIND_CITY = 'GeoLite2-City.mmdb'
 MAXMIND_ASN = 'GeoLite2-ASN.mmdb'
 
+# Tuple(netblock, asn, as_name, country)
+# ex: ("1.0.0.1/24", 13335, "CLOUDFLARENET", "AU")
+MaxmindReturnValues = NamedTuple('MaxmindReturnValues',
+                                 [('netblock', Optional[str]), ('asn', int),
+                                  ('as_name', Optional[str]),
+                                  ('country', Optional[str])])
 
-class MaxmindIpMetadata(IpMetadataInterface):
+
+class MaxmindIpMetadata():
   """Lookup database for Maxmind ASN and country metadata."""
 
   def __init__(self, maxmind_folder: str) -> None:
@@ -29,19 +35,13 @@ class MaxmindIpMetadata(IpMetadataInterface):
     self.maxmind_city = mmdb_reader(maxmind_city_path)
     self.maxmind_asn = mmdb_reader(maxmind_asn_path)
 
-  def lookup(
-      self, ip: str
-  ) -> Tuple[Optional[str], int, Optional[str], None, None, Optional[str]]:
+  def lookup(self, ip: str) -> MaxmindReturnValues:
     """Lookup metadata infomation about an IP.
 
       Args:
         ip: string of the format 1.1.1.1 (ipv4 only)
 
-      Returns:
-        Tuple(netblock, asn, as_name, as_full_name, as_type, country)
-        ("1.0.0.1/24", 13335, "CLOUDFLARENET", None, None, "AU")
-        The final 4 fields may be None
-        Maxmind never has as_full_name or as_type info.
+      Returns: MaxmindReturnValues
 
       Raises:
         KeyError: when the IP's ASN can't be found
@@ -52,7 +52,7 @@ class MaxmindIpMetadata(IpMetadataInterface):
     if not asn:
       raise KeyError("No Maxmind entry for {}".format(ip))
 
-    return (netblock, asn, as_name, None, None, country)
+    return MaxmindReturnValues(netblock, asn, as_name, country)
 
   def _get_country_code(self, vp_ip: str) -> Optional[str]:
     """Get country code for IP address.
@@ -94,15 +94,13 @@ class MaxmindIpMetadata(IpMetadataInterface):
     return None, None, None
 
 
-class FakeMaxmindIpMetadata(IpMetadataInterface):
+class FakeMaxmindIpMetadata(MaxmindIpMetadata):
   """A fake lookup table for testing MaxmindIpMetadata."""
 
-  def __init__(self, _: str) -> None:
-    super()
+  # pylint: disable=super-init-not-called
+  def __init__(self) -> None:
+    pass
 
   # pylint: disable=no-self-use
-  def lookup(
-      self, _: str
-  ) -> Tuple[str, int, Optional[str], Optional[str], Optional[str],
-             Optional[str]]:
-    return ('101.103.0.0/16', 1221, 'ASN-TELSTRA', None, None, 'AU')
+  def lookup(self, _: str) -> MaxmindReturnValues:
+    return MaxmindReturnValues('101.103.0.0/16', 1221, 'ASN-TELSTRA', 'AU')

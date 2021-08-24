@@ -305,18 +305,17 @@ class PipelineManualE2eTest(unittest.TestCase):
         firehook_resources.MAXMIND_FILE_LOCATION)
     metadata = maxmind_db.lookup('1.1.1.1')
 
-    self.assertEqual(metadata,
-                     ('1.1.1.0/24', 13335, 'CLOUDFLARENET', None, None, 'AU'))
+    self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET', 'AU'))
 
   def test_dbip_init(self) -> None:
     """Test DBIP database access."""
     dbip_data = dbip.DbipMetadata(firehook_resources.DBIP_FILE_LOCATION)
 
-    (org, asn) = dbip_data.get_org('1.211.95.160')
+    (org, asn) = dbip_data.lookup('1.211.95.160')
     self.assertEqual(org, "Boranet")
     self.assertEqual(asn, 3786)
 
-    (org, asn) = dbip_data.get_org('1.0.0.0')
+    (org, asn) = dbip_data.lookup('1.0.0.0')
     self.assertEqual(org, None)
     self.assertEqual(asn, 13335)
 

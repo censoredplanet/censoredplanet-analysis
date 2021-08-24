@@ -2,13 +2,18 @@
 
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Optional, NamedTuple
 
 import geoip2.database
 
 from pipeline.metadata.mmdb_reader import mmdb_reader
 
 DBIP_ISP = 'dbip-isp-2021-07-01.mmdb'
+
+# Tuple(organization_name, asn)
+# ex: ("Boranet", 3786)
+DbipReturnValues = NamedTuple('DbipReturnValues', [('org_name', Optional[str]),
+                                                   ('asn', Optional[int])])
 
 
 class DbipMetadata():
@@ -24,7 +29,7 @@ class DbipMetadata():
     dbip_path = os.path.join(dbip_folder, DBIP_ISP)
     self.dbip_isp = mmdb_reader(dbip_path)
 
-  def get_org(self, ip: str) -> Tuple[Optional[str], Optional[int]]:
+  def lookup(self, ip: str) -> DbipReturnValues:
     """Lookup the organization for an ip
 
     Args:
@@ -35,20 +40,21 @@ class DbipMetadata():
     """
     try:
       ip_info = self.dbip_isp.enterprise(ip)
-      return (ip_info.traits.organization,
-              ip_info.traits.autonomous_system_number)
+      return DbipReturnValues(ip_info.traits.organization,
+                              ip_info.traits.autonomous_system_number)
 
     except (ValueError, geoip2.errors.AddressNotFoundError) as e:
       logging.warning('DBIP: %s\n', e)
-    return (None, None)
+    return DbipReturnValues(None, None)
 
 
-class FakeDbipMetadata():
+class FakeDbipMetadata(DbipMetadata):
   """A fake lookup table for testing DbipMetadata."""
 
-  def __init__(self, _: str) -> None:
-    super()
+  # pylint: disable=super-init-not-called
+  def __init__(self) -> None:
+    pass
 
   # pylint: disable=no-self-use
-  def get_org(self, _: str) -> Tuple[Optional[str], Optional[int]]:
-    return ("Fake Cloudflare Sub-Org", 13335)
+  def lookup(self, _: str) -> DbipReturnValues:
+    return DbipReturnValues("Fake Cloudflare Sub-Org", 13335)
