@@ -116,7 +116,10 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_net_as`
+# BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
+# which will be replaced when running the query
+
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_net_as`
 PARTITION BY date
 CLUSTER BY netblock, as_name, asn
 AS (
@@ -126,14 +129,14 @@ AS (
     asn,
     as_full_name AS as_name
   FROM (
-    SELECT * FROM `firehook-censoredplanet.base.discard_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.echo_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.http_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.base.https_scan`
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.discard_scan` UNION ALL
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.echo_scan` UNION ALL
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.http_scan` UNION ALL
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
   )
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_no_as`
 PARTITION BY date
 CLUSTER BY source, country_name, organization, domain
 AS (
@@ -152,7 +155,7 @@ WITH
     CleanError(error) AS result,
     ClassifyError(error, "DISCARD", success, blockpage, page_signature) as outcome,
     count(1) AS count
-  FROM `firehook-censoredplanet.base.discard_scan`
+  FROM `firehook-censoredplanet.BASE_DATASET.discard_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
@@ -168,7 +171,7 @@ WITH
     CleanError(error) AS result,
     ClassifyError(error, "ECHO", success, blockpage, page_signature) as outcome,
     count(1) AS count
-  FROM `firehook-censoredplanet.base.echo_scan`
+  FROM `firehook-censoredplanet.BASE_DATASET.echo_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
@@ -184,7 +187,7 @@ WITH
     CleanError(error) AS result,
     ClassifyError(error, "HTTP", success, blockpage, page_signature) as outcome,
     count(1) AS count
-  FROM `firehook-censoredplanet.base.http_scan`
+  FROM `firehook-censoredplanet.BASE_DATASET.http_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 
   UNION ALL
@@ -200,7 +203,7 @@ WITH
     CleanError(error) AS result,
     ClassifyError(error, "HTTPS", success, blockpage, page_signature) as outcome,
     count(1) AS count
-  FROM `firehook-censoredplanet.base.https_scan`
+  FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 )
 SELECT
@@ -217,7 +220,7 @@ WHERE NOT STARTS_WITH(outcome, "setup/")
 DROP FUNCTION CleanError;
 DROP FUNCTION ClassifyError;
 
-CREATE OR REPLACE VIEW `firehook-censoredplanet.derived.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
 OPTIONS(
   friendly_name="Reduced Scan View",
   description="A join of reduced scans with ASN info."
@@ -237,7 +240,7 @@ AS (
     result,
     outcome,
     count
-  FROM `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
-  LEFT JOIN `firehook-censoredplanet.derived.merged_net_as`
+  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_no_as`
+  LEFT JOIN `firehook-censoredplanet.DERIVED_DATASET.merged_net_as`
   USING (date, netblock)
 );

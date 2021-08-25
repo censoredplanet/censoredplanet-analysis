@@ -1,6 +1,6 @@
 # Development
 
-Install the dependencies with 
+Install the dependencies with
 
     pip install -r requirements.txt
 
@@ -61,6 +61,22 @@ If neither is specified the pipeline will automatically pick some reasonable
 dates to help avoid unintentially running test pipelines over large amounts of
 data. For appending pipelines this will be the latest week of data, and for
 full pipelines it will be the previous week of data.
+
+## Running queries
+
+After recreating the base tables you can rebuild any derived tables by running
+
+    python3 -m table.run_queries
+
+To test changes to the queries without overwriting the derived tables write to
+a personal dataset like
+
+    python3 -m table.run_queries --output=<username>
+
+If you want to read your own base tables (created from running a user pipeline
+above.) Then write the query as
+
+    python3 -m table.run_queries --input=<username> --output=<username>
 
 ## Access
 
