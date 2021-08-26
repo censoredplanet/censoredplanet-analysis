@@ -213,6 +213,7 @@ FROM AllScans
 LEFT JOIN `firehook-censoredplanet.metadata.country_names` ON country_code = country
 # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
 WHERE NOT STARTS_WITH(outcome, "setup/")
+      AND NOT ENDS_WITH(outcome, "/invalid")
 );
 
 # Drop the temp function before creating the view
