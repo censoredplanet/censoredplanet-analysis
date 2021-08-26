@@ -331,7 +331,7 @@ amazon.com.br,E-commerce
 amazon.com,E-commerce
 amazon.com.mx,E-commerce
 amazon.com.tr,E-commerce
-amazon.co.uk,Political Criticism
+amazon.co.uk,E-commerce
 amazon.de,E-commerce
 amazon.es,E-commerce
 amazon.fr,E-commerce
@@ -2908,7 +2908,7 @@ match.com,Online Dating
 mate1.com,Online Dating
 mathrubhumi.com,News Media
 mathworks.com,E-commerce
-matome.naver.jp,News Media
+matome.naver.jp,Search Engines
 matrimony.org,Online Dating
 maven.co.il,Search Engines
 mawdoo3.com,Search Engines
@@ -3759,7 +3759,7 @@ qingdaonews.com,News Media
 qj.com.cn,Media sharing
 qoo10.sg,E-commerce
 qpps.xyz,E-commerce
-qq.com,Culture
+qq.com,Social Networking
 qqoo.club,Illegal
 quad9.net,Hosting and Blogging Platforms
 qualtrics.com,E-commerce
@@ -4139,7 +4139,7 @@ simayeaval.com,News Media
 simpleflying.com,E-commerce
 sina.cn,Search Engines
 sina.com.cn,Search Engines
-sinaimg.cn,Hosting and Blogging Platforms
+sinaimg.cn,Search Engines
 sindonews.com,News Media
 sinoptik.ua,Culture
 sipa.be,E-commerce
@@ -4644,7 +4644,7 @@ twilight.ws,File-sharing
 twilio.com,E-commerce
 twimg.com,Social Networking
 twistedinternet.com,Hacking Tools
-twitch.tv,Media sharing
+twitch.tv,Social Networking
 twitpic.com,Media sharing
 twitter.com,Social Networking
 twoo.com,Social Networking
@@ -4853,7 +4853,7 @@ viu.com,Media sharing
 viva.co.id,Culture
 vivo.sx,Media sharing
 vjav.com,Pornography
-vk.com,Human Rights Issues
+vk.com,Social Networking
 vkuseraudio.net,E-commerce
 vlive.tv,Media sharing
 vltwox7zl7h1wv.com,E-commerce
@@ -5146,9 +5146,9 @@ www.altavista.com,Search Engines
 www.altpenis.com,Public Health
 www.amazon.ca,E-commerce
 www.amazon.cn,E-commerce
-www.amazon.co.jp,News Media
+www.amazon.co.jp,E-commerce
 www.amazon.com,E-commerce
-www.amazon.co.uk,Political Criticism
+www.amazon.co.uk,E-commerce
 www.amazon.de,E-commerce
 www.amazon.es,E-commerce
 www.amazon.fr,E-commerce
@@ -5624,38 +5624,38 @@ www.google.ca,Search Engines
 www.google.ch,Search Engines
 www.google.cl,Search Engines
 www.google.cn,Search Engines
-www.google.co.ao,News Media
-www.google.co.id,Culture
+www.google.co.ao,Search Engines
+www.google.co.id,Search Engines
 www.google.co.il,Search Engines
 www.google.co.in,Search Engines
-www.google.co.jp,News Media
+www.google.co.jp,Search Engines
 www.google.co.kr,Search Engines
-www.google.com.ar,News Media
-www.google.com.au,News Media
-www.google.com.br,News Media
-www.google.com.co,News Media
+www.google.com.ar,Search Engines
+www.google.com.au,Search Engines
+www.google.com.br,Search Engines
+www.google.com.co,Search Engines
 www.google.com.do,Search Engines
-www.google.com.eg,E-commerce
-www.google.com.gt,Economics
+www.google.com.eg,Search Engines
+www.google.com.gt,Search Engines
 www.google.com.hk,Search Engines
-www.google.com.kw,News Media
+www.google.com.kw,Search Engines
 www.google.com.ly,Search Engines
-www.google.com.mx,News Media
-www.google.com.ng,News Media
-www.google.com.pe,News Media
-www.google.com.ph,News Media
+www.google.com.mx,Search Engines
+www.google.com.ng,Search Engines
+www.google.com.pe,Search Engines
+www.google.com.ph,Search Engines
 www.google.com.pk,Search Engines
 www.google.com.sa,Search Engines
 www.google.com,Search Engines
-www.google.com.sg,News Media
+www.google.com.sg,Search Engines
 www.google.com.tr,Search Engines
 www.google.com.tw,Search Engines
-www.google.com.ua,E-commerce
-www.google.com.vn,News Media
+www.google.com.ua,Search Engines
+www.google.com.vn,Search Engines
 www.google.co.nz,Search Engines
 www.google.co.th,Search Engines
-www.google.co.uk,LGBT
-www.google.co.ve,Gaming
+www.google.co.uk,Search Engines
+www.google.co.ve,Search Engines
 www.google.co.za,Search Engines
 www.google.cz,Search Engines
 www.google.de,Search Engines
@@ -5818,7 +5818,7 @@ www.infowar-monitor.net,Government
 www.infusionsoft.com,E-commerce
 www.inminds.co.uk,Political Criticism
 www.inquirer.net,News Media
-www.instagram.com,Media sharing
+www.instagram.com,Social Networking
 www.instructure.com,Economics
 www.intel.com,E-commerce
 www.interactworldwide.org,Sex Education
@@ -6392,7 +6392,7 @@ www.tumblr.com,Media sharing
 www.tunnelbear.com,Anonymization and circumvention tools
 www.tutorialspoint.com,E-commerce
 www.twistedinternet.com,Hacking Tools
-www.twitch.tv,Media sharing
+www.twitch.tv,Social Networking
 www.txxx.com,Pornography
 www.typepad.com,Hosting and Blogging Platforms
 www.u4.no,Political Criticism
@@ -6490,7 +6490,7 @@ www.wiesenthal.com,Religion
 www.wikia.com,Hosting and Blogging Platforms
 www.wikidata.org,E-commerce
 www.wikihow.com,Culture
-www.wikimedia.org,E-commerce
+www.wikimedia.org,Culture
 www.wikipedia.org,Culture
 www.wikispaces.com,Economics
 www.wiktionary.org,Culture
