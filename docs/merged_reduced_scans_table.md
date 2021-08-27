@@ -25,7 +25,7 @@ Reduced Scans
 | source       | STRING    | What probe type the measurement came from ("HTTPS", "HTTP", "DISCARD", "ECHO") |
 | domain     | STRING  | The domain being tested (eg. `example.com`) or `CONTROL` for control measurements |
 | category   | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
-| country_name    | STRING  | The country of the autonomous system, eg. `US`  |
+| country_name    | STRING  | The country of the autonomous system, eg. `United States`  |
 | network        | STRING | The Autonomous System long name, eg. `Cloudflare, Inc.` |
 | subnetwork | STRING | The combinarion of the AS number and the IP organization, e.g. `AS6697 - Reliable Software, Ltd` |
 | outcome    | STRING  | An outcome classification, explained below. eg `read/timeout` |
