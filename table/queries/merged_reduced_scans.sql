@@ -119,7 +119,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_no_as`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
 PARTITION BY date
 CLUSTER BY source, country_name, network, domain
 AS (
@@ -150,10 +150,10 @@ WITH AllScans AS (
 
         count(*) as count
     FROM AllScans
-    # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
-    WHERE
-        NOT controls_failed
+    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
+    WHERE NOT controls_failed
     GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
 SELECT
