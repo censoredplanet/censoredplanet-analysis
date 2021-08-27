@@ -112,7 +112,13 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
 PARTITION BY date
+# Columns `source` and `country_name` are always used for filtering and must come first.
+# `network` and `domain` are useful for filtering and grouping.
 CLUSTER BY source, country_name, network, domain
+OPTIONS (
+  friendly_name="Reduced Scans",
+  description="Filtered and pre-aggregated table of scans to use with the Censored Planed Dashboard"
+)
 AS (
 WITH AllScans AS (
   SELECT * except (source), "DISCARD" AS source
