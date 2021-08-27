@@ -119,128 +119,57 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_net_as`
-PARTITION BY date
-CLUSTER BY netblock, as_name, asn
-AS (
-  SELECT DISTINCT
-    date,
-    netblock,
-    asn,
-    as_full_name AS as_name
-  FROM (
-    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.discard_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.echo_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.http_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
-  )
-);
-
 CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_no_as`
 PARTITION BY date
-CLUSTER BY source, country_name, organization, domain
+CLUSTER BY source, country_name, network, domain
 AS (
-WITH
-  AllScans AS (
-
-  SELECT
-    date,
-    IF(is_control, "CONTROL", domain) as domain,
-    category,
-    "DISCARD" AS source,
-    country,
-    netblock,
-    organization,
-    controls_failed,
-    CleanError(error) AS result,
-    ClassifyError(error, "DISCARD", success, blockpage, page_signature) as outcome,
-    count(1) AS count
+WITH AllScans AS (
+  SELECT * except (source), "DISCARD" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.discard_scan`
-  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
-
   UNION ALL
-  SELECT
-    date,
-    IF(is_control, "CONTROL", domain) as domain,
-    category,
-    "ECHO" AS source,
-    country,
-    netblock,
-    organization,
-    controls_failed,
-    CleanError(error) AS result,
-    ClassifyError(error, "ECHO", success, blockpage, page_signature) as outcome,
-    count(1) AS count
+  SELECT * except (source), "ECHO" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.echo_scan`
-  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
-
   UNION ALL
-  SELECT
-    date,
-    IF(is_control, "CONTROL", domain) as domain,
-    category,
-    "HTTP" AS source,
-    country,
-    netblock,
-    organization,
-    controls_failed,
-    CleanError(error) AS result,
-    ClassifyError(error, "HTTP", success, blockpage, page_signature) as outcome,
-    count(1) AS count
+  SELECT * except (source), "HTTP" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.http_scan`
-  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
-
   UNION ALL
-  SELECT
-    date,
-    IF(is_control, "CONTROL", domain) as domain,
-    category,
-    "HTTPS" AS source,
-    country,
-    netblock,
-    organization,
-    controls_failed,
-    CleanError(error) AS result,
-    ClassifyError(error, "HTTPS", success, blockpage, page_signature) as outcome,
-    count(1) AS count
+  SELECT * except (source), "HTTPS" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
-  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
+), Grouped AS (
+    SELECT
+        date,
+
+        source,
+        country as country_code,
+        as_full_name as network,
+        IF(is_control, "CONTROL", domain) as domain,
+
+        ClassifyError(error, source, success, blockpage, page_signature) as outcome,
+        CONCAT("AS", asn, IF(organization is not null, CONCAT(" - ", organization), "")) as subnetwork,
+        category,
+
+        count(*) as count
+    FROM AllScans
+    # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
+    WHERE
+        NOT controls_failed
+    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    HAVING NOT STARTS_WITH(outcome, "setup/")
 )
 SELECT
-  AllScans.* except (country),
-  IFNULL(country_name, country) as country_name
-FROM AllScans
-LEFT JOIN `firehook-censoredplanet.metadata.country_names` ON country_code = country
-# Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
-WHERE NOT STARTS_WITH(outcome, "setup/")
+    Grouped.* except (country_code),
+    IFNULL(country_name, country_code) as country_name,
+    CASE
+        WHEN (outcome = "complete/success") THEN 0
+        WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
+        WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
+        ELSE count
+    END as unexpected_count
+    FROM Grouped
+    LEFT JOIN `firehook-censoredplanet.metadata.country_names` using (country_code)
 );
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
 DROP FUNCTION CleanError;
 DROP FUNCTION ClassifyError;
-
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
-OPTIONS(
-  friendly_name="Reduced Scan View",
-  description="A join of reduced scans with ASN info."
-)
-AS (
-  SELECT
-    date,
-    domain,
-    category,
-    source,
-    country_name,
-    netblock,
-    asn,
-    as_name,
-    organization,
-    controls_failed,
-    result,
-    outcome,
-    count
-  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_no_as`
-  LEFT JOIN `firehook-censoredplanet.DERIVED_DATASET.merged_net_as`
-  USING (date, netblock)
-);
