@@ -12,15 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-CREATE TEMP FUNCTION CleanError(error STRING) AS (
-  REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
-    IF(error = "", "null", IFNULL(error, "null")),
-    "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", "[IP]"),
-    "\\[IP\\]:[0-9]+", "[IP]:[PORT]"),
-    "length [0-9]+", "length [LENGTH]"),
-    "port\\.[0-9]+", "port.[PORT]")
-);
-
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
@@ -168,8 +159,3 @@ SELECT
     FROM Grouped
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` using (country_code)
 );
-
-# Drop the temp function before creating the view
-# Since any temp functions in scope block view creation.
-DROP FUNCTION CleanError;
-DROP FUNCTION ClassifyError;
