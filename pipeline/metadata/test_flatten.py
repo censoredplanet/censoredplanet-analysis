@@ -265,7 +265,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         {
             'domain':
                 '',  # missing control domain is not populated when sent is empty
-            'category': None,
+            'category': 'Control',
             'ip': '1.2.3.4',
             'date': '2020-09-20',
             'start_time': '2020-09-20T07:45:16.170427683-04:00',
@@ -281,7 +281,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         },
         {
             'domain': 'example5718349450314.com',
-            'category': None,
+            'category': 'Control',
             'ip': '1.2.3.4',
             'date': '2020-09-20',
             'start_time': '2020-09-20T07:45:18.170427683-04:00',
@@ -357,7 +357,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-9f26cf1579e1e31d.com',
-        'category': None,
+        'category': 'Control',
         'ip': '146.112.255.132',
         'date': '2021-05-30',
         'start_time': '2021-05-30T01:01:03.783547451-04:00',
@@ -471,7 +471,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-2e116cc633eb1fbd.com',
-        'category': None,
+        'category': 'Control',
         'ip': '117.78.42.54',
         'date': '2021-05-31',
         'start_time': '2021-05-31T12:46:33.600692607-04:00',
@@ -520,7 +520,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             'CP_Quack-discard-2021-05-31-12-43-21',
     }, {
         'domain': 'control-be2b77e1cde11c02.com',
-        'category': None,
+        'category': 'Control',
         'ip': '117.78.42.54',
         'date': '2021-05-31',
         'start_time': '2021-05-31T12:46:48.97188782-04:00',
@@ -722,7 +722,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-a459b35b8d53c7eb.com',
-        'category': None,
+        'category': 'Control',
         'ip': '167.207.140.67',
         'date': '2021-05-30',
         'start_time': '2021-05-30T01:02:13.620124638-04:00',
@@ -912,7 +912,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     # yapf: disable
     expected_row: flatten.Row = {
         'domain': 'control-1b13950f35f3208b.com',
-        'category': None,
+        'category': 'Control',
         'ip': '41.0.4.132',
         'date': '2021-04-26',
         'start_time': '2021-04-26T04:38:36.78214922-04:00',

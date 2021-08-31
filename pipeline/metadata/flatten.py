@@ -218,21 +218,23 @@ class FlattenMeasurement(beam.DoFn):
     for index, result in enumerate(scan.get('Results', [])):
       date = result['StartTime'][:10]
 
-      domain = _extract_domain_from_sent_field(result['Sent'])
-      is_control = _is_control_url(domain)
+      sent_domain = _extract_domain_from_sent_field(result['Sent'])
+      is_control = _is_control_url(sent_domain)
       # Due to a bug the sent field sometimes isn't populated
       # when the measurement failed due to network timeout.
-      if not domain:
+      if not sent_domain:
         # Control measurements come at the end, and are not counted as retries.
         is_control = index > scan['Retries']
         if is_control:
           domain = ""
         else:
           domain = scan['Keyword']
+      else:
+        domain = sent_domain
 
       row = {
           'domain': domain,
-          'category': self.category_matcher.match_url(scan['Keyword']),
+          'category': self._get_category(domain, is_control),
           'ip': scan['Server'],
           'date': date,
           'start_time': result['StartTime'],
@@ -272,11 +274,12 @@ class FlattenMeasurement(beam.DoFn):
     """
     for response in scan.get('response', []):
       date = response['start_time'][:10]
-      domain = response.get('control_url', scan['test_url'])
+      domain: str = response.get('control_url', scan['test_url'])
+      is_control = 'control_url' in response
 
       row = {
           'domain': domain,
-          'category': self.category_matcher.match_url(domain),
+          'category': self._get_category(domain, is_control),
           'ip': scan['vp'],
           'date': date,
           'start_time': response['start_time'],
@@ -284,7 +287,7 @@ class FlattenMeasurement(beam.DoFn):
           'anomaly': scan['anomaly'],
           'success': response['matches_template'],
           'stateful_block': scan['stateful_block'],
-          'is_control': 'control_url' in response,
+          'is_control': is_control,
           'controls_failed': scan.get('controls_failed', None),
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
@@ -513,3 +516,8 @@ class FlattenMeasurement(beam.DoFn):
       blockpage, signature = self.blockpage_matcher.match_page(content)
       row['blockpage'] = blockpage
       row['page_signature'] = signature
+
+  def _get_category(self, domain: str, is_control: bool) -> Optional[str]:
+    if is_control:
+      return "Control"
+    return self.category_matcher.match_url(domain)
