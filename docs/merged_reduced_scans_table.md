@@ -1,34 +1,19 @@
 # Reduced Table
 
-This table is actually a view joining two tables, in order to read over less
-data with every request.
+The table `firehook-censoredplanet.derived.merged_reduced_scans` contains filtered and pre-aggregated
+data to be used in the Censored Planet dashboard.
 
-These tables are created by the script
+The table is created by the script
 [merged_reduced_scans.sql](../table/queries/merged_reduced_scans.sql).
-
-## Table names
-
-### View
-
-- firehook-censoredplanet.derived.merged_reduced_scans
-
-### Sub-tables
-
-- `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
-- `firehook-censoredplanet.derived.merged_net_as`
-
-These two tables are joined on their `date` and `netblock` fields to create the
-view.
 
 ## Partitioning and Clustering
 
-The sub-tables are time-partitioned along the `date` field.
+The table is [time-partitioned](https://cloud.google.com/bigquery/docs/partitioned-tables) along the `date` field.
+This allows queries to skip any data outside the desired date range.
 
-`firehook-censoredplanet.merged_reduced_scans` is clustered along the `netblock`
-field.
-
-`firehook-censoredplanet.merged_net_as` is clustered along the `country`,
-`category`, `domain` and then `netblock` fields.
+The table also uses [clustering](https://cloud.google.com/bigquery/docs/clustered-tables) to make filtering and aggregation
+more efficient. The table is clustered along the `source`, `country_name`, `network` and `domain` columns.
+The columns `source` and `country_name` are always used for filtering, so they come first.
 
 ## Table Format
 
@@ -37,15 +22,15 @@ Reduced Scans
 | Field Name | Type    | Contains |
 | ---------- | ------- | -------- |
 | date       | DATE    | Date that an individual measurement was taken |
-| domain     | STRING  | The domain being tested, eg. `example.com` |
+| source       | STRING    | What probe type the measurement came from ("HTTPS", "HTTP", "DISCARD", "ECHO") |
+| domain     | STRING  | The domain being tested (eg. `example.com`) or `CONTROL` for control measurements |
 | category   | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
-| country    | STRING  | Autonomous system country, eg. `US`  |
-| netblock   | STRING  | Netblock of the IP, eg. `1.1.1.0/24`  |
-| asn        | INTEGER | Autonomous system number, eg. `13335` |
-| as_name    | STRING  | Autonomous system long name, eg. `Cloudflare, Inc.` |
-| result     | STRING  | `null` (meaning success) or error returned. eg. `Incorrect web response: status lines don't match`. Errors come either from the probe system, or directly from [Go's net package](https://golang.org/pkg/net/) |
+| country_name    | STRING  | The country of the autonomous system, eg. `United States`  |
+| network        | STRING | The Autonomous System long name, eg. `Cloudflare, Inc.` |
+| subnetwork | STRING | The combinarion of the AS number and the IP organization, e.g. `AS6697 - Reliable Software, Ltd` |
 | outcome    | STRING  | An outcome classification, explained below. eg `read/timeout` |
 | count      | INTEGER | How many measurements fit the exact pattern of this row? |
+| unexpected_count      | INTEGER | Count of measurements with an unexpected outcome |
 
 ## Outcome Classification
 
