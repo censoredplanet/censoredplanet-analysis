@@ -110,7 +110,12 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+# Increment the version of this table if you change the table in a backwards-incomatible way.
+
+# Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
+# if you would like to see a clear breakage when there's a backwards-incompatible change.
+# Old table versions will be deleted.
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -165,3 +170,16 @@ SELECT
     FROM Grouped
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` using (country_code)
 );
+
+# Drop the temp function before creating the view
+# Since any temp functions in scope block view creation.
+DROP FUNCTION ClassifyError;
+
+# This view is the stable name for the table above.
+# Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
+# if you would like to continue pointing to the table even when there is a breaking change.
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+AS (
+  SELECT *
+  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+)
