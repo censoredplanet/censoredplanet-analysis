@@ -1,7 +1,14 @@
 # Reduced Table
 
-The table `firehook-censoredplanet.derived.merged_reduced_scans` contains filtered and pre-aggregated
-data to be used in the Censored Planet dashboard.
+The table `firehook-censoredplanet.derived.merged_reduced_scans_vN` (where N is a version number)
+contains filtered and pre-aggregated data to be used in the Censored Planet dashboard.
+
+This table is evolving and will change in backwards incompatible ways. When a backwards-incompatible
+change happens the version number will increment. Older version of the table will be deleted.
+
+The view `firehook-censoredplanet.derived.merged_reduced_scans` points to the latest version of
+the table above. If you would like to deal with backwards-incompatible changes yourself rely on
+this view instead of the table directly.
 
 The table is created by the script
 [merged_reduced_scans.sql](../table/queries/merged_reduced_scans.sql).
