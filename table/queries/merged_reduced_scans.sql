@@ -13,12 +13,13 @@
 # limitations under the License.
 
 CREATE TEMP FUNCTION CleanError(error STRING) AS (
-  REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+  REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
     IF(error = "", "null", IFNULL(error, "null")),
     "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", "[IP]"),
     "\\[IP\\]:[0-9]+", "[IP]:[PORT]"),
     "length [0-9]+", "length [LENGTH]"),
-    "port\\.[0-9]+", "port.[PORT]")
+    "port\\.[0-9]+", "port.[PORT]"),
+    "\"Port\": [0-9]+", "\"Port\": [PORT]")
 );
 
 # Classify all errors into a small set of enums
@@ -116,6 +117,70 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
+CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
+  CASE
+    WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "dns/dns.connerr"
+    WHEN rcode = "0" THEN "dns/dns.name_not_resolved"
+    WHEN rcode = "1" THEN "dns/dns.formerr"
+    WHEN rcode = "2" THEN "dns/dns.servfail"
+    WHEN rcode = "3" THEN "dns/dns.nxdomain"
+    WHEN rcode = "4" THEN "dns/dns.notimp"
+    WHEN rcode = "5" THEN "dns/dns.refused"
+    WHEN rcode = "6" THEN "dns/dns.yxdomain"
+    WHEN rcode = "7" THEN "dns/dns.yxrrset"
+    WHEN rcode = "8" THEN "dns/dns.nxrrset"
+    WHEN rcode = "9" THEN "dns/dns.notauth"
+    WHEN rcode = "10" THEN "dns/dns.notzone"
+    WHEN rcode = "16" THEN "dns/dns.badsig"
+    WHEN rcode = "17" THEN "dns/dns.badkey"
+    WHEN rcode = "18" THEN "dns/dns.badtime"
+    WHEN rcode = "19" THEN "dns/dns.badmode"
+    WHEN rcode = "20" THEN "dns/dns.badname"
+    WHEN rcode = "21" THEN "dns/dns.badalg"
+    WHEN rcode = "22" THEN "dns/dns.badtrunc"
+    WHEN rcode = "23" THEN "dns/dns.badcookie"
+    # Satellite v1
+    WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "read/udp.timeout"
+    WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
+    WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "read/udp.refused"
+    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
+    WHEN error = "{}" THEN "dns/unknown"
+    WHEN error = "no_answer" THEN "dns/dns.name_not_resolved"
+    #Satellite v2
+    WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
+    WHEN ENDS_WITH(error, "message too long") THEN "read/dns.msgsize"
+    WHEN ENDS_WITH(error, "connection refused") THEN "read/udp.refused"
+    WHEN ENDS_WITH(error, "no route to host") THEN "read/ip.host_no_route"
+    WHEN ENDS_WITH(error, "short read") THEN "read/dns.msgsize"
+    ELSE "dns/unknown"
+  END
+);
+
+CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, error STRING, controls_failed BOOL, anomaly BOOL) AS (
+  CASE
+    WHEN controls_failed THEN "setup/controls"
+    WHEN ARRAY_LENGTH(received) > 0 THEN
+      CASE
+        WHEN anomaly THEN "dns/dns.ipmismatch"
+        ELSE "complete/success"
+      END
+    WHEN ARRAY_LENGTH(rcode) > 0 THEN MapSatelliteError(rcode[ORDINAL(ARRAY_LENGTH(rcode))], SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+    ELSE MapSatelliteError("", SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+  END
+);
+
+CREATE TEMP FUNCTION SatelliteResult(received ANY TYPE, rcode ARRAY<STRING>, error STRING) AS (
+  CASE
+    WHEN ARRAY_LENGTH(received) > 0 THEN CONCAT(ARRAY_LENGTH(received), " answer IPs")
+    WHEN ARRAY_LENGTH(rcode) > 0 THEN
+      CASE
+        WHEN rcode[ORDINAL(ARRAY_LENGTH(rcode))] = "-1" AND error IS NOT NULL AND error != "" AND error != "null" THEN CleanError(SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+        ELSE CONCAT("rcode: ", rcode[ORDINAL(ARRAY_LENGTH(rcode))])
+      END
+    ELSE CleanError(SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+  END
+);
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -132,7 +197,8 @@ AS (
     SELECT * FROM `firehook-censoredplanet.BASE_DATASET.discard_scan` UNION ALL
     SELECT * FROM `firehook-censoredplanet.BASE_DATASET.echo_scan` UNION ALL
     SELECT * FROM `firehook-censoredplanet.BASE_DATASET.http_scan` UNION ALL
-    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.https_scan` UNION ALL
+    SELECT * FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
   )
 );
 
@@ -204,6 +270,22 @@ WITH
     ClassifyError(error, "HTTPS", success, blockpage, page_signature) as outcome,
     count(1) AS count
   FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
+  GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
+
+  UNION ALL
+  SELECT
+    date,
+    IF(is_control, "CONTROL", domain) as domain,
+    category,
+    "SATELLITE" AS source,
+    country,
+    netblock,
+    organization,
+    controls_failed,
+    SatelliteResult(received, rcode, error) AS result,
+    SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome,
+    count(1) AS count
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
   GROUP BY date, source, country, category, domain, netblock, organization, controls_failed, result, outcome
 )
 SELECT

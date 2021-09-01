@@ -137,7 +137,8 @@ NUM_DOMAIN_PARTITIONS = 250
 SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
-    'responses_control.json', 'tagged_responses.json', 'results.json'
+    'responses_control.json', 'tagged_responses.json', 'results.json',
+    'answers_err.json'
 ]
 # Data files for the non-Satellite pipelines
 SCAN_FILES = ['results.json']

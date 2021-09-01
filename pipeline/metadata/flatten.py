@@ -337,14 +337,19 @@ class FlattenMeasurement(beam.DoFn):
     row = {
         'domain': scan['query'],
         'category': self.category_matcher.match_url(scan['query']),
-        'ip': scan['resolver'],
+        'ip': scan.get('resolver', scan.get('ip')),
         'date': date,
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
         'success': 'error' not in scan,
         'received': None,
+        'rcode': ['0'] if 'error' not in scan else ['-1'],
         'measurement_id': random_measurement_id,
     }
+
+    if type(row['error']) == dict:
+      row['error'] = json.dumps(row['error'])
+
     received_ips = scan.get('answers')
     yield from self._process_received_ips(row, received_ips)
 
