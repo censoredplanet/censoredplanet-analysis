@@ -19,7 +19,7 @@
 # content/status_mismatch:403
 CREATE TEMP FUNCTION StatusMismatch(received_status STRING) AS (
   CASE
-    WHEN received_status is NULL THEN "content/status_mismatch"
+    WHEN received_status IS NULL OR received_status = "" THEN "content/status_mismatch"
     ELSE CONCAT("content/status_mismatch:", SUBSTR(received_status, 0, 3))
   END
 );
