@@ -169,6 +169,7 @@ SELECT
     END as unexpected_count
     FROM Grouped
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` using (country_code)
+    WHERE country_code IS NOT NULL
 );
 
 # Drop the temp function before creating the view
