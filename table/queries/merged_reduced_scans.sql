@@ -12,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Extract the code from recieved_status and return the outcome with that status appended.
+# ex:
+# content/status_mismatch
+# or
+# content/status_mismatch:403
+CREATE TEMP FUNCTION StatusMismatch(received_status STRING) AS (
+  CASE
+    WHEN received_status is NULL THEN "content/status_mismatch"
+    ELSE CONCAT("content/status_mismatch:", SUBSTR(received_status, 0, 3))
+  END
+);
+
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
@@ -22,18 +34,20 @@
 # https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
 CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    source STRING,
+                                   received_status STRING,
                                    template_match BOOL,
                                    blockpage_match BOOL,
                                    blockpage_id STRING) AS (
   CASE
-    WHEN blockpage_match then CONCAT("content/blockpage:", blockpage_id)
+    WHEN blockpage_match THEN CONCAT("content/blockpage:", blockpage_id)
+    WHEN blockpage_match = False THEN CONCAT("content/fp_blockpage:", blockpage_id)
 
     # Content mismatch for hyperquack v2 which doesn't write
     # content verification failures in the error field.
-    WHEN (NOT template_match AND (error is NULL OR error = "")) then "content/template_mismatch"
+    WHEN (NOT template_match AND (error is NULL OR error = "")) THEN "content/template_mismatch"
 
     # Success
-    WHEN (error is NULL OR error = "") then "complete/success"
+    WHEN (error is NULL OR error = "") THEN "complete/success"
 
     # System failures
     WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
@@ -88,7 +102,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v1 errors
     WHEN (error = "Incorrect echo response") THEN "content/response_mismatch" # Echo
     WHEN (error = "Received response") THEN "content/response_mismatch" # Discard
-    WHEN (error = "Incorrect web response: status lines don't match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Incorrect web response: status lines don't match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Incorrect web response: bodies don't match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Incorrect web response: certificates don't match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Incorrect web response: cipher suites don't match") THEN "content/tls_mismatch" # HTTPS
@@ -96,7 +110,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v2 errors
     WHEN (error = "echo response does not match echo request") THEN "content/response_mismatch" # Echo
     WHEN (error = "discard response is not empty") THEN "content/response_mismatch" # Discard
-    WHEN (error = "Status lines does not match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Status lines does not match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Bodies do not match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Certificates do not match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Cipher suites do not match") THEN "content/tls_mismatch" # HTTPS
@@ -107,6 +121,8 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -115,7 +131,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -145,8 +161,9 @@ WITH AllScans AS (
         country as country_code,
         as_full_name as network,
         IF(is_control, "CONTROL", domain) as domain,
+        blockpage,
 
-        ClassifyError(error, source, success, blockpage, page_signature) as outcome,
+        ClassifyError(error, source, received_status, success, blockpage, page_signature) as outcome,
         CONCAT("AS", asn, IF(organization is not null, CONCAT(" - ", organization), "")) as subnetwork,
         category,
 
@@ -154,7 +171,7 @@ WITH AllScans AS (
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, outcome, domain, blockpage, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -163,6 +180,7 @@ SELECT
     IFNULL(country_name, country_code) as country_name,
     CASE
         WHEN (outcome = "complete/success") THEN 0
+        WHEN (outcome = "content/fp_blockpage:x_on_this_server") THEN NULL
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
@@ -174,13 +192,14 @@ SELECT
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
+DROP FUNCTION StatusMismatch;
 DROP FUNCTION ClassifyError;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
 # if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans`
 AS (
   SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+  FROM `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
 )
