@@ -40,7 +40,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    blockpage_id STRING) AS (
   CASE
     WHEN blockpage_match THEN CONCAT("content/blockpage:", blockpage_id)
-    WHEN blockpage_match = False THEN CONCAT("content/fp_blockpage:", blockpage_id)
+    WHEN blockpage_match = False THEN CONCAT("content/known_response:", blockpage_id)
 
     # Content mismatch for hyperquack v2 which doesn't write
     # content verification failures in the error field.
@@ -180,7 +180,7 @@ SELECT
     IFNULL(country_name, country_code) as country_name,
     CASE
         WHEN (outcome = "complete/success") THEN 0
-        WHEN (outcome = "content/fp_blockpage:x_on_this_server") THEN NULL
+        WHEN (blockpage = False) THEN NULL
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
