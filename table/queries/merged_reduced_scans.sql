@@ -119,7 +119,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 
 CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
   CASE
-    WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "dns/dns.connerr"
+    WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
     WHEN rcode = "0" THEN "dns/dns.name_not_resolved"
     WHEN rcode = "1" THEN "dns/dns.formerr"
     WHEN rcode = "2" THEN "dns/dns.servfail"
@@ -164,8 +164,8 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, er
         WHEN anomaly THEN "dns/dns.ipmismatch"
         ELSE "complete/success"
       END
-    WHEN ARRAY_LENGTH(rcode) > 0 THEN MapSatelliteError(rcode[ORDINAL(ARRAY_LENGTH(rcode))], SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
-    ELSE MapSatelliteError("", SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+    WHEN ARRAY_LENGTH(rcode) > 0 THEN ClassifySatelliteError(rcode[ORDINAL(ARRAY_LENGTH(rcode))], SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+    ELSE ClassifySatelliteError("", SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
   END
 );
 
