@@ -131,7 +131,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.filter_akamai_merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -170,7 +170,9 @@ WITH AllScans AS (
         count(*) as count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
+    # Filter out Akamai vantage points because their results are bad
     WHERE NOT controls_failed
+          AND NOT CONTAINS_SUBSTR(ARRAY_TO_STRING(received_headers, ','), 'Server: AkamaiGHost')
     GROUP BY date, source, country_code, network, outcome, domain, blockpage, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
@@ -180,7 +182,8 @@ SELECT
     IFNULL(country_name, country_code) as country_name,
     CASE
         WHEN (outcome = "complete/success") THEN 0
-        WHEN (blockpage = False) THEN NULL
+        #WHEN (blockpage = False) THEN NULL
+        #WHEN CONTAINS(ARRAY_TO_STRING(received_headers, ','), 'Server: AkamaiGHost') THEN NULL
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
@@ -198,8 +201,8 @@ DROP FUNCTION ClassifyError;
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
 # if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.filter_akamai_merged_reduced_scans`
 AS (
   SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
+  FROM `firehook-censoredplanet.DERIVED_DATASET.filter_akamai_merged_reduced_scans_v2`
 )
