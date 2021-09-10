@@ -32,10 +32,12 @@ from google.cloud.exceptions import NotFound  # type: ignore
 import firehook_resources
 from pipeline import run_beam_tables
 from pipeline.metadata import caida_ip_metadata, maxmind, dbip
+from table import run_queries
 
 # The test table is written into the <project>:test dataset
 BEAM_TEST_BASE_DATASET = 'test'
 BEAM_TEST_BASE_TABLE_SUFFIX = '_scan'
+DERIVED_TABLE_NAME = 'merged_reduced_scans_v2'
 
 HYPERQUACK_SCAN_TYPES = ['echo', 'discard', 'http', 'https']
 SATELLITE_SCAN_TYPE = 'satellite'
@@ -96,7 +98,7 @@ def get_local_data_function(scan_type: str,
   return lambda *_: [scan_file]
 
 
-def get_beam_table_name(scan_type: str) -> str:
+def get_beam_base_table_name(scan_type: str) -> str:
   """Get a table name for using in beam pipelines.
 
   Args:
@@ -107,7 +109,7 @@ def get_beam_table_name(scan_type: str) -> str:
   return f'{BEAM_TEST_BASE_DATASET}.{scan_type}{BEAM_TEST_BASE_TABLE_SUFFIX}'
 
 
-def get_bq_table_name(scan_type: str) -> str:
+def get_bq_base_table_name(scan_type: str) -> str:
   """Get a table name for using in bigquery
 
   Args:
@@ -115,8 +117,12 @@ def get_bq_table_name(scan_type: str) -> str:
 
   Returns: table name like 'firehook-censoredplanet.test.echo_scan'
   """
-  beam_table_name = get_beam_table_name(scan_type)
+  beam_table_name = get_beam_base_table_name(scan_type)
   return f'{firehook_resources.PROJECT_NAME}.{beam_table_name}'
+
+
+def get_bq_derived_table_name() -> str:
+  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME}'
 
 
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
@@ -149,7 +155,7 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
       scan_type, incremental)
 
   pipeline_name = f'test_{scan_type}'
-  dataset_table_name = get_beam_table_name(scan_type)
+  dataset_table_name = get_beam_base_table_name(scan_type)
   test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
                                 dataset_table_name, None, None)
   # pylint: enable=protected-access
@@ -162,7 +168,7 @@ def run_local_pipeline_satellite() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
 
-  dataset_table_name = get_beam_table_name(SATELLITE_SCAN_TYPE)
+  dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
@@ -175,7 +181,7 @@ def run_local_pipeline_satellite_v2() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
-  dataset_table_name = get_beam_table_name(SATELLITE_SCAN_TYPE)
+  dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
@@ -187,7 +193,7 @@ def run_local_pipeline_invalid() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_invalid  # type: ignore
 
-  dataset_table_name = get_beam_table_name('invalid')
+  dataset_table_name = get_beam_base_table_name('invalid')
   test_runner.run_beam_pipeline('invalid', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
@@ -219,9 +225,12 @@ class PipelineManualE2eTest(unittest.TestCase):
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
+    derived_table_name = get_bq_derived_table_name()
+
     try:
       bq_table_names = [
-          get_bq_table_name(scan_type) for scan_type in HYPERQUACK_SCAN_TYPES
+          get_bq_base_table_name(scan_type)
+          for scan_type in HYPERQUACK_SCAN_TYPES
       ]
 
       for scan_type in HYPERQUACK_SCAN_TYPES:
@@ -239,8 +248,16 @@ class PipelineManualE2eTest(unittest.TestCase):
       # Domain appear different numbers of times in the test table depending on
       # how their measurement succeeded/failed.
       expected_single_domains = [
-          'boingboing.net', 'box.com', 'google.com.ua', 'mos.ru', 'scribd.com',
-          'uploaded.to', 'www.blubster.com', 'www.orthodoxconvert.info',
+          'boingboing.net',
+          'box.com',
+          'google.com.ua',
+          'mos.ru',
+          'scribd.com',
+          'uploaded.to',
+          'www.blubster.com',
+          'www.orthodoxconvert.info',
+      ]
+      expected_single_control_domains = [
           'control-28f3538a12dcd07e.com', 'control-2aed3d1eae675e01.com',
           'control-2e116cc633eb1fbd.com', 'control-2fa1129e0ced3941.com',
           'control-3346cfc3f6ba4d5e.com', 'control-5e01baa8e02fd6cf.com',
@@ -255,28 +272,47 @@ class PipelineManualE2eTest(unittest.TestCase):
           'control-ec72f7d094d37572.com'
       ]
       expected_triple_domains = [
-          'www.arabhra.org', 'rtyutgyhefdafioasfjhjhi.com'
+          'www.arabhra.org',
       ]
+      expected_triple_control_domains = ['rtyutgyhefdafioasfjhjhi.com']
       expected_quad_domains = [
-          '123rf.com', '1337x.to', 'www.youporn.com', 'xhamster.com',
-          'example5718349450314.com'
+          '123rf.com',
+          '1337x.to',
+          'www.youporn.com',
+          'xhamster.com',
       ]
+      expected_quad_control_domains = ['example5718349450314.com']
       expected_quintuple_domains = [
           'discover.com', 'peacefire.org', 'secondlife.com', 'www.epa.gov',
           'www.sex.com', 'www.89.com', 'www.casinotropez.com'
       ]
       expected_18_domain = ['104.com.tw']
       all_expected_domains = (
-          expected_single_domains + expected_triple_domains * 3 +
-          expected_quad_domains * 4 + expected_quintuple_domains * 5 +
-          expected_18_domain * 18)
+          expected_single_domains + expected_single_control_domains +
+          expected_triple_domains * 3 + expected_triple_control_domains * 3 +
+          expected_quad_domains * 4 + expected_quad_control_domains * 4 +
+          expected_quintuple_domains * 5 + expected_18_domain * 18)
 
       written_domains = [row[0] for row in written_rows]
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      # Write derived table
+      run_queries.rebuild_all_tables(
+          base_dataset=BEAM_TEST_BASE_DATASET,
+          derived_dataset=BEAM_TEST_BASE_DATASET)
+
+      written_derived_rows = get_bq_rows(client, [derived_table_name])
+      self.assertEqual(len(written_derived_rows), 53)
+      expected_domains = (['CONTROL'] + expected_single_domains +
+                          expected_triple_domains + expected_quad_domains +
+                          expected_quintuple_domains + expected_18_domain)
+
+      written_derived_domains = [row[3] for row in written_derived_rows]
+      self.assertEqual(set(written_derived_domains), set(expected_domains))
+
     finally:
-      clean_up_bq_tables(client, bq_table_names)
+      clean_up_bq_tables(client, bq_table_names + [derived_table_name])
 
   def test_satellite_pipeline_e2e(self) -> None:
     """Test the satellite pipeline by running it locally."""
@@ -288,7 +324,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline_satellite()
 
       written_rows = get_bq_rows(client,
-                                 [get_bq_table_name(SATELLITE_SCAN_TYPE)])
+                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
@@ -301,7 +337,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_tables(client, [get_bq_table_name(SATELLITE_SCAN_TYPE)])
+      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_satellite_v2_pipeline_e2e(self) -> None:
     """Test the satellite v2 pipeline by running it locally."""
@@ -313,7 +349,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline_satellite_v2()
 
       written_rows = get_bq_rows(client,
-                                 [get_bq_table_name(SATELLITE_SCAN_TYPE)])
+                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
@@ -327,7 +363,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_tables(client, [get_bq_table_name(SATELLITE_SCAN_TYPE)])
+      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
