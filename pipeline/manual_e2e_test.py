@@ -21,9 +21,7 @@ The local pipeline runs twice, once for a full load, and once incrementally.
 """
 
 import datetime
-import os
-import pwd
-from typing import List, Any
+from typing import List, Any, Callable
 import unittest
 import warnings
 
@@ -35,12 +33,14 @@ import firehook_resources
 from pipeline import run_beam_tables
 from pipeline.metadata import caida_ip_metadata, maxmind, dbip
 
-# The test table is written into the <project>:<username> dataset
-username = pwd.getpwuid(os.getuid()).pw_name
-BEAM_TEST_TABLE = f'{username}.manual_test'
-BQ_TEST_TABLE = f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_TABLE}'
+# The test table is written into the <project>:test dataset
+BEAM_TEST_BASE_DATASET = 'test'
+BEAM_TEST_BASE_TABLE_SUFFIX = '_scan'
 
-JOB_NAME = 'manual_test_job'
+HYPERQUACK_SCAN_TYPES = ['echo', 'discard', 'http', 'https']
+SATELLITE_SCAN_TYPE = 'satellite'
+
+JOB_NAME = 'manual-test-job'
 
 
 # These methods are used to monkey patch the data_to_load method in beam_tables
@@ -53,24 +53,6 @@ JOB_NAME = 'manual_test_job'
 #
 # These files contain real sample data, usually 4 measurements each, the first 2
 # are measurements that succeeded, the last two are measurements that failed.
-def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
-  return [
-      'pipeline/e2e_test_data/http_results_v1.json',
-      'pipeline/e2e_test_data/http_results_v2.json',
-      'pipeline/e2e_test_data/https_results_v1.json',
-      'pipeline/e2e_test_data/https_results_v2.json'
-  ]
-
-
-def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
-  return [
-      'pipeline/e2e_test_data/discard_results_v1.json',
-      'pipeline/e2e_test_data/discard_results_v2.json',
-      'pipeline/e2e_test_data/echo_results_v1.json',
-      'pipeline/e2e_test_data/echo_results_v2.json'
-  ]
-
-
 def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev1_2018-08-03/resolvers.json',
@@ -94,6 +76,49 @@ def local_data_to_load_invalid(*_: List[Any]) -> List[str]:
   return ['pipeline/e2e_test_data/invalid_results.json']
 
 
+def get_local_data_function(scan_type: str,
+                            incremental: bool) -> Callable[..., List[str]]:
+  """Returns functions similar to the local_data_to_load_* functions above
+
+  But each functions returns the appropriate data for a given scan type.
+
+  Args:
+    scan_type: str, one of 'echo', 'discard', 'http', 'https'
+    incremental: bool, whether to load data for a full or incremental pipeline.
+
+  Returns: a function which takes arbitrary args and returns a list of files.
+  """
+  if incremental:
+    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v1.json'
+  else:
+    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v2.json'
+
+  return lambda *_: [scan_file]
+
+
+def get_beam_table_name(scan_type: str) -> str:
+  """Get a table name for using in beam pipelines.
+
+  Args:
+    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'satellite'
+
+  Returns: table name like 'test.echo_scan'
+  """
+  return f'{BEAM_TEST_BASE_DATASET}.{scan_type}{BEAM_TEST_BASE_TABLE_SUFFIX}'
+
+
+def get_bq_table_name(scan_type: str) -> str:
+  """Get a table name for using in bigquery
+
+  Args:
+    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'satellite'
+
+  Returns: table name like 'firehook-censoredplanet.test.echo_scan'
+  """
+  beam_table_name = get_beam_table_name(scan_type)
+  return f'{firehook_resources.PROJECT_NAME}.{beam_table_name}'
+
+
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
@@ -104,12 +129,13 @@ def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
       temp_location=firehook_resources.BEAM_TEMP_LOCATION)
 
 
-def run_local_pipeline(incremental: bool = False) -> None:
+def run_local_pipeline(scan_type: str, incremental: bool) -> None:
   """Run a local pipeline.
 
   Reads local files but writes to bigquery.
 
   Args:
+    scan_type: one of echo/discard/http/https
     incremental: bool, whether to run a full or incremental local pipeline.
   """
   # pylint: disable=protected-access
@@ -117,14 +143,15 @@ def run_local_pipeline(incremental: bool = False) -> None:
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  # Monkey patch the data_to_load method to load only local data
-  if incremental:
-    test_runner._data_to_load = local_data_to_load_http_and_https  # type: ignore
-  else:
-    test_runner._data_to_load = local_data_to_load_discard_and_echo  # type: ignore
 
-  test_runner.run_beam_pipeline('test', incremental, JOB_NAME, BEAM_TEST_TABLE,
-                                None, None)
+  # Monkey patch the data_to_load method to load only local data
+  test_runner._data_to_load = get_local_data_function(  # type: ignore
+      scan_type, incremental)
+
+  pipeline_name = f'test_{scan_type}'
+  dataset_table_name = get_beam_table_name(scan_type)
+  test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
+                                dataset_table_name, None, None)
   # pylint: enable=protected-access
 
 
@@ -135,7 +162,8 @@ def run_local_pipeline_satellite() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
 
-  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+  dataset_table_name = get_beam_table_name(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
 
@@ -147,7 +175,8 @@ def run_local_pipeline_satellite_v2() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
-  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+  dataset_table_name = get_beam_table_name(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
 
@@ -158,21 +187,27 @@ def run_local_pipeline_invalid() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_invalid  # type: ignore
 
-  test_runner.run_beam_pipeline('invalid', True, JOB_NAME, BEAM_TEST_TABLE,
+  dataset_table_name = get_beam_table_name('invalid')
+  test_runner.run_beam_pipeline('invalid', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
 
 
-def clean_up_bq_table(client: cloud_bigquery.Client, table_name: str) -> None:
-  try:
-    client.get_table(table_name)
-    client.delete_table(table_name)
-  except NotFound:
-    pass
+def clean_up_bq_tables(client: cloud_bigquery.Client,
+                       table_names: List[str]) -> None:
+  for table_name in table_names:
+    try:
+      client.get_table(table_name)
+      client.delete_table(table_name)
+    except NotFound:
+      pass
 
 
-def get_bq_rows(client: cloud_bigquery.Client, table_name: str) -> List:
-  return list(client.query(f'SELECT * FROM {table_name}').result())
+def get_bq_rows(client: cloud_bigquery.Client, table_names: List[str]) -> List:
+  results = []
+  for table_name in table_names:
+    results.extend(list(client.query(f'SELECT * FROM {table_name}').result()))
+  return results
 
 
 class PipelineManualE2eTest(unittest.TestCase):
@@ -185,14 +220,20 @@ class PipelineManualE2eTest(unittest.TestCase):
     client = cloud_bigquery.Client()
 
     try:
-      run_local_pipeline(incremental=False)
+      bq_table_names = [
+          get_bq_table_name(scan_type) for scan_type in HYPERQUACK_SCAN_TYPES
+      ]
 
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 61)
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline(scan_type, False)
 
-      run_local_pipeline(incremental=True)
+      written_rows = get_bq_rows(client, bq_table_names)
+      self.assertEqual(len(written_rows), 57)
 
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline(scan_type, True)
+
+      written_rows = get_bq_rows(client, bq_table_names)
       self.assertEqual(len(written_rows), 110)
 
       # Domain appear different numbers of times in the test table depending on
@@ -235,7 +276,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_table(client, BQ_TEST_TABLE)
+      clean_up_bq_tables(client, bq_table_names)
 
   def test_satellite_pipeline_e2e(self) -> None:
     """Test the satellite pipeline by running it locally."""
@@ -246,7 +287,8 @@ class PipelineManualE2eTest(unittest.TestCase):
     try:
       run_local_pipeline_satellite()
 
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      written_rows = get_bq_rows(client,
+                                 [get_bq_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
@@ -259,7 +301,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_table(client, BQ_TEST_TABLE)
+      clean_up_bq_tables(client, [get_bq_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_satellite_v2_pipeline_e2e(self) -> None:
     """Test the satellite v2 pipeline by running it locally."""
@@ -270,7 +312,8 @@ class PipelineManualE2eTest(unittest.TestCase):
     try:
       run_local_pipeline_satellite_v2()
 
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      written_rows = get_bq_rows(client,
+                                 [get_bq_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 8)
 
       all_expected_domains = [
@@ -284,7 +327,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_table(client, BQ_TEST_TABLE)
+      clean_up_bq_tables(client, [get_bq_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
