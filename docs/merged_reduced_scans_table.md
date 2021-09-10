@@ -101,10 +101,10 @@ Mismatch Errors are used when the connection is successful, but the content rece
 | http.empty              | Received no content when HTTP content was expected |
 | http.truncated_response | The HTTP response content was unexpectedly truncated |
 |                         |
-| **Unexpected Content**  | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
+| **Mismatched Content**  | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
 |                         |
-| unexpected              | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. </br> For HTTP/S the expected response is determined by sending multiple control domains to the server and building an expected template. This response is returned when more detail about the exact part of the template mismatched (eg. status, body) is not available. |
-| unexpected_status       | The HTTP status code didn't match, eg. `403` instead of `200` |
-| unexpected_body         | The HTTP body didn't match, potentially a blockpage |
-| unexpected_tls          | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
+| mismatch                | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. </br> For HTTP/S the expected response is determined by sending multiple control domains to the server and building an expected template. This response is returned when more detail about the exact part of the template mismatched (eg. status, body) is not available. |
+| status_mismatch         | The HTTP status code didn't match, eg. `403` instead of `200` |
+| body_mismatch           | The HTTP body didn't match, potentially a blockpage |
+| tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
 | blockpage               | The response was unexpected and matched a [known blockpage]((https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json)) |
