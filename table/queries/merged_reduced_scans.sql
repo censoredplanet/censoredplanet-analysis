@@ -180,7 +180,7 @@ WITH AllScans AS (
         ClassifyError(error, source, received_status, success, blockpage, page_signature) as outcome,
         CONCAT("AS", asn, IF(organization is not null, CONCAT(" - ", organization), "")) as subnetwork,
         category,
-        SimplifyHeader(MatchServerHeader(ARRAY_TO_STRING(received_headers, ','))) as server_header,
+        SimplifyHeader(MatchServerHeader(CONCAT(ARRAY_TO_STRING(received_headers, ','),","))) as server_header,
 
         count(*) as count
     FROM AllScans
