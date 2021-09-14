@@ -24,6 +24,20 @@ CREATE TEMP FUNCTION StatusMismatch(received_status STRING) AS (
   END
 );
 
+CREATE TEMP FUNCTION MatchServerHeader(headers STRING) AS (
+  # concatenated headers
+  IF(CONTAINS_SUBSTR(headers, "Server:"), REGEXP_EXTRACT(headers, "Server: (.*?),"), "")
+);
+
+CREATE TEMP FUNCTION SimplifyHeader(header STRING) AS (
+  CASE
+    # Split on ( or /
+    WHEN CONTAINS_SUBSTR(header, "(") THEN REGEXP_EXTRACT(header, "(.*?)[\\(|\\/].*")
+    WHEN CONTAINS_SUBSTR(header, "/") THEN REGEXP_EXTRACT(header, "(.*?)/.*")
+    ELSE header
+  END
+);
+
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
@@ -166,12 +180,13 @@ WITH AllScans AS (
         ClassifyError(error, source, received_status, success, blockpage, page_signature) as outcome,
         CONCAT("AS", asn, IF(organization is not null, CONCAT(" - ", organization), "")) as subnetwork,
         category,
+        SimplifyHeader(MatchServerHeader(ARRAY_TO_STRING(received_headers, ','))) as server_header,
 
         count(*) as count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, blockpage, category, subnetwork
+    GROUP BY date, source, country_code, network, outcome, domain, blockpage, category, server_header, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -194,6 +209,8 @@ SELECT
 # Since any temp functions in scope block view creation.
 DROP FUNCTION StatusMismatch;
 DROP FUNCTION ClassifyError;
+DROP FUNCTION SimplifyHeader;
+DROP FUNCTION MatchServerHeader;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
