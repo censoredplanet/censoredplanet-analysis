@@ -198,7 +198,7 @@ SELECT
     CASE
         WHEN (outcome = "complete/success") THEN 0
         #WHEN (blockpage = False) THEN NULL
-        WHEN server_header = 'AkamaiGHost' THEN NULL
+        WHEN (server_header = 'AkamaiGHost') or (server_header = 'GHost') THEN NULL
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
