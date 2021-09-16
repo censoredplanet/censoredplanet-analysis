@@ -136,6 +136,21 @@ def _is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
 
 
+def _reconstruct_http_response(row: Row) -> str:
+  """Rebuild the HTTP response as a string from its pieces
+
+    Args:
+      row: a row with the received_status/body/headers fields
+
+    Returns: a string imitating the original http response
+    """
+  full_response = row['received_status'] + '\r\n'
+  for header in row['received_headers']:
+    full_response += header + '\r\n'
+  full_response += '\r\n' + row['received_body']
+  return full_response
+
+
 class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into Rows."""
 
@@ -480,7 +495,8 @@ class FlattenMeasurement(beam.DoFn):
         'received_headers': parse_received_headers(received.get('headers', {})),
     }
 
-    self.add_blockpage_match(received['body'], anomaly, row)
+    full_http_response = _reconstruct_http_response(row)
+    self.add_blockpage_match(full_http_response, anomaly, row)
 
     # hyperquack v1 TLS format
     tls = received.get('tls', None)
