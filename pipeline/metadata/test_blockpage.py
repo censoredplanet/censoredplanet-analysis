@@ -5,6 +5,8 @@ import unittest
 
 from pipeline.metadata import blockpage
 
+LONG_PAGE_FILE = "pipeline/metadata/test_files/long_blockpage.html"
+
 
 class BlockpageTest(unittest.TestCase):
   """Tests for the blockpage matcher."""
@@ -190,25 +192,22 @@ class BlockpageTest(unittest.TestCase):
     the overall pipeline to fail to complete. This test is designed to catch
     those regexes in case they're added in the future.
     """
-    page = open(
-        "pipeline/metadata/test_files/long_blockpage.html",
-        encoding='utf-8').read()
-    matcher = blockpage.BlockpageMatcher()
+    with open(LONG_PAGE_FILE, encoding='utf-8') as page:
+      matcher = blockpage.BlockpageMatcher()
+      content = page.read()
 
-    start = time.perf_counter()
-    for _ in range(100):
-      matcher.match_page(page)
-    end = time.perf_counter()
+      start = time.perf_counter()
+      for _ in range(100):
+        matcher.match_page(content)
+      end = time.perf_counter()
 
-    self.assertLess(end - start, 10)
+      self.assertLess(end - start, 10)
 
   def test_long_blockpage(self) -> None:
     # This blockpage is a random long page take from the data.
     # It is ~65k, which is near the truncated limit.
-    page = open(
-        "pipeline/metadata/test_files/long_blockpage.html",
-        encoding='utf-8').read()
-    matcher = blockpage.BlockpageMatcher()
-    # Page classification should be None
-    # to ensure that it exercises all regexes in the performance test
-    self.assertIsNone(matcher.match_page(page)[0])
+    with open(LONG_PAGE_FILE, encoding='utf-8') as page:
+      matcher = blockpage.BlockpageMatcher()
+      # Page classification should be None
+      # to ensure that it exercises all regexes in the performance test
+      self.assertIsNone(matcher.match_page(page.read())[0])
