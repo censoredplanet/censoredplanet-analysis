@@ -24,16 +24,20 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    source STRING,
                                    template_match BOOL,
                                    blockpage_match BOOL,
-                                   blockpage_id STRING) AS (
+                                   blockpage_id STRING,
+                                   server_header STRING) AS (
   CASE
-    WHEN blockpage_match then CONCAT("content/blockpage:", blockpage_id)
+    WHEN blockpage_match THEN CONCAT("content/blockpage:", blockpage_id)
 
     # Content mismatch for hyperquack v2 which didn't write
     # content verification failures in the error field from 2021-04-26 to 2021-07-21
-    WHEN (NOT template_match AND (error is NULL OR error = "")) then "content/mismatch"
+    WHEN (NOT template_match AND (error IS NULL OR error = "")) THEN "content/mismatch"
+
+    # Trust 'x_on_this_server' responses when they come from Akamai servers.
+    WHEN blockpage_id = 'x_on_this_server' AND ((server_header = 'AkamaiGHost') OR (server_header = 'GHost')) THEN "content/known_mismatch"
 
     # Success
-    WHEN (error is NULL OR error = "") then "complete/success"
+    WHEN (error IS NULL OR error = "") THEN "complete/success"
 
     # System failures
     WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
@@ -107,6 +111,13 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
+# Returns "abc" from the "Server: abc" header if it exists. Otherwise empty string.
+CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
+  IF(CONTAINS_SUBSTR(ARRAY_TO_STRING(received_headers, ','), "Server:"),
+     REGEXP_EXTRACT(CONCAT(ARRAY_TO_STRING(received_headers, ','),","), "Server: (.*?),"),
+     "")
+);
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -126,31 +137,31 @@ OPTIONS (
 )
 AS (
 WITH AllScans AS (
-  SELECT * except (source), "DISCARD" AS source
+  SELECT * EXCEPT (source), "DISCARD" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.discard_scan`
   UNION ALL
-  SELECT * except (source), "ECHO" AS source
+  SELECT * EXCEPT (source), "ECHO" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.echo_scan`
   UNION ALL
-  SELECT * except (source), "HTTP" AS source
+  SELECT * EXCEPT (source), "HTTP" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.http_scan`
   UNION ALL
-  SELECT * except (source), "HTTPS" AS source
+  SELECT * EXCEPT (source), "HTTPS" AS source
   FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
 ), Grouped AS (
     SELECT
         date,
 
         source,
-        country as country_code,
-        as_full_name as network,
-        IF(is_control, "CONTROL", domain) as domain,
+        country AS country_code,
+        as_full_name AS network,
+        IF(is_control, "CONTROL", domain) AS domain,
 
-        ClassifyError(error, source, success, blockpage, page_signature) as outcome,
-        CONCAT("AS", asn, IF(organization is not null, CONCAT(" - ", organization), "")) as subnetwork,
+        ClassifyError(error, source, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
+        CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         category,
 
-        count(*) as count
+        COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
@@ -159,22 +170,24 @@ WITH AllScans AS (
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
 SELECT
-    Grouped.* except (country_code),
-    IFNULL(country_name, country_code) as country_name,
+    Grouped.* EXCEPT (country_code),
+    IFNULL(country_name, country_code) AS country_name,
     CASE
         WHEN (outcome = "complete/success") THEN 0
+        WHEN (outcome = "content/known_mismatch") THEN 0
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
-    END as unexpected_count
+    END AS unexpected_count
     FROM Grouped
-    LEFT JOIN `firehook-censoredplanet.metadata.country_names` using (country_code)
+    LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
 );
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
 DROP FUNCTION ClassifyError;
+DROP FUNCTION ExtractServerHeader;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
