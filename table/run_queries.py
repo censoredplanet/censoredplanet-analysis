@@ -68,8 +68,8 @@ if __name__ == '__main__':
   parser.add_argument(
       '--output',
       type=str,
-      default=DEFAULT_DERIVED_DATASET,
-      help='Output dataset to write to')
+      required=True,
+      help='Output dataset to write to. To write to prod use --output=derived')
   args = parser.parse_args()
 
   rebuild_all_tables(base_dataset=args.input, derived_dataset=args.output)
