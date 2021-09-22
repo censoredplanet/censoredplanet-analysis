@@ -109,7 +109,6 @@ class FlattenMeasurementTest(unittest.TestCase):
 
   def test_parse_received_data_no_header_field(self) -> None:
     """Test parsing reciveed HTTP/S data missing a header field."""
-    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'body': '<test-body>'
@@ -123,7 +122,48 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': None,
         'page_signature': None,
     }
-    # yapf: enable
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
+    self.assertDictEqual(parsed, expected)
+
+  def test_parse_received_data_http_status_line_false_positive(self) -> None:
+    """Test parsing sample HTTP data with a false positive match in the status line."""
+    received = {
+        'status_line': '521 Origin Down',
+        'headers': {},
+        'body': '<html><head></title></head><body>test/body></html>'
+    }
+
+    expected = {
+        'received_status': '521 Origin Down',
+        'received_body': '<html><head></title></head><body>test/body></html>',
+        'received_headers': [],
+        'blockpage': False,
+        'page_signature': 'x_521',
+    }
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
+    self.assertDictEqual(parsed, expected)
+
+  def test_parse_received_data_http_header_false_positive(self) -> None:
+    """Test parsing sample HTTP data with a blockpage match in the header."""
+    received = {
+        'status_line': '403 Forbidden',
+        'headers': {
+            'Server': ['Barracuda/NGFirewall']
+        },
+        'body': '<html><head></title></head><body>test/body></html>'
+    }
+
+    expected = {
+        'received_status': '403 Forbidden',
+        'received_body': '<html><head></title></head><body>test/body></html>',
+        'received_headers': ['Server: Barracuda/NGFirewall'],
+        'blockpage': True,
+        'page_signature': 'a_prod_barracuda_2',
+    }
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
     parsed = flattener._parse_received_data(received, True)
@@ -647,8 +687,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'Location: https://www.csmonitor.com/',
             'Server: HTTP Proxy/1.0',
         ],
-        'blockpage': None,
-        'page_signature': None,
+        'blockpage': False,
+        'page_signature': 'p_fp_33',
         'error': 'Incorrect web response: status lines don\'t match',
         'anomaly': True,
         'success': False,
@@ -749,8 +789,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'Expires: Thu, 01 Jan 1970 00:00:00 GMT', 'P3p: CP=\"CAO PSA OUR\"',
             'Pragma: no-cache'
         ],
-        'blockpage': None,
-        'page_signature': None,
+        'blockpage': False,
+        'page_signature': 'x_generic_503_4',
         'anomaly': True,
         'success': False,
         'stateful_block': False,
