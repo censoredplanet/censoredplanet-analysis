@@ -29,15 +29,15 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   CASE
     WHEN blockpage_match THEN CONCAT("content/blockpage:", blockpage_id)
 
+    # Trust headers from from Akamai servers.
+    WHEN (server_header = 'AkamaiGHost') OR (server_header = 'GHost') THEN "expected/trusted_host:akamai"
+
     # Content mismatch for hyperquack v2 which didn't write
     # content verification failures in the error field from 2021-04-26 to 2021-07-21
     WHEN (NOT template_match AND (error IS NULL OR error = "")) THEN "content/mismatch"
 
-    # Trust 'x_on_this_server' responses when they come from Akamai servers.
-    WHEN blockpage_id = 'x_on_this_server' AND ((server_header = 'AkamaiGHost') OR (server_header = 'GHost')) THEN "content/known_mismatch"
-
     # Success
-    WHEN (error IS NULL OR error = "") THEN "complete/success"
+    WHEN (error IS NULL OR error = "") THEN "expected/match"
 
     # System failures
     WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
@@ -111,11 +111,11 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
   END
 );
 
-# Returns "abc" from the "Server: abc" header if it exists. Otherwise empty string.
+# Returns "abc" from the "Server: abc" header if it exists. Otherwise NULL.
 CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
-  IF(CONTAINS_SUBSTR(ARRAY_TO_STRING(received_headers, ','), "Server:"),
-     REGEXP_EXTRACT(CONCAT(ARRAY_TO_STRING(received_headers, ','),","), "Server: (.*?),"),
-     "")
+  (SELECT REGEXP_EXTRACT(header, "Server: (.*)")
+   FROM UNNEST(received_headers) AS header
+   WHERE STARTS_WITH(header, "Server: ") LIMIT 1)
 );
 
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
@@ -173,8 +173,7 @@ SELECT
     Grouped.* EXCEPT (country_code),
     IFNULL(country_name, country_code) AS country_name,
     CASE
-        WHEN (outcome = "complete/success") THEN 0
-        WHEN (outcome = "content/known_mismatch") THEN 0
+        WHEN (STARTS_WITH(outcome, "expected/")) THEN 0
         WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count

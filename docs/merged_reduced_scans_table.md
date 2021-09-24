@@ -41,7 +41,7 @@ Reduced Scans
 
 ## Outcome Classification
 
-The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `complete/success` means a test finished successfully.
+The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `expected/match` means a test finished successfully.
 
 ### Stages
 
@@ -56,7 +56,7 @@ Stages are listed here in order. If a test reaches a later stage like `content` 
 | read        | Reading from the remote |
 | http        | Verification of HTTP headers. `HTTP/S` only |
 | content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
-| complete    | Reaching the final stage without encountering any problems in the previous stages |
+| expected    | Verified an expected response |
 | unknown     | Unknown stage. Usually these are new outcomes which should be investigated and classified |
 
 #### Stages per Probe
@@ -81,7 +81,7 @@ Not all tests include every stage depending on the type of test. For example sin
 
 ### Outcome Classes
 
-Basic outcomes represent simplest types of errors, as well as the `success` case (no error detected).
+Basic outcomes represent simplest types of errors, as well as the `match` case (no error detected).
 
 Protocol errors are similar but not identical to the Network Error Logging standard's [Predefined Network Error Types](https://www.w3.org/TR/network-error-logging/#predefined-network-error-types). These errors may represent normal network failures and noise, but they may also expose interference by a middlebox to disrupt a connection. For example China and Iran are both known to use [TCP Reset Attacks](https://en.wikipedia.org/wiki/TCP_reset_attack) as a censorship method.
 
@@ -92,7 +92,7 @@ Mismatch Errors are used when the connection is successful, but the content rece
 |                         |
 | **Basic Outcomes**      |
 |                         |
-| success                 | The test completed successfully and no interference was detected |
+| match                   | The test completed successfully and no interference was detected |
 | system_failure          | There was a test system failure, rendering the test invalid |
 | unknown                 | The class of the outcome was not known. Usually these are new errors which should be investigated and classified |
 |                         |
@@ -115,4 +115,4 @@ Mismatch Errors are used when the connection is successful, but the content rece
 | body_mismatch           | The HTTP body didn't match, potentially a blockpage |
 | tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
 | blockpage               | The response was unexpected and matched a [known blockpage]((https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json)) |
-| known_mismatch          | The response didn't match the expected response from the template. But it did match a common known server pattern, and is likely not censorship. This outcome is used for CDNs that respond in network-specific ways to domains they host. |
+| trusted_host            | The response didn't match the expected response for the template. But it did match a common known server pattern, and is likely not censorship. This outcome is used for CDNs that respond in network-specific ways to domains they host. |
