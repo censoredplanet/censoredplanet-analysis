@@ -49,7 +49,7 @@ def download_days_routeview(bucket: storage.bucket.Bucket,
     date: the date to download a file for.
   """
 
-  print("checking date {}".format(date))
+  print(f"checking date {date}")
   year, month, day = date.year, date.month, date.day
 
   path = f"http://data.caida.org/datasets/routing/routeviews-prefix2as/{year}/{month:02}/"

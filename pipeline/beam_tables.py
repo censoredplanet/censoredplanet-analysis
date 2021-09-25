@@ -211,8 +211,7 @@ def _get_existing_datasources(table_name: str) -> List[str]:
   # but this library wants the format project.dataset.table
   fixed_table_name = table_name.replace(':', '.')
 
-  query = 'SELECT DISTINCT(source) AS source FROM `{table}`'.format(
-      table=fixed_table_name)
+  query = f'SELECT DISTINCT(source) AS source FROM `{fixed_table_name}`'
   rows = client.query(query)
   sources = [row.source for row in rows]
   return sources

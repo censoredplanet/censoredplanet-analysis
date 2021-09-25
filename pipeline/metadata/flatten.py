@@ -90,8 +90,11 @@ def format_timestamp(timestamp: str) -> str:
     ISO8601 formatted string "2021-04-18T14:49:01.62448452-04:00"
   """
   elements = timestamp.split()
-  return '{0}T{1}{2}:{3}'.format(elements[0], elements[1], elements[2][0:-2],
-                                 elements[2][-2:])
+  date = elements[0]
+  time = elements[1]
+  timezone_hour = elements[2][0:-2]
+  timezone_seconds = elements[2][-2:]
+  return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
 def _extract_domain_from_sent_field(sent: str) -> Optional[str]:

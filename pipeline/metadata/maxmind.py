@@ -50,7 +50,7 @@ class MaxmindIpMetadata():
     country = self._get_country_code(ip)
 
     if not asn:
-      raise KeyError("No Maxmind entry for {}".format(ip))
+      raise KeyError(f"No Maxmind entry for {ip}")
 
     return MaxmindReturnValues(netblock, asn, as_name, country)
 

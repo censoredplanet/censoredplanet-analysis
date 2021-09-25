@@ -58,12 +58,12 @@ class RepositoryMirror():
     if self.github:
       # Reference https://docs.github.com/en/free-pro-team@latest/rest/overview/resources-in-the-rest-api
       # in case of API changes
-      url = 'https://api.github.com/repos/{0}/{1}/contents/{2}'.format(
-          self.owner, self.repository, path)
+      url = f'https://api.github.com/repos/{self.owner}/{self.repository}/contents/{path}'
       # Get Github token from environment variable 'GITHUBTOKEN'
       # Using Github API v3 (raw output)
+      token = os.environ.get('GITHUBTOKEN', '')
       headers = {
-          'Authorization': 'token {}'.format(os.environ.get('GITHUBTOKEN', '')),
+          'Authorization': f'token {token}',
           'Accept': 'application/vnd.github.v3.raw'
       }
     else:
@@ -104,9 +104,9 @@ class RepositoryMirror():
         file2.write(json.dumps(self.history))
 
     elif req.status_code == 304:
-      print("Status 304: File {0} not modified".format(url))
+      print(f"Status 304: File {url} not modified")
     else:
-      print("Status {0}: error for file {1}".format(req.status_code, url))
+      print("Status {req.status_code}: error for file {url}")
 
   def sync(self, input_files: List[str] = []) -> None:  # pylint: disable=dangerous-default-value
     """Update repository resources.
