@@ -25,4 +25,5 @@ COPY . ./
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT python3 schedule_pipeline.py
+#ENTRYPOINT python3 schedule_pipeline.py
+ENTRYPOINT python3 -m pipeline.run_beam_tables --env=prod --full  --scan_type=all
