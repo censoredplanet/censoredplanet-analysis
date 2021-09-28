@@ -12,6 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# Extract the code from recieved_status and return the outcome with that status appended.
+# ex:
+# content/status_mismatch
+# or
+# content/status_mismatch:403
+CREATE TEMP FUNCTION StatusMismatch(received_status STRING) AS (
+  CASE
+    WHEN received_status IS NULL OR received_status = "" THEN "content/status_mismatch"
+    ELSE CONCAT("content/status_mismatch:", SUBSTR(received_status, 0, 3))
+  END
+);
+
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
@@ -22,6 +35,7 @@
 # https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
 CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    source STRING,
+                                   received_status STRING,
                                    template_match BOOL,
                                    blockpage_match BOOL,
                                    blockpage_id STRING,
@@ -31,6 +45,8 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
 
     # Trust headers from from Akamai servers.
     WHEN (server_header = 'AkamaiGHost') OR (server_header = 'GHost') THEN "expected/trusted_host:akamai"
+
+    WHEN blockpage_match = False THEN CONCAT("content/known_response:", blockpage_id)
 
     # Content mismatch for hyperquack v2 which didn't write
     # content verification failures in the error field from 2021-04-26 to 2021-07-21
@@ -92,7 +108,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v1 errors
     WHEN (error = "Incorrect echo response") THEN "content/mismatch" # Echo
     WHEN (error = "Received response") THEN "content/mismatch" # Discard
-    WHEN (error = "Incorrect web response: status lines don't match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Incorrect web response: status lines don't match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Incorrect web response: bodies don't match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Incorrect web response: certificates don't match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Incorrect web response: cipher suites don't match") THEN "content/tls_mismatch" # HTTPS
@@ -100,7 +116,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v2 errors
     WHEN (error = "echo response does not match echo request") THEN "content/mismatch" # Echo
     WHEN (error = "discard response is not empty") THEN "content/mismatch" # Discard
-    WHEN (error = "Status lines does not match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Status lines does not match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Bodies do not match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Certificates do not match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Cipher suites do not match") THEN "content/tls_mismatch" # HTTPS
@@ -126,7 +142,7 @@ CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -156,8 +172,10 @@ WITH AllScans AS (
         country AS country_code,
         as_full_name AS network,
         IF(is_control, "CONTROL", domain) AS domain,
+        blockpage,
+        ExtractServerHeader(received_headers) as server_header,
 
-        ClassifyError(error, source, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
+        ClassifyError(error, source, received_status, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         category,
 
@@ -165,7 +183,7 @@ WITH AllScans AS (
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, outcome, domain, blockpage, server_header, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -191,8 +209,8 @@ DROP FUNCTION ExtractServerHeader;
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
 # if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans`
 AS (
   SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+  FROM `firehook-censoredplanet.DERIVED_DATASET.fp_blockpage_merged_reduced_scans_v2`
 )
