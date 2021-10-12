@@ -12,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Extract the code from recieved_status and return the outcome with that status appended.
+# ex:
+# content/status_mismatch
+# or
+# content/status_mismatch:403
+CREATE TEMP FUNCTION StatusMismatch(received_status STRING) AS (
+  CASE
+    WHEN received_status IS NULL OR received_status = "" THEN "content/status_mismatch"
+    ELSE CONCAT("content/status_mismatch:", SUBSTR(received_status, 0, 3))
+  END
+);
+
 # Classify all errors into a small set of enums
 #
 # Input is a nullable error string from the raw data
@@ -22,6 +34,7 @@
 # https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
 CREATE TEMP FUNCTION ClassifyError(error STRING,
                                    source STRING,
+                                   received_status STRING,
                                    template_match BOOL,
                                    blockpage_match BOOL,
                                    blockpage_id STRING,
@@ -92,7 +105,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v1 errors
     WHEN (error = "Incorrect echo response") THEN "content/mismatch" # Echo
     WHEN (error = "Received response") THEN "content/mismatch" # Discard
-    WHEN (error = "Incorrect web response: status lines don't match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Incorrect web response: status lines don't match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Incorrect web response: bodies don't match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Incorrect web response: certificates don't match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Incorrect web response: cipher suites don't match") THEN "content/tls_mismatch" # HTTPS
@@ -100,7 +113,7 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     # Hyperquack v2 errors
     WHEN (error = "echo response does not match echo request") THEN "content/mismatch" # Echo
     WHEN (error = "discard response is not empty") THEN "content/mismatch" # Discard
-    WHEN (error = "Status lines does not match") THEN "content/status_mismatch" # HTTP/S
+    WHEN (error = "Status lines does not match") THEN StatusMismatch(received_status) # HTTP/S
     WHEN (error = "Bodies do not match") THEN "content/body_mismatch" # HTTP/S
     WHEN (error = "Certificates do not match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Cipher suites do not match") THEN "content/tls_mismatch" # HTTPS
@@ -157,7 +170,7 @@ WITH AllScans AS (
         as_full_name AS network,
         IF(is_control, "CONTROL", domain) AS domain,
 
-        ClassifyError(error, source, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
+        ClassifyError(error, source, received_status, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         category,
 
@@ -185,6 +198,7 @@ SELECT
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
+DROP FUNCTION StatusMismatch;
 DROP FUNCTION ClassifyError;
 DROP FUNCTION ExtractServerHeader;
 
