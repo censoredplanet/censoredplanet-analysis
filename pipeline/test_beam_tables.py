@@ -412,6 +412,7 @@ class PipelineMainTest(unittest.TestCase):
           'error': None,
           'anomaly': False,
           'success': True,
+          'rcode': ['0'],
           'received': [
               {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
               {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
@@ -429,6 +430,7 @@ class PipelineMainTest(unittest.TestCase):
           'error': None,
           'anomaly': False,
           'success': True,
+          'rcode': ['0'],
           'received': [
               {'ip': '192.124.249.107', 'matches_control': 'ip'}
           ],
@@ -599,13 +601,17 @@ class PipelineMainTest(unittest.TestCase):
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
 
-      tags, rows = lines | beam.Partition(
-          beam_tables._partition_satellite_input, 2)
+      tags, blockpages, rows = lines | beam.Partition(
+          beam_tables._partition_satellite_input, 3)
 
       beam_test_util.assert_that(
           tags,
           beam_test_util.equal_to(expected_tags),
           label='assert_that/tags')
+      beam_test_util.assert_that(
+          blockpages,
+          beam_test_util.equal_to([]),
+          label='assert_that/blockpages')
       beam_test_util.assert_that(
           rows,
           beam_test_util.equal_to(expected_rows),

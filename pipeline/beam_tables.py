@@ -112,6 +112,30 @@ SATELLITE_BIGQUERY_SCHEMA = {
     'has_type_a': ('boolean', 'nullable')
 }
 
+BLOCKPAGE_BIGQUERY_SCHEMA = {
+    # Columns from Censored Planet data
+    'domain': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'https': ('boolean', 'nullable'),
+    'source': ('string', 'nullable'),
+    'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
+}
+
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.
 SCAN_TYPES_TO_ZONES = {
@@ -153,6 +177,8 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   Returns:
     A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
   """
+  if scan_type == 'blockpage':
+    return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == 'satellite':
     full_schema: Dict[str, Any] = {}
     full_schema.update(SCAN_BIGQUERY_SCHEMA)
@@ -614,23 +640,43 @@ def _process_satellite_with_tags(
   return rows_with_metadata
 
 
+def _process_satellite_blockpages(
+    blockpages: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[Row]:
+  """Process Satellite measurements and tags.
+
+  Args:
+    blockpages: Row objects
+
+  Returns:
+    PCollection[Row] of blockpage rows in bigquery format
+  """
+  rows = (
+      blockpages | 'flatten blockpages' >> beam.ParDo(
+          flatten.FlattenMeasurement()).with_output_types(Row))
+
+  return rows
+
+
 def _partition_satellite_input(
     line: Tuple[str, str],
-    num_partitions: int = 2) -> int:  # pylint: disable=unused-argument
+    num_partitions: int = 3) -> int:  # pylint: disable=unused-argument
   """Partitions Satellite input into tags (0) and rows (1).
 
   Args:
     line: an input line Tuple[filename, line_content]
-    num_partitions: number of partitions to use, always 2
+    num_partitions: number of partitions to use, always 3
 
   Returns:
-    int, 0 if line is a tag file, 1 if not
+    int, 0 if line is a tag file, 1 if line is a blockpage, else 2
   """
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
     # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
     return 0
-  return 1
+  if "blockpages" in filename:
+    return 1
+  return 2
 
 
 def _calculate_confidence(scan: Dict[str, Any],
@@ -781,7 +827,7 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
     yield new_row
 
 
-def _get_partition_params() -> Dict[str, Any]:
+def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Returns: A dict of query params, See:
@@ -797,6 +843,8 @@ def _get_partition_params() -> Dict[str, Any]:
           'fields': ['country', 'asn']
       }
   }
+  if scan_type == 'blockpage':
+    partition_params.pop('clustering')
   return partition_params
 
 
@@ -1037,7 +1085,7 @@ class ScanDataBeamPipelineRunner():
         schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params()))
+        additional_bq_parameters=_get_partition_params(scan_type)))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
@@ -1100,8 +1148,11 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == 'satellite':
-        tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
+      if scan_type == 'blockpage':
+        _, blockpages, _ = lines | beam.Partition(_partition_satellite_input, 3)
+        rows_with_metadata = _process_satellite_blockpages(blockpages)
+      elif scan_type == 'satellite':
+        tags, _, lines = lines | beam.Partition(_partition_satellite_input, 3)
 
         rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)
