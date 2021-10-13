@@ -126,7 +126,7 @@ CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.aspop_merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -153,10 +153,12 @@ WITH AllScans AS (
         date,
 
         source,
-        country AS country_code,
+        AllScans.country AS country_code,
         as_full_name AS network,
+        CONCAT(as_full_name, " - ", SUM(DISTINCT IF(country_percent IS NULL, 0, country_percent)), "%") AS network_percent,
+        SUM(DISTINCT IF(users IS NULL, 0, users)) as as_population,
+        SUM(DISTINCT IF(country_percent IS NULL, 0, country_percent)) as as_country_percent,
         IF(is_control, "CONTROL", domain) AS domain,
-
         ClassifyError(error, source, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         category,
@@ -164,6 +166,7 @@ WITH AllScans AS (
         COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
+    LEFT JOIN `firehook-censoredplanet.laplante.apnic_aspop` USING (asn)
     WHERE NOT controls_failed
     GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
@@ -191,8 +194,8 @@ DROP FUNCTION ExtractServerHeader;
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
 # if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.aspop_merged_reduced_scans`
 AS (
   SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+  FROM `firehook-censoredplanet.DERIVED_DATASET.aspop_merged_reduced_scans_v2`
 )
