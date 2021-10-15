@@ -118,6 +118,34 @@ CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
    WHERE STARTS_WITH(header, "Server: ") LIMIT 1)
 );
 
+
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.as_country_percents`
+AS
+WITH AllScans AS (
+  SELECT as_full_name, asn, organization, country
+  FROM `firehook-censoredplanet.BASE_DATASET.discard_scan`
+  WHERE date > "2021-10-01"
+  UNION ALL
+  SELECT as_full_name, asn, organization, country
+  FROM `firehook-censoredplanet.BASE_DATASET.echo_scan`
+  WHERE date > "2021-10-01"
+  UNION ALL
+  SELECT as_full_name, asn, organization, country
+  FROM `firehook-censoredplanet.BASE_DATASET.http_scan`
+  WHERE date > "2021-10-01"
+  UNION ALL
+  SELECT as_full_name, asn, organization, country
+  FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
+  WHERE date > "2021-10-01"
+)
+(SELECT as_full_name,
+       ROUND(SUM(DISTINCT IF(country_percent IS NULL OR AllScans.country != aspop.country, 0, country_percent)), 2) AS as_country_percent_sum,
+  FROM AllScans
+  LEFT JOIN `firehook-censoredplanet.laplante.apnic_aspop` AS aspop USING (asn)
+  group by as_full_name
+);
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -159,9 +187,8 @@ WITH AllScans AS (
         source,
         AllScans.country AS country_code,
         as_full_name AS network,
-        CONCAT(as_full_name, " - ", SUM(DISTINCT IF(country_percent IS NULL, 0, country_percent)), "%") AS network_percent,
-        SUM(DISTINCT IF(users IS NULL OR AllScans.country != aspop.country, 0, users)) as as_population,
-        SUM(DISTINCT IF(country_percent IS NULL OR AllScans.country != aspop.country, 0, country_percent)) as as_country_percent,
+        CONCAT(as_full_name, " - ", as_country_percent_sum, "%") AS network_percent,
+        as_country_percent_sum as as_country_percent,
         IF(is_control, "CONTROL", domain) AS domain,
         ClassifyError(error, source, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
@@ -170,9 +197,9 @@ WITH AllScans AS (
         COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    LEFT JOIN `firehook-censoredplanet.laplante.apnic_aspop` AS aspop USING (asn)
+    LEFT JOIN `firehook-censoredplanet.laplante.as_country_percents` AS aspop USING (as_full_name)
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, as_country_percent_sum, outcome, domain, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
