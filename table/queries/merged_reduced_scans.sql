@@ -172,7 +172,7 @@ WITH AllScans AS (
 
         ClassifyError(error, source, received_status, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
-        category,
+        IFNULL(category, "Uncategorized") AS category,
 
         COUNT(*) AS count
     FROM AllScans
