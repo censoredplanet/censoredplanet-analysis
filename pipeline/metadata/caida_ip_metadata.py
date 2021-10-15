@@ -234,7 +234,7 @@ class CaidaIpMetadata():
     asn, netblock = self.asn_db.lookup(ip)
 
     if not asn:
-      raise KeyError("Missing IP {} at {}".format(ip, self.date.isoformat()))
+      raise KeyError(f"Missing IP {ip} at {self.date.isoformat()}")
 
     if asn not in self.as_to_org_map:
       logging.warning("Missing asn %s in org name map", asn)

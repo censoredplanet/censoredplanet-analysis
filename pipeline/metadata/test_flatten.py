@@ -109,7 +109,6 @@ class FlattenMeasurementTest(unittest.TestCase):
 
   def test_parse_received_data_no_header_field(self) -> None:
     """Test parsing reciveed HTTP/S data missing a header field."""
-    # yapf: disable
     received = {
         'status_line': '403 Forbidden',
         'body': '<test-body>'
@@ -123,7 +122,48 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': None,
         'page_signature': None,
     }
-    # yapf: enable
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
+    self.assertDictEqual(parsed, expected)
+
+  def test_parse_received_data_http_status_line_false_positive(self) -> None:
+    """Test parsing sample HTTP data with a false positive match in the status line."""
+    received = {
+        'status_line': '521 Origin Down',
+        'headers': {},
+        'body': '<html><head></title></head><body>test/body></html>'
+    }
+
+    expected = {
+        'received_status': '521 Origin Down',
+        'received_body': '<html><head></title></head><body>test/body></html>',
+        'received_headers': [],
+        'blockpage': False,
+        'page_signature': 'x_521',
+    }
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    parsed = flattener._parse_received_data(received, True)
+    self.assertDictEqual(parsed, expected)
+
+  def test_parse_received_data_http_header_false_positive(self) -> None:
+    """Test parsing sample HTTP data with a blockpage match in the header."""
+    received = {
+        'status_line': '403 Forbidden',
+        'headers': {
+            'Server': ['Barracuda/NGFirewall']
+        },
+        'body': '<html><head></title></head><body>test/body></html>'
+    }
+
+    expected = {
+        'received_status': '403 Forbidden',
+        'received_body': '<html><head></title></head><body>test/body></html>',
+        'received_headers': ['Server: Barracuda/NGFirewall'],
+        'blockpage': True,
+        'page_signature': 'a_prod_barracuda_2',
+    }
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
     parsed = flattener._parse_received_data(received, True)
@@ -265,7 +305,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         {
             'domain':
                 '',  # missing control domain is not populated when sent is empty
-            'category': None,
+            'category': 'Control',
             'ip': '1.2.3.4',
             'date': '2020-09-20',
             'start_time': '2020-09-20T07:45:16.170427683-04:00',
@@ -281,7 +321,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         },
         {
             'domain': 'example5718349450314.com',
-            'category': None,
+            'category': 'Control',
             'ip': '1.2.3.4',
             'date': '2020-09-20',
             'start_time': '2020-09-20T07:45:18.170427683-04:00',
@@ -357,7 +397,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-9f26cf1579e1e31d.com',
-        'category': None,
+        'category': 'Control',
         'ip': '146.112.255.132',
         'date': '2021-05-30',
         'start_time': '2021-05-30T01:01:03.783547451-04:00',
@@ -471,7 +511,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-2e116cc633eb1fbd.com',
-        'category': None,
+        'category': 'Control',
         'ip': '117.78.42.54',
         'date': '2021-05-31',
         'start_time': '2021-05-31T12:46:33.600692607-04:00',
@@ -520,7 +560,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             'CP_Quack-discard-2021-05-31-12-43-21',
     }, {
         'domain': 'control-be2b77e1cde11c02.com',
-        'category': None,
+        'category': 'Control',
         'ip': '117.78.42.54',
         'date': '2021-05-31',
         'start_time': '2021-05-31T12:46:48.97188782-04:00',
@@ -647,8 +687,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'Location: https://www.csmonitor.com/',
             'Server: HTTP Proxy/1.0',
         ],
-        'blockpage': None,
-        'page_signature': None,
+        'blockpage': False,
+        'page_signature': 'p_fp_33',
         'error': 'Incorrect web response: status lines don\'t match',
         'anomaly': True,
         'success': False,
@@ -722,7 +762,7 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected_rows: List[flatten.Row] = [{
         'domain': 'control-a459b35b8d53c7eb.com',
-        'category': None,
+        'category': 'Control',
         'ip': '167.207.140.67',
         'date': '2021-05-30',
         'start_time': '2021-05-30T01:02:13.620124638-04:00',
@@ -749,8 +789,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'Expires: Thu, 01 Jan 1970 00:00:00 GMT', 'P3p: CP=\"CAO PSA OUR\"',
             'Pragma: no-cache'
         ],
-        'blockpage': None,
-        'page_signature': None,
+        'blockpage': False,
+        'page_signature': 'x_generic_503_4',
         'anomaly': True,
         'success': False,
         'stateful_block': False,
@@ -912,7 +952,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     # yapf: disable
     expected_row: flatten.Row = {
         'domain': 'control-1b13950f35f3208b.com',
-        'category': None,
+        'category': 'Control',
         'ip': '41.0.4.132',
         'date': '2021-04-26',
         'start_time': '2021-04-26T04:38:36.78214922-04:00',

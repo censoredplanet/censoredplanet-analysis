@@ -90,8 +90,11 @@ def format_timestamp(timestamp: str) -> str:
     ISO8601 formatted string "2021-04-18T14:49:01.62448452-04:00"
   """
   elements = timestamp.split()
-  return '{0}T{1}{2}:{3}'.format(elements[0], elements[1], elements[2][0:-2],
-                                 elements[2][-2:])
+  date = elements[0]
+  time = elements[1]
+  timezone_hour = elements[2][0:-2]
+  timezone_seconds = elements[2][-2:]
+  return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
 def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
@@ -134,6 +137,21 @@ def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
 
 def _is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
+
+
+def _reconstruct_http_response(row: Row) -> str:
+  """Rebuild the HTTP response as a string from its pieces
+
+    Args:
+      row: a row with the received_status/body/headers fields
+
+    Returns: a string imitating the original http response
+    """
+  full_response = row['received_status'] + '\r\n'
+  for header in row['received_headers']:
+    full_response += header + '\r\n'
+  full_response += '\r\n' + row['received_body']
+  return full_response
 
 
 class FlattenMeasurement(beam.DoFn):
@@ -218,21 +236,23 @@ class FlattenMeasurement(beam.DoFn):
     for index, result in enumerate(scan.get('Results', [])):
       date = result['StartTime'][:10]
 
-      domain = _extract_domain_from_sent_field(result['Sent'])
-      is_control = _is_control_url(domain)
+      sent_domain = _extract_domain_from_sent_field(result['Sent'])
+      is_control = _is_control_url(sent_domain)
       # Due to a bug the sent field sometimes isn't populated
       # when the measurement failed due to network timeout.
-      if not domain:
+      if not sent_domain:
         # Control measurements come at the end, and are not counted as retries.
         is_control = index > scan['Retries']
         if is_control:
           domain = ""
         else:
           domain = scan['Keyword']
+      else:
+        domain = sent_domain
 
       row = {
           'domain': domain,
-          'category': self.category_matcher.match_url(scan['Keyword']),
+          'category': self._get_category(domain, is_control),
           'ip': scan['Server'],
           'date': date,
           'start_time': result['StartTime'],
@@ -272,11 +292,12 @@ class FlattenMeasurement(beam.DoFn):
     """
     for response in scan.get('response', []):
       date = response['start_time'][:10]
-      domain = response.get('control_url', scan['test_url'])
+      domain: str = response.get('control_url', scan['test_url'])
+      is_control = 'control_url' in response
 
       row = {
           'domain': domain,
-          'category': self.category_matcher.match_url(domain),
+          'category': self._get_category(domain, is_control),
           'ip': scan['vp'],
           'date': date,
           'start_time': response['start_time'],
@@ -284,7 +305,7 @@ class FlattenMeasurement(beam.DoFn):
           'anomaly': scan['anomaly'],
           'success': response['matches_template'],
           'stateful_block': scan['stateful_block'],
-          'is_control': 'control_url' in response,
+          'is_control': is_control,
           'controls_failed': scan.get('controls_failed', None),
           'measurement_id': random_measurement_id,
           'source': source_from_filename(filename),
@@ -482,7 +503,8 @@ class FlattenMeasurement(beam.DoFn):
         'received_headers': parse_received_headers(received.get('headers', {})),
     }
 
-    self.add_blockpage_match(received['body'], anomaly, row)
+    full_http_response = _reconstruct_http_response(row)
+    self.add_blockpage_match(full_http_response, anomaly, row)
 
     # hyperquack v1 TLS format
     tls = received.get('tls', None)
@@ -518,3 +540,8 @@ class FlattenMeasurement(beam.DoFn):
       blockpage, signature = self.blockpage_matcher.match_page(content)
       row['blockpage'] = blockpage
       row['page_signature'] = signature
+
+  def _get_category(self, domain: str, is_control: bool) -> Optional[str]:
+    if is_control:
+      return "Control"
+    return self.category_matcher.match_url(domain)
