@@ -412,6 +412,7 @@ class PipelineMainTest(unittest.TestCase):
           'error': None,
           'anomaly': False,
           'success': True,
+          'rcode': ['0'],
           'received': [
               {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
               {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
@@ -429,6 +430,7 @@ class PipelineMainTest(unittest.TestCase):
           'error': None,
           'anomaly': False,
           'success': True,
+          'rcode': ['0'],
           'received': [
               {'ip': '192.124.249.107', 'matches_control': 'ip'}
           ],

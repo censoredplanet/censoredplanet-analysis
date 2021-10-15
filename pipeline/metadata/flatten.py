@@ -368,7 +368,7 @@ class FlattenMeasurement(beam.DoFn):
         'measurement_id': random_measurement_id,
     }
 
-    if type(row['error']) == dict:
+    if isinstance(row['error'], dict):
       row['error'] = json.dumps(row['error'])
 
     received_ips = scan.get('answers')
