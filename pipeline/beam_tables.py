@@ -545,6 +545,7 @@ def _post_processing_satellite(
           'verify interference' >> beam.Map(_verify).with_output_types(Row))
 
   # PCollection[Row]
+  # pylint: disable=no-value-for-parameter
   controls = (
       controls | 'unkey control' >> beam.Values().with_output_types(Row))
 
@@ -954,6 +955,7 @@ class ScanDataBeamPipelineRunner():
             Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
+    # pylint: disable=no-value-for-parameter
     ips_and_dates = (
         rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
         beam.Keys().with_output_types(DateIpKey))
