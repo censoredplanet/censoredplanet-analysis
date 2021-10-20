@@ -18,7 +18,7 @@
 #
 # Output is a string of the format "stage/outcome"
 # Documentation of this enum is at
-# https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
+# https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/merged_reduced_satelllite_scans_table.md#outcome-classification
 CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
   CASE
     WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
