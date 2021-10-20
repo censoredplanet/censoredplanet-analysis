@@ -19,8 +19,8 @@ The table is [time-partitioned](https://cloud.google.com/bigquery/docs/partition
 This allows queries to skip any data outside the desired date range.
 
 The table also uses [clustering](https://cloud.google.com/bigquery/docs/clustered-tables) to make filtering and aggregation
-more efficient. The table is clustered along the `source`, `country_name`, `network` and `domain` columns.
-The columns `source` and `country_name` are always used for filtering, so they come first.
+more efficient. The table is clustered along the `country_name`, `network`, `subnetwork` and `domain` columns.
+The column `country_name` is always used for filtering, so it comes first.
 
 ## Table Format
 

@@ -84,9 +84,9 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, er
 # Old table versions will be deleted.
 CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_satellite_scans_v2`
 PARTITION BY date
-# Columns `source` and `country_name` are always used for filtering and must come first.
-# `network` and `domain` are useful for filtering and grouping.
-CLUSTER BY source, country_name, network, domain
+# Column `country_name` is always used for filtering and must come first.
+# `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
+CLUSTER BY country_name, network, subnetwork, domain
 OPTIONS (
   friendly_name="Reduced Satellite Scans",
   description="Filtered and pre-aggregated table of Satellite scans to use with the Censored Planed Dashboard"
@@ -109,7 +109,7 @@ WITH Grouped AS (
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
