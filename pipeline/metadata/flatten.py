@@ -317,8 +317,6 @@ class FlattenMeasurement(beam.DoFn):
       yield from self._process_satellite_blockpages(scan, filename)
     elif date < "2021-03":
       yield from self._process_satellite_v1(date, scan, random_measurement_id)
-    elif date > "2021-06":
-      yield from self._process_satellite_v2_1(scan, random_measurement_id)
     else:
       if "responses_control" in filename:
         yield from self._process_satellite_v2_responses(scan,
@@ -379,13 +377,54 @@ class FlattenMeasurement(beam.DoFn):
         'error': scan.get('error', None),
         'anomaly': scan['anomaly'],
         'success': not scan['connect_error'],
-        'controls_failed': not scan['passed_control'],
         'received': None,
-        'rcode': [],
         'measurement_id': random_measurement_id
     }
-    received_ips = scan.get('response')
-    yield from self._process_received_ips(row, received_ips)
+
+    if row['date'] < '2021-06':
+      # Satellite 2.1
+      row['controls_failed'] = not scan['passed_control']
+      row['rcode'] = []
+      received_ips = scan.get('response')
+      yield from self._process_received_ips(row, received_ips)
+    else:
+      # Satellite 2.2
+      responses = scan.get('response', [])
+      row['controls_failed'] = scan['passed_liveness']
+      row['rcode'] = [str(response['rcode']) for response in responses]
+      row['confidence'] = scan.get('confidence')
+      row['verify'] = {
+          'excluded': scan.get('excluded'),
+          'exclude_reason': ' '.join(scan.get('exclude_reason', []))
+      }
+      errors = [
+          response['error']
+          for response in responses
+          if response['error'] and response['error'] != 'null'
+      ]
+      row['error'] = ' | '.join(errors) if errors else None
+      for response in responses:
+        # Check responses for test domain with valid answers
+        if response['url'] == row['domain'] and (response['rcode'] == 0 and
+                                                 response['has_type_a']):
+          row['has_type_a'] = True
+          # Separate into one answer IP per row for tagging
+          row['received'] = []
+          for ip in response['response']:
+            received = {
+                'ip': ip,
+                'http': response['response'][ip].get('http'),
+                'cert': response['response'][ip].get('cert'),
+                'asname': response['response'][ip].get('asname'),
+                'asnum': response['response'][ip].get('asnum'),
+                'matches_control': ''
+            }
+            matched = response['response'][ip].get('matched', [])
+            if matched:
+              received['matches_control'] = ' '.join(
+                  [tag for tag in matched if tag in SATELLITE_TAGS])
+            row['received'].append(received)
+          yield row.copy()
 
   def _process_satellite_blockpages(  # pylint: disable=no-self-use
       self, scan: Any, filename: str) -> Iterator[Row]:
@@ -424,69 +463,6 @@ class FlattenMeasurement(beam.DoFn):
     received_fields = self._parse_received_data(scan.get('https', ''), True)
     https.update(received_fields)
     yield https
-
-  def _process_satellite_v2_1(self, scan: Any,
-                              random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite data.
-
-    Args:
-      scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
-
-    Yields:
-      Rows
-    """
-    responses = scan.get('response', [])
-    row = {
-        'domain': scan['test_url'],
-        'category': self.category_matcher.match_url(scan['test_url']),
-        'ip': scan['vp'],
-        'country': scan.get('location', {}).get('country_code'),
-        'date': scan['start_time'][:10],
-        'start_time': format_timestamp(scan['start_time']),
-        'end_time': format_timestamp(scan['end_time']),
-        'error': scan.get('error', None),
-        'anomaly': scan['anomaly'],
-        'success': not scan['connect_error'],
-        'controls_failed': not scan['passed_liveness'],
-        'received': None,
-        'rcode': [str(response['rcode']) for response in responses],
-        'confidence': scan.get('confidence'),
-        'verify': {
-            'excluded': scan.get('excluded'),
-            'exclude_reason': ' '.join(scan.get('exclude_reason', []))
-        },
-        'measurement_id': random_measurement_id
-    }
-    errors = [
-        response['error']
-        for response in responses
-        if response['error'] and response['error'] != 'null'
-    ]
-    row['error'] = ' | '.join(errors) if errors else None
-    for response in responses:
-      if response['url'] == row['domain']:
-        # Check response for test domain
-        if response['rcode'] == 0 and response['has_type_a']:
-          # Valid answers
-          row['has_type_a'] = True
-          # Separate into one answer IP per row for tagging
-          row['received'] = []
-          for ip in response['response']:
-            received = {
-                'ip': ip,
-                'http': response['response'][ip].get('http'),
-                'cert': response['response'][ip].get('cert'),
-                'asname': response['response'][ip].get('asname'),
-                'asnum': response['response'][ip].get('asnum'),
-                'matches_control': ''
-            }
-            matched = response['response'][ip].get('matched', [])
-            if matched:
-              received['matches_control'] = ' '.join(
-                  [tag for tag in matched if tag in SATELLITE_TAGS])
-            row['received'].append(received)
-          yield row.copy()
 
   def _process_satellite_v2_responses(
       self, scan: Any, random_measurement_id: str) -> Iterator[Row]:
