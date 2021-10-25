@@ -162,7 +162,7 @@ SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
     'responses_control.json', 'tagged_responses.json', 'results.json',
-    'answers_err.json'
+    'answers_err.json', 'blockpages.json'
 ]
 # Data files for the non-Satellite pipelines
 SCAN_FILES = ['results.json']
