@@ -1122,6 +1122,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.1.184', 'matches_control': 'ip http cert asnum asname'},
+        'rcode': ['0'],
         'measurement_id': ''
       },
       {
@@ -1133,6 +1134,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.129.184', 'matches_control': 'ip http cert asnum asname'},
+        'rcode': ['0'],
         'measurement_id': ''
       },
       {
@@ -1144,6 +1146,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.193.184', 'matches_control': 'ip http cert asnum asname'},
+        'rcode': ['0'],
         'measurement_id': ''
       },
       {
@@ -1155,6 +1158,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': {'ip': '151.101.65.184', 'matches_control': 'ip cert asnum asname'},
+        'rcode': ['0'],
         'measurement_id': ''
       },
       {
@@ -1166,6 +1170,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'received': {'ip': '160.153.136.3', 'matches_control': ''},
+        'rcode': ['0'],
         'measurement_id': ''
       },
       {
@@ -1177,6 +1182,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': None,
         'success': False,
         'received': None,
+        'rcode': ['-1'],
         'measurement_id': ''
       },
       {
