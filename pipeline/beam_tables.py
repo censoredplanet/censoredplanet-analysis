@@ -1152,11 +1152,18 @@ class ScanDataBeamPipelineRunner():
         _, blockpages, _ = lines | beam.Partition(_partition_satellite_input, 3)
         rows_with_metadata = _process_satellite_blockpages(blockpages)
       elif scan_type == 'satellite':
-        tags, _, lines = lines | beam.Partition(_partition_satellite_input, 3)
+        tags, blockpages, lines = lines | beam.Partition(
+            _partition_satellite_input, 3)
 
         rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)
         rows_with_metadata = self._add_metadata(rows_with_metadata)
+
+        blockpage_rows = _process_satellite_blockpages(blockpages)
+        blockpage_table_name = table_name.replace(f'.{scan_type}',
+                                                  f'.{scan_type}_blockpage')
+        self._write_to_bigquery('blockpage', blockpage_rows,
+                                blockpage_table_name, incremental_load)
       else:
         # PCollection[Row]
         rows = (
