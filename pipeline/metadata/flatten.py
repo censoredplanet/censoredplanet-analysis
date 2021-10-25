@@ -293,7 +293,7 @@ class FlattenMeasurement(beam.DoFn):
     for response in scan.get('response', []):
       date = response['start_time'][:10]
       domain: str = response.get('control_url', scan['test_url'])
-      is_control = 'control_url' in response
+      is_control = 'control_url' in response or 'in_control_group' in response
 
       row = {
           'domain': domain,
@@ -340,6 +340,8 @@ class FlattenMeasurement(beam.DoFn):
       if "responses_control" in filename:
         yield from self._process_satellite_v2_responses(scan,
                                                         random_measurement_id)
+      if "blockpages" in filename:
+        pass
       else:
         yield from self._process_satellite_v2(scan, random_measurement_id)
 
@@ -385,6 +387,9 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
+    from pprint import pprint
+    pprint(("scan", scan))
+
     row = {
         'domain': scan['test_url'],
         'category': self.category_matcher.match_url(scan['test_url']),
@@ -396,7 +401,7 @@ class FlattenMeasurement(beam.DoFn):
         'error': scan.get('error', None),
         'anomaly': scan['anomaly'],
         'success': not scan['connect_error'],
-        'controls_failed': not scan['passed_control'],
+        'controls_failed': not scan.get('passed_control', scan['passed_liveness']),
         'received': None,
         'rcode': [],
         'measurement_id': random_measurement_id
