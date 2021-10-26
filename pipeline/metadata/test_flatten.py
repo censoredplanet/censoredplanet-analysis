@@ -967,7 +967,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json',
-        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json'
+        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/results.json'
     ]
 
     # yapf: disable
@@ -1068,6 +1069,55 @@ class FlattenMeasurementTest(unittest.TestCase):
           ],
           "passed_control": true,
           "connect_error": false
+        }
+        """,
+        """
+        {
+          "vp": "91.135.154.38",
+          "test_url": "03.ru",
+          "location": {
+            "country_name": "Russia",
+            "country_code": "RU"
+          },
+          "passed_liveness": true,
+          "in_control_group": true,
+          "connect_error": false,
+          "anomaly": false,
+          "start_time": "2021-09-16 17:49:17.488153752 -0400 EDT",
+          "end_time": "2021-09-16 17:49:17.741250869 -0400 EDT",
+          "response": [
+            {
+              "url": "03.ru",
+              "has_type_a": true,
+              "response": {
+                "88.212.202.9": {
+                "http": "8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229",
+                "cert": "162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49",
+                "asnum": 39134,
+                "asname": "UNITEDNET",
+                "matched": [
+                  "ip",
+                  "http",
+                  "cert",
+                  "asnum",
+                  "asname"
+                ]
+                }
+              },
+              "error": "null",
+              "rcode": 0
+            }
+          ],
+          "confidence": {
+            "average": 100,
+            "matches": [
+              100
+            ],
+            "untagged_controls": false,
+            "untagged_response": false
+          },
+          "excluded": false,
+          "exclude_reason": []
         }
         """
     ]
@@ -1224,6 +1274,44 @@ class FlattenMeasurementTest(unittest.TestCase):
         'rcode': ['0', '0', '0'],
         'measurement_id': '',
         'has_type_a': True
+      },
+      {
+        'domain': '03.ru',
+        'category': None,
+        'ip': '91.135.154.38',
+        'country': 'RU',
+        'date': '2021-09-16',
+        'start_time': '2021-09-16T17:49:17.488153752-04:00',
+        'end_time': '2021-09-16T17:49:17.741250869-04:00',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'controls_failed': False,
+        'received': [
+          {
+            'ip': '88.212.202.9',
+            'http': '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
+            'cert': '162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49',
+            'asnum': 39134,
+            'asname': 'UNITEDNET',
+            'matches_control': 'ip http cert asnum asname'
+          }
+        ],
+        'rcode': ['0'],
+        'confidence': {
+            'average': 100,
+            'matches': [
+              100
+            ],
+            'untagged_controls': False,
+            'untagged_response': False
+        },
+        'verify': {
+          'excluded': False,
+          'exclude_reason': '',
+        },
+        'measurement_id': '',
+        'has_type_a': True
       }
     ]
     # yapf: enable
@@ -1238,3 +1326,83 @@ class FlattenMeasurementTest(unittest.TestCase):
     for result in results:
       result['measurement_id'] = ''
     self.assertListEqual(results, expected)
+
+  def test_flattenmeasurement_blockpage(self) -> None:
+    """Test parsing a blockpage measurement."""
+    # yapf: disable
+    line = """{
+      "ip": "93.158.134.250",
+      "keyword": "xvideos.com",
+      "http": {
+        "status_line": "302 Moved Temporarily",
+        "headers": {
+          "Content-Length": [
+            "170"
+          ],
+          "Content-Type": [
+            "text/html"
+          ],
+          "Date": [
+            "Fri, 17 Sep 2021 01:07:56 GMT"
+          ],
+          "Location": [
+            "https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult"
+          ],
+          "Server": [
+            "nginx/1.10.3 (Ubuntu)"
+          ]
+        },
+        "body": "<html>\\r\\n<head><title>302 Found</title></head>\\r\\n<body bgcolor=\\"white\\">\\r\\n<center><h1>302 Found</h1></center>\\r\\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\\r\\n</body>\\r\\n</html>\\r\\n"
+      },
+      "https": "Get \\"https://93.158.134.250:443/\\": tls: oversized record received with length 20527",
+      "fetched": true,
+      "start_time": "2021-09-16 21:07:55.814062725 -0400 EDT m=+8.070381531",
+      "end_time": "2021-09-16 21:07:56.317107472 -0400 EDT m=+8.573426410"
+    }"""
+    # yapf: enable
+
+    filename = 'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/blockpages.json'
+
+    # yapf: disable
+    expected_rows: List[flatten.Row] = [
+      {
+        'domain': 'xvideos.com',
+        'ip': '93.158.134.250',
+        'date': '2021-09-16',
+        'start_time': '2021-09-16T21:07:55.814062725-04:00',
+        'end_time': '2021-09-16T21:07:56.317107472-04:00',
+        'success': True,
+        'source': 'CP-Satellite-2021-09-16-12-00-01',
+        'https': False,
+        'received_status': '302 Moved Temporarily',
+        'received_body': '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+        'received_headers': [
+          'Content-Length: 170',
+          'Content-Type: text/html',
+          'Date: Fri, 17 Sep 2021 01:07:56 GMT',
+          'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
+          'Server: nginx/1.10.3 (Ubuntu)'
+        ],
+        'blockpage': None,
+        'page_signature': None
+      },
+      {
+        'domain': 'xvideos.com',
+        'ip': '93.158.134.250',
+        'date': '2021-09-16',
+        'start_time': '2021-09-16T21:07:55.814062725-04:00',
+        'end_time': '2021-09-16T21:07:56.317107472-04:00',
+        'success': True,
+        'source': 'CP-Satellite-2021-09-16-12-00-01',
+        'https': True,
+        'received_status': 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
+        'blockpage': None,
+        'page_signature': None
+      },
+    ]
+    # yapf: enable
+
+    flattener = flatten.FlattenMeasurement()
+    flattener.setup()
+    rows = list(flattener.process((filename, line)))
+    self.assertEqual(rows, expected_rows)

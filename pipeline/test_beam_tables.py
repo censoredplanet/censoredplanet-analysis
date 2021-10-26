@@ -45,6 +45,9 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(
         list(satellite_schema.keys()), all_satellite_top_level_columns)
 
+    blockpage_schema = beam_tables._get_bigquery_schema('blockpage')
+    self.assertEqual(blockpage_schema, beam_tables.BLOCKPAGE_BIGQUERY_SCHEMA)
+
   def test_get_beam_bigquery_schema(self) -> None:
     """Test making a bigquery schema for beam's table writing."""
     test_field = {
@@ -592,11 +595,13 @@ class PipelineMainTest(unittest.TestCase):
             ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
             ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
             ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
+            ("CP_Satellite-2021-09-02-12-00-01/blockpages.json", "blockpage"),
             ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row"),
             ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")]
 
     expected_tags = data[0:6]
-    expected_rows = data[6:]
+    expected_blockpages = data[6:7]
+    expected_rows = data[7:]
 
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
@@ -610,7 +615,7 @@ class PipelineMainTest(unittest.TestCase):
           label='assert_that/tags')
       beam_test_util.assert_that(
           blockpages,
-          beam_test_util.equal_to([]),
+          beam_test_util.equal_to(expected_blockpages),
           label='assert_that/blockpages')
       beam_test_util.assert_that(
           rows,

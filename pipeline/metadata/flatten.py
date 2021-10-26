@@ -390,7 +390,7 @@ class FlattenMeasurement(beam.DoFn):
     else:
       # Satellite 2.2
       responses = scan.get('response', [])
-      row['controls_failed'] = scan['passed_liveness']
+      row['controls_failed'] = not scan['passed_liveness']
       row['rcode'] = [str(response['rcode']) for response in responses]
       row['confidence'] = scan.get('confidence')
       row['verify'] = {
