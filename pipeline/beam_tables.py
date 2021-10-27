@@ -263,6 +263,13 @@ def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
   return hash(key.get('domain')) % NUM_DOMAIN_PARTITIONS
 
 
+def _get_satellite_date_partition(row: Row, _: int) -> int:
+  """Partition Satellite data by date, corresponding to v2.2 format change."""
+  if row['date'] < '2021-06':
+    return 0
+  return 1
+
+
 def _read_scan_text(
     p: beam.Pipeline,
     filenames: List[str]) -> beam.pvalue.PCollection[Tuple[str, str]]:
@@ -635,8 +642,18 @@ def _process_satellite_with_tags(
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
+  # PCollection[Row], PCollection[Row]
+  rows_v1, rows_v2 = (
+      rows |
+      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
+
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
+  rows_with_metadata = _add_satellite_tags(rows_v1, tag_rows)
+
+  # PCollection[Row]
+  rows_with_metadata = ((rows_with_metadata, rows_v2) |
+                        'combine date partitions' >> beam.Flatten())
+
   return rows_with_metadata
 
 
@@ -1080,7 +1097,7 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | 'Write' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
+    (rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
