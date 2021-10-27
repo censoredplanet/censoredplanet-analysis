@@ -55,7 +55,7 @@ JOB_NAME = 'manual-test-job'
 #
 # These files contain real sample data, usually 4 measurements each, the first 2
 # are measurements that succeeded, the last two are measurements that failed.
-def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
+def local_data_to_load_satellite_v1(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev1_2018-08-03/resolvers.json',
       'pipeline/e2e_test_data/Satellitev1_2018-08-03/tagged_resolvers.json',
@@ -65,12 +65,19 @@ def local_data_to_load_satellite(*_: List[Any]) -> List[str]:
   ]
 
 
-def local_data_to_load_satellite_v2(*_: List[Any]) -> List[str]:
+def local_data_to_load_satellite_v2p1(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_resolvers.json',
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_responses.json',
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/responses_control.json',
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json'
+  ]
+
+def local_data_to_load_satellite_v2p2(*_: List[Any]) -> List[str]:
+  return [
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/blockpages.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/resolvers.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/results.json',
   ]
 
 
@@ -161,12 +168,12 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
   # pylint: enable=protected-access
 
 
-def run_local_pipeline_satellite() -> None:
+def run_local_pipeline_satellite_v1() -> None:
   # run_local_pipeline for satellite - scan_type must be 'satellite'
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v1  # type: ignore
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
@@ -174,12 +181,24 @@ def run_local_pipeline_satellite() -> None:
   # pylint: enable=protected-access
 
 
-def run_local_pipeline_satellite_v2() -> None:
+def run_local_pipeline_satellite_v2p1() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
+
+  dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
+                                None, None)
+  # pylint: enable=protected-access
+
+def run_local_pipeline_satellite_v2p2() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p2  # type: ignore
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
@@ -314,14 +333,14 @@ class PipelineManualE2eTest(unittest.TestCase):
     finally:
       clean_up_bq_tables(client, bq_table_names + [derived_table_name])
 
-  def test_satellite_pipeline_e2e(self) -> None:
+  def test_satellite_v1_pipeline_e2e(self) -> None:
     """Test the satellite pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
     try:
-      run_local_pipeline_satellite()
+      run_local_pipeline_satellite_v1()
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
@@ -339,14 +358,40 @@ class PipelineManualE2eTest(unittest.TestCase):
     finally:
       clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
-  def test_satellite_v2_pipeline_e2e(self) -> None:
+  def test_satellite_v2p1_pipeline_e2e(self) -> None:
     """Test the satellite v2 pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
     try:
-      run_local_pipeline_satellite_v2()
+      run_local_pipeline_satellite_v2p1()
+
+      written_rows = get_bq_rows(client,
+                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
+      self.assertEqual(len(written_rows), 8)
+
+      all_expected_domains = [
+          'www.americorps.gov', 'www.americorps.gov', 'custhelp.com',
+          'custhelp.com', 'www.mainichi.co.jp', 'www.mainichi.co.jp',
+          'www.unwatch.org', 'www.unwatch.org'
+      ]
+
+      written_domains = [row[0] for row in written_rows]
+      self.assertListEqual(
+          sorted(written_domains), sorted(all_expected_domains))
+
+    finally:
+      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
+
+  def test_satellite_v2p2_pipeline_e2e(self) -> None:
+    """Test the satellite v2 pipeline by running it locally."""
+    # Suppress some unittest socket warnings in beam code we don't control
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = cloud_bigquery.Client()
+
+    try:
+      run_local_pipeline_satellite_v2p2()
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
