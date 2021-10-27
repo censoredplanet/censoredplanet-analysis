@@ -1179,6 +1179,8 @@ class ScanDataBeamPipelineRunner():
         blockpage_rows = _process_satellite_blockpages(blockpages)
         blockpage_table_name = table_name.replace(f'.{scan_type}',
                                                   f'.{scan_type}_blockpage')
+        if scan_type not in blockpage_table_name:
+          blockpage_table_name = blockpage_table_name + '_blockpage'
         self._write_to_bigquery('blockpage', blockpage_rows,
                                 blockpage_table_name, incremental_load)
       else:

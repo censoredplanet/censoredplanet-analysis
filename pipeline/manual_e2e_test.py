@@ -89,6 +89,7 @@ def local_data_to_load_satellite_v2p1(*_: List[Any]) -> List[str]:
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json'
   ]
 
+
 def local_data_to_load_satellite_v2p2(*_: List[Any]) -> List[str]:
   return [
       'pipeline/e2e_test_data/Satellitev2-2021-10-20/blockpages.json',
@@ -157,6 +158,7 @@ def run_local_pipeline_satellite_v2p1() -> None:
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
                                 None, None)
   # pylint: enable=protected-access
+
 
 def run_local_pipeline_satellite_v2p2() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
@@ -314,12 +316,11 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_local_pipeline_satellite_v2p2()
 
       written_rows = get_bq_rows(client, BQ_TEST_TABLE)
-      self.assertEqual(len(written_rows), 8)
+      self.assertEqual(len(written_rows), 10)
 
       all_expected_domains = [
-          'www.americorps.gov', 'www.americorps.gov', 'custhelp.com',
-          'custhelp.com', 'www.mainichi.co.jp', 'www.mainichi.co.jp',
-          'www.unwatch.org', 'www.unwatch.org'
+          '11st.co.kr', '1688.com', '11st.co.kr', '11st.co.kr', '1337x.to',
+          '1922.gov.tw', '1337x.to', '1688.com', '1337x.to', '1337x.to'
       ]
 
       written_domains = [row[0] for row in written_rows]
