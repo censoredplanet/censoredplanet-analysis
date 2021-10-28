@@ -29,7 +29,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.lookup_country_code import country_name_to_code
-from pipeline.metadata.flatten import Row
+from pipeline.metadata.flatten import Row, SATELLITE_V2_2_START_DATE
 from pipeline.metadata import flatten
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
@@ -112,6 +112,30 @@ SATELLITE_BIGQUERY_SCHEMA = {
     'has_type_a': ('boolean', 'nullable')
 }
 
+BLOCKPAGE_BIGQUERY_SCHEMA = {
+    # Columns from Censored Planet data
+    'domain': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'https': ('boolean', 'nullable'),
+    'source': ('string', 'nullable'),
+    'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
+}
+
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.
 SCAN_TYPES_TO_ZONES = {
@@ -131,6 +155,7 @@ ROWS_PCOLLECION_NAME = 'rows'
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 NUM_DOMAIN_PARTITIONS = 250
+NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
@@ -138,7 +163,7 @@ SATELLITE_FILES = [
     'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
     'answers_control.json', 'interference.json', 'interference_err.json',
     'responses_control.json', 'tagged_responses.json', 'results.json',
-    'answers_err.json'
+    'answers_err.json', 'blockpages.json'
 ]
 # Data files for the non-Satellite pipelines
 SCAN_FILES = ['results.json']
@@ -153,6 +178,8 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   Returns:
     A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
   """
+  if scan_type == 'blockpage':
+    return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == 'satellite':
     full_schema: Dict[str, Any] = {}
     full_schema.update(SCAN_BIGQUERY_SCHEMA)
@@ -234,6 +261,13 @@ def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
 def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
   key = keyed_row[1]
   return hash(key.get('domain')) % NUM_DOMAIN_PARTITIONS
+
+
+def _get_satellite_date_partition(row: Row, _: int) -> int:
+  """Partition Satellite data by date, corresponding to v2.2 format change."""
+  if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
+    return 0
+  return 1
 
 
 def _read_scan_text(
@@ -609,28 +643,65 @@ def _process_satellite_with_tags(
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
+  # PCollection[Row], PCollection[Row]
+  rows_v1, rows_v2 = (
+      rows |
+      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
+
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
+  rows_with_metadata = _add_satellite_tags(rows_v1, tag_rows)
+
+  # PCollection[Row]
+  rows_with_metadata = ((rows_with_metadata, rows_v2) |
+                        'combine date partitions' >> beam.Flatten())
+
   return rows_with_metadata
+
+
+def _process_satellite_blockpages(
+    blockpages: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[Row]:
+  """Process Satellite measurements and tags.
+
+  Args:
+    blockpages: Row objects
+
+  Returns:
+    PCollection[Row] of blockpage rows in bigquery format
+  """
+  rows = (
+      blockpages | 'flatten blockpages' >> beam.ParDo(
+          flatten.FlattenMeasurement()).with_output_types(Row))
+
+  return rows
 
 
 def _partition_satellite_input(
     line: Tuple[str, str],
-    num_partitions: int = 2) -> int:  # pylint: disable=unused-argument
+    num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
   """Partitions Satellite input into tags (0) and rows (1).
 
   Args:
     line: an input line Tuple[filename, line_content]
-    num_partitions: number of partitions to use, always 2
+    num_partitions: number of partitions to use, always 3
 
   Returns:
-    int, 0 if line is a tag file, 1 if not
+    int, 0 if line is a tag file, 1 if line is a blockpage, else 2
+
+  Raises:
+    Exception if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS
   """
+  if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS:
+    raise Exception(
+        "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
+    )
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
     # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
     return 0
-  return 1
+  if "blockpages" in filename:
+    return 1
+  return 2
 
 
 def _calculate_confidence(scan: Dict[str, Any],
@@ -781,7 +852,7 @@ def _merge_metadata_with_rows(  # pylint: disable=unused-argument
     yield new_row
 
 
-def _get_partition_params() -> Dict[str, Any]:
+def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Returns: A dict of query params, See:
@@ -797,6 +868,8 @@ def _get_partition_params() -> Dict[str, Any]:
           'fields': ['country', 'asn']
       }
   }
+  if scan_type == 'blockpage':
+    partition_params.pop('clustering')
   return partition_params
 
 
@@ -1033,12 +1106,12 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | 'Write' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
+    (rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params()))
+        additional_bq_parameters=_get_partition_params(scan_type)))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
@@ -1101,12 +1174,25 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == 'satellite':
-        tags, lines = lines | beam.Partition(_partition_satellite_input, 2)
+      if scan_type == 'blockpage':
+        _, blockpages, _ = lines | beam.Partition(
+            _partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
+        rows_with_metadata = _process_satellite_blockpages(blockpages)
+      elif scan_type == 'satellite':
+        tags, blockpages, lines = lines | beam.Partition(
+            _partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
         rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)
         rows_with_metadata = self._add_metadata(rows_with_metadata)
+
+        blockpage_rows = _process_satellite_blockpages(blockpages)
+        blockpage_table_name = table_name.replace(f'.{scan_type}',
+                                                  f'.{scan_type}_blockpage')
+        if scan_type not in blockpage_table_name:
+          blockpage_table_name = blockpage_table_name + '_blockpage'
+        self._write_to_bigquery('blockpage', blockpage_rows,
+                                blockpage_table_name, incremental_load)
       else:
         # PCollection[Row]
         rows = (
