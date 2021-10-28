@@ -588,7 +588,7 @@ class PipelineMainTest(unittest.TestCase):
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
-    """Test partitioning of Satellite tag and answer input files."""
+    """Test partitioning of Satellite input into tags, blockpages, and results."""
     data = [("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
             ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
             ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),

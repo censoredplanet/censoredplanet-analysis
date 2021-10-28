@@ -29,7 +29,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.lookup_country_code import country_name_to_code
-from pipeline.metadata.flatten import Row
+from pipeline.metadata.flatten import Row, SATELLITE_V2_2_START_DATE
 from pipeline.metadata import flatten
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
@@ -155,6 +155,7 @@ ROWS_PCOLLECION_NAME = 'rows'
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 NUM_DOMAIN_PARTITIONS = 250
+NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 # Data files for the Satellite pipeline
 # Satellite v1 has several output files
@@ -265,7 +266,7 @@ def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
   """Partition Satellite data by date, corresponding to v2.2 format change."""
-  if row['date'] < '2021-06':
+  if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
     return 0
   return 1
 
@@ -677,7 +678,7 @@ def _process_satellite_blockpages(
 
 def _partition_satellite_input(
     line: Tuple[str, str],
-    num_partitions: int = 3) -> int:  # pylint: disable=unused-argument
+    num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
   """Partitions Satellite input into tags (0) and rows (1).
 
   Args:
@@ -686,7 +687,14 @@ def _partition_satellite_input(
 
   Returns:
     int, 0 if line is a tag file, 1 if line is a blockpage, else 2
+
+  Raises:
+    Exception if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS
   """
+  if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS:
+    raise Exception(
+        "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
+    )
   filename = line[0]
   if "tagged" in filename or "resolvers" in filename:
     # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
@@ -1166,11 +1174,12 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == 'blockpage':
-        _, blockpages, _ = lines | beam.Partition(_partition_satellite_input, 3)
+        _, blockpages, _ = lines | beam.Partition(
+            _partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
         rows_with_metadata = _process_satellite_blockpages(blockpages)
       elif scan_type == 'satellite':
         tags, blockpages, lines = lines | beam.Partition(
-            _partition_satellite_input, 3)
+            _partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
         rows_with_metadata = _process_satellite_with_tags(lines, tags)
         rows_with_metadata = _post_processing_satellite(rows_with_metadata)

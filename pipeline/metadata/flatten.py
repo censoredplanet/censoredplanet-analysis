@@ -9,6 +9,7 @@ import os
 import re
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Union, Set
 import uuid
+import datetime
 
 import apache_beam as beam
 
@@ -24,6 +25,8 @@ Row = Dict[str, Any]
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
+SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
+SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 1)
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -315,7 +318,7 @@ class FlattenMeasurement(beam.DoFn):
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
     if 'blockpage' in filename:
       yield from self._process_satellite_blockpages(scan, filename)
-    elif date < "2021-03":
+    elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
       yield from self._process_satellite_v1(date, scan, random_measurement_id)
     else:
       if "responses_control" in filename:
@@ -381,7 +384,7 @@ class FlattenMeasurement(beam.DoFn):
         'measurement_id': random_measurement_id
     }
 
-    if row['date'] < '2021-06':
+    if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
       # Satellite 2.1
       row['controls_failed'] = not scan['passed_control']
       row['rcode'] = []
@@ -435,7 +438,7 @@ class FlattenMeasurement(beam.DoFn):
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
-      Rows
+      Rows, usually 2 corresponding to the fetched http and https data respectively
     """
 
     row = {
