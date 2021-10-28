@@ -1423,8 +1423,8 @@ class FlattenMeasurementTest(unittest.TestCase):
           'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
           'Server: nginx/1.10.3 (Ubuntu)'
         ],
-        'blockpage': None,
-        'page_signature': None
+        'blockpage': False,
+        'page_signature': 'r_fp_26'
       },
       {
         'domain': 'xvideos.com',

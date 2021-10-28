@@ -207,7 +207,8 @@ def run_local_pipeline_satellite_v2p1() -> None:
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
 
-  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, BEAM_TEST_TABLE,
+  dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
                                 None, None)
   # pylint: enable=protected-access
 
@@ -412,7 +413,8 @@ class PipelineManualE2eTest(unittest.TestCase):
     try:
       run_local_pipeline_satellite_v2p2()
 
-      written_rows = get_bq_rows(client, BQ_TEST_TABLE)
+      written_rows = get_bq_rows(client,
+                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 10)
 
       all_expected_domains = [
@@ -425,7 +427,7 @@ class PipelineManualE2eTest(unittest.TestCase):
           sorted(written_domains), sorted(all_expected_domains))
 
     finally:
-      clean_up_bq_table(client, BQ_TEST_TABLE)
+      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
