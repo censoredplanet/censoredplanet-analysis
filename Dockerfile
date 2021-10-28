@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# 3.7 (not 3.8) is required for apache beam
-FROM python:3.7-buster
+# 3.8 (not 3.9) is required for apache beam
+FROM python:3.8-buster
 
 # Allow statements and log messages to immediately appear in the Knative logs
 ENV PYTHONUNBUFFERED True

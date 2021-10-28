@@ -239,8 +239,7 @@ def _get_existing_datasources(table_name: str) -> List[str]:
   # but this library wants the format project.dataset.table
   fixed_table_name = table_name.replace(':', '.')
 
-  query = 'SELECT DISTINCT(source) AS source FROM `{table}`'.format(
-      table=fixed_table_name)
+  query = f'SELECT DISTINCT(source) AS source FROM `{fixed_table_name}`'
   rows = client.query(query)
   sources = [row.source for row in rows]
   return sources
@@ -581,6 +580,7 @@ def _post_processing_satellite(
           'verify interference' >> beam.Map(_verify).with_output_types(Row))
 
   # PCollection[Row]
+  # pylint: disable=no-value-for-parameter
   controls = (
       controls | 'unkey control' >> beam.Values().with_output_types(Row))
 
@@ -1029,6 +1029,7 @@ class ScanDataBeamPipelineRunner():
             Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
+    # pylint: disable=no-value-for-parameter
     ips_and_dates = (
         rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
         beam.Keys().with_output_types(DateIpKey))

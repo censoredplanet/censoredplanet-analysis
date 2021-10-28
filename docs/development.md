@@ -66,7 +66,7 @@ full pipelines it will be the previous week of data.
 
 After recreating the base tables you can rebuild any derived tables by running
 
-    python3 -m table.run_queries
+    python3 -m table.run_queries --output=derived
 
 To test changes to the queries without overwriting the derived tables write to
 a personal dataset like

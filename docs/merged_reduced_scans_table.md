@@ -1,55 +1,47 @@
 # Reduced Table
 
-This table is actually a view joining two tables, in order to read over less
-data with every request.
+The table `firehook-censoredplanet.derived.merged_reduced_scans_vN` (where N is a version number)
+contains filtered and pre-aggregated data to be used in the Censored Planet dashboard.
 
-These tables are created by the script
+This table is evolving and will change in backwards incompatible ways. When a backwards-incompatible
+change happens the version number will increment. Older version of the table will be deleted.
+
+The view `firehook-censoredplanet.derived.merged_reduced_scans` points to the latest version of
+the table above. If you would like to deal with backwards-incompatible changes yourself rely on
+this view instead of the table directly.
+
+The table is created by the script
 [merged_reduced_scans.sql](../table/queries/merged_reduced_scans.sql).
-
-## Table names
-
-### View
-
-- firehook-censoredplanet.derived.merged_reduced_scans
-
-### Sub-tables
-
-- `firehook-censoredplanet.derived.merged_reduced_scans_no_as`
-- `firehook-censoredplanet.derived.merged_net_as`
-
-These two tables are joined on their `date` and `netblock` fields to create the
-view.
 
 ## Partitioning and Clustering
 
-The sub-tables are time-partitioned along the `date` field.
+The table is [time-partitioned](https://cloud.google.com/bigquery/docs/partitioned-tables) along the `date` field.
+This allows queries to skip any data outside the desired date range.
 
-`firehook-censoredplanet.merged_reduced_scans` is clustered along the `netblock`
-field.
-
-`firehook-censoredplanet.merged_net_as` is clustered along the `country`,
-`category`, `domain` and then `netblock` fields.
+The table also uses [clustering](https://cloud.google.com/bigquery/docs/clustered-tables) to make filtering and aggregation
+more efficient. The table is clustered along the `source`, `country_name`, `network` and `domain` columns.
+The columns `source` and `country_name` are always used for filtering, so they come first.
 
 ## Table Format
 
 Reduced Scans
 
-| Field Name | Type    | Contains |
-| ---------- | ------- | -------- |
-| date       | DATE    | Date that an individual measurement was taken |
-| domain     | STRING  | The domain being tested, eg. `example.com` |
-| category   | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
-| country    | STRING  | Autonomous system country, eg. `US`  |
-| netblock   | STRING  | Netblock of the IP, eg. `1.1.1.0/24`  |
-| asn        | INTEGER | Autonomous system number, eg. `13335` |
-| as_name    | STRING  | Autonomous system long name, eg. `Cloudflare, Inc.` |
-| result     | STRING  | `null` (meaning success) or error returned. eg. `Incorrect web response: status lines don't match`. Errors come either from the probe system, or directly from [Go's net package](https://golang.org/pkg/net/) |
-| outcome    | STRING  | An outcome classification, explained below. eg `read/timeout` |
-| count      | INTEGER | How many measurements fit the exact pattern of this row? |
+| Field Name       | Type    | Contains |
+| ---------------- | ------- | -------- |
+| date             | DATE    | Date that an individual measurement was taken |
+| source           | STRING  | What probe type the measurement came from ("HTTPS", "HTTP", "DISCARD", "ECHO") |
+| domain           | STRING  | The domain being tested (eg. `example.com`) or `CONTROL` for control measurements |
+| category         | STRING  | The [category](domain_categories.md) of the domain being tested, eg. `Social Networking`, `None` if unknown |
+| country_name     | STRING  | The country of the autonomous system, eg. `United States`  |
+| network          | STRING  | The Autonomous System long name, eg. `China Telecom` |
+| subnetwork       | STRING  | The combination of the AS number and the IP organization. The subnetworks can represent multiple autonomous systems owned by a single organization. They can also show IP space which has been sub-leased from one organization to another. e.g. `AS4812 - Apple technology services (Shanghai) Co., Ltd.` which represents IP space sub-leased from `China Telecom`'s network `AS4812` |
+| outcome          | STRING  | An outcome classification, explained below. eg `read/timeout` |
+| count            | INTEGER | How many measurements fit the exact pattern of this row? |
+| unexpected_count | INTEGER | Count of measurements with an unexpected outcome |
 
 ## Outcome Classification
 
-The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `complete/success` means a test finished successfully.
+The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `expected/match` means a test finished successfully.
 
 ### Stages
 
@@ -64,7 +56,7 @@ Stages are listed here in order. If a test reaches a later stage like `content` 
 | read        | Reading from the remote |
 | http        | Verification of HTTP headers. `HTTP/S` only |
 | content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
-| complete    | Reaching the final stage without encountering any problems in the previous stages |
+| expected    | Verified an expected response |
 | unknown     | Unknown stage. Usually these are new outcomes which should be investigated and classified |
 
 #### Stages per Probe
@@ -89,7 +81,7 @@ Not all tests include every stage depending on the type of test. For example sin
 
 ### Outcome Classes
 
-Basic outcomes represent simplest types of errors, as well as the `success` case (no error detected).
+Basic outcomes represent simplest types of errors, as well as the `match` case (no error detected).
 
 Protocol errors are similar but not identical to the Network Error Logging standard's [Predefined Network Error Types](https://www.w3.org/TR/network-error-logging/#predefined-network-error-types). These errors may represent normal network failures and noise, but they may also expose interference by a middlebox to disrupt a connection. For example China and Iran are both known to use [TCP Reset Attacks](https://en.wikipedia.org/wiki/TCP_reset_attack) as a censorship method.
 
@@ -100,7 +92,7 @@ Mismatch Errors are used when the connection is successful, but the content rece
 |                         |
 | **Basic Outcomes**      |
 |                         |
-| success                 | The test completed successfully and no interference was detected |
+| match                   | The test completed successfully and no interference was detected |
 | system_failure          | There was a test system failure, rendering the test invalid |
 | unknown                 | The class of the outcome was not known. Usually these are new errors which should be investigated and classified |
 |                         |
@@ -116,13 +108,11 @@ Mismatch Errors are used when the connection is successful, but the content rece
 | http.empty              | Received no content when HTTP content was expected |
 | http.truncated_response | The HTTP response content was unexpectedly truncated |
 |                         |
-| **Mismatch Errors**     | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
+| **Mismatched Content**  | The connection completed successfully, but the content returned didn't match the content expected for the domain. |
 |                         |
-| HyperQuack v1 only      |
-| response_mismatch       | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. |
+| mismatch                | Received a different response from the one expected. </br> For Discard no response is expected and any response is a mismatch, </br> for Echo a mirrored response is expected and anything else is a mismatch. </br> For HTTP/S the expected response is determined by sending multiple control domains to the server and building an expected template. This response is returned when more detail about the exact part of the template mismatched (eg. status, body) is not available. |
 | status_mismatch         | The HTTP status code didn't match, eg. `403` instead of `200` |
 | body_mismatch           | The HTTP body didn't match, potentially a blockpage |
 | tls_mismatch            | An element of the TLS connection (certificate, cipher suite, or TLS version) didn't match |
-| HyperQuack v1 and v2    |
-| template_mismatch       | Some element of the response did not match the expected template |
 | blockpage               | The response was unexpected and matched a [known blockpage]((https://github.com/censoredplanet/censoredplanet-analysis/blob/master/pipeline/metadata/data/blockpage_signatures.json)) |
+| trusted_host            | The response didn't match the expected response for the template. But it did match a common known server pattern, and is likely not censorship. This outcome is used for CDNs that respond in network-specific ways to domains they host. |

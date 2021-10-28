@@ -65,7 +65,7 @@ def run() -> None:
   while True:
     schedule.run_pending()
     wait = schedule.idle_seconds()
-    print('Waiting {} seconds until the next run'.format(wait))
+    print(f'Waiting {wait} seconds until the next run')
     time.sleep(wait)
 
 
