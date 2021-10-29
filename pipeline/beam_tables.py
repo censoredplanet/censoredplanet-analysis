@@ -1136,6 +1136,8 @@ class ScanDataBeamPipelineRunner():
             'enable_execution_details_collection',
             'use_monitoring_state_manager'
         ],
+        dry_run=True,
+        dataflow_job_file="gs://firehook-dataflow-test/echo_job_graph.json",
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
