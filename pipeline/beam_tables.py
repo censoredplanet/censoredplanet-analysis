@@ -27,6 +27,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -408,53 +409,49 @@ class ScanDataBeamPipelineRunner():
       The same rows as above with with additional metadata columns added.
     """
 
-    # PCollection[Tuple[satellite.DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,Row]]
     rows_keyed_by_ip_and_date = (
         rows | 'key by ips and dates' >>
         beam.Map(lambda row:
                  (satellite.make_date_ip_key(row), row)).with_output_types(
-                     Tuple[satellite.DateIpKey, Row]))
+                     Tuple[DateIpKey, Row]))
 
-    # PCollection[satellite.DateIpKey]
+    # PCollection[DateIpKey]
     # pylint: disable=no-value-for-parameter
     ips_and_dates = (
         rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
-        beam.Keys().with_output_types(satellite.DateIpKey))
+        beam.Keys().with_output_types(DateIpKey))
 
-    # PCollection[satellite.DateIpKey]
+    # PCollection[DateIpKey]
     deduped_ips_and_dates = (
         # pylint: disable=no-value-for-parameter
-        ips_and_dates |
-        'dedup' >> beam.Distinct().with_output_types(satellite.DateIpKey))
+        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
 
     # PCollection[Tuple[date,List[ip]]]
     grouped_ips_by_dates = (
         deduped_ips_and_dates | 'group by date' >>
         beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
 
-    # PCollection[Tuple[satellite.DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,Row]]
     ips_with_metadata = (
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
-            self._add_ip_metadata).with_output_types(Tuple[satellite.DateIpKey,
-                                                           Row]))
+            self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
     grouped_metadata_and_rows = (({
-        satellite.IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        satellite.ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
+        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
     }) | 'group by keys' >> beam.CoGroupByKey())
 
     # PCollection[Row]
     rows_with_metadata = (
-        grouped_metadata_and_rows |
-        'merge metadata with rows' >> beam.FlatMapTuple(
-            satellite.merge_metadata_with_rows).with_output_types(Row))
+        grouped_metadata_and_rows | 'merge metadata with rows' >>
+        beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
 
     return rows_with_metadata
 
-  def _add_ip_metadata(
-      self, date: str,
-      ips: List[str]) -> Iterator[Tuple[satellite.DateIpKey, Row]]:
+  def _add_ip_metadata(self, date: str,
+                       ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
     """Add Autonymous System metadata for ips in the given rows.
 
     Args:
@@ -462,7 +459,7 @@ class ScanDataBeamPipelineRunner():
       ips: a list of ips
 
     Yields:
-      Tuples (satellite.DateIpKey, metadata_dict)
+      Tuples (DateIpKey, metadata_dict)
       where metadata_dict is a row Dict[column_name, values]
     """
     ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(

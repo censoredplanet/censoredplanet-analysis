@@ -6,12 +6,13 @@ import datetime
 import json
 import logging
 import re
-from typing import Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Tuple, Dict, Any, Iterator, Iterable
 
 import apache_beam as beam
 
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, merge_metadata_with_rows
+from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
-from pipeline.metadata.flatten import Row, SATELLITE_V2_2_START_DATE
 from pipeline.metadata import flatten
 
 # Additional bigquery fields for the satellite data
@@ -72,18 +73,10 @@ SATELLITE_FILES = [
     'answers_err.json', 'blockpages.json'
 ]
 
-# A key containing a date and IP
-# ex: ("2020-01-01", '1.2.3.4')
-DateIpKey = Tuple[str, str]
-
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 NUM_DOMAIN_PARTITIONS = 250
 NUM_SATELLITE_INPUT_PARTITIONS = 3
-
-# PCollection key names used internally by the beam pipeline
-IP_METADATA_PCOLLECTION_NAME = 'metadata'
-ROWS_PCOLLECION_NAME = 'rows'
 
 
 def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
@@ -101,7 +94,8 @@ def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
   """Partition Satellite data by date, corresponding to v2.2 format change."""
-  if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
+  if datetime.date.fromisoformat(
+      row['date']) < flatten.SATELLITE_V2_2_START_DATE:
     return 0
   return 1
 
@@ -585,45 +579,3 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
         reasons.append('domain_below_threshold')
     scan['verify']['exclude_reason'] = ' '.join(reasons)
   return scan
-
-
-def merge_metadata_with_rows(  # pylint: disable=unused-argument
-    key: DateIpKey,
-    value: Dict[str, List[Row]],
-    field: str = None) -> Iterator[Row]:
-  # pyformat: disable
-  """Merge a list of rows with their corresponding metadata information.
-
-  Args:
-    key: The DateIpKey tuple that we joined on. This is thrown away.
-    value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
-               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
-      where ipmetadata is a dict of the format {column_name, value}
-       {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
-      and row is a dict of the format {column_name, value}
-       {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
-    field: indicates a row field to update with metadata instead of the row (default).
-
-  Yields:
-    row dict {column_name, value} containing both row and metadata cols/values
-  """
-  # pyformat: enable
-  if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
-  else:
-    ip_metadata = {}
-  rows = value[ROWS_PCOLLECION_NAME]
-
-  for row in rows:
-    new_row: Row = {}
-    new_row.update(row)
-    if field == 'received':
-      if new_row['received']:
-        new_row['received'].update(ip_metadata)
-        new_row['received'].pop('date', None)
-        new_row['received'].pop('name', None)
-        new_row['received'].pop('country', None)
-    else:
-      new_row.update(ip_metadata)
-    yield new_row

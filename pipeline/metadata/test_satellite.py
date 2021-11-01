@@ -1,8 +1,8 @@
 """Unit tests for satellite."""
 
-from typing import Dict, List
-import unittest
 import json
+from typing import List
+import unittest
 
 import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
@@ -439,56 +439,6 @@ class SatelliteTest(unittest.TestCase):
           (scan['verify']['excluded'], scan['verify']['exclude_reason']))
 
     self.assertListEqual(result, expected)
-
-  def test_merge_metadata_with_rows(self) -> None:
-    """Test merging IP metadata pcollection with rows pcollection."""
-    key: satellite.DateIpKey = ('2020-01-01', '1.1.1.1')
-    ip_metadata: flatten.Row = {
-        'netblock': '1.0.0.1/24',
-        'asn': 13335,
-        'as_name': 'CLOUDFLARENET',
-        'as_full_name': 'Cloudflare Inc.',
-        'as_class': 'Content',
-        'country': 'US',
-    }
-    rows: List[flatten.Row] = [{
-        'domain': 'www.example.com',
-        'ip': '1.1.1.1',
-        'date': '2020-01-01',
-    }, {
-        'domain': 'www.example2.com',
-        'ip': '1.1.1.1',
-        'date': '2020-01-01',
-    }]
-    value: Dict[str, List[flatten.Row]] = {
-        satellite.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
-        satellite.ROWS_PCOLLECION_NAME: rows
-    }
-
-    expected_rows = [{
-        'domain': 'www.example.com',
-        'ip': '1.1.1.1',
-        'date': '2020-01-01',
-        'netblock': '1.0.0.1/24',
-        'asn': 13335,
-        'as_name': 'CLOUDFLARENET',
-        'as_full_name': 'Cloudflare Inc.',
-        'as_class': 'Content',
-        'country': 'US',
-    }, {
-        'domain': 'www.example2.com',
-        'ip': '1.1.1.1',
-        'date': '2020-01-01',
-        'netblock': '1.0.0.1/24',
-        'asn': 13335,
-        'as_name': 'CLOUDFLARENET',
-        'as_full_name': 'Cloudflare Inc.',
-        'as_class': 'Content',
-        'country': 'US',
-    }]
-
-    rows_with_metadata = list(satellite.merge_metadata_with_rows(key, value))
-    self.assertListEqual(rows_with_metadata, expected_rows)
 
   # pylint: enable=protected-access
 
