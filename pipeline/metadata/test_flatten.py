@@ -5,6 +5,8 @@ from typing import List
 
 from pipeline.metadata import flatten
 
+# pylint: disable=too-many-lines
+
 
 class FlattenMeasurementTest(unittest.TestCase):
   """Unit tests for pipeline flattening."""
