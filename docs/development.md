@@ -31,6 +31,16 @@ command
 
     python -m unittest pipeline.manual_e2e_test.PipelineManualE2eTest
 
+To view unit test code coverage install `coverage` and run
+
+    python -m coverage run --source="pipeline/" -m unittest
+    python -m coverage report -m --omit="*test*"
+
+To view E2E test code coverage run
+
+     python -m coverage run --source="pipeline/" -m unittest pipeline.manual_e2e_test.PipelineManualE2eTest
+     python -m coverage report -m --omit="*test*"
+
 ## Running development pipelines
 
 To test changes before merging them into production it helps to run development
