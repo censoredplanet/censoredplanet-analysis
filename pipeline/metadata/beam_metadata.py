@@ -15,6 +15,11 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
+def make_date_ip_key(row: Row) -> DateIpKey:
+  """Makes a tuple key of the date and ip from a given row dict."""
+  return (row['date'], row['ip'])
+
+
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey,
     value: Dict[str, List[Row]],

@@ -10,7 +10,7 @@ from typing import Tuple, Dict, Any, Iterator, Iterable
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, merge_metadata_with_rows
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten
@@ -73,6 +73,9 @@ SATELLITE_FILES = [
     'answers_err.json', 'blockpages.json'
 ]
 
+SCAN_TYPE_SATELLITE = 'satellite'
+SCAN_TYPE_BLOCKPAGE = 'blockpage'
+
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 NUM_DOMAIN_PARTITIONS = 250
@@ -107,9 +110,20 @@ def _make_date_received_ip_key(row: Row) -> DateIpKey:
   return (row['date'], '')
 
 
-def make_date_ip_key(row: Row) -> DateIpKey:
-  """Makes a tuple key of the date and ip from a given row dict."""
-  return (row['date'], row['ip'])
+def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
+  """Returns an additional table name for writing the blockpage table.
+
+  Args:
+    table_name: dataset.table name like 'base.scan_satellite'
+    scan_type: 'satellite'
+
+  Returns:
+    name like 'base.scan_satellite_blockpage'
+  """
+  if scan_type in table_name:
+    return table_name.replace(f'.{scan_type}',
+                              f'.{scan_type}_{SCAN_TYPE_BLOCKPAGE}')
+  return f'{table_name}_{SCAN_TYPE_BLOCKPAGE}'
 
 
 def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
