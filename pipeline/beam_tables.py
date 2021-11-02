@@ -27,7 +27,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, merge_metadata_with_rows
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -108,9 +108,9 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   Returns:
     A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
   """
-  if scan_type == 'blockpage':
+  if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
     return satellite.BLOCKPAGE_BIGQUERY_SCHEMA
-  if scan_type == 'satellite':
+  if scan_type == satellite.SCAN_TYPE_SATELLITE:
     full_schema: Dict[str, Any] = {}
     full_schema.update(SCAN_BIGQUERY_SCHEMA)
     full_schema.update(satellite.SATELLITE_BIGQUERY_SCHEMA)
@@ -255,7 +255,7 @@ def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
           'fields': ['country', 'asn']
       }
   }
-  if scan_type == 'blockpage':
+  if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
     partition_params.pop('clustering')
   return partition_params
 
@@ -367,7 +367,7 @@ class ScanDataBeamPipelineRunner():
     else:
       existing_sources = []
 
-    if scan_type == 'satellite':
+    if scan_type == satellite.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES
     else:
       files_to_load = SCAN_FILES
@@ -412,9 +412,8 @@ class ScanDataBeamPipelineRunner():
     # PCollection[Tuple[DateIpKey,Row]]
     rows_keyed_by_ip_and_date = (
         rows | 'key by ips and dates' >>
-        beam.Map(lambda row:
-                 (satellite.make_date_ip_key(row), row)).with_output_types(
-                     Tuple[DateIpKey, Row]))
+        beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+            Tuple[DateIpKey, Row]))
 
     # PCollection[DateIpKey]
     # pylint: disable=no-value-for-parameter
@@ -562,12 +561,12 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == 'blockpage':
+      if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
         _, blockpages, _ = lines | beam.Partition(
             satellite.partition_satellite_input,
             satellite.NUM_SATELLITE_INPUT_PARTITIONS)
         rows_with_metadata = satellite.process_satellite_blockpages(blockpages)
-      elif scan_type == 'satellite':
+      elif scan_type == satellite.SCAN_TYPE_SATELLITE:
         tags, blockpages, lines = lines | beam.Partition(
             satellite.partition_satellite_input,
             satellite.NUM_SATELLITE_INPUT_PARTITIONS)
@@ -578,12 +577,10 @@ class ScanDataBeamPipelineRunner():
         rows_with_metadata = self._add_metadata(rows_with_metadata)
 
         blockpage_rows = satellite.process_satellite_blockpages(blockpages)
-        blockpage_table_name = table_name.replace(f'.{scan_type}',
-                                                  f'.{scan_type}_blockpage')
-        if scan_type not in blockpage_table_name:
-          blockpage_table_name = blockpage_table_name + '_blockpage'
-        self._write_to_bigquery('blockpage', blockpage_rows,
-                                blockpage_table_name, incremental_load)
+        self._write_to_bigquery(
+            satellite.SCAN_TYPE_BLOCKPAGE, blockpage_rows,
+            satellite.get_blockpage_table_name(table_name, scan_type),
+            incremental_load)
       else:
         # PCollection[Row]
         rows = (
