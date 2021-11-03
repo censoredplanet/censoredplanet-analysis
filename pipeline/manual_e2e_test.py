@@ -32,6 +32,7 @@ from google.cloud.exceptions import NotFound  # type: ignore
 import firehook_resources
 from pipeline import run_beam_tables
 from pipeline.metadata import caida_ip_metadata, maxmind, dbip
+from pipeline.metadata.satellite import get_blockpage_table_name
 from table import run_queries
 
 # The test table is written into the <project>:test dataset
@@ -145,6 +146,17 @@ def get_bq_base_table_name(scan_type: str) -> str:
   """
   beam_table_name = get_beam_base_table_name(scan_type)
   return f'{firehook_resources.PROJECT_NAME}.{beam_table_name}'
+
+
+def get_bq_blockpage_table_name(scan_type: str) -> str:
+  """Get a table name for using in bigquery
+
+  Args:
+    scan_type: str, 'satellite'
+
+  Returns: table name like 'firehook-censoredplanet.test.satellite_blockpage_scan'
+  """
+  return get_blockpage_table_name(get_bq_base_table_name(scan_type), scan_type)
 
 
 def get_bq_derived_table_name() -> str:
@@ -354,7 +366,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_bq_tables(client, bq_table_names + [derived_table_name])
 
   def test_satellite_v1_pipeline_e2e(self) -> None:
-    """Test the satellite pipeline by running it locally."""
+    """Test the satellite v1 pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
@@ -379,7 +391,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_satellite_v2p1_pipeline_e2e(self) -> None:
-    """Test the satellite v2 pipeline by running it locally."""
+    """Test the satellite v2.1 pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
@@ -405,7 +417,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
 
   def test_satellite_v2p2_pipeline_e2e(self) -> None:
-    """Test the satellite v2 pipeline by running it locally."""
+    """Test the satellite v2.2 pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
@@ -426,8 +438,26 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      written_blockpage_rows = get_bq_rows(
+          client, [get_bq_blockpage_table_name(SATELLITE_SCAN_TYPE)])
+      self.assertEqual(len(written_blockpage_rows), 20)
+
+      all_expected_blockpage_domains = [
+          'plan-uk.org', 'secure.flickr.com', 'uniswap.org', 'reddit.com',
+          'bbc.com', 'ytmp3.cc', 'shopee.tw', 'livestream.com', 'tor.eff.org',
+          'www.tumblr.com'
+      ]
+
+      written_blockpage_domains = [row[0] for row in written_blockpage_rows]
+      self.assertListEqual(
+          sorted(written_blockpage_domains),
+          sorted(all_expected_blockpage_domains * 2))
+
     finally:
-      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
+      clean_up_bq_tables(client, [
+          get_bq_base_table_name(SATELLITE_SCAN_TYPE),
+          get_bq_blockpage_table_name(SATELLITE_SCAN_TYPE)
+      ])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:

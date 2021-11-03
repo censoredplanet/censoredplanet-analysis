@@ -114,16 +114,14 @@ def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
   """Returns an additional table name for writing the blockpage table.
 
   Args:
-    table_name: dataset.table name like 'base.scan_satellite'
+    table_name: dataset.table name like 'base.satellite_scan'
     scan_type: 'satellite'
 
   Returns:
-    name like 'base.scan_satellite_blockpage'
+    name like 'base.satellite_blockpage_scan'
   """
-  if scan_type in table_name:
-    return table_name.replace(f'.{scan_type}',
-                              f'.{scan_type}_{SCAN_TYPE_BLOCKPAGE}')
-  return f'{table_name}_{SCAN_TYPE_BLOCKPAGE}'
+  return table_name.replace(f'.{scan_type}',
+                            f'.{scan_type}_{SCAN_TYPE_BLOCKPAGE}')
 
 
 def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
