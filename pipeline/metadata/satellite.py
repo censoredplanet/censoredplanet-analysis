@@ -593,3 +593,30 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
         reasons.append('domain_below_threshold')
     scan['verify']['exclude_reason'] = ' '.join(reasons)
   return scan
+
+
+def process_satellite_lines(
+    lines: beam.pvalue.PCollection[Tuple[str, str]]
+) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[Row]]:
+  """Process both satellite and blockpage data files.
+
+  Args:
+    lines: input lines from all satellite files. Tuple[filename, line]
+
+  Returns:
+    post_processed_satellite: rows of satellite scan data
+    blockpage_rows: rows of blockpage data
+  """
+  # PCollection[Tuple[filename,line]] x3
+  tags, blockpages, lines = lines | beam.Partition(
+      partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
+
+  # PCollection[Row]
+  tagged_satellite = process_satellite_with_tags(lines, tags)
+  # PCollection[Row]
+  post_processed_satellite = post_processing_satellite(tagged_satellite)
+
+  # PCollection[Row]
+  blockpage_rows = process_satellite_blockpages(blockpages)
+
+  return post_processed_satellite, blockpage_rows

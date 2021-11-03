@@ -103,7 +103,8 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
 
   Args:
-    scan_type: str, one of 'echo', 'discard', 'http', 'https', 'satellite'
+    scan_type: str, one of 'echo', 'discard', 'http', 'https',
+      'satellite' or 'blockpage'
 
   Returns:
     A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
@@ -241,6 +242,10 @@ def _between_dates(filename: str,
 
 def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
+
+  Args:
+    scan_type: data type, one of 'echo', 'discard', 'http', 'https',
+      'satellite' or 'blockpage'
 
   Returns: A dict of query params, See:
   https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
@@ -476,7 +481,8 @@ class ScanDataBeamPipelineRunner():
     """Write out row to a bigquery table.
 
     Args:
-      scan_type: one of 'echo', 'discard', 'http', 'https', 'satellite'
+      scan_type: one of 'echo', 'discard', 'http', 'https',
+        'satellite' or 'blockpage'
       rows: PCollection[Row] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
@@ -561,27 +567,19 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-        _, blockpages, _ = lines | beam.Partition(
-            satellite.partition_satellite_input,
-            satellite.NUM_SATELLITE_INPUT_PARTITIONS)
-        rows_with_metadata = satellite.process_satellite_blockpages(blockpages)
-      elif scan_type == satellite.SCAN_TYPE_SATELLITE:
-        tags, blockpages, lines = lines | beam.Partition(
-            satellite.partition_satellite_input,
-            satellite.NUM_SATELLITE_INPUT_PARTITIONS)
+      if scan_type == satellite.SCAN_TYPE_SATELLITE:
+        # PCollection[Row], PCollection[Row]
+        satellite_rows, blockpage_rows = satellite.process_satellite_lines(
+            lines)
 
-        rows_with_metadata = satellite.process_satellite_with_tags(lines, tags)
-        rows_with_metadata = satellite.post_processing_satellite(
-            rows_with_metadata)
-        rows_with_metadata = self._add_metadata(rows_with_metadata)
+        # PCollection[Row]
+        rows_with_metadata = self._add_metadata(satellite_rows)
 
-        blockpage_rows = satellite.process_satellite_blockpages(blockpages)
         self._write_to_bigquery(
             satellite.SCAN_TYPE_BLOCKPAGE, blockpage_rows,
             satellite.get_blockpage_table_name(table_name, scan_type),
             incremental_load)
-      else:
+      else:  # Hyperquack scans
         # PCollection[Row]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
