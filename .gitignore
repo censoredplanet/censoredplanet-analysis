@@ -4,3 +4,4 @@ env/
 pipeline/assets/GeoLite2*.mmdb
 .vscode/
 **/*.pyc
+.coverage
