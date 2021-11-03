@@ -444,8 +444,8 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       all_expected_blockpage_domains = [
           'plan-uk.org', 'secure.flickr.com', 'uniswap.org', 'reddit.com',
-          'bbc.com', 'ytmp3.cc', 'shopee.tw', 'livestream.com', 'tor.eff.org',
-          'www.tumblr.com'
+          'bbc.com', 'plan-uk.org', 'tx.me', 'www.pinterest.com', 'weather.com',
+          'www.hrcr.org'
       ]
 
       written_blockpage_domains = [row[0] for row in written_blockpage_rows]
