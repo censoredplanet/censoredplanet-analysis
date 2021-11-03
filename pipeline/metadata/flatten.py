@@ -26,7 +26,7 @@ Row = Dict[str, Any]
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
-SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 1)
+SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
 
 # For Hyperquack v1
 # echo/discard domain and url content
