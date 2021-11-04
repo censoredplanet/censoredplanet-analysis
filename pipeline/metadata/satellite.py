@@ -624,9 +624,13 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(lines, tags, received_tagging)
 
   # PCollection[Row]
-  post_processed_satellite = post_processing_satellite(tagged_satellite)
+  blockpage_rows = process_satellite_blockpages(blockpages)
+
+  # Post processing steps require the received IP tags. Skip if not enabled.
+  if not received_tagging:
+    return tagged_satellite, blockpage_rows
 
   # PCollection[Row]
-  blockpage_rows = process_satellite_blockpages(blockpages)
+  post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   return post_processed_satellite, blockpage_rows
