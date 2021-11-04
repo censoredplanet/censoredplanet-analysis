@@ -293,14 +293,15 @@ def unflatten_rows(
   return unflattened_rows
 
 
-def _add_satellite_tags(
-    rows: beam.pvalue.PCollection[Row],
-    tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+def _add_satellite_tags(rows: beam.pvalue.PCollection[Row],
+                        tags: beam.pvalue.PCollection[Row],
+                        received_tagging: bool) -> beam.pvalue.PCollection[Row]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
       rows: PCollection of measurement rows
       tags: PCollection of geo tag rows
+      received_tagging: bool, equals true if received tagging is enabled
 
     Returns:
       PCollection of measurement rows containing tag information
@@ -315,8 +316,25 @@ def _add_satellite_tags(
   # PCollection[Row]
   rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
 
+  if not received_tagging:
+    # PCollection[Row]
+    return unflatten_rows(rows_with_metadata)
+
+  # Starting with the Satellite v2.2 format, the rows include received ip tags.
+  # Received tagging steps are only required prior to v2.2
+
+  # PCollection[Row], PCollection[Row]
+  rows_pre_v2_2, rows_v2_2 = (
+      rows_with_metadata |
+      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
+
   # PCollection[Row]
-  rows_with_tags = add_received_ip_tags(rows_with_metadata, ips_with_metadata)
+  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
+                                                 ips_with_metadata)
+
+  # PCollection[Row]
+  rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
+                    'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
   return unflatten_rows(rows_with_tags)
@@ -418,13 +436,14 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
 
 def process_satellite_with_tags(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    tag_lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[Row]:
+    tag_lines: beam.pvalue.PCollection[Tuple[str, str]],
+    received_tagging: bool) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags.
 
   Args:
     row_lines: Row objects
     tag_lines: various
+    received_tagging: bool, equals true if received tagging is enabled
 
   Returns:
     PCollection[Row] of rows with tag metadata added
@@ -438,17 +457,8 @@ def process_satellite_with_tags(
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
-  # PCollection[Row], PCollection[Row]
-  rows_v1, rows_v2 = (
-      rows |
-      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
-
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows_v1, tag_rows)
-
-  # PCollection[Row]
-  rows_with_metadata = ((rows_with_metadata, rows_v2) |
-                        'combine date partitions' >> beam.Flatten())
+  rows_with_metadata = _add_satellite_tags(rows, tag_rows, received_tagging)
 
   return rows_with_metadata
 
@@ -594,12 +604,13 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def process_satellite_lines(
-    lines: beam.pvalue.PCollection[Tuple[str, str]]
+    lines: beam.pvalue.PCollection[Tuple[str, str]], received_tagging: bool
 ) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[Row]]:
   """Process both satellite and blockpage data files.
 
   Args:
     lines: input lines from all satellite files. Tuple[filename, line]
+    received_tagging: bool, equals true if received tagging is enabled
 
   Returns:
     post_processed_satellite: rows of satellite scan data
@@ -610,7 +621,8 @@ def process_satellite_lines(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # PCollection[Row]
-  tagged_satellite = process_satellite_with_tags(lines, tags)
+  tagged_satellite = process_satellite_with_tags(lines, tags, received_tagging)
+
   # PCollection[Row]
   post_processed_satellite = post_processing_satellite(tagged_satellite)
 

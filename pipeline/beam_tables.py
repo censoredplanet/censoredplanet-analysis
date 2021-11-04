@@ -299,6 +299,19 @@ def get_table_name(dataset_name: str, scan_type: str,
   return f'{dataset_name}.{scan_type}_{base_table_name}'
 
 
+def is_prod_table(table_name: str) -> bool:
+  """Return true if the bigquery table is a production table.
+
+  Args:
+    table_name: table name with format 'dataset.table' like 'base.echo_scan'
+  Returns:
+    boolean
+  """
+  # Datasets should not contain '.' (following linux username convention)
+  dataset = table_name.split('.')[0]
+  return dataset == PROD_DATASET_NAME
+
+
 def _raise_exception_if_zero(num: int) -> None:
   if num == 0:
     raise Exception("Zero rows were created even though there were new files.")
@@ -568,9 +581,15 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
+        received_tagging = True
+        # For Satellite v1 - v2.1, the received IP tags (e.g. asnum) are in a
+        # separate file from results.json. The steps for adding these tags are
+        # slow and we skip them in production.
+        if is_prod_table(table_name):
+          received_tagging = False
         # PCollection[Row], PCollection[Row]
         satellite_rows, blockpage_rows = satellite.process_satellite_lines(
-            lines)
+            lines, received_tagging)
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(satellite_rows)
