@@ -427,7 +427,11 @@ class FlattenMeasurement(beam.DoFn):
           if response['error'] and response['error'] != 'null'
       ]
       row['error'] = ' | '.join(errors) if errors else None
+      yielded = False
+      has_test_domain = False
       for response in responses:
+        if response['url'] == row['domain']:
+          has_test_domain = True
         # Check responses for test domain with valid answers
         if response['url'] == row['domain'] and (response['rcode'] == 0 and
                                                  response['has_type_a']):
@@ -448,7 +452,12 @@ class FlattenMeasurement(beam.DoFn):
               received['matches_control'] = ' '.join(
                   [tag for tag in matched if tag in SATELLITE_TAGS])
             row['received'].append(received)
+          yielded = True
           yield row.copy()
+      # Do not output rows if there are no trials for the test domain.
+      if not yielded and has_test_domain:
+        # All trials for the test domain in `scan` are errors
+        yield row.copy()
 
   def _process_satellite_blockpages(  # pylint: disable=no-self-use
       self, scan: Any, filename: str) -> Iterator[Row]:
