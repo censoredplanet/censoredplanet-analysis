@@ -581,12 +581,11 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        received_tagging = True
         # For Satellite v1 - v2.1, the received IP tags (e.g. asnum) are in a
         # separate file from results.json. The steps for adding these tags are
-        # slow and we skip them in production.
-        if is_prod_table(table_name):
-          received_tagging = False
+        # slow so we skip them by setting `received_tagging` to False.
+        # TODO: If code is refactored, set to True to turn received IP tagging  back on.
+        received_tagging = False
         # PCollection[Row], PCollection[Row]
         satellite_rows, blockpage_rows = satellite.process_satellite_lines(
             lines, received_tagging)

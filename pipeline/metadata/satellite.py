@@ -626,11 +626,26 @@ def process_satellite_lines(
   # PCollection[Row]
   blockpage_rows = process_satellite_blockpages(blockpages)
 
-  # Post processing steps require the received IP tags. Skip if not enabled.
-  if not received_tagging:
-    return tagged_satellite, blockpage_rows
+  # Post processing steps require the received IP tags.
+  if received_tagging:
+    # PCollection[Row]
+    post_processed_satellite = post_processing_satellite(tagged_satellite)
+    return post_processed_satellite, blockpage_rows
+
+  # Received tagging not enabled: pre v2.2 rows will not have received tags.
+  # Skip preprocessing for these rows.
+
+  # PCollection[Row], PCollection[Row]
+  rows_pre_v2_2, rows_v2_2 = (
+      tagged_satellite | 'partition tagged rows by date' >> beam.Partition(
+          _get_satellite_date_partition, 2))
 
   # PCollection[Row]
-  post_processed_satellite = post_processing_satellite(tagged_satellite)
+  post_processed_rows_v2_2 = post_processing_satellite(rows_v2_2)
+
+  # PCollection[Row]
+  post_processed_satellite = (
+      (rows_pre_v2_2, post_processed_rows_v2_2) |
+      'combine processed date partitions' >> beam.Flatten())
 
   return post_processed_satellite, blockpage_rows
