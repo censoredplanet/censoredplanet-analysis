@@ -115,17 +115,6 @@ class PipelineMainTest(unittest.TestCase):
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
-  def test_is_prod_table(self) -> None:
-    """Test check for production table."""
-    # Assumes that datasets do not contain '.'
-    prod_dataset = 'base'
-    user_dataset = 'laplante'
-
-    self.assertEqual(
-        beam_tables.is_prod_table(f'{prod_dataset}.satellite_scan'), True)
-    self.assertEqual(
-        beam_tables.is_prod_table(f'{user_dataset}.satellite_scan'), False)
-
   def test_read_scan_text(self) -> None:  # pylint: disable=no-self-use
     """Test reading lines from compressed and uncompressed files"""
     p = TestPipeline()
