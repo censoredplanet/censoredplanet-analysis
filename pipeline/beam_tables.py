@@ -89,8 +89,8 @@ SCAN_TYPES_TO_ZONES = {
     'https': 'us-east1',  # https has the most data, so it gets the best zone.
     'http': 'us-east4',
     'echo': 'us-west1',
-    'discard': 'us-central1',
-    'satellite': 'us-west2'
+    'discard': 'us-west2',
+    'satellite': 'us-central1'  # us-central1 has 160 shuffle slots by default
 }
 
 ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
@@ -527,7 +527,7 @@ class ScanDataBeamPipelineRunner():
         runtime_type_check=False,  # slow in prod
         experiments=[
             'enable_execution_details_collection',
-            'use_monitoring_state_manager'
+            'use_monitoring_state_manager', 'upload_graph'
         ],
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
