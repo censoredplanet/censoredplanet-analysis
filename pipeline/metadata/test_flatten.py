@@ -1001,16 +1001,13 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     self.assertEqual(len(rows), 0)
 
-  def test_flattenmeasurement_dns(self) -> None:
-    """Test flattening of Satellite measurements."""
+  def test_flattenmeasurement_satellite_v1(self) -> None:
+    """Test flattening of Satellite v1 measurements."""
 
     filenames = [
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
-        'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json',
-        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json',
-        'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/results.json'
     ]
 
     # yapf: disable
@@ -1041,7 +1038,114 @@ class FlattenMeasurementTest(unittest.TestCase):
           "query":"www.sportsinteraction.com",
           "error":"no_answer"
         }
-        """,
+        """
+    ]
+    # yapf: enable
+
+    expected = [{
+        'domain': 'asana.com',
+        'category': 'E-commerce',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'received': {
+            'ip': '151.101.1.184',
+            'matches_control': 'ip http cert asnum asname'
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
+    }, {
+        'domain': 'asana.com',
+        'category': 'E-commerce',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'received': {
+            'ip': '151.101.129.184',
+            'matches_control': 'ip http cert asnum asname'
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
+    }, {
+        'domain': 'asana.com',
+        'category': 'E-commerce',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'received': {
+            'ip': '151.101.193.184',
+            'matches_control': 'ip http cert asnum asname'
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
+    }, {
+        'domain': 'asana.com',
+        'category': 'E-commerce',
+        'ip': '67.69.184.215',
+        'date': '2020-09-02',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'received': {
+            'ip': '151.101.65.184',
+            'matches_control': 'ip cert asnum asname'
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
+    }, {
+        'domain': 'www.ecequality.org',
+        'category': 'LGBT',
+        'ip': '145.239.6.50',
+        'date': '2020-09-02',
+        'error': None,
+        'anomaly': True,
+        'success': True,
+        'received': {
+            'ip': '160.153.136.3',
+            'matches_control': ''
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
+    }, {
+        'domain': 'www.sportsinteraction.com',
+        'category': 'Gambling',
+        'ip': '185.228.168.149',
+        'date': '2020-09-02',
+        'error': "no_answer",
+        'anomaly': None,
+        'success': False,
+        'received': None,
+        'rcode': ['-1'],
+        'measurement_id': ''
+    }]
+
+    results = []
+    for filename, i in zip(filenames, interference):
+      flattener = flatten.FlattenMeasurement()
+      flattener.setup()
+      rows = flattener.process((filename, i))
+      results += list(rows)
+    # remove random measurement id
+    for result in results:
+      result['measurement_id'] = ''
+    self.assertListEqual(results, expected)
+
+  def test_flattenmeasurement_satellite_v2p1(self) -> None:
+    """Test flattening of Satellite v2.1 measurements."""
+    filenames = [
+        'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/results.json'
+    ]
+
+    # yapf: disable
+    interference = [
         """{
           "vp":"114.114.114.110",
           "location":{
@@ -1163,81 +1267,9 @@ class FlattenMeasurementTest(unittest.TestCase):
         }
         """
     ]
+    # yapf: enable
 
-    expected = [
-      {
-        'domain': 'asana.com',
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {'ip': '151.101.1.184', 'matches_control': 'ip http cert asnum asname'},
-        'rcode': ['0'],
-        'measurement_id': ''
-      },
-      {
-        'domain': 'asana.com',
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {'ip': '151.101.129.184', 'matches_control': 'ip http cert asnum asname'},
-        'rcode': ['0'],
-        'measurement_id': ''
-      },
-      {
-        'domain': 'asana.com',
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {'ip': '151.101.193.184', 'matches_control': 'ip http cert asnum asname'},
-        'rcode': ['0'],
-        'measurement_id': ''
-      },
-      {
-        'domain': 'asana.com',
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {'ip': '151.101.65.184', 'matches_control': 'ip cert asnum asname'},
-        'rcode': ['0'],
-        'measurement_id': ''
-      },
-      {
-        'domain': 'www.ecequality.org',
-        'category': 'LGBT',
-        'ip': '145.239.6.50',
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'received': {'ip': '160.153.136.3', 'matches_control': ''},
-        'rcode': ['0'],
-        'measurement_id': ''
-      },
-      {
-        'domain':  'www.sportsinteraction.com',
-        'category': 'Gambling',
-        'ip': '185.228.168.149',
-        'date': '2020-09-02',
-        'error': "no_answer",
-        'anomaly': None,
-        'success': False,
-        'received': None,
-        'rcode': ['-1'],
-        'measurement_id': ''
-      },
-      {
+    expected = [{
         'domain': 'abs-cbn.com',
         'category': 'Culture',
         'ip': '114.114.114.110',
@@ -1249,11 +1281,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
-        'received': {'ip': '104.20.161.135', 'matches_control': ''},
+        'received': {
+            'ip': '104.20.161.135',
+            'matches_control': ''
+        },
         'rcode': ["0", "0", "0"],
         'measurement_id': ''
-      },
-      {
+    }, {
         'domain': 'abs-cbn.com',
         'category': 'Culture',
         'ip': '114.114.114.110',
@@ -1265,11 +1299,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
-        'received': {'ip': '104.20.161.134', 'matches_control': ''},
+        'received': {
+            'ip': '104.20.161.134',
+            'matches_control': ''
+        },
         'rcode': ["0", "0", "0"],
         'measurement_id': ''
-      },
-      {
+    }, {
         'domain': 'login.live.com',
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
@@ -1280,12 +1316,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {'ip': '40.126.31.135'},
+        'received': {
+            'ip': '40.126.31.135'
+        },
         'rcode': ['0', '0', '0'],
         'measurement_id': '',
         'has_type_a': True
-      },
-      {
+    }, {
         'domain': 'login.live.com',
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
@@ -1296,12 +1333,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {'ip': '40.126.31.8'},
+        'received': {
+            'ip': '40.126.31.8'
+        },
         'rcode': ['0', '0', '0'],
         'measurement_id': '',
         'has_type_a': True
-      },
-      {
+    }, {
         'domain': 'login.live.com',
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
@@ -1312,12 +1350,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {'ip': '40.126.31.6'},
+        'received': {
+            'ip': '40.126.31.6'
+        },
         'rcode': ['0', '0', '0'],
         'measurement_id': '',
         'has_type_a': True
-      },
-      {
+    }, {
         'domain': '03.ru',
         'category': None,
         'ip': '91.135.154.38',
@@ -1329,34 +1368,321 @@ class FlattenMeasurementTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'controls_failed': False,
-        'received': [
-          {
-            'ip': '88.212.202.9',
-            'http': '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
-            'cert': '162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49',
-            'asnum': 39134,
-            'asname': 'UNITEDNET',
-            'matches_control': 'ip http cert asnum asname'
-          }
-        ],
+        'received': [{
+            'ip':
+                '88.212.202.9',
+            'http':
+                '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
+            'cert':
+                '162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49',
+            'asnum':
+                39134,
+            'asname':
+                'UNITEDNET',
+            'matches_control':
+                'ip http cert asnum asname'
+        }],
         'rcode': ['0'],
         'confidence': {
             'average': 100,
-            'matches': [
-              100
-            ],
+            'matches': [100],
             'untagged_controls': False,
             'untagged_response': False
         },
         'verify': {
-          'excluded': False,
-          'exclude_reason': '',
+            'excluded': False,
+            'exclude_reason': '',
         },
         'measurement_id': '',
         'has_type_a': True
-      }
+    }]
+
+    results = []
+    for filename, i in zip(filenames, interference):
+      flattener = flatten.FlattenMeasurement()
+      flattener.setup()
+      rows = flattener.process((filename, i))
+      results += list(rows)
+    # remove random measurement id
+    for result in results:
+      result['measurement_id'] = ''
+    self.assertListEqual(results, expected)
+
+  def test_flattenmeasurement_satellite_v2p2(self) -> None:
+    """Test flattening of Satellite v2.2 measurements."""
+    filenames = [
+        'gs://firehook-scans/satellite/CP-Satellite-2021-10-20-12-00-01/results.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-10-20-12-00-01/results.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-10-20-12-00-01/results.json'
+    ]
+
+    # yapf: disable
+    interference = [
+        """
+        {
+          "confidence": {
+            "average": 100,
+            "matches": [
+              100
+            ],
+            "untagged_controls": false,
+            "untagged_response": false
+          },
+          "passed_liveness": true,
+          "connect_error": false,
+          "in_control_group": true,
+          "anomaly": false,
+          "excluded": false,
+          "vp": "216.238.19.1",
+          "test_url": "11st.co.kr",
+          "start_time": "2021-10-20 14:51:41.295287198 -0400 EDT",
+          "end_time": "2021-10-20 14:51:41.397573385 -0400 EDT",
+          "exclude_reason": [],
+          "location": {
+            "country_name": "United States",
+            "country_code": "US"
+          },
+          "response": [
+            {
+              "url": "11st.co.kr",
+              "has_type_a": true,
+              "response": {
+                "113.217.247.90": {
+                  "http": "db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090",
+                  "cert": "6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4",
+                  "asnum": 9644,
+                  "asname": "SKTELECOM-NET-AS SK Telecom",
+                  "matched": [
+                    "ip",
+                    "http",
+                    "cert",
+                    "asnum",
+                    "asname"
+                  ]
+                }
+              },
+              "error": "null",
+              "rcode": 0
+            }
+          ]
+        }
+        """,
+        """
+        {
+          "confidence": {
+            "average": 0,
+            "matches": null,
+            "untagged_controls": false,
+            "untagged_response": false
+          },
+          "passed_liveness": false,
+          "connect_error": false,
+          "in_control_group": true,
+          "anomaly": false,
+          "excluded": false,
+          "vp": "5.39.25.152",
+          "test_url": "www.chantelle.com",
+          "start_time": "2021-10-20 17:17:27.241422553 -0400 EDT",
+          "end_time": "2021-10-20 17:17:27.535929324 -0400 EDT",
+          "exclude_reason": [],
+          "location": {
+            "country_name": "France",
+            "country_code": "FR"
+          },
+          "response": [
+            {
+              "url": "a.root-servers.net",
+              "has_type_a": false,
+              "response": {},
+              "error": "null",
+              "rcode": 5
+            },
+            {
+              "url": "www.chantelle.com",
+              "has_type_a": false,
+              "response": {},
+              "error": "null",
+              "rcode": 5
+            },
+            {
+              "url": "a.root-servers.net",
+              "has_type_a": false,
+              "response": {},
+              "error": "null",
+              "rcode": 5
+            }
+          ]
+        }
+        """,
+        """
+        {
+          "confidence": {
+            "average": 0,
+            "matches": null,
+            "untagged_controls": false,
+            "untagged_response": false
+          },
+          "passed_liveness": false,
+          "connect_error": true,
+          "in_control_group": true,
+          "anomaly": false,
+          "excluded": false,
+          "vp": "62.80.182.26",
+          "test_url": "alipay.com",
+          "start_time": "2021-10-20 14:51:45.952255246 -0400 EDT",
+          "end_time": "2021-10-20 14:51:46.865275642 -0400 EDT",
+          "exclude_reason": [],
+          "location": {
+            "country_name": "Ukraine",
+            "country_code": "UA"
+          },
+          "response": [
+            {
+              "url": "a.root-servers.net",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:6280->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            },
+            {
+              "url": "alipay.com",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:61676->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            },
+            {
+              "url": "alipay.com",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:15097->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            },
+            {
+              "url": "alipay.com",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:45072->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            },
+            {
+              "url": "alipay.com",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:36765->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            },
+            {
+              "url": "a.root-servers.net",
+              "has_type_a": false,
+              "response": {},
+              "error": "read udp 141.212.123.185:1295->62.80.182.26:53: read: connection refused",
+              "rcode": -1
+            }
+          ]
+        }
+        """
     ]
     # yapf: enable
+
+    expected = [{
+        'anomaly': False,
+        'category': 'E-commerce',
+        'confidence': {
+            'average': 100,
+            'matches': [100],
+            'untagged_controls': False,
+            'untagged_response': False
+        },
+        'controls_failed': False,
+        'country': 'US',
+        'date': '2021-10-20',
+        'domain': '11st.co.kr',
+        'start_time': '2021-10-20T14:51:41.295287198-04:00',
+        'end_time': '2021-10-20T14:51:41.397573385-04:00',
+        'error': None,
+        'has_type_a': True,
+        'ip': '216.238.19.1',
+        'measurement_id': '',
+        'rcode': ['0'],
+        'received': [{
+            'asname':
+                'SKTELECOM-NET-AS SK Telecom',
+            'asnum':
+                9644,
+            'cert':
+                '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
+            'http':
+                'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
+            'ip':
+                '113.217.247.90',
+            'matches_control':
+                'ip http cert asnum asname'
+        }],
+        'success': True,
+        'verify': {
+            'exclude_reason': '',
+            'excluded': False
+        },
+    }, {
+        'anomaly': False,
+        'category': 'Provocative Attire',
+        'confidence': {
+            'average': 0,
+            'matches': None,
+            'untagged_controls': False,
+            'untagged_response': False
+        },
+        'controls_failed': True,
+        'country': 'FR',
+        'date': '2021-10-20',
+        'domain': 'www.chantelle.com',
+        'start_time': '2021-10-20T17:17:27.241422553-04:00',
+        'end_time': '2021-10-20T17:17:27.535929324-04:00',
+        'error': None,
+        'ip': '5.39.25.152',
+        'measurement_id': '',
+        'rcode': ['5', '5', '5'],
+        'received': None,
+        'success': True,
+        'verify': {
+            'exclude_reason': '',
+            'excluded': False
+        }
+    }, {
+        'anomaly': False,
+        'category': 'E-commerce',
+        'confidence': {
+            'average': 0,
+            'matches': None,
+            'untagged_controls': False,
+            'untagged_response': False
+        },
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'alipay.com',
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error':
+            'read udp 141.212.123.185:6280->62.80.182.26:53: read: connection '
+            'refused | read udp 141.212.123.185:61676->62.80.182.26:53: read: '
+            'connection refused | read udp '
+            '141.212.123.185:15097->62.80.182.26:53: read: connection refused | '
+            'read udp 141.212.123.185:45072->62.80.182.26:53: read: connection '
+            'refused | read udp 141.212.123.185:36765->62.80.182.26:53: read: '
+            'connection refused | read udp '
+            '141.212.123.185:1295->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'measurement_id': '',
+        'rcode': ['-1', '-1', '-1', '-1', '-1', '-1'],
+        'received': None,
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
+        'verify': {
+            'exclude_reason': '',
+            'excluded': False
+        }
+    }]
 
     results = []
     for filename, i in zip(filenames, interference):
