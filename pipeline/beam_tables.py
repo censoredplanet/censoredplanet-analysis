@@ -194,24 +194,13 @@ def _read_scan_text(
     A PCollection[Tuple[filename, line]] of all the lines in the files keyed
     by filename
   """
-  # List[PCollection[Tuple[filename,line]]]
-  line_pcollections_per_file: List[beam.PCollection[Tuple[str, str]]] = []
+  # PCollection[filename]
+  pfilenames = (p | beam.Create(filenames))
 
-  for filename in filenames:
-    # PCollection[line]
-    lines = p | 'read file ' + filename >> beam.io.ReadFromText(filename)
-    step_name = 'annotate filename ' + filename
-
-    # PCollection[Tuple[filename,line]]
-    lines_with_filenames = (
-        lines | step_name >> beam.Map(_make_tuple, filename).with_output_types(
-            Tuple[str, str]))
-    line_pcollections_per_file.append(lines_with_filenames)
-
-  # PCollection[Tuple[filename,line]]
+  # PCollection[Tuple(filename, line)]
   lines = (
-      tuple(line_pcollections_per_file) | 'flatten lines' >>
-      beam.Flatten(pipeline=p).with_output_types(Tuple[str, str]))
+      pfilenames | "read files" >> beam.io.ReadAllFromText(with_filename=True))
+
   return lines
 
 

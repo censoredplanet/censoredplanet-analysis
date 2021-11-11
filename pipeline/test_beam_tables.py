@@ -117,15 +117,22 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_read_scan_text(self) -> None:  # pylint: disable=no-self-use
     """Test reading lines from compressed and uncompressed files"""
-    p = TestPipeline()
-    pipeline = beam_tables._read_scan_text(
-        p, ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
+    with TestPipeline() as p:
+      lines = beam_tables._read_scan_text(
+          p,
+          ['pipeline/test_results_1.json', 'pipeline/test_results_2.json.gz'])
 
-    beam_test_util.assert_that(
-        pipeline,
-        beam_test_util.equal_to([
-            'test line 1.1', 'test line 1.2', 'test line 2.1', 'test line 2.2'
-        ]))
+      # Due to some detail of how beam's test util works
+      # The test line strings here need to be double-quoted.
+      # The actual strings in the pipeline are not double-quoted.
+      expected = [
+          ('pipeline/test_results_1.json', '"test line 1.1"'),
+          ('pipeline/test_results_1.json', '"test line 1.2"'),
+          ('pipeline/test_results_2.json.gz', '"test line 2.1"'),
+          ('pipeline/test_results_2.json.gz', '"test line 2.2"'),
+      ]
+
+      beam_test_util.assert_that(lines, beam_test_util.equal_to(expected))
 
   def test_between_dates(self) -> None:
     """Test logic to include filenames based on their creation dates."""
