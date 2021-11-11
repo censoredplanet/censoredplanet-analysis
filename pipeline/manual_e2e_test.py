@@ -430,11 +430,13 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertEqual(len(written_rows), 10)
 
       all_expected_domains = [
-          '11st.co.kr', '1688.com', '11st.co.kr', '11st.co.kr', '1337x.to',
-          '1922.gov.tw', '1337x.to', '1688.com', '1337x.to', '1337x.to'
+          '11st.co.kr', '1688.com', '11st.co.kr', '11st.co.kr', '1922.gov.tw',
+          '1922.gov.tw', 'ajax.aspnetcdn.com', 'alipay.com', '1337x.to',
+          '104.com.tw'
       ]
 
       written_domains = [row[0] for row in written_rows]
+
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
@@ -444,8 +446,8 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       all_expected_blockpage_domains = [
           'plan-uk.org', 'secure.flickr.com', 'uniswap.org', 'reddit.com',
-          'bbc.com', 'ytmp3.cc', 'shopee.tw', 'livestream.com', 'tor.eff.org',
-          'www.tumblr.com'
+          'bbc.com', 'plan-uk.org', 'tx.me', 'www.pinterest.com', 'weather.com',
+          'www.hrcr.org'
       ]
 
       written_blockpage_domains = [row[0] for row in written_blockpage_rows]
