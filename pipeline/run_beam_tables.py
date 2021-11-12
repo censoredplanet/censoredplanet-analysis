@@ -23,7 +23,7 @@ import concurrent.futures
 import datetime
 import os
 import pwd
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
@@ -78,54 +78,6 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
     return True
 
 
-def pick_start_and_end_dates(
-    incremental_load: bool) -> Tuple[datetime.date, datetime.date]:
-  """Pick reasonable start and end dates if they're not specified by the user.
-
-  Users only needs to load a week of data for testing.
-  - For incremental loads use the last week of data.
-  - for full loads use data from two weeks ago.
-  (This is to make it easier to test the full and then incremental loads
-  together when developing.)
-
-  Args:
-    incremental_load: whether this job should be incremental of full
-
-  Returns: Tuple of start and end datetimes
-  """
-  if incremental_load:
-    end_day = datetime.date.today()
-  else:
-    end_day = datetime.date.today() - datetime.timedelta(days=7)
-  start_day = end_day - datetime.timedelta(days=7)
-  return (start_day, end_day)
-
-
-def run_user_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
-                       dataset: str, scan_types: List[str],
-                       incremental_load: bool,
-                       start_day: Optional[datetime.date],
-                       end_day: Optional[datetime.date]) -> None:
-  """Run user beam pipelines for testing.
-
-  Args:
-    runner: ScanDataBeamPipelineRunner
-    dataset: string of a dataset to write to. When running user pipelines this
-      should be the user's name, like 'laplante'
-    scan_types: List of 'echo', 'discard', 'http', and/or 'https'
-    incremental_load: boolean. If true, only load the latest new data.
-    start_date: date object, only files after or at this date will be read.
-      Mostly only used during development.
-    end_date: date object, only files at or before this date will be read.
-      Mostly only used during development.
-  """
-  if not start_day and not end_day:
-    start_day, end_day = pick_start_and_end_dates(incremental_load)
-
-  run_parallel_pipelines(runner, dataset, scan_types, incremental_load,
-                         start_day, end_day)
-
-
 def get_firehook_beam_pipeline_runner(
 ) -> beam_tables.ScanDataBeamPipelineRunner:
   """Factory function to get a beam pipeline class with firehook values."""
@@ -162,9 +114,9 @@ def main(parsed_args: argparse.Namespace) -> None:
 
   if parsed_args.env == 'user':
     username = pwd.getpwuid(os.getuid()).pw_name
-    run_user_pipelines(firehook_runner, username, selected_scan_types,
-                       incremental, parsed_args.start_date,
-                       parsed_args.end_date)
+    run_parallel_pipelines(firehook_runner, username, selected_scan_types,
+                           incremental, parsed_args.start_date,
+                           parsed_args.end_date)
   elif parsed_args.env == 'prod':
     run_parallel_pipelines(firehook_runner, beam_tables.PROD_DATASET_NAME,
                            selected_scan_types, incremental,
