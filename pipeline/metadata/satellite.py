@@ -412,6 +412,9 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     (other fields are the same for each dict).
     [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.0','tag':'value1'},...},
      {'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.1','tag':'value2'},...}]
+    For Satellite v2.2, the 'received' field will already contain an array, e.g.
+    [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH',
+      'received':[{'ip':'0.0.0.0','tag':'value1'},{'ip':'0.0.0.1','tag':'value2'}],...}]
 
   Yields:
     Row with common fields remaining the same, 'measurement_id' removed,
@@ -424,7 +427,10 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     for answer in flattened_measurement:
       received = answer.pop('received', None)
       combined.update(answer)
-      if received:
+      # For Satellite v2.2, the received field will already contain an array
+      if isinstance(received, list):
+        combined['received'] += received
+      elif received:
         combined['received'].append(received)
     combined.pop('measurement_id')
     # Remove extra tag fields from the measurement. These may be added
