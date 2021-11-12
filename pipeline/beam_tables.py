@@ -17,6 +17,7 @@ from __future__ import absolute_import
 
 import datetime
 import logging
+import pathlib
 import re
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
 
@@ -229,6 +230,23 @@ def _between_dates(filename: str,
   return True
 
 
+def _filename_matches(filename: str, allowed_filenames: List[str]) -> bool:
+  """Find if a filename matches a list of filenames.
+
+  Args:
+    filename, zipped or unzipped ex: results.js, results.json.gz
+    allowed_filenames: List of filenames, all unzipped
+      ex: [resolvers.json, blockpages.json]
+
+  Returns:
+    boolean, whether the filename matches one of the list.
+    Zipped matches to unzipped names count.
+  """
+  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+    filename = pathlib.PurePosixPath(filename).stem
+  return filename in allowed_filenames
+
+
 def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
@@ -366,19 +384,9 @@ class ScanDataBeamPipelineRunner():
     else:
       files_to_load = SCAN_FILES
 
-    # Both zipped and unzipped data to be read in
-    zipped_regex = self.bucket + scan_type + '/**/{0}.gz'
-    unzipped_regex = self.bucket + scan_type + '/**/{0}'
-
-    file_metadata = []
-    for file in files_to_load:
-      zipped_metadata = [
-          m.metadata_list for m in gcs.match([zipped_regex.format(file)])
-      ][0]
-      unzipped_metadata = [
-          m.metadata_list for m in gcs.match([unzipped_regex.format(file)])
-      ][0]
-      file_metadata += zipped_metadata + unzipped_metadata
+    # Filepath like `gs://firehook-scans/echo/**/*'
+    files_regex = f'{self.bucket}{scan_type}/**/*'
+    file_metadata = [m.metadata_list for m in gcs.match([files_regex])][0]
 
     filenames = [metadata.path for metadata in file_metadata]
     file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
@@ -386,9 +394,11 @@ class ScanDataBeamPipelineRunner():
     filtered_filenames = [
         filename for (filename, file_size) in zip(filenames, file_sizes)
         if (_between_dates(filename, start_date, end_date) and
+            _filename_matches(filename, files_to_load) and
             flatten.source_from_filename(filename) not in existing_sources and
             file_size != 0)
     ]
+
     return filtered_filenames
 
   def _add_metadata(
