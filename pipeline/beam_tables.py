@@ -568,16 +568,9 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        # For Satellite v1 - v2.1, the received IP tags (e.g. asnum) are in a
-        # separate file from results.json. Added the `received_tagging` param
-        # because the steps for adding these tags were slow in us-west2.
-        #
-        # TODO: The Satellite pipeline works with received tagging in
-        # us-central1, so this might not be necessary now.
-        received_tagging = True
         # PCollection[Row], PCollection[Row]
         satellite_rows, blockpage_rows = satellite.process_satellite_lines(
-            lines, received_tagging)
+            lines)
 
         # PCollection[Row]
         rows_with_metadata = self._add_metadata(satellite_rows)

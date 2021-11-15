@@ -293,15 +293,14 @@ def unflatten_rows(
   return unflattened_rows
 
 
-def _add_satellite_tags(rows: beam.pvalue.PCollection[Row],
-                        tags: beam.pvalue.PCollection[Row],
-                        received_tagging: bool) -> beam.pvalue.PCollection[Row]:
+def _add_satellite_tags(
+    rows: beam.pvalue.PCollection[Row],
+    tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
       rows: PCollection of measurement rows
       tags: PCollection of geo tag rows
-      received_tagging: bool, equals true if received tagging is enabled
 
     Returns:
       PCollection of measurement rows containing tag information
@@ -315,10 +314,6 @@ def _add_satellite_tags(rows: beam.pvalue.PCollection[Row],
 
   # PCollection[Row]
   rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
-
-  if not received_tagging:
-    # PCollection[Row]
-    return unflatten_rows(rows_with_metadata)
 
   # Starting with the Satellite v2.2 format, the rows include received ip tags.
   # Received tagging steps are only required prior to v2.2
@@ -442,14 +437,13 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
 
 def process_satellite_with_tags(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    tag_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    received_tagging: bool) -> beam.pvalue.PCollection[Row]:
+    tag_lines: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags.
 
   Args:
     row_lines: Row objects
     tag_lines: various
-    received_tagging: bool, equals true if received tagging is enabled
 
   Returns:
     PCollection[Row] of rows with tag metadata added
@@ -464,7 +458,7 @@ def process_satellite_with_tags(
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows, tag_rows, received_tagging)
+  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
 
   return rows_with_metadata
 
@@ -610,13 +604,12 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def process_satellite_lines(
-    lines: beam.pvalue.PCollection[Tuple[str, str]], received_tagging: bool
+    lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[Row]]:
   """Process both satellite and blockpage data files.
 
   Args:
     lines: input lines from all satellite files. Tuple[filename, line]
-    received_tagging: bool, equals true if received tagging is enabled
 
   Returns:
     post_processed_satellite: rows of satellite scan data
@@ -627,31 +620,12 @@ def process_satellite_lines(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # PCollection[Row]
-  tagged_satellite = process_satellite_with_tags(lines, tags, received_tagging)
+  tagged_satellite = process_satellite_with_tags(lines, tags)
+  # Post processing steps require the received IP tags.
+  # PCollection[Row]
+  post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
   blockpage_rows = process_satellite_blockpages(blockpages)
-
-  # Post processing steps require the received IP tags.
-  if received_tagging:
-    # PCollection[Row]
-    post_processed_satellite = post_processing_satellite(tagged_satellite)
-    return post_processed_satellite, blockpage_rows
-
-  # Received tagging not enabled: pre v2.2 rows will not have received tags.
-  # Skip preprocessing for these rows.
-
-  # PCollection[Row], PCollection[Row]
-  rows_pre_v2_2, rows_v2_2 = (
-      tagged_satellite | 'partition tagged rows by date' >> beam.Partition(
-          _get_satellite_date_partition, 2))
-
-  # PCollection[Row]
-  post_processed_rows_v2_2 = post_processing_satellite(rows_v2_2)
-
-  # PCollection[Row]
-  post_processed_satellite = (
-      (rows_pre_v2_2, post_processed_rows_v2_2) |
-      'combine processed date partitions' >> beam.Flatten())
 
   return post_processed_satellite, blockpage_rows

@@ -119,7 +119,7 @@ class SatelliteTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = satellite.process_satellite_with_tags(lines, lines2, True)
+      final = satellite.process_satellite_with_tags(lines, lines2)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
@@ -257,7 +257,7 @@ class SatelliteTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = satellite.process_satellite_with_tags(lines, lines2, True)
+      final = satellite.process_satellite_with_tags(lines, lines2)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
