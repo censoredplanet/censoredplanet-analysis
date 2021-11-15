@@ -21,8 +21,6 @@ python -m pipeline.run_beam_tables --env=prod --incremental=False
 import argparse
 import concurrent.futures
 import datetime
-import os
-import pwd
 from typing import Optional, List
 
 from pipeline import beam_tables
@@ -113,17 +111,17 @@ def main(parsed_args: argparse.Namespace) -> None:
   firehook_runner = get_firehook_beam_pipeline_runner()
 
   if parsed_args.env == 'user':
-    username = pwd.getpwuid(os.getuid()).pw_name
-    run_parallel_pipelines(firehook_runner, username, selected_scan_types,
-                           incremental, parsed_args.start_date,
-                           parsed_args.end_date)
+    run_parallel_pipelines(firehook_runner, parsed_args.user_dataset,
+                           selected_scan_types, incremental,
+                           parsed_args.start_date, parsed_args.end_date)
   elif parsed_args.env == 'prod':
     run_parallel_pipelines(firehook_runner, beam_tables.PROD_DATASET_NAME,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date)
 
 
-if __name__ == '__main__':
+def parse_args() -> argparse.Namespace:
+  """Parse command line arguments to run a beam pipeline."""
   parser = argparse.ArgumentParser(description='Run a beam pipeline over scans')
   parser.add_argument(
       '--full',
@@ -136,6 +134,12 @@ if __name__ == '__main__':
       default='user',
       choices=['user', 'prod'],
       help='Whether to write to prod or test tables')
+  parser.add_argument(
+      '--user_dataset',
+      type=str,
+      default=None,
+      metavar='<username>',
+      help='dataset to write tables to (usually your username)')
   parser.add_argument(
       '--scan_type',
       type=str,
@@ -154,6 +158,14 @@ if __name__ == '__main__':
       default=None,
       metavar='yyyy-mm-dd',
       help='Last date to read data from')
-  args = parser.parse_args()
+  parsed_args = parser.parse_args()
 
+  if (parsed_args.env == 'user' and parsed_args.user_dataset is None):
+    parser.error("--user_dataset must be specified when --env=user")
+
+  return parsed_args
+
+
+if __name__ == '__main__':
+  args = parse_args()
   main(args)
