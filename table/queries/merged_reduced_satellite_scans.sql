@@ -117,7 +117,7 @@ WITH Grouped AS (
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE NOT controls_failed
+    WHERE (controls_failed IS NULL OR NOT controls_failed)
     GROUP BY date, source, country_code, network, subnetwork, outcome, domain, category, received_ip
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
