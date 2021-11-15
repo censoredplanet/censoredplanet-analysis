@@ -14,7 +14,6 @@
 """Test top-level runner for beam pipelines."""
 
 import argparse
-from collections import namedtuple
 import datetime
 import unittest
 from unittest.mock import call, patch, MagicMock
@@ -87,8 +86,6 @@ class RunBeamTablesTest(unittest.TestCase):
       # No extra calls
       self.assertEqual(4, mock_runner.run_beam_pipeline.call_count)
 
-  @patch('pwd.getpwuid', lambda x: namedtuple('mock_uid', ['pw_name'])
-         ('laplante'))
   def test_main_user_dates(self) -> None:
     """Test arg parsing for a user pipeline with dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
@@ -99,6 +96,7 @@ class RunBeamTablesTest(unittest.TestCase):
           full=False,
           scan_type='echo',
           env='user',
+          user_dataset='laplante',
           start_date=datetime.date(2021, 1, 8),
           end_date=datetime.date(2021, 1, 15))
       run_beam_tables.main(args)
