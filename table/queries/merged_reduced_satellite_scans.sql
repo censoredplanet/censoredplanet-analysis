@@ -95,21 +95,23 @@ AS (
 WITH Grouped AS (
     SELECT
         date,
+        DATE_TRUNC(date, WEEK) as week,
 
         source,
         country AS country_code,
         as_full_name AS network,
         IF(is_control, "CONTROL", domain) AS domain,
 
-        SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome
+        SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         IFNULL(category, "Uncategorized") AS category,
+        IF(ARRAY_LENGTH(received) > 1, received[OFFSET(0)].ip, "") as received_ip,
 
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY date, week, source, country_code, network, subnetwork, outcome, domain, category, received_ip
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
