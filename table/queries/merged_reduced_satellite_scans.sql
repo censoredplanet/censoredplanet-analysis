@@ -58,6 +58,14 @@ CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
   END
 );
 
+CREATE TEMP FUNCTION LastRCode(rcode ARRAY<STRING>) AS (
+  rcode[ORDINAL(ARRAY_LENGTH(rcode))]
+);
+
+CREATE TEMP FUNCTION LastError(error STRING) AS (
+  SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))]
+);
+
 # Input: array of received IP information, array of rcodes, error,
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
@@ -69,8 +77,8 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, er
         WHEN anomaly THEN "dns/dns.ipmismatch"
         ELSE "expected/match"
       END
-    WHEN ARRAY_LENGTH(rcode) > 0 THEN ClassifySatelliteError(rcode[ORDINAL(ARRAY_LENGTH(rcode))], SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
-    ELSE ClassifySatelliteError("", SPLIT(error, " | ")[ORDINAL(ARRAY_LENGTH(SPLIT(error, " | ")))])
+    WHEN ARRAY_LENGTH(rcode) > 0 THEN ClassifySatelliteError(LastRCode(rcode),LastError(error))
+    ELSE ClassifySatelliteError("", LastError(error))
   END
 );
 
@@ -95,7 +103,6 @@ AS (
 WITH Grouped AS (
     SELECT
         date,
-        DATE_TRUNC(date, WEEK) as week,
 
         source,
         country AS country_code,
@@ -111,7 +118,7 @@ WITH Grouped AS (
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, week, source, country_code, network, subnetwork, outcome, domain, category, received_ip
+    GROUP BY date, source, country_code, network, subnetwork, outcome, domain, category, received_ip
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -132,6 +139,8 @@ SELECT
 # Since any temp functions in scope block view creation.
 DROP FUNCTION ClassifySatelliteError;
 DROP FUNCTION SatelliteOutcome;
+DROP FUNCTION LastRCode;
+DROP FUNCTION LastError;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
