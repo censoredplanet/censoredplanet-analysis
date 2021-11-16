@@ -340,7 +340,8 @@ class FlattenMeasurement(beam.DoFn):
     if 'blockpage' in filename:
       yield from self._process_satellite_blockpages(scan, filename)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
-      yield from self._process_satellite_v1(date, scan, random_measurement_id)
+      yield from self._process_satellite_v1(date, scan, filename,
+                                            random_measurement_id)
     else:
       if "responses_control" in filename:
         yield from self._process_satellite_v2_responses(scan,
@@ -348,13 +349,16 @@ class FlattenMeasurement(beam.DoFn):
       else:
         yield from self._process_satellite_v2(scan, random_measurement_id)
 
-  def _process_satellite_v1(  # pylint: disable=no-self-use
-      self, date: str, scan: Any, random_measurement_id: str) -> Iterator[Row]:
+  def _process_satellite_v1(self, date: str, scan: Any, filename: str,
+                            random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       date: a date string YYYY-mm-DD
       scan: a loaded json object containing the parsed content of the line
+      filename: one of
+        <path>/answers_control.json
+        <path>/interference.json
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
@@ -365,6 +369,7 @@ class FlattenMeasurement(beam.DoFn):
         'category': self.category_matcher.match_url(scan['query']),
         'ip': scan.get('resolver', scan.get('ip')),
         'date': date,
+        'is_control': 'answers_control.json' in filename,
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
         'success': 'error' not in scan,

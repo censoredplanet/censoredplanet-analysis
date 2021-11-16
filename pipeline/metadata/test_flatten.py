@@ -1008,10 +1008,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
         'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/interference.json',
+        'gs://firehook-scans/satellite/CP_Satellite-2020-09-02-12-00-01/answers_control.json',
     ]
 
     # yapf: disable
-    interference = [
+    lines = [
         """{
           "resolver":"67.69.184.215",
           "query":"asana.com",
@@ -1038,6 +1039,12 @@ class FlattenMeasurementTest(unittest.TestCase):
           "query":"www.sportsinteraction.com",
           "error":"no_answer"
         }
+        """,
+        """{
+          "resolver":"1.1.1.1",
+          "query":"www.usacasino.com",
+          "answers":["217.19.248.132"]
+        }
         """
     ]
     # yapf: enable
@@ -1047,6 +1054,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
+        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1061,6 +1069,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
+        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1075,6 +1084,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
+        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1089,6 +1099,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'date': '2020-09-02',
+        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1103,6 +1114,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'LGBT',
         'ip': '145.239.6.50',
         'date': '2020-09-02',
+        'is_control': False,
         'error': None,
         'anomaly': True,
         'success': True,
@@ -1117,16 +1129,31 @@ class FlattenMeasurementTest(unittest.TestCase):
         'category': 'Gambling',
         'ip': '185.228.168.149',
         'date': '2020-09-02',
-        'error': "no_answer",
+        'error': 'no_answer',
+        'is_control': False,
         'anomaly': None,
         'success': False,
         'received': None,
         'rcode': ['-1'],
         'measurement_id': ''
+    }, {
+        'domain': 'www.usacasino.com',
+        'category': 'Gambling',
+        'ip': '1.1.1.1',
+        'date': '2020-09-02',
+        'error': None,
+        'is_control': True,
+        'anomaly': None,
+        'success': True,
+        'received': {
+            'ip': '217.19.248.132'
+        },
+        'rcode': ['0'],
+        'measurement_id': ''
     }]
 
     results = []
-    for filename, i in zip(filenames, interference):
+    for filename, i in zip(filenames, lines):
       flattener = flatten.FlattenMeasurement()
       flattener.setup()
       rows = flattener.process((filename, i))
