@@ -315,8 +315,21 @@ def _add_satellite_tags(
   # PCollection[Row]
   rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
 
+  # Starting with the Satellite v2.2 format, the rows include received ip tags.
+  # Received tagging steps are only required prior to v2.2
+
+  # PCollection[Row], PCollection[Row]
+  rows_pre_v2_2, rows_v2_2 = (
+      rows_with_metadata |
+      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
+
   # PCollection[Row]
-  rows_with_tags = add_received_ip_tags(rows_with_metadata, ips_with_metadata)
+  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
+                                                 ips_with_metadata)
+
+  # PCollection[Row]
+  rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
+                    'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
   return unflatten_rows(rows_with_tags)
@@ -394,6 +407,9 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     (other fields are the same for each dict).
     [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.0','tag':'value1'},...},
      {'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.1','tag':'value2'},...}]
+    For Satellite v2.2, the 'received' field will already contain an array, e.g.
+    [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH',
+      'received':[{'ip':'0.0.0.0','tag':'value1'},{'ip':'0.0.0.1','tag':'value2'}],...}]
 
   Yields:
     Row with common fields remaining the same, 'measurement_id' removed,
@@ -406,7 +422,10 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     for answer in flattened_measurement:
       received = answer.pop('received', None)
       combined.update(answer)
-      if received:
+      # For Satellite v2.2, the received field will already contain an array
+      if isinstance(received, list):
+        combined['received'] += received
+      elif received:
         combined['received'].append(received)
     combined.pop('measurement_id')
     # Remove extra tag fields from the measurement. These may be added
@@ -438,17 +457,8 @@ def process_satellite_with_tags(
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
-  # PCollection[Row], PCollection[Row]
-  rows_v1, rows_v2 = (
-      rows |
-      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
-
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows_v1, tag_rows)
-
-  # PCollection[Row]
-  rows_with_metadata = ((rows_with_metadata, rows_v2) |
-                        'combine date partitions' >> beam.Flatten())
+  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
 
   return rows_with_metadata
 
