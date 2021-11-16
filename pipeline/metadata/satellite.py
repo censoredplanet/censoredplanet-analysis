@@ -621,7 +621,6 @@ def process_satellite_lines(
 
   # PCollection[Row]
   tagged_satellite = process_satellite_with_tags(lines, tags)
-  # Post processing steps require the received IP tags.
   # PCollection[Row]
   post_processed_satellite = post_processing_satellite(tagged_satellite)
 
