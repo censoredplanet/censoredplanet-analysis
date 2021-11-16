@@ -99,6 +99,9 @@ ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
 # Data files for the non-Satellite pipelines
 SCAN_FILES = ['results.json']
 
+# An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
+EMPTY_GZIPPED_FILE_SIZE = 33
+
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
@@ -396,7 +399,7 @@ class ScanDataBeamPipelineRunner():
         if (_between_dates(filename, start_date, end_date) and
             _filename_matches(filename, files_to_load) and
             flatten.source_from_filename(filename) not in existing_sources and
-            file_size != 0)
+            file_size > EMPTY_GZIPPED_FILE_SIZE)
     ]
 
     return filtered_filenames
