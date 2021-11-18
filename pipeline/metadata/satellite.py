@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import datetime
 import json
 import logging
+import pathlib
 import re
 from typing import Tuple, Dict, Any, Iterator, Iterable
 
@@ -16,8 +17,10 @@ from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten
 
 # Additional bigquery fields for the satellite data
+# These are in addition to the fields in beam_tables.SCAN_BIGQUERY_SCHEMA
 SATELLITE_BIGQUERY_SCHEMA = {
     'name': ('string', 'nullable'),
+    'is_control_ip': ('boolean', 'nullable'),
     'received': ('record', 'repeated', {
         'ip': ('string', 'nullable'),
         'asnum': ('integer', 'nullable'),
@@ -484,29 +487,41 @@ def process_satellite_blockpages(
 def partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
-  """Partitions Satellite input into tags (0) and rows (1).
+  """Partitions Satellite input into tags (0) blockpages (1) and rows (2).
 
   Args:
     line: an input line Tuple[filename, line_content]
+      filename is "<path>/name.json"
     num_partitions: number of partitions to use, always 3
 
   Returns:
-    int, 0 if line is a tag file, 1 if line is a blockpage, else 2
+    int,
+      0 - line is a tag file
+      1 - line is a blockpage
+      2 - line is a dns measurement or control
 
   Raises:
     Exception if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS
+    Exception if an unknown filename is used
   """
   if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS:
     raise Exception(
         "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
     )
-  filename = line[0]
-  if "tagged" in filename or "resolvers" in filename:
-    # {tagged_answers, tagged_resolvers, resolvers}.json contain tags
+  filename = pathlib.PurePosixPath(line[0]).name
+  if filename in [
+      'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
+      'tagged_responses.json'
+  ]:
     return 0
-  if "blockpages" in filename:
+  if filename in ['blockpages.json']:
     return 1
-  return 2
+  if filename in [
+      'interference.json', 'interference_err.json', 'answers_control.json',
+      'responses_control.json', 'results.json', 'answers_err.json'
+  ]:
+    return 2
+  raise Exception(f"Unknown filename in Satellite data: {filename}")
 
 
 def _calculate_confidence(scan: Dict[str, Any],

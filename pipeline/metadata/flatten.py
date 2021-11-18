@@ -35,8 +35,13 @@ SENT_PATTERN = "GET (.*) HTTP/1.1\r\nHost: (.*)\r\n"
 # For Hyperquack v1
 CONTROL_URLS = [
     'example5718349450314.com',  # echo/discard
-    'rtyutgyhefdafioasfjhjhi.com'  # HTTP/S
+    'rtyutgyhefdafioasfjhjhi.com',  # HTTP/S
+    'a.root-servers.net'  # Satellite
+    'www.example.com'  # Satellite
 ]
+
+# For Satellite
+CONTROL_IPS = ['1.1.1.1', '8.8.8.8', '8.8.4.4', '64.6.64.6', '64.6.65.6']
 
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -340,21 +345,25 @@ class FlattenMeasurement(beam.DoFn):
     if 'blockpage' in filename:
       yield from self._process_satellite_blockpages(scan, filename)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
-      yield from self._process_satellite_v1(date, scan, random_measurement_id)
+      yield from self._process_satellite_v1(date, scan, filename,
+                                            random_measurement_id)
     else:
       if "responses_control" in filename:
-        yield from self._process_satellite_v2_responses(scan,
-                                                        random_measurement_id)
+        yield from self._process_satellite_v2_control(scan,
+                                                      random_measurement_id)
       else:
         yield from self._process_satellite_v2(scan, random_measurement_id)
 
-  def _process_satellite_v1(  # pylint: disable=no-self-use
-      self, date: str, scan: Any, random_measurement_id: str) -> Iterator[Row]:
+  def _process_satellite_v1(self, date: str, scan: Any, filename: str,
+                            random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       date: a date string YYYY-mm-DD
       scan: a loaded json object containing the parsed content of the line
+      filename: one of
+        <path>/answers_control.json
+        <path>/interference.json
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
@@ -362,8 +371,10 @@ class FlattenMeasurement(beam.DoFn):
     """
     row = {
         'domain': scan['query'],
+        'is_control': False,  # v1 doesn't have domain controls
         'category': self.category_matcher.match_url(scan['query']),
         'ip': scan.get('resolver', scan.get('ip')),
+        'is_control_ip': 'answers_control.json' in filename,
         'date': date,
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
@@ -390,10 +401,14 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
+    is_control_domain = _is_control_url(scan['test_url'])
+
     row = {
         'domain': scan['test_url'],
-        'category': self.category_matcher.match_url(scan['test_url']),
+        'is_control': is_control_domain,
+        'category': self._get_category(scan['test_url'], is_control_domain),
         'ip': scan['vp'],
+        'is_control_ip': scan['vp'] in CONTROL_IPS,
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
         'start_time': format_timestamp(scan['start_time']),
@@ -518,9 +533,9 @@ class FlattenMeasurement(beam.DoFn):
     https.update(received_fields)
     yield https
 
-  def _process_satellite_v2_responses(
+  def _process_satellite_v2_control(
       self, scan: Any, random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite response data.
+    """Process a line of Satellite ip control data.
 
       Args:
         scan: a loaded json object containing the parsed content of the line
@@ -531,10 +546,16 @@ class FlattenMeasurement(beam.DoFn):
     """
     responses = scan.get('response', [])
     if responses:
+      # An overall satellite v2 measurement
+      # always contains some non-control trial domains
+      is_control_domain = False
+
       row = {
           'domain': scan['test_url'],
-          'category': self.category_matcher.match_url(scan['test_url']),
+          'is_control': is_control_domain,
+          'category': self._get_category(scan['test_url'], is_control_domain),
           'ip': scan['vp'],
+          'is_control_ip': True,
           'date': responses[0]['start_time'][:10],
           'start_time': format_timestamp(responses[0]['start_time']),
           'end_time': format_timestamp(responses[-1]['end_time']),

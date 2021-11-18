@@ -81,9 +81,11 @@ class SatelliteTest(unittest.TestCase):
     expected = [
         {
           'ip': '1.1.1.3',
+          'is_control_ip': False,
           'country': 'US',
           'name': 'special',
           'domain': 'signal.org',
+          'is_control': False,
           'category': 'Communication Tools',
           'error': None,
           'anomaly': False,
@@ -99,9 +101,11 @@ class SatelliteTest(unittest.TestCase):
         },
         {
           'ip': '1.1.1.3',
+          'is_control_ip': False,
           'country': 'US',
           'name': 'special',
           'domain': 'adl.org',
+          'is_control': False,
           'category': 'Religion',
           'error': None,
           'anomaly': False,
@@ -148,9 +152,11 @@ class SatelliteTest(unittest.TestCase):
     expected = [
       {
         'ip': '185.228.169.37',
+        'is_control_ip': False,
         'country': 'IE',
         'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
+        'is_control': False,
         'category': 'Culture',
         'error': None,
         'anomaly': False,
@@ -166,9 +172,11 @@ class SatelliteTest(unittest.TestCase):
       },
       {
         'ip': '156.154.71.37',
+        'is_control_ip': False,
         'country': 'US',
         'name': 'rdns37b.ultradns.net.',
         'domain': 'www.usacasino.com',
+        'is_control': False,
         'category': 'Gambling',
         'error': None,
         'anomaly': True,
@@ -184,9 +192,11 @@ class SatelliteTest(unittest.TestCase):
       },
       {
         'ip': '87.119.233.243',
+        'is_control_ip': False,
         'country': 'RU',
         'name': '87-119-233-243.saransk.ru.',
         'domain': 'feedly.com',
+        'is_control': False,
         'category': 'E-commerce',
         'error': None,
         'anomaly': False,
@@ -200,9 +210,11 @@ class SatelliteTest(unittest.TestCase):
       },
       {
         'ip': '12.5.76.236',
+        'is_control_ip': False,
         'country': 'US',
         'name': 'ns1327.ztomy.com.',
         'domain': 'ultimate-guitar.com',
+        'is_control': False,
         'category': 'History arts and literature',
         'error': None,
         'anomaly': True,
@@ -216,8 +228,10 @@ class SatelliteTest(unittest.TestCase):
       },
       {
         'ip': '64.6.65.6',
+        'is_control_ip': True,
         'name': 'rec1pubns2.ultradns.net.',
         'domain': 'ultimate-guitar.com',
+        'is_control': False,
         'category': 'History arts and literature',
         'error': None,
         'anomaly': None,
@@ -234,8 +248,10 @@ class SatelliteTest(unittest.TestCase):
       },
       {
         'ip': '64.6.65.6',
+        'is_control_ip': True,
         'name': 'rec1pubns2.ultradns.net.',
         'domain': 'www.awid.org',
+        'is_control': False,
         'category': 'Human Rights Issues',
         'error': 'read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout',
         'anomaly': None,
