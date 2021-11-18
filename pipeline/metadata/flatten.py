@@ -40,6 +40,9 @@ CONTROL_URLS = [
     'www.example.com'  # Satellite
 ]
 
+# For Satellite
+CONTROL_IPS = ['1.1.1.1', '8.8.8.8', '8.8.4.4', '64.6.64.6', '64.6.65.6']
+
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
   """Flatten headers from a dictionary of headers to value lists.
@@ -405,7 +408,7 @@ class FlattenMeasurement(beam.DoFn):
         'is_control': is_control_domain,
         'category': self._get_category(scan['test_url'], is_control_domain),
         'ip': scan['vp'],
-        'is_control_ip': False,
+        'is_control_ip': scan['vp'] in CONTROL_IPS,
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
         'start_time': format_timestamp(scan['start_time']),
