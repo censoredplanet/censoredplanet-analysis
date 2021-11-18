@@ -1051,10 +1051,11 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected = [{
         'domain': 'asana.com',
+        'is_control': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
+        'is_ip_control': False,
         'date': '2020-09-02',
-        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1066,10 +1067,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'asana.com',
+        'is_control': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
+        'is_ip_control': False,
         'date': '2020-09-02',
-        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1081,10 +1083,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'asana.com',
+        'is_control': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
+        'is_ip_control': False,
         'date': '2020-09-02',
-        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1096,10 +1099,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'asana.com',
+        'is_control': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
+        'is_ip_control': False,
         'date': '2020-09-02',
-        'is_control': False,
         'error': None,
         'anomaly': False,
         'success': True,
@@ -1111,10 +1115,11 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'www.ecequality.org',
+        'is_control': False,
         'category': 'LGBT',
         'ip': '145.239.6.50',
+        'is_ip_control': False,
         'date': '2020-09-02',
-        'is_control': False,
         'error': None,
         'anomaly': True,
         'success': True,
@@ -1126,11 +1131,12 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'www.sportsinteraction.com',
+        'is_control': False,
         'category': 'Gambling',
         'ip': '185.228.168.149',
+        'is_ip_control': False,
         'date': '2020-09-02',
         'error': 'no_answer',
-        'is_control': False,
         'anomaly': None,
         'success': False,
         'received': None,
@@ -1138,11 +1144,12 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'www.usacasino.com',
+        'is_control': False,
         'category': 'Gambling',
         'ip': '1.1.1.1',
+        'is_ip_control': True,
         'date': '2020-09-02',
         'error': None,
-        'is_control': True,
         'anomaly': None,
         'success': True,
         'received': {
@@ -1298,8 +1305,10 @@ class FlattenMeasurementTest(unittest.TestCase):
 
     expected = [{
         'domain': 'abs-cbn.com',
+        'is_control': False,
         'category': 'Culture',
         'ip': '114.114.114.110',
+        'is_ip_control': False,
         'country': 'CN',
         'date': '2021-03-05',
         'start_time': '2021-03-05T15:32:05.324807502-05:00',
@@ -1316,8 +1325,10 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'abs-cbn.com',
+        'is_control': False,
         'category': 'Culture',
         'ip': '114.114.114.110',
+        'is_ip_control': False,
         'country': 'CN',
         'date': '2021-03-05',
         'start_time': '2021-03-05T15:32:05.324807502-05:00',
@@ -1334,8 +1345,10 @@ class FlattenMeasurementTest(unittest.TestCase):
         'measurement_id': ''
     }, {
         'domain': 'login.live.com',
+        'is_control': False,
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
+        'is_ip_control': True,
         'date': '2021-03-15',
         'start_time': '2021-03-15T20:02:06.996014164-04:00',
         'end_time': '2021-03-15T20:02:07.015386713-04:00',
@@ -1351,8 +1364,10 @@ class FlattenMeasurementTest(unittest.TestCase):
         'has_type_a': True
     }, {
         'domain': 'login.live.com',
+        'is_control': False,
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
+        'is_ip_control': True,
         'date': '2021-03-15',
         'start_time': '2021-03-15T20:02:06.996014164-04:00',
         'end_time': '2021-03-15T20:02:07.015386713-04:00',
@@ -1368,8 +1383,10 @@ class FlattenMeasurementTest(unittest.TestCase):
         'has_type_a': True
     }, {
         'domain': 'login.live.com',
+        'is_control': False,
         'category': 'Communication Tools',
         'ip': '8.8.4.4',
+        'is_ip_control': True,
         'date': '2021-03-15',
         'start_time': '2021-03-15T20:02:06.996014164-04:00',
         'end_time': '2021-03-15T20:02:07.015386713-04:00',
@@ -1385,8 +1402,10 @@ class FlattenMeasurementTest(unittest.TestCase):
         'has_type_a': True
     }, {
         'domain': '03.ru',
+        'is_control': False,
         'category': None,
         'ip': '91.135.154.38',
+        'is_ip_control': False,
         'country': 'RU',
         'date': '2021-09-16',
         'start_time': '2021-09-16T17:49:17.488153752-04:00',
@@ -1625,11 +1644,13 @@ class FlattenMeasurementTest(unittest.TestCase):
         'country': 'US',
         'date': '2021-10-20',
         'domain': '11st.co.kr',
+        'is_control': False,
         'start_time': '2021-10-20T14:51:41.295287198-04:00',
         'end_time': '2021-10-20T14:51:41.397573385-04:00',
         'error': None,
         'has_type_a': True,
         'ip': '216.238.19.1',
+        'is_ip_control': False,
         'measurement_id': '',
         'rcode': ['0'],
         'received': [{
@@ -1664,10 +1685,12 @@ class FlattenMeasurementTest(unittest.TestCase):
         'country': 'FR',
         'date': '2021-10-20',
         'domain': 'www.chantelle.com',
+        'is_control': False,
         'start_time': '2021-10-20T17:17:27.241422553-04:00',
         'end_time': '2021-10-20T17:17:27.535929324-04:00',
         'error': None,
         'ip': '5.39.25.152',
+        'is_ip_control': False,
         'measurement_id': '',
         'rcode': ['5', '5', '5'],
         'received': None,
@@ -1689,6 +1712,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'country': 'UA',
         'date': '2021-10-20',
         'domain': 'alipay.com',
+        'is_control': False,
         'end_time': '2021-10-20T14:51:46.865275642-04:00',
         'error':
             'read udp 141.212.123.185:6280->62.80.182.26:53: read: connection '
@@ -1700,6 +1724,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             'connection refused | read udp '
             '141.212.123.185:1295->62.80.182.26:53: read: connection refused',
         'ip': '62.80.182.26',
+        'is_ip_control': False,
         'measurement_id': '',
         'rcode': ['-1', '-1', '-1', '-1', '-1', '-1'],
         'received': None,

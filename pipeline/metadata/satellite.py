@@ -17,8 +17,10 @@ from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten
 
 # Additional bigquery fields for the satellite data
+# These are in addition to the fields in beam_tables.SCAN_BIGQUERY_SCHEMA
 SATELLITE_BIGQUERY_SCHEMA = {
     'name': ('string', 'nullable'),
+    'is_ip_control': ('boolean', 'nullable'),
     'received': ('record', 'repeated', {
         'ip': ('string', 'nullable'),
         'asnum': ('integer', 'nullable'),

@@ -35,7 +35,8 @@ SENT_PATTERN = "GET (.*) HTTP/1.1\r\nHost: (.*)\r\n"
 # For Hyperquack v1
 CONTROL_URLS = [
     'example5718349450314.com',  # echo/discard
-    'rtyutgyhefdafioasfjhjhi.com'  # HTTP/S
+    'rtyutgyhefdafioasfjhjhi.com',  # HTTP/S
+    'a.root-servers.net'  # Satellite
 ]
 
 
@@ -344,8 +345,8 @@ class FlattenMeasurement(beam.DoFn):
                                             random_measurement_id)
     else:
       if "responses_control" in filename:
-        yield from self._process_satellite_v2_responses(scan,
-                                                        random_measurement_id)
+        yield from self._process_satellite_v2_control(scan,
+                                                      random_measurement_id)
       else:
         yield from self._process_satellite_v2(scan, random_measurement_id)
 
@@ -366,10 +367,11 @@ class FlattenMeasurement(beam.DoFn):
     """
     row = {
         'domain': scan['query'],
+        'is_control': False,  # v1 doesn't have domain controls
         'category': self.category_matcher.match_url(scan['query']),
         'ip': scan.get('resolver', scan.get('ip')),
+        'is_ip_control': 'answers_control.json' in filename,
         'date': date,
-        'is_control': 'answers_control.json' in filename,
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
         'success': 'error' not in scan,
@@ -395,10 +397,14 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
+    is_domain_control = _is_control_url(scan['test_url'])
+
     row = {
         'domain': scan['test_url'],
-        'category': self.category_matcher.match_url(scan['test_url']),
+        'is_control': is_domain_control,
+        'category': self._get_category(scan['test_url'], is_domain_control),
         'ip': scan['vp'],
+        'is_ip_control': False,
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
         'start_time': format_timestamp(scan['start_time']),
@@ -523,9 +529,9 @@ class FlattenMeasurement(beam.DoFn):
     https.update(received_fields)
     yield https
 
-  def _process_satellite_v2_responses(
+  def _process_satellite_v2_control(
       self, scan: Any, random_measurement_id: str) -> Iterator[Row]:
-    """Process a line of Satellite response data.
+    """Process a line of Satellite ip control data.
 
       Args:
         scan: a loaded json object containing the parsed content of the line
@@ -536,10 +542,14 @@ class FlattenMeasurement(beam.DoFn):
     """
     responses = scan.get('response', [])
     if responses:
+      is_domain_control = _is_control_url(scan['test_url'])
+
       row = {
           'domain': scan['test_url'],
-          'category': self.category_matcher.match_url(scan['test_url']),
+          'is_control': is_domain_control,
+          'category': self._get_category(scan['test_url'], is_domain_control),
           'ip': scan['vp'],
+          'is_ip_control': True,
           'date': responses[0]['start_time'][:10],
           'start_time': format_timestamp(responses[0]['start_time']),
           'end_time': format_timestamp(responses[-1]['end_time']),
