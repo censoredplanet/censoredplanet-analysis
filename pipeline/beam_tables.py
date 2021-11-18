@@ -383,7 +383,7 @@ class ScanDataBeamPipelineRunner():
       existing_sources = []
 
     if scan_type == satellite.SCAN_TYPE_SATELLITE:
-      files_to_load = satellite.SATELLITE_FILES
+      files_to_load = flatten.SATELLITE_FILES
     else:
       files_to_load = SCAN_FILES
 

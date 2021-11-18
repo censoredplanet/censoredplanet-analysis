@@ -6,6 +6,7 @@ from collections import defaultdict
 import json
 import logging
 import os
+import pathlib
 import re
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Union, Set
 import uuid
@@ -27,6 +28,42 @@ SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
+
+# Data files for the Satellite pipeline
+SATELLITE_RESOLVERS_FILE = 'resolvers.json'  #v1, v2.2
+
+SATELLITE_RESULTS_FILE = 'results.json'  # v2.1, v2.2
+
+SATELLITE_TAGGED_ANSWERS_FILE = 'tagged_answers.json'  # v1
+SATELLITE_ANSWERS_CONTROL_FILE = 'answers_control.json'  #v1
+SATELLITE_INTERFERENCE_FILE = 'interference.json'  # v1
+SATELLITE_INTERFERENCE_ERR_FILE = 'interference_err.json'  # v1
+SATELLITE_ANSWERS_ERR_FILE = 'answers_err.json'  # v1
+
+SATELLITE_TAGGED_RESOLVERS_FILE = 'tagged_resolvers.json'  # v2.1
+SATELLITE_RESPONSES_CONTROL_FILE = 'responses_control.json'  # v2.1
+SATELLITE_TAGGED_RESPONSES = 'tagged_responses.json'  # v2.1
+
+SATELLITE_BLOCKPAGES_FILE = 'blockpages.json'  # v2.2
+
+SATELLITE_FILES = [
+    SATELLITE_RESOLVERS_FILE,
+    SATELLITE_RESULTS_FILE,
+    SATELLITE_TAGGED_ANSWERS_FILE,
+    SATELLITE_ANSWERS_CONTROL_FILE,
+    SATELLITE_INTERFERENCE_FILE,
+    SATELLITE_INTERFERENCE_ERR_FILE,
+    SATELLITE_ANSWERS_ERR_FILE,
+    SATELLITE_TAGGED_RESOLVERS_FILE,
+    SATELLITE_RESPONSES_CONTROL_FILE,
+    SATELLITE_TAGGED_RESPONSES,
+    SATELLITE_BLOCKPAGES_FILE,
+]
+
+# Component that will match every satellite filepath
+# filepaths look like
+# gs://firehook-scans/satellite/CP_Satellite-2018-08-31-00-00-01/file.json
+SATELLITE_PATH_COMPONENT = "Satellite"
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -201,7 +238,7 @@ class FlattenMeasurement(beam.DoFn):
     # Add a unique id per-measurement so single retry rows can be reassembled
     random_measurement_id = uuid.uuid4().hex
 
-    if 'Satellite' in filename:
+    if SATELLITE_PATH_COMPONENT in filename:
       yield from self._process_satellite(filename, scan, random_measurement_id)
     else:
       yield from self._process_hyperquack(filename, scan, random_measurement_id)
@@ -342,13 +379,14 @@ class FlattenMeasurement(beam.DoFn):
       Rows
     """
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
-    if 'blockpage' in filename:
+    if pathlib.PurePosixPath(filename).name == SATELLITE_BLOCKPAGES_FILE:
       yield from self._process_satellite_blockpages(scan, filename)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
       yield from self._process_satellite_v1(date, scan, filename,
                                             random_measurement_id)
     else:
-      if "responses_control" in filename:
+      if pathlib.PurePosixPath(
+          filename).name == SATELLITE_RESPONSES_CONTROL_FILE:
         yield from self._process_satellite_v2_control(scan,
                                                       random_measurement_id)
       else:
@@ -370,18 +408,30 @@ class FlattenMeasurement(beam.DoFn):
       Rows
     """
     row = {
-        'domain': scan['query'],
-        'is_control': False,  # v1 doesn't have domain controls
-        'category': self.category_matcher.match_url(scan['query']),
-        'ip': scan.get('resolver', scan.get('ip')),
-        'is_control_ip': 'answers_control.json' in filename,
-        'date': date,
-        'error': scan.get('error', None),
-        'anomaly': not scan['passed'] if 'passed' in scan else None,
-        'success': 'error' not in scan,
-        'received': None,
+        'domain':
+            scan['query'],
+        'is_control':
+            False,  # v1 doesn't have domain controls
+        'category':
+            self.category_matcher.match_url(scan['query']),
+        'ip':
+            scan.get('resolver', scan.get('ip')),
+        'is_control_ip':
+            pathlib.PurePosixPath(filename).name ==
+            SATELLITE_ANSWERS_CONTROL_FILE,
+        'date':
+            date,
+        'error':
+            scan.get('error', None),
+        'anomaly':
+            not scan['passed'] if 'passed' in scan else None,
+        'success':
+            'error' not in scan,
+        'received':
+            None,
         'rcode': ['0'] if 'error' not in scan else ['-1'],
-        'measurement_id': random_measurement_id,
+        'measurement_id':
+            random_measurement_id,
     }
 
     if isinstance(row['error'], dict):
