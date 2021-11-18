@@ -37,6 +37,7 @@ CONTROL_URLS = [
     'example5718349450314.com',  # echo/discard
     'rtyutgyhefdafioasfjhjhi.com',  # HTTP/S
     'a.root-servers.net'  # Satellite
+    'www.example.com'  # Satellite
 ]
 
 
@@ -370,7 +371,7 @@ class FlattenMeasurement(beam.DoFn):
         'is_control': False,  # v1 doesn't have domain controls
         'category': self.category_matcher.match_url(scan['query']),
         'ip': scan.get('resolver', scan.get('ip')),
-        'is_ip_control': 'answers_control.json' in filename,
+        'is_control_ip': 'answers_control.json' in filename,
         'date': date,
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
@@ -397,14 +398,14 @@ class FlattenMeasurement(beam.DoFn):
     Yields:
       Rows
     """
-    is_domain_control = _is_control_url(scan['test_url'])
+    is_control_domain = _is_control_url(scan['test_url'])
 
     row = {
         'domain': scan['test_url'],
-        'is_control': is_domain_control,
-        'category': self._get_category(scan['test_url'], is_domain_control),
+        'is_control': is_control_domain,
+        'category': self._get_category(scan['test_url'], is_control_domain),
         'ip': scan['vp'],
-        'is_ip_control': False,
+        'is_control_ip': False,
         'country': scan.get('location', {}).get('country_code'),
         'date': scan['start_time'][:10],
         'start_time': format_timestamp(scan['start_time']),
@@ -542,14 +543,16 @@ class FlattenMeasurement(beam.DoFn):
     """
     responses = scan.get('response', [])
     if responses:
-      is_domain_control = _is_control_url(scan['test_url'])
+      # An overall satellite v2 measurement
+      # always contains some non-control trial domains
+      is_control_domain = False
 
       row = {
           'domain': scan['test_url'],
-          'is_control': is_domain_control,
-          'category': self._get_category(scan['test_url'], is_domain_control),
+          'is_control': is_control_domain,
+          'category': self._get_category(scan['test_url'], is_control_domain),
           'ip': scan['vp'],
-          'is_ip_control': True,
+          'is_control_ip': True,
           'date': responses[0]['start_time'][:10],
           'start_time': format_timestamp(responses[0]['start_time']),
           'end_time': format_timestamp(responses[-1]['end_time']),

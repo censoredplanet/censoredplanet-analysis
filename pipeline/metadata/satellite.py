@@ -20,7 +20,7 @@ from pipeline.metadata import flatten
 # These are in addition to the fields in beam_tables.SCAN_BIGQUERY_SCHEMA
 SATELLITE_BIGQUERY_SCHEMA = {
     'name': ('string', 'nullable'),
-    'is_ip_control': ('boolean', 'nullable'),
+    'is_control_ip': ('boolean', 'nullable'),
     'received': ('record', 'repeated', {
         'ip': ('string', 'nullable'),
         'asnum': ('integer', 'nullable'),
@@ -517,7 +517,7 @@ def partition_satellite_input(
   if filename in ['blockpages.json']:
     return 1
   if filename in [
-      'interference.json', 'interference_err.json', 'answers_control.json'
+      'interference.json', 'interference_err.json', 'answers_control.json',
       'responses_control.json', 'results.json', 'answers_err.json'
   ]:
     return 2
