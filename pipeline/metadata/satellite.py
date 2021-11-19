@@ -67,15 +67,6 @@ BLOCKPAGE_BIGQUERY_SCHEMA = {
     'received_tls_cert': ('string', 'nullable'),
 }
 
-# Data files for the Satellite pipeline
-# Satellite v1 has several output files
-SATELLITE_FILES = [
-    'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
-    'answers_control.json', 'interference.json', 'interference_err.json',
-    'responses_control.json', 'tagged_responses.json', 'results.json',
-    'answers_err.json', 'blockpages.json'
-]
-
 SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
@@ -510,15 +501,18 @@ def partition_satellite_input(
     )
   filename = pathlib.PurePosixPath(line[0]).name
   if filename in [
-      'resolvers.json', 'tagged_resolvers.json', 'tagged_answers.json',
-      'tagged_responses.json'
+      flatten.SATELLITE_RESOLVERS_FILE, flatten.SATELLITE_TAGGED_RESOLVERS_FILE,
+      flatten.SATELLITE_TAGGED_ANSWERS_FILE, flatten.SATELLITE_TAGGED_RESPONSES
   ]:
     return 0
-  if filename in ['blockpages.json']:
+  if filename == flatten.SATELLITE_BLOCKPAGES_FILE:
     return 1
   if filename in [
-      'interference.json', 'interference_err.json', 'answers_control.json',
-      'responses_control.json', 'results.json', 'answers_err.json'
+      flatten.SATELLITE_INTERFERENCE_FILE,
+      flatten.SATELLITE_INTERFERENCE_ERR_FILE,
+      flatten.SATELLITE_ANSWERS_CONTROL_FILE,
+      flatten.SATELLITE_RESPONSES_CONTROL_FILE, flatten.SATELLITE_RESULTS_FILE,
+      flatten.SATELLITE_ANSWERS_ERR_FILE
   ]:
     return 2
   raise Exception(f"Unknown filename in Satellite data: {filename}")
