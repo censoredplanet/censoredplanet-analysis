@@ -11,6 +11,8 @@ import datetime
 
 from pipeline.metadata import flatten_base
 from pipeline.metadata.flatten_base import Row
+from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
@@ -181,11 +183,18 @@ def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
     yield row.copy()
 
 
-class FlattenSatelliteMixin(flatten_base.FlattenMeasurementBase):
-  """Mixin Class for flattening satellite data"""
+class SatelliteFlattener():
+  """Methods for flattening satellite data"""
 
-  def _process_satellite(self, filename: str, scan: Any,
-                         random_measurement_id: str) -> Iterator[Row]:
+  def __init__(self, blockpage_matcher: BlockpageMatcher,
+               category_matcher: DomainCategoryMatcher):
+    self.blockpage_matcher = blockpage_matcher
+    self.category_matcher = category_matcher
+    self.base_flattener = flatten_base.BaseFlattener(blockpage_matcher,
+                                                     category_matcher)
+
+  def process_satellite(self, filename: str, scan: Any,
+                        random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
@@ -272,20 +281,35 @@ class FlattenSatelliteMixin(flatten_base.FlattenMeasurementBase):
     is_control_domain = flatten_base.is_control_url(scan['test_url'])
 
     row = {
-        'domain': scan['test_url'],
-        'is_control': is_control_domain,
-        'category': self._get_category(scan['test_url'], is_control_domain),
-        'ip': scan['vp'],
-        'is_control_ip': scan['vp'] in CONTROL_IPS,
-        'country': scan.get('location', {}).get('country_code'),
-        'date': scan['start_time'][:10],
-        'start_time': format_timestamp(scan['start_time']),
-        'end_time': format_timestamp(scan['end_time']),
-        'error': scan.get('error', None),
-        'anomaly': scan['anomaly'],
-        'success': not scan['connect_error'],
-        'received': None,
-        'measurement_id': random_measurement_id
+        'domain':
+            scan['test_url'],
+        'is_control':
+            is_control_domain,
+        'category':
+            self.base_flattener.get_category(scan['test_url'],
+                                             is_control_domain),
+        'ip':
+            scan['vp'],
+        'is_control_ip':
+            scan['vp'] in CONTROL_IPS,
+        'country':
+            scan.get('location', {}).get('country_code'),
+        'date':
+            scan['start_time'][:10],
+        'start_time':
+            format_timestamp(scan['start_time']),
+        'end_time':
+            format_timestamp(scan['end_time']),
+        'error':
+            scan.get('error', None),
+        'anomaly':
+            scan['anomaly'],
+        'success':
+            not scan['connect_error'],
+        'received':
+            None,
+        'measurement_id':
+            random_measurement_id
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
@@ -318,7 +342,8 @@ class FlattenSatelliteMixin(flatten_base.FlattenMeasurementBase):
         'https': False,
     }
     http.update(row)
-    received_fields = self._parse_received_data(scan.get('http', ''), True)
+    received_fields = self.base_flattener.parse_received_data(
+        scan.get('http', ''), True)
     http.update(received_fields)
     yield http
 
@@ -326,7 +351,8 @@ class FlattenSatelliteMixin(flatten_base.FlattenMeasurementBase):
         'https': True,
     }
     https.update(row)
-    received_fields = self._parse_received_data(scan.get('https', ''), True)
+    received_fields = self.base_flattener.parse_received_data(
+        scan.get('https', ''), True)
     https.update(received_fields)
     yield https
 
@@ -348,19 +374,32 @@ class FlattenSatelliteMixin(flatten_base.FlattenMeasurementBase):
       is_control_domain = False
 
       row = {
-          'domain': scan['test_url'],
-          'is_control': is_control_domain,
-          'category': self._get_category(scan['test_url'], is_control_domain),
-          'ip': scan['vp'],
-          'is_control_ip': True,
-          'date': responses[0]['start_time'][:10],
-          'start_time': format_timestamp(responses[0]['start_time']),
-          'end_time': format_timestamp(responses[-1]['end_time']),
-          'anomaly': None,
-          'success': not scan['connect_error'],
-          'controls_failed': not scan['passed_control'],
+          'domain':
+              scan['test_url'],
+          'is_control':
+              is_control_domain,
+          'category':
+              self.base_flattener.get_category(scan['test_url'],
+                                               is_control_domain),
+          'ip':
+              scan['vp'],
+          'is_control_ip':
+              True,
+          'date':
+              responses[0]['start_time'][:10],
+          'start_time':
+              format_timestamp(responses[0]['start_time']),
+          'end_time':
+              format_timestamp(responses[-1]['end_time']),
+          'anomaly':
+              None,
+          'success':
+              not scan['connect_error'],
+          'controls_failed':
+              not scan['passed_control'],
           'rcode': [str(response['rcode']) for response in responses],
-          'measurement_id': random_measurement_id
+          'measurement_id':
+              random_measurement_id
       }
       errors = [
           response['error']

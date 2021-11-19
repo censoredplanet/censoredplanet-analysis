@@ -7,24 +7,27 @@ import logging
 from typing import Tuple, Iterator
 import uuid
 
+import apache_beam as beam
+
 from pipeline.metadata.flatten_base import Row
-from pipeline.metadata.flatten_satellite import FlattenSatelliteMixin, SATELLITE_PATH_COMPONENT
-from pipeline.metadata.flatten_hyperquack import FlattenHyperquackMixin
-
-# The structure of this class's inheritance is
-#
-#                    beam.DoFn
-#                       |
-#              FlattenMeasurementBase
-#                   /         \
-# FlattenHyperquackMixin   FlattenSatelliteMixin
-#                   \         /
-#               FlattenMeasurement
-#
+from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.domain_categories import DomainCategoryMatcher
+from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
+from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
 
 
-class FlattenMeasurement(FlattenSatelliteMixin, FlattenHyperquackMixin):
+class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into Rows."""
+
+  def setup(self) -> None:
+    blockpage_matcher = BlockpageMatcher()
+    category_matcher = DomainCategoryMatcher()
+    #pylint: disable=attribute-defined-outside-init
+    self.hyperquack_flattener = HyperquackFlattener(blockpage_matcher,
+                                                    category_matcher)
+    self.satellite_flattener = SatelliteFlattener(blockpage_matcher,
+                                                  category_matcher)
+    #pylint: enable=attribute-defined-outside-init
 
   def process(self, element: Tuple[str, str]) -> Iterator[Row]:
     """Flatten a measurement string into several roundtrip Rows.
@@ -59,6 +62,8 @@ class FlattenMeasurement(FlattenSatelliteMixin, FlattenHyperquackMixin):
     random_measurement_id = uuid.uuid4().hex
 
     if SATELLITE_PATH_COMPONENT in filename:
-      yield from self._process_satellite(filename, scan, random_measurement_id)
+      yield from self.satellite_flattener.process_satellite(
+          filename, scan, random_measurement_id)
     else:
-      yield from self._process_hyperquack(filename, scan, random_measurement_id)
+      yield from self.hyperquack_flattener.process_hyperquack(
+          filename, scan, random_measurement_id)

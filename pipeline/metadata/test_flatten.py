@@ -6,8 +6,17 @@ from typing import List
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten_hyperquack
 from pipeline.metadata import flatten
+from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # pylint: disable=too-many-lines
+
+
+def get_base_flattener() -> flatten_base.BaseFlattener:
+  """Test helper to setup a BaseFlattener"""
+  blockpage_matcher = BlockpageMatcher()
+  category_matcher = DomainCategoryMatcher()
+  return flatten_base.BaseFlattener(blockpage_matcher, category_matcher)
 
 
 class FlattenMeasurementTest(unittest.TestCase):
@@ -106,9 +115,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'page_signature': 'b_nat_ir_national_1',
     }
     # yapf: enable
-    flattener = flatten.FlattenMeasurement()
-    flattener.setup()
-    parsed = flattener._parse_received_data(received, True)
+    base_flattener = get_base_flattener()
+    parsed = base_flattener.parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -126,9 +134,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': None,
         'page_signature': None,
     }
-    flattener = flatten.FlattenMeasurement()
-    flattener.setup()
-    parsed = flattener._parse_received_data(received, True)
+    base_flattener = get_base_flattener()
+    parsed = base_flattener.parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_http_status_line_false_positive(self) -> None:
@@ -146,9 +153,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': False,
         'page_signature': 'x_521',
     }
-    flattener = flatten.FlattenMeasurement()
-    flattener.setup()
-    parsed = flattener._parse_received_data(received, True)
+    base_flattener = get_base_flattener()
+    parsed = base_flattener.parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_http_header_false_positive(self) -> None:
@@ -168,9 +174,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'blockpage': True,
         'page_signature': 'a_prod_barracuda_2',
     }
-    flattener = flatten.FlattenMeasurement()
-    flattener.setup()
-    parsed = flattener._parse_received_data(received, True)
+    base_flattener = get_base_flattener()
+    parsed = base_flattener.parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -216,9 +221,8 @@ class FlattenMeasurementTest(unittest.TestCase):
         'page_signature': 'x_on_this_server',
     }
     # yapf: enable
-    flattener = flatten.FlattenMeasurement()
-    flattener.setup()
-    parsed = flattener._parse_received_data(received, True)
+    base_flattener = get_base_flattener()
+    parsed = base_flattener.parse_received_data(received, True)
     self.assertDictEqual(parsed, expected)
 
   def test_flattenmeasurement_echo_v1(self) -> None:

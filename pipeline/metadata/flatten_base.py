@@ -1,11 +1,9 @@
-"""Abstract class to use as a base for flattening DoFns."""
+"""Shared functionality for flattening rows."""
 
 from __future__ import absolute_import
 
 import os
 from typing import Optional, Dict, List, Any, Union
-
-import apache_beam as beam
 
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
@@ -88,32 +86,21 @@ def _reconstruct_http_response(row: Row) -> str:
   return full_response
 
 
-class FlattenMeasurementBase(beam.DoFn):
-  """Abstract base class for flattening methods.
+class BaseFlattener():
+  """Shared functionality for flattening rows."""
 
-  process is not implements by this class, so it cannot be used as a real DoFn.
-  """
+  def __init__(self, blockpage_matcher: BlockpageMatcher,
+               category_matcher: DomainCategoryMatcher):
+    self.blockpage_matcher = blockpage_matcher
+    self.category_matcher = category_matcher
 
-  def setup(self) -> None:
-    self.blockpage_matcher = BlockpageMatcher()  #pylint: disable=attribute-defined-outside-init
-    self.category_matcher = DomainCategoryMatcher()  #pylint: disable=attribute-defined-outside-init
+  def get_category(self, domain: str, is_control: bool) -> Optional[str]:
+    if is_control:
+      return "Control"
+    return self.category_matcher.match_url(domain)
 
-  def add_blockpage_match(self, content: str, anomaly: bool, row: Row) -> None:
-    """If there's an anomaly check the content for a blockpage match and add to row
-
-    content: the string to check for blockpage matches.
-      For HTTP/S this is the HTTP body
-      For echo/discard this is the entire recieved content
-    anomaly: whether there was an anomaly in the measurement
-    row: existing row to add blpckpage info to.
-    """
-    if anomaly:
-      blockpage, signature = self.blockpage_matcher.match_page(content)
-      row['blockpage'] = blockpage
-      row['page_signature'] = signature
-
-  def _parse_received_data(self, received: Union[str, Dict[str, Any]],
-                           anomaly: bool) -> Row:
+  def parse_received_data(self, received: Union[str, Dict[str, Any]],
+                          anomaly: bool) -> Row:
     """Parse a received field into a section of a row to write to bigquery.
 
     Args:
@@ -125,7 +112,7 @@ class FlattenMeasurementBase(beam.DoFn):
     """
     if isinstance(received, str):
       row: Row = {'received_status': received}
-      self.add_blockpage_match(received, anomaly, row)
+      self._add_blockpage_match(received, anomaly, row)
       return row
 
     row = {
@@ -135,7 +122,7 @@ class FlattenMeasurementBase(beam.DoFn):
     }
 
     full_http_response = _reconstruct_http_response(row)
-    self.add_blockpage_match(full_http_response, anomaly, row)
+    self._add_blockpage_match(full_http_response, anomaly, row)
 
     # hyperquack v1 TLS format
     tls = received.get('tls', None)
@@ -157,3 +144,17 @@ class FlattenMeasurementBase(beam.DoFn):
       row.update(tls_row)
 
     return row
+
+  def _add_blockpage_match(self, content: str, anomaly: bool, row: Row) -> None:
+    """If there's an anomaly check the content for a blockpage match and add to row
+
+    content: the string to check for blockpage matches.
+      For HTTP/S this is the HTTP body
+      For echo/discard this is the entire recieved content
+    anomaly: whether there was an anomaly in the measurement
+    row: existing row to add blpckpage info to.
+    """
+    if anomaly:
+      blockpage, signature = self.blockpage_matcher.match_page(content)
+      row['blockpage'] = blockpage
+      row['page_signature'] = signature

@@ -7,6 +7,8 @@ from typing import Optional, Any, Iterator
 
 from pipeline.metadata import flatten_base
 from pipeline.metadata.flatten_base import Row
+from pipeline.metadata.blockpage import BlockpageMatcher
+from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -51,11 +53,18 @@ def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
   raise Exception(f"unknown sent field format: {sent}")
 
 
-class FlattenHyperquackMixin(flatten_base.FlattenMeasurementBase):
-  """Mixin Class for flattening hyperquack data"""
+class HyperquackFlattener():
+  """Methods for flattening hyperquack data"""
 
-  def _process_hyperquack(self, filename: str, scan: Any,
-                          random_measurement_id: str) -> Iterator[Row]:
+  def __init__(self, blockpage_matcher: BlockpageMatcher,
+               category_matcher: DomainCategoryMatcher):
+    self.blockpage_matcher = blockpage_matcher
+    self.category_matcher = category_matcher
+    self.base_flattener = flatten_base.BaseFlattener(blockpage_matcher,
+                                                     category_matcher)
+
+  def process_hyperquack(self, filename: str, scan: Any,
+                         random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Echo/Discard/HTTP/S data.
 
     Args:
@@ -108,7 +117,7 @@ class FlattenHyperquackMixin(flatten_base.FlattenMeasurementBase):
 
       row = {
           'domain': domain,
-          'category': self._get_category(domain, is_control),
+          'category': self.base_flattener.get_category(domain, is_control),
           'ip': scan['Server'],
           'date': date,
           'start_time': result['StartTime'],
@@ -124,7 +133,8 @@ class FlattenHyperquackMixin(flatten_base.FlattenMeasurementBase):
 
       if 'Received' in result:
         received = result.get('Received', '')
-        received_fields = self._parse_received_data(received, scan['Blocked'])
+        received_fields = self.base_flattener.parse_received_data(
+            received, scan['Blocked'])
         row.update(received_fields)
 
       if 'Error' in result:
@@ -153,7 +163,7 @@ class FlattenHyperquackMixin(flatten_base.FlattenMeasurementBase):
 
       row = {
           'domain': domain,
-          'category': self._get_category(domain, is_control),
+          'category': self.base_flattener.get_category(domain, is_control),
           'ip': scan['vp'],
           'date': date,
           'start_time': response['start_time'],
@@ -169,15 +179,11 @@ class FlattenHyperquackMixin(flatten_base.FlattenMeasurementBase):
 
       if 'response' in response:
         received = response.get('response', '')
-        received_fields = self._parse_received_data(received, scan['anomaly'])
+        received_fields = self.base_flattener.parse_received_data(
+            received, scan['anomaly'])
         row.update(received_fields)
 
       if 'error' in response:
         row['error'] = response['error']
 
       yield row
-
-  def _get_category(self, domain: str, is_control: bool) -> Optional[str]:
-    if is_control:
-      return "Control"
-    return self.category_matcher.match_url(domain)
