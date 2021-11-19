@@ -14,6 +14,7 @@ import apache_beam as beam
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
+from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
 # Additional bigquery fields for the satellite data
@@ -92,7 +93,7 @@ def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
 def _get_satellite_date_partition(row: Row, _: int) -> int:
   """Partition Satellite data by date, corresponding to v2.2 format change."""
   if datetime.date.fromisoformat(
-      row['date']) < flatten.SATELLITE_V2_2_START_DATE:
+      row['date']) < flatten_satellite.SATELLITE_V2_2_START_DATE:
     return 0
   return 1
 
@@ -343,7 +344,7 @@ def post_processing_satellite(
   def _total_tags(key: Tuple[str, str],
                   row: Row) -> Tuple[Tuple[str, str], int]:
     total_tags = 0
-    for tag_type in flatten.SATELLITE_TAGS:
+    for tag_type in flatten_satellite.SATELLITE_TAGS:
       if tag_type != 'ip':
         type_tags = {
             ans[tag_type] for ans in row['received'] if ans.get(tag_type)
@@ -501,18 +502,21 @@ def partition_satellite_input(
     )
   filename = pathlib.PurePosixPath(line[0]).name
   if filename in [
-      flatten.SATELLITE_RESOLVERS_FILE, flatten.SATELLITE_TAGGED_RESOLVERS_FILE,
-      flatten.SATELLITE_TAGGED_ANSWERS_FILE, flatten.SATELLITE_TAGGED_RESPONSES
+      flatten_satellite.SATELLITE_RESOLVERS_FILE,
+      flatten_satellite.SATELLITE_TAGGED_RESOLVERS_FILE,
+      flatten_satellite.SATELLITE_TAGGED_ANSWERS_FILE,
+      flatten_satellite.SATELLITE_TAGGED_RESPONSES
   ]:
     return 0
-  if filename == flatten.SATELLITE_BLOCKPAGES_FILE:
+  if filename == flatten_satellite.SATELLITE_BLOCKPAGES_FILE:
     return 1
   if filename in [
-      flatten.SATELLITE_INTERFERENCE_FILE,
-      flatten.SATELLITE_INTERFERENCE_ERR_FILE,
-      flatten.SATELLITE_ANSWERS_CONTROL_FILE,
-      flatten.SATELLITE_RESPONSES_CONTROL_FILE, flatten.SATELLITE_RESULTS_FILE,
-      flatten.SATELLITE_ANSWERS_ERR_FILE
+      flatten_satellite.SATELLITE_INTERFERENCE_FILE,
+      flatten_satellite.SATELLITE_INTERFERENCE_ERR_FILE,
+      flatten_satellite.SATELLITE_ANSWERS_CONTROL_FILE,
+      flatten_satellite.SATELLITE_RESPONSES_CONTROL_FILE,
+      flatten_satellite.SATELLITE_RESULTS_FILE,
+      flatten_satellite.SATELLITE_ANSWERS_ERR_FILE
   ]:
     return 2
   raise Exception(f"Unknown filename in Satellite data: {filename}")
@@ -547,7 +551,7 @@ def _calculate_confidence(scan: Dict[str, Any],
     matching_tags = 0
 
     # calculate number of tags IP has and how many match controls
-    for tag in flatten.SATELLITE_TAGS:
+    for tag in flatten_satellite.SATELLITE_TAGS:
       if tag != 'ip' and answer.get(tag):
         total_tags += 1
         if tag in matches_control:
@@ -603,7 +607,8 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
         # CDN IPs
         scan['verify']['excluded'] = True
         reasons.append('is_CDN')
-      unique_domains = flatten.INTERFERENCE_IPDOMAIN.get(received['ip'])
+      unique_domains = flatten_satellite.INTERFERENCE_IPDOMAIN.get(
+          received['ip'])
       if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
         # IPs that appear <= threshold times across all interference
         scan['verify']['excluded'] = True
