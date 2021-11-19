@@ -86,75 +86,74 @@ def _reconstruct_http_response(row: Row) -> str:
   return full_response
 
 
-class BaseFlattener():
-  """Shared functionality for flattening rows."""
+def get_category(category_matcher: DomainCategoryMatcher, domain: str,
+                 is_control: bool) -> Optional[str]:
+  if is_control:
+    return "Control"
+  return category_matcher.match_url(domain)
 
-  def __init__(self, blockpage_matcher: BlockpageMatcher,
-               category_matcher: DomainCategoryMatcher):
-    self.blockpage_matcher = blockpage_matcher
-    self.category_matcher = category_matcher
 
-  def get_category(self, domain: str, is_control: bool) -> Optional[str]:
-    if is_control:
-      return "Control"
-    return self.category_matcher.match_url(domain)
+def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
+                         anomaly: bool, row: Row) -> None:
+  """If there's an anomaly check the content for a blockpage match and add to row
 
-  def parse_received_data(self, received: Union[str, Dict[str, Any]],
-                          anomaly: bool) -> Row:
-    """Parse a received field into a section of a row to write to bigquery.
-
-    Args:
-      received: a dict parsed from json data, or a str
-      anomaly: whether data may indicate blocking
-
-    Returns:
-      a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
-    """
-    if isinstance(received, str):
-      row: Row = {'received_status': received}
-      self._add_blockpage_match(received, anomaly, row)
-      return row
-
-    row = {
-        'received_status': received['status_line'],
-        'received_body': received['body'],
-        'received_headers': parse_received_headers(received.get('headers', {})),
-    }
-
-    full_http_response = _reconstruct_http_response(row)
-    self._add_blockpage_match(full_http_response, anomaly, row)
-
-    # hyperquack v1 TLS format
-    tls = received.get('tls', None)
-    if tls:
-      tls_row = {
-          'received_tls_version': tls['version'],
-          'received_tls_cipher_suite': tls['cipher_suite'],
-          'received_tls_cert': tls['cert']
-      }
-      row.update(tls_row)
-
-    # hyperquack v2 TLS format
-    if 'TlsVersion' in received:
-      tls_row = {
-          'received_tls_version': received['TlsVersion'],
-          'received_tls_cipher_suite': received['CipherSuite'],
-          'received_tls_cert': received['Certificate']
-      }
-      row.update(tls_row)
-
-    return row
-
-  def _add_blockpage_match(self, content: str, anomaly: bool, row: Row) -> None:
-    """If there's an anomaly check the content for a blockpage match and add to row
-
+  args:
     content: the string to check for blockpage matches.
       For HTTP/S this is the HTTP body
       For echo/discard this is the entire recieved content
     anomaly: whether there was an anomaly in the measurement
     row: existing row to add blpckpage info to.
-    """
-    if anomaly:
-      blockpage, signature = self.blockpage_matcher.match_page(content)
-      row['blockpage'] = blockpage
-      row['page_signature'] = signature
+  """
+  if anomaly:
+    blockpage, signature = blockpage_matcher.match_page(content)
+    row['blockpage'] = blockpage
+    row['page_signature'] = signature
+
+
+def parse_received_data(blockpage_matcher: BlockpageMatcher,
+                        received: Union[str, Dict[str,
+                                                  Any]], anomaly: bool) -> Row:
+  """Parse a received field into a section of a row to write to bigquery.
+
+  Args:
+    blockpage_matcher: Matcher object
+    received: a dict parsed from json data, or a str
+    anomaly: whether data may indicate blocking
+
+  Returns:
+    a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
+  """
+  if isinstance(received, str):
+    row: Row = {'received_status': received}
+    _add_blockpage_match(blockpage_matcher, received, anomaly, row)
+    return row
+
+  row = {
+      'received_status': received['status_line'],
+      'received_body': received['body'],
+      'received_headers': parse_received_headers(received.get('headers', {})),
+  }
+
+  full_http_response = _reconstruct_http_response(row)
+  _add_blockpage_match(blockpage_matcher, full_http_response, anomaly, row)
+
+  # hyperquack v1 TLS format
+  tls = received.get('tls', None)
+  if tls:
+    tls_row = {
+        'received_tls_version': tls['version'],
+        'received_tls_cipher_suite': tls['cipher_suite'],
+        'received_tls_cert': tls['cert']
+    }
+    row.update(tls_row)
+
+  # hyperquack v2 TLS format
+  if 'TlsVersion' in received:
+    tls_row = {
+        'received_tls_version': received['TlsVersion'],
+        'received_tls_cipher_suite': received['CipherSuite'],
+        'received_tls_cert': received['Certificate']
+    }
+    row.update(tls_row)
+
+  return row

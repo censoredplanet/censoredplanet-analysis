@@ -1,4 +1,4 @@
-"""Mixin class of flattening methods for Hyperquack data."""
+"""Flattening methods for Hyperquack data."""
 
 from __future__ import absolute_import
 
@@ -60,8 +60,6 @@ class HyperquackFlattener():
                category_matcher: DomainCategoryMatcher):
     self.blockpage_matcher = blockpage_matcher
     self.category_matcher = category_matcher
-    self.base_flattener = flatten_base.BaseFlattener(blockpage_matcher,
-                                                     category_matcher)
 
   def process_hyperquack(self, filename: str, scan: Any,
                          random_measurement_id: str) -> Iterator[Row]:
@@ -116,25 +114,39 @@ class HyperquackFlattener():
         domain = sent_domain
 
       row = {
-          'domain': domain,
-          'category': self.base_flattener.get_category(domain, is_control),
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'anomaly': scan['Blocked'],
-          'success': result['Success'],
-          'stateful_block': scan['StatefulBlock'],
-          'is_control': is_control,
-          'controls_failed': scan['FailSanity'],
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
+          'domain':
+              domain,
+          'category':
+              flatten_base.get_category(self.category_matcher, domain,
+                                        is_control),
+          'ip':
+              scan['Server'],
+          'date':
+              date,
+          'start_time':
+              result['StartTime'],
+          'end_time':
+              result['EndTime'],
+          'anomaly':
+              scan['Blocked'],
+          'success':
+              result['Success'],
+          'stateful_block':
+              scan['StatefulBlock'],
+          'is_control':
+              is_control,
+          'controls_failed':
+              scan['FailSanity'],
+          'measurement_id':
+              random_measurement_id,
+          'source':
+              flatten_base.source_from_filename(filename),
       }
 
       if 'Received' in result:
         received = result.get('Received', '')
-        received_fields = self.base_flattener.parse_received_data(
-            received, scan['Blocked'])
+        received_fields = flatten_base.parse_received_data(
+            self.blockpage_matcher, received, scan['Blocked'])
         row.update(received_fields)
 
       if 'Error' in result:
@@ -162,25 +174,39 @@ class HyperquackFlattener():
       is_control = 'control_url' in response
 
       row = {
-          'domain': domain,
-          'category': self.base_flattener.get_category(domain, is_control),
-          'ip': scan['vp'],
-          'date': date,
-          'start_time': response['start_time'],
-          'end_time': response['end_time'],
-          'anomaly': scan['anomaly'],
-          'success': response['matches_template'],
-          'stateful_block': scan['stateful_block'],
-          'is_control': is_control,
-          'controls_failed': scan.get('controls_failed', None),
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
+          'domain':
+              domain,
+          'category':
+              flatten_base.get_category(self.category_matcher, domain,
+                                        is_control),
+          'ip':
+              scan['vp'],
+          'date':
+              date,
+          'start_time':
+              response['start_time'],
+          'end_time':
+              response['end_time'],
+          'anomaly':
+              scan['anomaly'],
+          'success':
+              response['matches_template'],
+          'stateful_block':
+              scan['stateful_block'],
+          'is_control':
+              is_control,
+          'controls_failed':
+              scan.get('controls_failed', None),
+          'measurement_id':
+              random_measurement_id,
+          'source':
+              flatten_base.source_from_filename(filename),
       }
 
       if 'response' in response:
         received = response.get('response', '')
-        received_fields = self.base_flattener.parse_received_data(
-            received, scan['anomaly'])
+        received_fields = flatten_base.parse_received_data(
+            self.blockpage_matcher, received, scan['anomaly'])
         row.update(received_fields)
 
       if 'error' in response:

@@ -1,4 +1,4 @@
-"""Mixin class of flattening methods for Satellite data."""
+"""Flattening methods for Satellite data."""
 
 from __future__ import absolute_import
 
@@ -190,8 +190,6 @@ class SatelliteFlattener():
                category_matcher: DomainCategoryMatcher):
     self.blockpage_matcher = blockpage_matcher
     self.category_matcher = category_matcher
-    self.base_flattener = flatten_base.BaseFlattener(blockpage_matcher,
-                                                     category_matcher)
 
   def process_satellite(self, filename: str, scan: Any,
                         random_measurement_id: str) -> Iterator[Row]:
@@ -286,8 +284,8 @@ class SatelliteFlattener():
         'is_control':
             is_control_domain,
         'category':
-            self.base_flattener.get_category(scan['test_url'],
-                                             is_control_domain),
+            flatten_base.get_category(self.category_matcher, scan['test_url'],
+                                      is_control_domain),
         'ip':
             scan['vp'],
         'is_control_ip':
@@ -342,8 +340,9 @@ class SatelliteFlattener():
         'https': False,
     }
     http.update(row)
-    received_fields = self.base_flattener.parse_received_data(
-        scan.get('http', ''), True)
+    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
+                                                       scan.get('http', ''),
+                                                       True)
     http.update(received_fields)
     yield http
 
@@ -351,8 +350,9 @@ class SatelliteFlattener():
         'https': True,
     }
     https.update(row)
-    received_fields = self.base_flattener.parse_received_data(
-        scan.get('https', ''), True)
+    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
+                                                       scan.get('https', ''),
+                                                       True)
     https.update(received_fields)
     yield https
 
@@ -379,8 +379,8 @@ class SatelliteFlattener():
           'is_control':
               is_control_domain,
           'category':
-              self.base_flattener.get_category(scan['test_url'],
-                                               is_control_domain),
+              flatten_base.get_category(self.category_matcher, scan['test_url'],
+                                        is_control_domain),
           'ip':
               scan['vp'],
           'is_control_ip':
