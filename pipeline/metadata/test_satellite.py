@@ -8,7 +8,9 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
+from pipeline.metadata.flatten_base import Row
 from pipeline.metadata import satellite
+from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
 
@@ -392,7 +394,7 @@ class SatelliteTest(unittest.TestCase):
   def test_verify(self) -> None:
     """Test verification of Satellite v1 data."""
     # yapf: disable
-    scans: List[flatten.Row] = [
+    scans: List[Row] = [
       {
         'ip': '114.114.114.110',
         'country': 'CN',
@@ -436,7 +438,7 @@ class SatelliteTest(unittest.TestCase):
     # yapf: enable
 
     # mock data for the global interference IP - DOMAIN mapping
-    flatten.INTERFERENCE_IPDOMAIN = {
+    flatten_satellite.INTERFERENCE_IPDOMAIN = {
         '104.20.161.134': {'abs-cbn.com', 'xyz.com', 'blah.com'},
         '198.35.26.96': {'ar.m.wikipedia.org'},
     }

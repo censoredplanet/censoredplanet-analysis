@@ -3,6 +3,8 @@
 import unittest
 from typing import List
 
+from pipeline.metadata import flatten_base
+from pipeline.metadata import flatten_hyperquack
 from pipeline.metadata import flatten
 
 # pylint: disable=too-many-lines
@@ -19,12 +21,12 @@ class FlattenMeasurementTest(unittest.TestCase):
   def test_source_from_filename(self) -> None:
     """Test getting the data source name from the filename."""
     self.assertEqual(
-        flatten.source_from_filename(
+        flatten_base.source_from_filename(
             'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
         ), 'CP_Quack-echo-2020-08-23-06-01-02')
 
     self.assertEqual(
-        flatten.source_from_filename(
+        flatten_base.source_from_filename(
             'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
         ), 'CP_Quack-http-2020-09-13-01-02-07')
 
@@ -32,7 +34,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     """Test parsing url from sent field in echo and discard tests."""
     sent = "GET / HTTP/1.1\r\nHost: example5718349450314.com\r\n"
     self.assertEqual("example5718349450314.com",
-                     flatten._extract_domain_from_sent_field(sent))
+                     flatten_hyperquack._extract_domain_from_sent_field(sent))
 
   def test_extract_domain_from_sent_field_discard_error(self) -> None:
     """Test parsing url from sent field."""
@@ -40,14 +42,14 @@ class FlattenMeasurementTest(unittest.TestCase):
     # but it appears in the data, so we parse it.
     sent = "GET www.bbc.co.uk HTTP/1.1\r\nHost: /\r\n"
     self.assertEqual("www.bbc.co.uk",
-                     flatten._extract_domain_from_sent_field(sent))
+                     flatten_hyperquack._extract_domain_from_sent_field(sent))
 
   def test_extract_url_from_sent_field(self) -> None:
     """Test parsing full url from sent field in echo and discard tests."""
     sent = "GET /videos/news/fresh-incidents-of-violence-in-assam/videoshow/15514015.cms HTTP/1.1\r\nHost: timesofindia.indiatimes.com\r\n"
     self.assertEqual(
         "timesofindia.indiatimes.com/videos/news/fresh-incidents-of-violence-in-assam/videoshow/15514015.cms",
-        flatten._extract_domain_from_sent_field(sent))
+        flatten_hyperquack._extract_domain_from_sent_field(sent))
 
   def test_extract_url_from_sent_field_error(self) -> None:
     """Test parsing full url from sent field in echo and discard tests."""
@@ -56,19 +58,19 @@ class FlattenMeasurementTest(unittest.TestCase):
     sent = "GET www.guaribas.pi.gov.br HTTP/1.1\r\nHost: /portal1/intro.asp?iIdMun=100122092\r\n"
     self.assertEqual(
         "www.guaribas.pi.gov.br/portal1/intro.asp?iIdMun=100122092",
-        flatten._extract_domain_from_sent_field(sent))
+        flatten_hyperquack._extract_domain_from_sent_field(sent))
 
   def test_extract_domain_from_sent_field_http(self) -> None:
     """Test parsing url from sent field for HTTP/S"""
     sent = "www.apple.com"
     self.assertEqual("www.apple.com",
-                     flatten._extract_domain_from_sent_field(sent))
+                     flatten_hyperquack._extract_domain_from_sent_field(sent))
 
   def test_extract_domain_from_sent_field_invalid(self) -> None:
     """Test parsing url from sent field."""
     sent = "Get sdkfjhsd something incorrect"
     with self.assertRaises(Exception) as context:
-      flatten._extract_domain_from_sent_field(sent)
+      flatten_hyperquack._extract_domain_from_sent_field(sent)
     self.assertIn('unknown sent field format:', str(context.exception))
 
   def test_parse_received_headers(self) -> None:
@@ -78,7 +80,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'Content-Type': ['text/html; charset=iso-8859-1']
     }
 
-    flat_headers = flatten.parse_received_headers(headers)
+    flat_headers = flatten_base.parse_received_headers(headers)
 
     expected_headers = [
         'Content-Language: en', 'Content-Language: fr',
