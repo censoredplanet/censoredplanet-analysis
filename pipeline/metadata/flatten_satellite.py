@@ -191,72 +191,69 @@ class SatelliteFlattener():
     self.blockpage_matcher = blockpage_matcher
     self.category_matcher = category_matcher
 
-  def process_satellite(self, filename: str, scan: Any,
+  def process_satellite(self, filepath: str, scan: Any,
                         random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
-      filename: a filepath string
+      filepath: a filepath string
       scan: a loaded json object containing the parsed content of the line
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
       Rows
     """
-    date = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
-    if pathlib.PurePosixPath(filename).name == SATELLITE_BLOCKPAGES_FILE:
-      yield from self._process_satellite_blockpages(scan, filename)
+    date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
+
+    filename = pathlib.PurePosixPath(filepath).name
+    if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+      filename = pathlib.PurePosixPath(filename).stem
+
+    if filename == SATELLITE_BLOCKPAGES_FILE:
+      yield from self._process_satellite_blockpages(scan, filepath)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
-      yield from self._process_satellite_v1(date, scan, filename,
+      yield from self._process_satellite_v1(date, scan, filepath,
                                             random_measurement_id)
     else:
-      if pathlib.PurePosixPath(
-          filename).name == SATELLITE_RESPONSES_CONTROL_FILE:
+      if filename == SATELLITE_RESPONSES_CONTROL_FILE:
         yield from self._process_satellite_v2_control(scan,
                                                       random_measurement_id)
       else:
         yield from self._process_satellite_v2(scan, random_measurement_id)
 
-  def _process_satellite_v1(self, date: str, scan: Any, filename: str,
+  def _process_satellite_v1(self, date: str, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       date: a date string YYYY-mm-DD
       scan: a loaded json object containing the parsed content of the line
-      filename: one of
+      filepath: one of
         <path>/answers_control.json
         <path>/interference.json
+        also potentially .gz files
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
       Rows
     """
+    filename = pathlib.PurePosixPath(filepath).name
+    if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+      filename = pathlib.PurePosixPath(filename).stem
+
     row = {
-        'domain':
-            scan['query'],
-        'is_control':
-            False,  # v1 doesn't have domain controls
-        'category':
-            self.category_matcher.match_url(scan['query']),
-        'ip':
-            scan.get('resolver', scan.get('ip')),
-        'is_control_ip':
-            pathlib.PurePosixPath(filename).name ==
-            SATELLITE_ANSWERS_CONTROL_FILE,
-        'date':
-            date,
-        'error':
-            scan.get('error', None),
-        'anomaly':
-            not scan['passed'] if 'passed' in scan else None,
-        'success':
-            'error' not in scan,
-        'received':
-            None,
+        'domain': scan['query'],
+        'is_control': False,  # v1 doesn't have domain controls
+        'category': self.category_matcher.match_url(scan['query']),
+        'ip': scan.get('resolver', scan.get('ip')),
+        'is_control_ip': filename == SATELLITE_ANSWERS_CONTROL_FILE,
+        'date': date,
+        'error': scan.get('error', None),
+        'anomaly': not scan['passed'] if 'passed' in scan else None,
+        'success': 'error' not in scan,
+        'received': None,
         'rcode': ['0'] if 'error' not in scan else ['-1'],
-        'measurement_id':
-            random_measurement_id,
+        'measurement_id': random_measurement_id,
     }
 
     if isinstance(row['error'], dict):

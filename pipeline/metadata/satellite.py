@@ -500,7 +500,11 @@ def partition_satellite_input(
     raise Exception(
         "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
     )
+
   filename = pathlib.PurePosixPath(line[0]).name
+  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+    filename = pathlib.PurePosixPath(filename).stem
+
   if filename in [
       flatten_satellite.SATELLITE_RESOLVERS_FILE,
       flatten_satellite.SATELLITE_TAGGED_RESOLVERS_FILE,
