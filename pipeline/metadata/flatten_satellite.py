@@ -313,12 +313,12 @@ class SatelliteFlattener():
       yield from _process_satellite_v2p2(row, scan)
 
   def _process_satellite_blockpages(self, scan: Any,
-                                    filename: str) -> Iterator[Row]:
+                                    filepath: str) -> Iterator[Row]:
     """Process a line of Satellite blockpage data.
 
     Args:
       scan: a loaded json object containing the parsed content of the line
-      random_measurement_id: a hex id identifying this individual measurement
+      filepath: a filepath string
 
     Yields:
       Rows, usually 2 corresponding to the fetched http and https data respectively
@@ -330,7 +330,7 @@ class SatelliteFlattener():
         'start_time': format_timestamp(scan['start_time']),
         'end_time': format_timestamp(scan['end_time']),
         'success': scan['fetched'],
-        'source': flatten_base.source_from_filename(filename),
+        'source': flatten_base.source_from_filename(filepath),
     }
 
     http = {
