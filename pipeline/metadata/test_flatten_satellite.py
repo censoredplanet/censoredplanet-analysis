@@ -184,7 +184,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     """Test flattening of Satellite v2.1 measurements."""
     filenames = [
         'gs://firehook-scans/satellite/CP_Satellite-2021-03-01-12-00-01/interference.json',
-        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json',
+        'gs://firehook-scans/satellite/CP-Satellite-2021-03-15-12-00-01/responses_control.json.gz',
         'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/results.json'
     ]
 
