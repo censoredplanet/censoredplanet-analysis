@@ -216,10 +216,11 @@ class SatelliteFlattener():
                                             random_measurement_id)
     else:
       if filename == SATELLITE_RESPONSES_CONTROL_FILE:
-        yield from self._process_satellite_v2_control(scan,
+        yield from self._process_satellite_v2_control(scan, filepath,
                                                       random_measurement_id)
       else:
-        yield from self._process_satellite_v2(scan, random_measurement_id)
+        yield from self._process_satellite_v2(scan, filepath,
+                                              random_measurement_id)
 
   def _process_satellite_v1(self, date: str, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
@@ -254,6 +255,7 @@ class SatelliteFlattener():
         'received': None,
         'rcode': ['0'] if 'error' not in scan else ['-1'],
         'measurement_id': random_measurement_id,
+        'source': flatten_base.source_from_filename(filepath),
     }
 
     if isinstance(row['error'], dict):
@@ -262,12 +264,13 @@ class SatelliteFlattener():
     received_ips = scan.get('answers')
     yield from _process_received_ips(row, received_ips)
 
-  def _process_satellite_v2(self, scan: Any,
+  def _process_satellite_v2(self, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite v2 data.
 
     Args:
       scan: a loaded json object containing the parsed content of the line
+      filepath: path like "<path>/<filename>.json.gz"
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
@@ -304,7 +307,9 @@ class SatelliteFlattener():
         'received':
             None,
         'measurement_id':
-            random_measurement_id
+            random_measurement_id,
+        'source':
+            flatten_base.source_from_filename(filepath),
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
@@ -354,11 +359,13 @@ class SatelliteFlattener():
     yield https
 
   def _process_satellite_v2_control(
-      self, scan: Any, random_measurement_id: str) -> Iterator[Row]:
+      self, scan: Any, filepath: str,
+      random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite ip control data.
 
       Args:
         scan: a loaded json object containing the parsed content of the line
+        filepath: path like "<path>/<filename>.json.gz"
         random_measurement_id: a hex id identifying this individual measurement
 
       Yields:
@@ -396,7 +403,9 @@ class SatelliteFlattener():
               not scan['passed_control'],
           'rcode': [str(response['rcode']) for response in responses],
           'measurement_id':
-              random_measurement_id
+              random_measurement_id,
+          'source':
+              flatten_base.source_from_filename(filepath),
       }
       errors = [
           response['error']

@@ -26,7 +26,7 @@ class FlattenMeasurementTest(unittest.TestCase):
   def test_flattenmeasurement_hyperquack(self) -> None:
     """Test flattening a hyperquack measurement."""
 
-    filename = 'gs://firehook-scans/echo/CP_Quack-exho-2019-10-16-01-01-17/results.json'
+    filename = 'gs://firehook-scans/echo/CP_Quack-echo-2019-10-16-01-01-17/results.json'
 
     line = """
     {
@@ -57,7 +57,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         'ip': '146.112.62.39',
         'is_control': False,
         'measurement_id': '',
-        'source': 'CP_Quack-exho-2019-10-16-01-01-17',
+        'source': 'CP_Quack-echo-2019-10-16-01-01-17',
         'start_time': '2020-11-14T07:54:49.246304766-05:00',
         'stateful_block': False,
         'success': True
@@ -103,7 +103,8 @@ class FlattenMeasurementTest(unittest.TestCase):
             'matches_control': 'ip http cert asnum asname'
         },
         'rcode': ['0'],
-        'measurement_id': ''
+        'measurement_id': '',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }
 
     flattener = flatten.FlattenMeasurement()

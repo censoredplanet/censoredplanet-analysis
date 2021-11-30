@@ -99,7 +99,8 @@ class SatelliteTest(unittest.TestCase):
               {'ip': '13.249.134.74', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
               {'ip': '13.249.134.89', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
           ],
-          'date': '2020-09-02'
+          'date': '2020-09-02',
+          'source': 'CP_Satellite-2020-09-02-12-00-01'
         },
         {
           'ip': '1.1.1.3',
@@ -116,7 +117,8 @@ class SatelliteTest(unittest.TestCase):
           'received': [
               {'ip': '192.124.249.107', 'matches_control': 'ip'}
           ],
-          'date': '2020-09-02'
+          'date': '2020-09-02',
+          'source': 'CP_Satellite-2020-09-02-12-00-01'
         }
     ]
     # yapf: enable
@@ -150,9 +152,9 @@ class SatelliteTest(unittest.TestCase):
       ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name":"ns1327.ztomy.com.","vp":"12.5.76.236"}"""),
       ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name": "rec1pubns2.ultradns.net.", "vp": "64.6.65.6"}"""),
     ]
+    # yapf: enable
 
-    expected = [
-      {
+    expected = [{
         'ip': '185.228.169.37',
         'is_control_ip': False,
         'country': 'IE',
@@ -164,15 +166,26 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'controls_failed': False,
-        'received': [
-            {'ip': '198.35.26.96', 'asname': 'WIKIMEDIA','asnum': 14907,'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10','http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca', 'matches_control': 'cert asnum asname'},
-        ],
+        'received': [{
+            'ip':
+                '198.35.26.96',
+            'asname':
+                'WIKIMEDIA',
+            'asnum':
+                14907,
+            'cert':
+                '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
+            'http':
+                '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
+            'matches_control':
+                'cert asnum asname'
+        },],
         'rcode': ['0', '0', '0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00'
-      },
-      {
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01'
+    }, {
         'ip': '156.154.71.37',
         'is_control_ip': False,
         'country': 'US',
@@ -184,15 +197,16 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
-        'received': [
-            {'ip': '15.126.193.233', 'matches_control': ''},
-        ],
+        'received': [{
+            'ip': '15.126.193.233',
+            'matches_control': ''
+        },],
         'rcode': ['0', '0', '0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00'
-      },
-      {
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01'
+    }, {
         'ip': '87.119.233.243',
         'is_control_ip': False,
         'country': 'RU',
@@ -208,9 +222,9 @@ class SatelliteTest(unittest.TestCase):
         'rcode': [],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:01.62448452-04:00',
-        'end_time': '2021-04-18T14:49:03.624563629-04:00'
-      },
-      {
+        'end_time': '2021-04-18T14:49:03.624563629-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01'
+    }, {
         'ip': '12.5.76.236',
         'is_control_ip': False,
         'country': 'US',
@@ -226,9 +240,9 @@ class SatelliteTest(unittest.TestCase):
         'rcode': ['2'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:07.712972288-04:00',
-        'end_time': '2021-04-18T14:49:07.749265765-04:00'
-      },
-      {
+        'end_time': '2021-04-18T14:49:07.749265765-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01'
+    }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
         'name': 'rec1pubns2.ultradns.net.',
@@ -240,15 +254,15 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'has_type_a': True,
-        'received': [
-            {'ip': '178.18.22.152'}
-        ],
+        'received': [{
+            'ip': '178.18.22.152'
+        }],
         'rcode': ['0', '0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:57.561175746-04:00',
-        'end_time': '2021-04-18T14:51:57.61294601-04:00'
-      },
-      {
+        'end_time': '2021-04-18T14:51:57.61294601-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01'
+    }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
         'name': 'rec1pubns2.ultradns.net.',
@@ -260,16 +274,15 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'has_type_a': True,
-        'received': [
-            {'ip': '204.187.13.189'}
-        ],
+        'received': [{
+            'ip': '204.187.13.189'
+        }],
         'rcode': ['0', '-1', '0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:45.836310062-04:00',
-        'end_time': '2021-04-18T14:51:48.162724942-04:00'
-      }
-    ]
-    # yapf: enable
+        'end_time': '2021-04-18T14:51:48.162724942-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01'
+    }]
 
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
