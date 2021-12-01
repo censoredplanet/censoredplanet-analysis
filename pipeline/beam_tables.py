@@ -235,20 +235,23 @@ def _between_dates(filename: str,
   return True
 
 
-def _filename_matches(filename: str, allowed_filenames: List[str]) -> bool:
-  """Find if a filename matches a list of filenames.
+def _filename_matches(filepath: str, allowed_filenames: List[str]) -> bool:
+  """Find if a filepath matches a list of filenames.
 
   Args:
-    filename, zipped or unzipped ex: results.js, results.json.gz
+    filepath, zipped or unzipped ex: path/results.js, path/results.json.gz
     allowed_filenames: List of filenames, all unzipped
       ex: [resolvers.json, blockpages.json]
 
   Returns:
-    boolean, whether the filename matches one of the list.
+    boolean, whether the filepath matches one of the list.
     Zipped matches to unzipped names count.
   """
+  filename = pathlib.PurePosixPath(filepath).name
+
   if '.gz' in pathlib.PurePosixPath(filename).suffixes:
     filename = pathlib.PurePosixPath(filename).stem
+
   return filename in allowed_filenames
 
 
@@ -393,14 +396,14 @@ class ScanDataBeamPipelineRunner():
     files_regex = f'{self.bucket}{scan_type}/**/*'
     file_metadata = [m.metadata_list for m in gcs.match([files_regex])][0]
 
-    filenames = [metadata.path for metadata in file_metadata]
+    filepaths = [metadata.path for metadata in file_metadata]
     file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
 
     filtered_filenames = [
-        filename for (filename, file_size) in zip(filenames, file_sizes)
-        if (_between_dates(filename, start_date, end_date) and
-            _filename_matches(filename, files_to_load) and
-            flatten_base.source_from_filename(filename) not in existing_sources
+        filepath for (filepath, file_size) in zip(filepaths, file_sizes)
+        if (_between_dates(filepath, start_date, end_date) and
+            _filename_matches(filepath, files_to_load) and
+            flatten_base.source_from_filename(filepath) not in existing_sources
             and file_size > EMPTY_GZIPPED_FILE_SIZE)
     ]
 
