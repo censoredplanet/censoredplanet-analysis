@@ -6,7 +6,6 @@ import os
 from typing import Optional, Dict, List, Any, Union
 
 from pipeline.metadata.blockpage import BlockpageMatcher
-from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # Custom Type
 # All or part of a scan row to be written to bigquery
@@ -84,13 +83,6 @@ def _reconstruct_http_response(row: Row) -> str:
     full_response += header + '\r\n'
   full_response += '\r\n' + row['received_body']
   return full_response
-
-
-def get_category(category_matcher: DomainCategoryMatcher, domain: str,
-                 is_control: bool) -> Optional[str]:
-  if is_control:
-    return "Control"
-  return category_matcher.match_url(domain)
 
 
 def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,

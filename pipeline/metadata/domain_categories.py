@@ -66,19 +66,25 @@ def _load_categories(filepath: str) -> Dict[str, str]:
 
 
 class DomainCategoryMatcher:
-  """Matcher to find categories for domains."""
+  """Matcher to find categories for urls."""
 
   def __init__(self) -> None:
     self.categories = _load_categories(DOMAIN_CATEGORIES)
 
-  def match_url(self, url: str) -> Optional[str]:
+  def _match_url(self, url: str) -> Optional[str]:
+    domain = urlparse("http://" + url).netloc
+    return self.categories.get(domain, None)
+
+  def get_category(self, url: str, is_control: bool) -> Optional[str]:
     """Return the category for a url if known.
 
     Args:
       url: string of the form
        "www.google.com", "1.1.1.1", or "test.com/path"
+      is_control: is this url a control url for the test?
 
-    Returns: a string category like "Online Dating" or None
+    Returns: a string category like "Online Dating", "Control" or None
     """
-    domain = urlparse("http://" + url).netloc
-    return self.categories.get(domain, None)
+    if is_control:
+      return "Control"
+    return self._match_url(url)

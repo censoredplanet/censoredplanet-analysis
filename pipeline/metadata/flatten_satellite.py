@@ -245,7 +245,7 @@ class SatelliteFlattener():
     row = {
         'domain': scan['query'],
         'is_control': False,  # v1 doesn't have domain controls
-        'category': self.category_matcher.match_url(scan['query']),
+        'category': self.category_matcher.get_category(scan['query'], False),
         'ip': scan.get('resolver', scan.get('ip')),
         'is_control_ip': filename == SATELLITE_ANSWERS_CONTROL_FILE,
         'date': date,
@@ -284,8 +284,8 @@ class SatelliteFlattener():
         'is_control':
             is_control_domain,
         'category':
-            flatten_base.get_category(self.category_matcher, scan['test_url'],
-                                      is_control_domain),
+            self.category_matcher.get_category(scan['test_url'],
+                                               is_control_domain),
         'ip':
             scan['vp'],
         'is_control_ip':
@@ -383,8 +383,8 @@ class SatelliteFlattener():
           'is_control':
               is_control_domain,
           'category':
-              flatten_base.get_category(self.category_matcher, scan['test_url'],
-                                        is_control_domain),
+              self.category_matcher.get_category(scan['test_url'],
+                                                 is_control_domain),
           'ip':
               scan['vp'],
           'is_control_ip':
