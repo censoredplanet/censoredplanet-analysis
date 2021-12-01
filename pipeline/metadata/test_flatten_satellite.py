@@ -75,7 +75,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': 'ip http cert asnum asname'
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'asana.com',
         'is_control': False,
@@ -91,7 +92,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': 'ip http cert asnum asname'
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'asana.com',
         'is_control': False,
@@ -107,7 +109,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': 'ip http cert asnum asname'
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'asana.com',
         'is_control': False,
@@ -123,7 +126,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': 'ip cert asnum asname'
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'www.ecequality.org',
         'is_control': False,
@@ -139,7 +143,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': ''
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'www.sportsinteraction.com',
         'is_control': False,
@@ -152,7 +157,8 @@ class FlattenSatelliteTest(unittest.TestCase):
         'success': False,
         'received': None,
         'rcode': ['-1'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
         'domain': 'www.usacasino.com',
         'is_control': False,
@@ -167,7 +173,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'ip': '217.19.248.132'
         },
         'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
     }]
 
     flattener = get_satellite_flattener()
@@ -321,7 +328,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': ''
         },
         'rcode': ["0", "0", "0"],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2021-03-01-12-00-01'
     }, {
         'domain': 'abs-cbn.com',
         'is_control': False,
@@ -341,7 +349,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control': ''
         },
         'rcode': ["0", "0", "0"],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP_Satellite-2021-03-01-12-00-01'
     }, {
         'domain': 'login.live.com',
         'is_control': False,
@@ -360,6 +369,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         },
         'rcode': ['0', '0', '0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
     }, {
         'domain': 'login.live.com',
@@ -379,6 +389,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         },
         'rcode': ['0', '0', '0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
     }, {
         'domain': 'login.live.com',
@@ -398,6 +409,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         },
         'rcode': ['0', '0', '0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
     }, {
         'domain': '03.ru',
@@ -439,6 +451,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             'exclude_reason': '',
         },
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-09-16-12-00-01',
         'has_type_a': True
     }]
 
@@ -672,6 +685,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'ip': '216.238.19.1',
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': ['0'],
         'received': [{
             'asname':
@@ -712,6 +726,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'ip': '5.39.25.152',
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': ['5', '5', '5'],
         'received': None,
         'success': True,
@@ -746,6 +761,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'ip': '62.80.182.26',
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': ['-1', '-1', '-1', '-1', '-1', '-1'],
         'received': None,
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
