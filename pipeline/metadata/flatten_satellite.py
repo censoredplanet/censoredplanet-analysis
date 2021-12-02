@@ -139,11 +139,15 @@ def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
   responses = scan.get('response', [])
   row['controls_failed'] = not scan['passed_liveness']
   row['rcode'] = [str(response['rcode']) for response in responses]
-  row['confidence'] = scan.get('confidence')
-  row['verify'] = {
-      'excluded': scan.get('excluded'),
-      'exclude_reason': ' '.join(scan.get('exclude_reason', []))
-  }
+
+  row['average_confidence'] = scan.get('confidence')['average']
+  row['matches_confidence'] = scan.get('confidence')['matches']
+  row['untagged_controls'] = scan.get('confidence')['untagged_controls']
+  row['untagged_response'] = scan.get('confidence')['untagged_response']
+
+  row['excluded'] = scan.get('excluded', False)
+  row['exclude_reason'] = ' '.join(scan.get('exclude_reason', []))
+
   errors = [
       response['error']
       for response in responses
