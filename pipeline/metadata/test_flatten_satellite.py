@@ -428,16 +428,12 @@ class FlattenSatelliteTest(unittest.TestCase):
                 'ip http cert asnum asname'
         }],
         'rcode': ['0'],
-        'confidence': {
-            'average': 100,
-            'matches': [100],
-            'untagged_controls': False,
-            'untagged_response': False
-        },
-        'verify': {
-            'excluded': False,
-            'exclude_reason': '',
-        },
+        'average_confidence': 100,
+        'matches_confidence': [100],
+        'untagged_controls': False,
+        'untagged_response': False,
+        'excluded': False,
+        'exclude_reason': '',
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'has_type_a': True
     }]
@@ -654,12 +650,10 @@ class FlattenSatelliteTest(unittest.TestCase):
     expected = [{
         'anomaly': False,
         'category': 'E-commerce',
-        'confidence': {
-            'average': 100,
-            'matches': [100],
-            'untagged_controls': False,
-            'untagged_response': False
-        },
+        'average_confidence': 100,
+        'matches_confidence': [100],
+        'untagged_controls': False,
+        'untagged_response': False,
         'controls_failed': False,
         'country': 'US',
         'date': '2021-10-20',
@@ -688,19 +682,15 @@ class FlattenSatelliteTest(unittest.TestCase):
                 'ip http cert asnum asname'
         }],
         'success': True,
-        'verify': {
-            'exclude_reason': '',
-            'excluded': False
-        },
+        'exclude_reason': '',
+        'excluded': False
     }, {
         'anomaly': False,
         'category': 'Provocative Attire',
-        'confidence': {
-            'average': 0,
-            'matches': None,
-            'untagged_controls': False,
-            'untagged_response': False
-        },
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
         'controls_failed': True,
         'country': 'FR',
         'date': '2021-10-20',
@@ -715,19 +705,15 @@ class FlattenSatelliteTest(unittest.TestCase):
         'rcode': ['5', '5', '5'],
         'received': None,
         'success': True,
-        'verify': {
-            'exclude_reason': '',
-            'excluded': False
-        }
+        'exclude_reason': '',
+        'excluded': False
     }, {
         'anomaly': False,
         'category': 'E-commerce',
-        'confidence': {
-            'average': 0,
-            'matches': None,
-            'untagged_controls': False,
-            'untagged_response': False
-        },
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
         'controls_failed': True,
         'country': 'UA',
         'date': '2021-10-20',
@@ -750,10 +736,8 @@ class FlattenSatelliteTest(unittest.TestCase):
         'received': None,
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
-        'verify': {
-            'exclude_reason': '',
-            'excluded': False
-        }
+        'exclude_reason': '',
+        'excluded': False
     }]
 
     flattener = get_satellite_flattener()

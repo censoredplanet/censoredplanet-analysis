@@ -366,29 +366,18 @@ class SatelliteTest(unittest.TestCase):
     ]
 
     expected = [
-      {
-        'average': 0,
-        'matches': [0],
-        'untagged_controls': False,
-        'untagged_response': True
-      },
-      {
-        'average': 100,
-        'matches': [100, 100, 100, 100],
-        'untagged_controls': False,
-        'untagged_response': False
-      },
-      {
-        'average': 62.5,
-        'matches': [0, 50, 100, 100],
-        'untagged_controls': False,
-        'untagged_response': False
-      }
+      (0, [0], False, True),
+      (100, [100, 100, 100, 100], False, False),
+      (62.5, [0, 50, 100, 100], False, False)
     ]
     # yapf: enable
-    result = [
-        satellite._calculate_confidence(scan, 1)['confidence'] for scan in scans
-    ]
+
+    result = []
+    for scan in scans:
+      scan = satellite._calculate_confidence(scan, 1)
+      result.append((scan['average_confidence'], scan['matches_confidence'],
+                     scan['untagged_controls'], scan['untagged_response']))
+
     self.assertListEqual(result, expected)
 
   def test_verify(self) -> None:
@@ -453,8 +442,7 @@ class SatelliteTest(unittest.TestCase):
     result = []
     for scan in scans:
       scan = satellite._verify(scan)
-      result.append(
-          (scan['verify']['excluded'], scan['verify']['exclude_reason']))
+      result.append((scan['excluded'], scan['exclude_reason']))
 
     self.assertListEqual(result, expected)
 

@@ -31,16 +31,12 @@ SATELLITE_BIGQUERY_SCHEMA = {
         'matches_control': ('string', 'nullable')
     }),
     'rcode': ('string', 'repeated'),
-    'confidence': ('record', 'nullable', {
-        'average': ('float', 'nullable'),
-        'matches': ('float', 'repeated'),
-        'untagged_controls': ('boolean', 'nullable'),
-        'untagged_response': ('boolean', 'nullable'),
-    }),
-    'verify': ('record', 'nullable', {
-        'excluded': ('boolean', 'nullable'),
-        'exclude_reason': ('string', 'nullable'),
-    }),
+    'average_confidence': ('float', 'nullable'),
+    'matches_confidence': ('float', 'repeated'),
+    'untagged_controls': ('boolean', 'nullable'),
+    'untagged_response': ('boolean', 'nullable'),
+    'excluded': ('boolean', 'nullable'),
+    'exclude_reason': ('string', 'nullable'),
     'has_type_a': ('boolean', 'nullable')
 }
 
@@ -535,18 +531,17 @@ def _calculate_confidence(scan: Dict[str, Any],
       control_tags: dict containing control tags for the test domain
 
     Returns:
-      scan dict with new 'confidence' record containing:
-        'average': average percentage of tags that match control queries
-        'matches': array of percentage match per answer IP
+      scan dict with new records:
+        'average_confidence':
+          average percentage of tags that match control queries
+        'matches_confidence': array of percentage match per answer IP
         'untagged_controls': True if all control IPs have no tags
         'untagged_response': True if all answer IPs have no tags
   """
-  confidence: Dict[str, Any] = {
-      'average': 0,
-      'matches': [],
-      'untagged_controls': num_control_tags == 0,
-      'untagged_response': True
-  }
+  scan['average_confidence'] = 0
+  scan['matches_confidence'] = []
+  scan['untagged_controls'] = num_control_tags == 0
+  scan['untagged_response'] = True
 
   for answer in scan['received'] or []:
     # check tags for each answer IP
@@ -561,9 +556,9 @@ def _calculate_confidence(scan: Dict[str, Any],
         if tag in matches_control:
           matching_tags += 1
 
-    if confidence['untagged_response'] and total_tags > 0:
+    if scan['untagged_response'] and total_tags > 0:
       # at least one answer IP has tags
-      confidence['untagged_response'] = False
+      scan['untagged_response'] = False
 
     # calculate percentage of matching tags
     if 'ip' in matches_control:
@@ -574,14 +569,13 @@ def _calculate_confidence(scan: Dict[str, Any],
         ip_match = 0.0
       else:
         ip_match = matching_tags * 100 / total_tags
-    confidence['matches'].append(ip_match)
+    scan['matches_confidence'].append(ip_match)
 
-  if len(confidence['matches']) > 0:
-    confidence['average'] = sum(confidence['matches']) / len(
-        confidence['matches'])
-  scan['confidence'] = confidence
+  if len(scan['matches_confidence']) > 0:
+    scan['average_confidence'] = sum(scan['matches_confidence']) / len(
+        scan['matches_confidence'])
   # Sanity check for untagged responses: do not claim interference
-  if confidence['untagged_response'] or confidence['untagged_controls']:
+  if scan['untagged_response'] or scan['untagged_controls']:
     scan['anomaly'] = False
   return scan
 
@@ -593,31 +587,30 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
       scan: dict containing measurement data
 
     Returns:
-      scan dict with new 'verify' record containing:
+      scan dict with new records:
         'excluded': bool, equals true if interference is a false positive
         'exclude_reason': string, reason(s) for false positive
   """
-  scan['verify'] = {
-      'excluded': None,
-      'exclude_reason': None,
-  }
+  scan['excluded'] = None
+  scan['exclude_reason'] = None
+
   if scan['anomaly']:
-    scan['verify']['excluded'] = False
+    scan['excluded'] = False
     reasons = []
     # Check received IPs for false positive reasons
     for received in scan['received']:
       asname = received.get('asname')
       if asname and CDN_REGEX.match(asname):
         # CDN IPs
-        scan['verify']['excluded'] = True
+        scan['excluded'] = True
         reasons.append('is_CDN')
       unique_domains = flatten_satellite.INTERFERENCE_IPDOMAIN.get(
           received['ip'])
       if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
         # IPs that appear <= threshold times across all interference
-        scan['verify']['excluded'] = True
+        scan['excluded'] = True
         reasons.append('domain_below_threshold')
-    scan['verify']['exclude_reason'] = ' '.join(reasons)
+    scan['exclude_reason'] = ' '.join(reasons)
   return scan
 
 
