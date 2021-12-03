@@ -18,8 +18,8 @@ from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
 # Additional bigquery fields for the satellite data
-# These are in addition to the fields in beam_tables.SCAN_BIGQUERY_SCHEMA
-SATELLITE_BIGQUERY_SCHEMA = {
+# These are in addition to the fields in beam_tables.BASE_BIGQUERY_SCHEMA
+ADDITIONAL_SATELLITE_BIGQUERY_SCHEMA = {
     'name': ('string', 'nullable'),
     'is_control_ip': ('boolean', 'nullable'),
     'received': ('record', 'repeated', {

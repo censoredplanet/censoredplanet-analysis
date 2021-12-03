@@ -42,6 +42,24 @@ BASE_TABLE_NAME = 'scan'
 # Prod data goes in the `firehook-censoredplanet:base' dataset
 PROD_DATASET_NAME = 'base'
 
+# Mapping of each scan type to the zone to run its pipeline in.
+# This adds more parallelization when running all pipelines.
+SCAN_TYPES_TO_ZONES = {
+    'https': 'us-east1',  # https has the most data, so it gets the best zone.
+    'http': 'us-east4',
+    'echo': 'us-west1',
+    'discard': 'us-west2',
+    'satellite': 'us-central1'  # us-central1 has 160 shuffle slots by default
+}
+
+ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
+
+# Data files for the non-Satellite pipelines
+SCAN_FILES = ['results.json']
+
+# An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
+EMPTY_GZIPPED_FILE_SIZE = 33
+
 # key: (type, mode)
 BASE_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -74,23 +92,22 @@ BASE_BIGQUERY_SCHEMA = {
     'as_traffic': ('integer', 'nullable'),
 """
 
-# Mapping of each scan type to the zone to run its pipeline in.
-# This adds more parallelization when running all pipelines.
-SCAN_TYPES_TO_ZONES = {
-    'https': 'us-east1',  # https has the most data, so it gets the best zone.
-    'http': 'us-east4',
-    'echo': 'us-west1',
-    'discard': 'us-west2',
-    'satellite': 'us-central1'  # us-central1 has 160 shuffle slots by default
-}
 
-ALL_SCAN_TYPES = SCAN_TYPES_TO_ZONES.keys()
+def _add_schemas(schema_a: Dict[str, Any],
+                 schema_b: Dict[str, Any]) -> Dict[str, Any]:
+  """Add two bigquery schemas together."""
+  full_schema: Dict[str, Any] = {}
+  full_schema.update(schema_a)
+  full_schema.update(schema_b)
+  return full_schema
 
-# Data files for the non-Satellite pipelines
-SCAN_FILES = ['results.json']
 
-# An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
-EMPTY_GZIPPED_FILE_SIZE = 33
+HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
+    BASE_BIGQUERY_SCHEMA,
+    flatten_hyperquack.ADDITIONAL_HYPERQUACK_BIGQUERY_SCHEMA)
+
+SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
+    BASE_BIGQUERY_SCHEMA, satellite.ADDITIONAL_SATELLITE_BIGQUERY_SCHEMA)
 
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
@@ -106,19 +123,9 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
     return satellite.BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == satellite.SCAN_TYPE_SATELLITE:
-    return add_schemas(BASE_BIGQUERY_SCHEMA,
-                       satellite.SATELLITE_BIGQUERY_SCHEMA)
+    return SATELLITE_BIGQUERY_SCHEMA
   # Otherwise Hyperquack
-  return add_schemas(BASE_BIGQUERY_SCHEMA,
-                     flatten_hyperquack.HYPERQUACK_BIGQUERY_SCHEMA)
-
-
-def add_schemas(schema_a: Dict[str, Any],
-                schema_b: Dict[str, Any]) -> Dict[str, Any]:
-  full_schema: Dict[str, Any] = {}
-  full_schema.update(schema_a)
-  full_schema.update(schema_b)
-  return full_schema
+  return HYPERQUACK_BIGQUERY_SCHEMA
 
 
 def _get_beam_bigquery_schema(

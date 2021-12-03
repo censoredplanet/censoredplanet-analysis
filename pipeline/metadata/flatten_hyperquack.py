@@ -14,7 +14,9 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 # echo/discard domain and url content
 SENT_PATTERN = "GET (.*) HTTP/1.1\r\nHost: (.*)\r\n"
 
-HYPERQUACK_BIGQUERY_SCHEMA = {
+# Additional bigquery fields for the satellite data
+# These are in addition to the fields in beam_tables.BASE_BIGQUERY_SCHEMA
+ADDITIONAL_HYPERQUACK_BIGQUERY_SCHEMA = {
     'blockpage': ('boolean', 'nullable'),
     'page_signature': ('string', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
