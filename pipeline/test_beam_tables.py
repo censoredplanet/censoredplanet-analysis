@@ -25,6 +25,7 @@ import apache_beam.testing.util as beam_test_util
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import satellite
+from pipeline.metadata import flatten_hyperquack
 
 
 class PipelineMainTest(unittest.TestCase):
@@ -32,18 +33,24 @@ class PipelineMainTest(unittest.TestCase):
 
   # pylint: disable=protected-access
 
-  def test_get_bigquery_schema(self) -> None:
+  def test_get_bigquery_schema_hyperquack(self) -> None:
     """Test getting the right bigquery schema for data types."""
     echo_schema = beam_tables._get_bigquery_schema('echo')
-    self.assertEqual(echo_schema, beam_tables.SCAN_BIGQUERY_SCHEMA)
+    all_hyperquack_top_level_columns = (
+        list(beam_tables.BASE_BIGQUERY_SCHEMA.keys()) +
+        list(flatten_hyperquack.HYPERQUACK_BIGQUERY_SCHEMA.keys()))
+    self.assertListEqual(
+        list(echo_schema.keys()), all_hyperquack_top_level_columns)
 
+  def test_get_bigquery_schema_satellite(self) -> None:
     satellite_schema = beam_tables._get_bigquery_schema('satellite')
     all_satellite_top_level_columns = (
-        list(beam_tables.SCAN_BIGQUERY_SCHEMA.keys()) +
+        list(beam_tables.BASE_BIGQUERY_SCHEMA.keys()) +
         list(satellite.SATELLITE_BIGQUERY_SCHEMA.keys()))
     self.assertListEqual(
         list(satellite_schema.keys()), all_satellite_top_level_columns)
 
+  def test_get_bigquery_schema_blockpage(self) -> None:
     blockpage_schema = beam_tables._get_bigquery_schema('blockpage')
     self.assertEqual(blockpage_schema, satellite.BLOCKPAGE_BIGQUERY_SCHEMA)
 

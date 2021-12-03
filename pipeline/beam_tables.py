@@ -31,6 +31,7 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
+from pipeline.metadata import flatten_hyperquack
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -42,7 +43,7 @@ BASE_TABLE_NAME = 'scan'
 PROD_DATASET_NAME = 'base'
 
 # key: (type, mode)
-SCAN_BIGQUERY_SCHEMA = {
+BASE_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
     'domain': ('string', 'nullable'),
     'category': ('string', 'nullable'),
@@ -53,23 +54,10 @@ SCAN_BIGQUERY_SCHEMA = {
     'error': ('string', 'nullable'),
     'anomaly': ('boolean', 'nullable'),
     'success': ('boolean', 'nullable'),
-    'stateful_block': ('boolean', 'nullable'),
     'is_control': ('boolean', 'nullable'),
     'controls_failed': ('boolean', 'nullable'),
     'measurement_id': ('string', 'nullable'),
     'source': ('string', 'nullable'),
-    'blockpage': ('boolean', 'nullable'),
-    'page_signature': ('string', 'nullable'),
-
-    # Column filled in all tables
-    'received_status': ('string', 'nullable'),
-    # Columns filled only in HTTP/HTTPS tables
-    'received_body': ('string', 'nullable'),
-    'received_headers': ('string', 'repeated'),
-    # Columns filled only in HTTPS tables
-    'received_tls_version': ('integer', 'nullable'),
-    'received_tls_cipher_suite': ('integer', 'nullable'),
-    'received_tls_cert': ('string', 'nullable'),
 
     # Columns added from CAIDA data
     'netblock': ('string', 'nullable'),
@@ -113,16 +101,24 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
       'satellite' or 'blockpage'
 
   Returns:
-    A nested Dict with bigquery fields like SCAN_BIGQUERY_SCHEMA.
+    A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
   """
   if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
     return satellite.BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == satellite.SCAN_TYPE_SATELLITE:
-    full_schema: Dict[str, Any] = {}
-    full_schema.update(SCAN_BIGQUERY_SCHEMA)
-    full_schema.update(satellite.SATELLITE_BIGQUERY_SCHEMA)
-    return full_schema
-  return SCAN_BIGQUERY_SCHEMA
+    return add_schemas(BASE_BIGQUERY_SCHEMA,
+                       satellite.SATELLITE_BIGQUERY_SCHEMA)
+  # Otherwise Hyperquack
+  return add_schemas(BASE_BIGQUERY_SCHEMA,
+                     flatten_hyperquack.HYPERQUACK_BIGQUERY_SCHEMA)
+
+
+def add_schemas(schema_a: Dict[str, Any],
+                schema_b: Dict[str, Any]) -> Dict[str, Any]:
+  full_schema: Dict[str, Any] = {}
+  full_schema.update(schema_a)
+  full_schema.update(schema_b)
+  return full_schema
 
 
 def _get_beam_bigquery_schema(

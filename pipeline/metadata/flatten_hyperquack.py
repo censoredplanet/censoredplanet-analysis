@@ -14,6 +14,22 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 # echo/discard domain and url content
 SENT_PATTERN = "GET (.*) HTTP/1.1\r\nHost: (.*)\r\n"
 
+HYPERQUACK_BIGQUERY_SCHEMA = {
+    'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
+}
+
 
 def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
   """Get the url out of a 'sent' field in a measurement.
