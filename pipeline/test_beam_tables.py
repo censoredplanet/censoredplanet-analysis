@@ -30,20 +30,27 @@ from pipeline.metadata import satellite
 class PipelineMainTest(unittest.TestCase):
   """Unit tests for beam pipeline steps."""
 
+  def setUp(self) -> None:
+    self.maxDiff = None  # pylint: disable=invalid-name
+
   # pylint: disable=protected-access
 
-  def test_get_bigquery_schema(self) -> None:
+  def test_get_bigquery_schema_hyperquack(self) -> None:
     """Test getting the right bigquery schema for data types."""
     echo_schema = beam_tables._get_bigquery_schema('echo')
-    self.assertEqual(echo_schema, beam_tables.SCAN_BIGQUERY_SCHEMA)
+    all_hyperquack_top_level_columns = list(
+        beam_tables.HYPERQUACK_BIGQUERY_SCHEMA.keys())
+    self.assertListEqual(
+        list(echo_schema.keys()), all_hyperquack_top_level_columns)
 
+  def test_get_bigquery_schema_satellite(self) -> None:
     satellite_schema = beam_tables._get_bigquery_schema('satellite')
-    all_satellite_top_level_columns = (
-        list(beam_tables.SCAN_BIGQUERY_SCHEMA.keys()) +
-        list(satellite.SATELLITE_BIGQUERY_SCHEMA.keys()))
+    all_satellite_top_level_columns = list(
+        beam_tables.SATELLITE_BIGQUERY_SCHEMA.keys())
     self.assertListEqual(
         list(satellite_schema.keys()), all_satellite_top_level_columns)
 
+  def test_get_bigquery_schema_blockpage(self) -> None:
     blockpage_schema = beam_tables._get_bigquery_schema('blockpage')
     self.assertEqual(blockpage_schema, satellite.BLOCKPAGE_BIGQUERY_SCHEMA)
 
