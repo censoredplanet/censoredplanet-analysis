@@ -10,7 +10,6 @@ import apache_beam.testing.util as beam_test_util
 
 from pipeline.metadata.flatten_base import Row
 from pipeline.metadata import satellite
-from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
 
@@ -410,18 +409,6 @@ class SatelliteTest(unittest.TestCase):
         'date': '2020-09-02'
       },
       {
-        'ip': '114.114.114.110',
-        'country': 'CN',
-        'name': 'name',
-        'domain': 'ar.m.wikipedia.org',
-        'category': 'E-commerce',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'received': [{'ip': '198.35.26.96', 'matches_control': ''}],
-        'date': '2020-09-02'
-      },
-      {
         'ip': '1.1.1.3',
         'country': 'US',
         'name': 'special',
@@ -439,16 +426,9 @@ class SatelliteTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    # mock data for the global interference IP - DOMAIN mapping
-    flatten_satellite.INTERFERENCE_IPDOMAIN = {
-        '104.20.161.134': {'abs-cbn.com', 'xyz.com', 'blah.com'},
-        '198.35.26.96': {'ar.m.wikipedia.org'},
-    }
     expected = [
         # answer IP is returned for multiple domains: likely to be interference
         (False, ''),
-        # answer IP is returned for one domain: false positive
-        (True, 'domain_below_threshold'),
         # answer IPs are CDN: false positive
         (True, 'is_CDN is_CDN'),
     ]
