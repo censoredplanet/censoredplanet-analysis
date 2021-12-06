@@ -24,7 +24,6 @@ import apache_beam.testing.util as beam_test_util
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
-from pipeline.metadata import flatten_hyperquack
 from pipeline.metadata import satellite
 
 
@@ -39,17 +38,15 @@ class PipelineMainTest(unittest.TestCase):
   def test_get_bigquery_schema_hyperquack(self) -> None:
     """Test getting the right bigquery schema for data types."""
     echo_schema = beam_tables._get_bigquery_schema('echo')
-    all_hyperquack_top_level_columns = (
-        list(beam_tables.BASE_BIGQUERY_SCHEMA.keys()) +
-        list(flatten_hyperquack.ADDITIONAL_HYPERQUACK_BIGQUERY_SCHEMA.keys()))
+    all_hyperquack_top_level_columns = list(
+        beam_tables.HYPERQUACK_BIGQUERY_SCHEMA.keys())
     self.assertListEqual(
         list(echo_schema.keys()), all_hyperquack_top_level_columns)
 
   def test_get_bigquery_schema_satellite(self) -> None:
     satellite_schema = beam_tables._get_bigquery_schema('satellite')
-    all_satellite_top_level_columns = (
-        list(beam_tables.BASE_BIGQUERY_SCHEMA.keys()) +
-        list(satellite.ADDITIONAL_SATELLITE_BIGQUERY_SCHEMA.keys()))
+    all_satellite_top_level_columns = list(
+        beam_tables.SATELLITE_BIGQUERY_SCHEMA.keys())
     self.assertListEqual(
         list(satellite_schema.keys()), all_satellite_top_level_columns)
 

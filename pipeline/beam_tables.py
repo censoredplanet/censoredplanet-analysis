@@ -31,7 +31,6 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
-from pipeline.metadata import flatten_hyperquack
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -104,10 +103,43 @@ def _add_schemas(schema_a: Dict[str, Any],
 
 HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
     BASE_BIGQUERY_SCHEMA,
-    flatten_hyperquack.ADDITIONAL_HYPERQUACK_BIGQUERY_SCHEMA)
+    {
+        'blockpage': ('boolean', 'nullable'),
+        'page_signature': ('string', 'nullable'),
+        'stateful_block': ('boolean', 'nullable'),
+
+        # Column filled in all tables
+        'received_status': ('string', 'nullable'),
+        # Columns filled only in HTTP/HTTPS tables
+        'received_body': ('string', 'nullable'),
+        'received_headers': ('string', 'repeated'),
+        # Columns filled only in HTTPS tables
+        'received_tls_version': ('integer', 'nullable'),
+        'received_tls_cipher_suite': ('integer', 'nullable'),
+        'received_tls_cert': ('string', 'nullable'),
+    })
 
 SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA, satellite.ADDITIONAL_SATELLITE_BIGQUERY_SCHEMA)
+    BASE_BIGQUERY_SCHEMA, {
+        'name': ('string', 'nullable'),
+        'is_control_ip': ('boolean', 'nullable'),
+        'received': ('record', 'repeated', {
+            'ip': ('string', 'nullable'),
+            'asnum': ('integer', 'nullable'),
+            'asname': ('string', 'nullable'),
+            'http': ('string', 'nullable'),
+            'cert': ('string', 'nullable'),
+            'matches_control': ('string', 'nullable')
+        }),
+        'rcode': ('string', 'repeated'),
+        'average_confidence': ('float', 'nullable'),
+        'matches_confidence': ('float', 'repeated'),
+        'untagged_controls': ('boolean', 'nullable'),
+        'untagged_response': ('boolean', 'nullable'),
+        'excluded': ('boolean', 'nullable'),
+        'exclude_reason': ('string', 'nullable'),
+        'has_type_a': ('boolean', 'nullable')
+    })
 
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:

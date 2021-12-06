@@ -17,29 +17,6 @@ from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
-# Additional bigquery fields for the satellite data
-# These are in addition to the fields in beam_tables.BASE_BIGQUERY_SCHEMA
-ADDITIONAL_SATELLITE_BIGQUERY_SCHEMA = {
-    'name': ('string', 'nullable'),
-    'is_control_ip': ('boolean', 'nullable'),
-    'received': ('record', 'repeated', {
-        'ip': ('string', 'nullable'),
-        'asnum': ('integer', 'nullable'),
-        'asname': ('string', 'nullable'),
-        'http': ('string', 'nullable'),
-        'cert': ('string', 'nullable'),
-        'matches_control': ('string', 'nullable')
-    }),
-    'rcode': ('string', 'repeated'),
-    'average_confidence': ('float', 'nullable'),
-    'matches_confidence': ('float', 'repeated'),
-    'untagged_controls': ('boolean', 'nullable'),
-    'untagged_response': ('boolean', 'nullable'),
-    'excluded': ('boolean', 'nullable'),
-    'exclude_reason': ('string', 'nullable'),
-    'has_type_a': ('boolean', 'nullable')
-}
-
 BLOCKPAGE_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
     'domain': ('string', 'nullable'),
