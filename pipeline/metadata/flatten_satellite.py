@@ -3,9 +3,10 @@
 from __future__ import absolute_import
 
 import json
+import logging
 import pathlib
 import re
-from typing import Optional, Dict, Any, Iterator
+from typing import Optional, Dict, Any, Iterator, List, Tuple
 import datetime
 
 from pipeline.metadata import flatten_base
@@ -75,111 +76,146 @@ def format_timestamp(timestamp: str) -> str:
   return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
-def _process_received_ips(
-    row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+def _process_received_ips_v1(
+    row: Row, received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
+
   Args:
     row: existing row of satellite data
-    received_ips: data on the response from the resolver (error or ips)
+    received_ips: data on the response from the resolver
+      ex: {<ip>: ["tags"]}
+
   Yields:
-    Rows
+    Row with an additional 'received' array field
   """
-  if not received_ips:
+  if received_ips is None:
+    row['received'] = []
     yield row
     return
 
-  # separate into one answer ip per row for tagging
-  if 'rcode' in received_ips:
-    row['rcode'] = received_ips.pop('rcode', [])
-  if 'error' in received_ips:
-    row['error'] = ' | '.join(received_ips.pop('error', []))
+  # Convert to dict {<ip>: ["tags"]} with no tags
+  if isinstance(received_ips, list):
+    received_dict = {}
+    for ip in received_ips:
+      received_dict[ip] = []
+    received_ips = received_dict
 
-  if not received_ips:
-    yield row
+  all_received = []
+  for (ip, tags) in received_ips.items():
+    received = {'ip': ip}
+    if tags and len(tags) != 0:
+      received['matches_control'] = _append_tags(tags)
+    all_received.append(received)
 
-  for ip in received_ips:
-    row['received'] = {'ip': ip}
-    if isinstance(received_ips, dict):
-      row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
-          [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-    yield row.copy()
+  row['received'] = all_received
+  yield row
 
 
-def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
+def _append_tags(tags: List[str]) -> str:
+  """Return valid received ip tags as a string
+
+  Args:
+    tags: List of tags like ["ip", "http", "cert", "invalid"]
+
+  Returns:
+    string like "ip http cert"
+  """
+  return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
+
+
+def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
+  """Split rcodes into successful and failed.
+
+  Args:
+    rcodes: an array of rcode strings like
+      ex: ["0"], ["2", "-1", "0"], or ["-1", "-1", "-1", "-1"]
+
+  Returns:
+    successful_test_rcode: rcodes that succeeded, this should be ["0"] or []
+    failed_test_rcodes: all failure codes, this should never contain "0"
+  """
+
+  # v2.1 measurements repeat 4 times or until the test is successful
+  if not rcodes:
+    successful_test_rcode = []
+    failed_test_rcodes = []
+  elif rcodes[-1] == "0":
+    successful_test_rcode = [rcodes[-1]]
+    failed_test_rcodes = rcodes[0:-1]
+  else:
+    successful_test_rcode = []
+    failed_test_rcodes = rcodes
+
+  return successful_test_rcode, failed_test_rcodes
+
+
+def _process_satellite_v2p1(row: Row, scan: Any,
+                            filepath: str) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
   Args:
     row: a partially processed row of satellite data
     scan: a loaded json object containing the parsed content of the line
+    filepath: path like "<path>/<filename>.json.gz"
 
   Yields:
     Rows
   """
   row['controls_failed'] = not scan['passed_control']
-  row['rcode'] = []
-  received_ips = scan.get('response')
-  yield from _process_received_ips(row, received_ips)
+  received_ips = scan.get('response').copy()
 
+  if not received_ips:
+    row['received'] = []
+    yield row
+    return
 
-def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
-  """Finish processing a line of Satellite v2.2 data.
+  # separate into one answer ip per row for tagging
+  rcodes = received_ips.pop('rcode', [])
+  errors = received_ips.pop('error', [])
 
-  Args:
-    row: a partially processed row of satellite data
-    scan: a loaded json object containing the parsed content of the line
+  successful_test_rcode, failed_test_rcodes = split_rcodes(rcodes)
 
-  Yields:
-    Rows
-  """
-  responses = scan.get('response', [])
-  row['controls_failed'] = not scan['passed_liveness']
-  row['rcode'] = [str(response['rcode']) for response in responses]
+  if any(rcode == "0" for rcode in failed_test_rcodes):
+    raise Exception(
+        f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {scan}"
+    )
 
-  row['average_confidence'] = scan.get('confidence')['average']
-  row['matches_confidence'] = scan.get('confidence')['matches']
-  row['untagged_controls'] = scan.get('confidence')['untagged_controls']
-  row['untagged_response'] = scan.get('confidence')['untagged_response']
+  if not successful_test_rcode and received_ips:
+    # TODO figure out how to handle this bug case from 2021-05-16
+    # for now drop the measurements
+    logging.warning(
+        f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {scan}"
+    )
+    return
 
-  row['excluded'] = scan.get('excluded', False)
-  row['exclude_reason'] = ' '.join(scan.get('exclude_reason', []))
+  if successful_test_rcode:
+    all_received = []
+    for (ip, tags) in received_ips.items():
+      received = {'ip': ip}
+      if tags:
+        received['matches_control'] = _append_tags(tags)
+      all_received.append(received)
 
-  errors = [
-      response['error']
-      for response in responses
-      if response['error'] and response['error'] != 'null'
-  ]
-  row['error'] = ' | '.join(errors) if errors else None
-  yielded = False
-  has_test_domain = False
-  for response in responses:
-    if response['url'] == row['domain']:
-      has_test_domain = True
-    # Check responses for test domain with valid answers
-    if response['url'] == row['domain'] and (response['rcode'] == 0 and
-                                             response['has_type_a']):
-      row['has_type_a'] = True
-      # Separate into one answer IP per row for tagging
-      row['received'] = []
-      for ip in response['response']:
-        received = {
-            'ip': ip,
-            'http': response['response'][ip].get('http'),
-            'cert': response['response'][ip].get('cert'),
-            'asname': response['response'][ip].get('asname'),
-            'asnum': response['response'][ip].get('asnum'),
-            'matches_control': ''
-        }
-        matched = response['response'][ip].get('matched', [])
-        if matched:
-          received['matches_control'] = ' '.join(
-              [tag for tag in matched if tag in SATELLITE_TAGS])
-        row['received'].append(received)
-      yielded = True
-      yield row.copy()
-    # Do not output rows if there are no trials for the test domain.
-  if not yielded and has_test_domain:
-    # All trials for the test domain in `scan` are errors
-    yield row.copy()
+    success_row = row.copy()
+    success_row['received'] = all_received
+    success_row['rcode'] = successful_test_rcode
+    yield success_row
+
+  for rcode in failed_test_rcodes:
+    failed_row = row.copy()
+    failed_row['rcode'] = [rcode]
+    # -1 rcodes corrospond to the error messages in order.
+    if rcode == "-1":
+      failed_row['error'] = errors.pop() if errors else None
+    yield failed_row
+
+  # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
+  # In that case we add them back in manually
+  for error in errors:
+    error_row = row.copy()
+    error_row['rcode'] = ["-1"]
+    error_row['error'] = error
+    yield error_row
 
 
 class SatelliteFlattener():
@@ -251,7 +287,7 @@ class SatelliteFlattener():
         'error': scan.get('error', None),
         'anomaly': not scan['passed'] if 'passed' in scan else None,
         'success': 'error' not in scan,
-        'received': None,
+        'received': [],
         'rcode': ['0'] if 'error' not in scan else ['-1'],
         'measurement_id': random_measurement_id,
         'source': flatten_base.source_from_filename(filepath),
@@ -261,7 +297,7 @@ class SatelliteFlattener():
       row['error'] = json.dumps(row['error'])
 
     received_ips = scan.get('answers')
-    yield from _process_received_ips(row, received_ips)
+    yield from _process_received_ips_v1(row, received_ips)
 
   def _process_satellite_v2(self, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
@@ -303,8 +339,7 @@ class SatelliteFlattener():
             scan['anomaly'],
         'success':
             not scan['connect_error'],
-        'received':
-            None,
+        'received': [],
         'measurement_id':
             random_measurement_id,
         'source':
@@ -312,9 +347,66 @@ class SatelliteFlattener():
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
-      yield from _process_satellite_v2p1(row, scan)
+      yield from _process_satellite_v2p1(row, scan, filepath)
     else:
-      yield from _process_satellite_v2p2(row, scan)
+      yield from self._process_satellite_v2p2(row, scan)
+
+  def _process_satellite_v2p2(self, row: Row, scan: Any) -> Iterator[Row]:
+    """Finish processing a line of Satellite v2.2 data.
+
+    Args:
+      row: a partially processed row of satellite data
+      scan: a loaded json object containing the parsed content of the line
+
+    Yields:
+      Rows
+    """
+    responses = scan.get('response', [])
+    row['controls_failed'] = not scan['passed_liveness']
+
+    row['average_confidence'] = scan.get('confidence')['average']
+    row['matches_confidence'] = scan.get('confidence')['matches']
+    row['untagged_controls'] = scan.get('confidence')['untagged_controls']
+    row['untagged_response'] = scan.get('confidence')['untagged_response']
+
+    row['excluded'] = scan.get('excluded', False)
+    row['exclude_reason'] = ' '.join(scan.get('exclude_reason', []))
+
+    for response in responses:
+
+      #redefine domain rows to match individual response
+      row['domain'] = response['url']
+      is_control_domain = flatten_base.is_control_url(response['url'])
+      row['is_control'] = is_control_domain
+      row['category'] = self.category_matcher.get_category(
+          response['url'], is_control_domain)
+
+      if response['error'] and response['error'] != 'null':
+        row['error'] = response['error']
+
+      row['rcode'] = [str(response['rcode'])]
+
+      # Check responses for test domain with valid answers
+      if response['url'] == row['domain'] and (response['rcode'] == 0 and
+                                               response['has_type_a']):
+        row['has_type_a'] = True
+
+      all_received = []
+      for ip in response['response']:
+        received = {
+            'ip': ip,
+            'http': response['response'][ip].get('http'),
+            'cert': response['response'][ip].get('cert'),
+            'asname': response['response'][ip].get('asname'),
+            'asnum': response['response'][ip].get('asnum'),
+            'matches_control': ''
+        }
+        matched = response['response'][ip].get('matched', [])
+        if matched:
+          received['matches_control'] = _append_tags(matched)
+        all_received.append(received)
+      row['received'] = all_received
+      yield row.copy()
 
   def _process_satellite_blockpages(self, scan: Any,
                                     filepath: str) -> Iterator[Row]:
@@ -371,54 +463,60 @@ class SatelliteFlattener():
         Rows
     """
     responses = scan.get('response', [])
-    if responses:
-      # An overall satellite v2 measurement
-      # always contains some non-control trial domains
-      is_control_domain = False
+
+    for response in responses:
+      is_control_domain = flatten_base.is_control_url(response['url'])
 
       row = {
           'domain':
-              scan['test_url'],
+              response['url'],
           'is_control':
               is_control_domain,
           'category':
-              self.category_matcher.get_category(scan['test_url'],
+              self.category_matcher.get_category(response['url'],
                                                  is_control_domain),
           'ip':
               scan['vp'],
           'is_control_ip':
               True,
           'date':
-              responses[0]['start_time'][:10],
+              response['start_time'][:10],
           'start_time':
-              format_timestamp(responses[0]['start_time']),
+              format_timestamp(response['start_time']),
           'end_time':
-              format_timestamp(responses[-1]['end_time']),
+              format_timestamp(response['end_time']),
           'anomaly':
               None,
           'success':
               not scan['connect_error'],
           'controls_failed':
               not scan['passed_control'],
-          'rcode': [str(response['rcode']) for response in responses],
+          'rcode': [str(response['rcode'])],
+          'has_type_a':
+              response['has_type_a'],
           'measurement_id':
               random_measurement_id,
           'source':
               flatten_base.source_from_filename(filepath),
       }
-      errors = [
-          response['error']
-          for response in responses
-          if response['error'] and response['error'] != 'null'
-      ]
-      row['error'] = ' | '.join(errors) if errors else None
-      for response in responses:
-        if response['url'] == row['domain']:
-          # Check response for test domain
-          if response['rcode'] == 0 and response['has_type_a']:
-            # Valid answers
-            row['has_type_a'] = True
-            # Separate into one answer IP per row for tagging
-            for ip in response['response']:
-              row['received'] = {'ip': ip}
-              yield row.copy()
+
+      if response['error'] == 'null':
+        error = None
+      else:
+        error = response['error']
+      row['error'] = error
+
+      received_ips = response['response']
+
+      if not received_ips:
+        row['received'] = []
+        yield row
+
+      else:
+        all_received = []
+        for ip in received_ips:
+          received = {'ip': ip}
+          all_received.append(received)
+        row['received'] = all_received
+
+        yield row
