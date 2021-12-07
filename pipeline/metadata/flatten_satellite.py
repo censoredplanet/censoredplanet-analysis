@@ -75,7 +75,32 @@ def format_timestamp(timestamp: str) -> str:
   return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
-def _process_received_ips(
+def _process_received_ips_v1(row: Row,
+                             received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+  """Add received_ip metadata to a Satellite row
+
+  Args:
+    row: existing row of satellite data
+    received_ips: data on the response from the resolver
+      ex: {<ip>: ["tags"]}
+
+  Yields:
+    Row with an additional 'received' array field
+  """
+  if not received_ips:
+    yield row
+
+  all_received = []
+  for (ip, tags) in received_ips.items():
+    approved_tags = [tag for tag in tags if tag in SATELLITE_TAGS]
+    received = {'ip': ip, 'matches_control': approved_tags}
+    all_received.append(received)
+
+  row['received'] = all_received
+  yield row
+
+
+def _process_received_ips_v2p1(
     row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
   Args:
@@ -118,7 +143,7 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
   row['controls_failed'] = not scan['passed_control']
   row['rcode'] = []
   received_ips = scan.get('response')
-  yield from _process_received_ips(row, received_ips)
+  yield from _process_received_ips_v2p1(row, received_ips)
 
 
 def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
@@ -261,7 +286,7 @@ class SatelliteFlattener():
       row['error'] = json.dumps(row['error'])
 
     received_ips = scan.get('answers')
-    yield from _process_received_ips(row, received_ips)
+    yield from _process_received_ips_v1(row, received_ips)
 
   def _process_satellite_v2(self, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
@@ -371,7 +396,10 @@ class SatelliteFlattener():
         Rows
     """
     responses = scan.get('response', [])
-    if responses:
+    if isinstance(responses, dict):
+      responses = [responses]
+
+    for response in responses:
       # An overall satellite v2 measurement
       # always contains some non-control trial domains
       is_control_domain = False
@@ -389,18 +417,19 @@ class SatelliteFlattener():
           'is_control_ip':
               True,
           'date':
-              responses[0]['start_time'][:10],
+              response['start_time'][:10],
           'start_time':
-              format_timestamp(responses[0]['start_time']),
+              format_timestamp(response['start_time']),
           'end_time':
-              format_timestamp(responses[-1]['end_time']),
+              format_timestamp(response['end_time']),
           'anomaly':
               None,
           'success':
               not scan['connect_error'],
           'controls_failed':
               not scan['passed_control'],
-          'rcode': [str(response['rcode']) for response in responses],
+          'rcode':
+              str(response['rcode']),
           'measurement_id':
               random_measurement_id,
           'source':
