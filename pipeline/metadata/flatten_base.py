@@ -18,7 +18,7 @@ Row = Dict[str, Any]
 CONTROL_URLS = [
     'example5718349450314.com',  # echo/discard
     'rtyutgyhefdafioasfjhjhi.com',  # HTTP/S
-    'a.root-servers.net'  # Satellite
+    'a.root-servers.net',  # Satellite
     'www.example.com'  # Satellite
 ]
 
