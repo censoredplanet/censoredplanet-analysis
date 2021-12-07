@@ -2,11 +2,10 @@
 
 from __future__ import absolute_import
 
-from collections import defaultdict
 import json
 import pathlib
 import re
-from typing import Optional, Dict, Any, Iterator, Set
+from typing import Optional, Dict, Any, Iterator
 import datetime
 
 from pipeline.metadata import flatten_base
@@ -15,7 +14,6 @@ from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
-INTERFERENCE_IPDOMAIN: Dict[str, Set[str]] = defaultdict(set)
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
 
@@ -101,9 +99,6 @@ def _process_received_ips(
 
   for ip in received_ips:
     row['received'] = {'ip': ip}
-    if row['anomaly']:
-      # Track domains per IP for interference
-      INTERFERENCE_IPDOMAIN[ip].add(row['domain'])
     if isinstance(received_ips, dict):
       row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
           [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])

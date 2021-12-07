@@ -45,7 +45,6 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-VERIFY_THRESHOLD = 2  # 2 or 3 works best to optimize the FP:TP ratio.
 NUM_DOMAIN_PARTITIONS = 250
 NUM_SATELLITE_INPUT_PARTITIONS = 3
 
@@ -581,12 +580,6 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
         # CDN IPs
         scan['excluded'] = True
         reasons.append('is_CDN')
-      unique_domains = flatten_satellite.INTERFERENCE_IPDOMAIN.get(
-          received['ip'])
-      if unique_domains and len(unique_domains) <= VERIFY_THRESHOLD:
-        # IPs that appear <= threshold times across all interference
-        scan['excluded'] = True
-        reasons.append('domain_below_threshold')
     scan['exclude_reason'] = ' '.join(reasons)
   return scan
 
