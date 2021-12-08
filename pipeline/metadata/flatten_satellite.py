@@ -75,8 +75,8 @@ def format_timestamp(timestamp: str) -> str:
   return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
-def _process_received_ips_v1(row: Row,
-                             received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+def _process_received_ips_v1(
+    row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
 
   Args:
@@ -396,21 +396,17 @@ class SatelliteFlattener():
         Rows
     """
     responses = scan.get('response', [])
-    if isinstance(responses, dict):
-      responses = [responses]
 
     for response in responses:
-      # An overall satellite v2 measurement
-      # always contains some non-control trial domains
-      is_control_domain = False
+      is_control_domain = flatten_base.is_control_url(response['url'])
 
       row = {
           'domain':
-              scan['test_url'],
+              response['url'],
           'is_control':
               is_control_domain,
           'category':
-              self.category_matcher.get_category(scan['test_url'],
+              self.category_matcher.get_category(response['url'],
                                                  is_control_domain),
           'ip':
               scan['vp'],
@@ -428,26 +424,26 @@ class SatelliteFlattener():
               not scan['connect_error'],
           'controls_failed':
               not scan['passed_control'],
-          'rcode':
-              str(response['rcode']),
+          'rcode': [str(response['rcode'])],
+          'has_type_a':
+              response['has_type_a'],
           'measurement_id':
               random_measurement_id,
           'source':
               flatten_base.source_from_filename(filepath),
       }
-      errors = [
-          response['error']
-          for response in responses
-          if response['error'] and response['error'] != 'null'
-      ]
-      row['error'] = ' | '.join(errors) if errors else None
-      for response in responses:
-        if response['url'] == row['domain']:
-          # Check response for test domain
-          if response['rcode'] == 0 and response['has_type_a']:
-            # Valid answers
-            row['has_type_a'] = True
-            # Separate into one answer IP per row for tagging
-            for ip in response['response']:
-              row['received'] = {'ip': ip}
-              yield row.copy()
+
+      if response['error'] == 'null':
+        error = None
+      else:
+        error = response['error']
+      row['error'] = error
+
+      received_ips = response['response']
+      all_received = []
+      for ip in received_ips:
+        received = {'ip': ip}
+        all_received.append(received)
+      row['received'] = all_received
+
+      yield row

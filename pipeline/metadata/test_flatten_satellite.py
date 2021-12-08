@@ -352,9 +352,9 @@ class FlattenSatelliteTest(unittest.TestCase):
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2021-03-01-12-00-01'
     }, {
-        'domain': 'login.live.com',
-        'is_control': False,
-        'category': 'Communication Tools',
+        'domain': 'www.example.com',
+        'is_control': True,
+        'category': 'Control',
         'ip': '8.8.4.4',
         'is_control_ip': True,
         'date': '2021-03-15',
@@ -364,10 +364,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {
-            'ip': '40.126.31.135'
-        },
-        'rcode': ['0', '0', '0'],
+        'received': [{
+            'ip': '93.184.216.34'
+        }],
+        'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
@@ -384,17 +384,25 @@ class FlattenSatelliteTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {
-            'ip': '40.126.31.8'
-        },
-        'rcode': ['0', '0', '0'],
+        'received': [
+            {
+                'ip': '40.126.31.135'
+            },
+            {
+                'ip': '40.126.31.8'
+            },
+            {
+                'ip': '40.126.31.6'
+            },
+        ],
+        'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
     }, {
-        'domain': 'login.live.com',
-        'is_control': False,
-        'category': 'Communication Tools',
+        'domain': 'www.example.com',
+        'is_control': True,
+        'category': 'Control',
         'ip': '8.8.4.4',
         'is_control_ip': True,
         'date': '2021-03-15',
@@ -404,10 +412,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'received': {
-            'ip': '40.126.31.6'
-        },
-        'rcode': ['0', '0', '0'],
+        'received': [{
+            'ip': '93.184.216.34'
+        }],
+        'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
