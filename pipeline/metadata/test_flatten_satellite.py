@@ -70,61 +70,19 @@ class FlattenSatelliteTest(unittest.TestCase):
         'error': None,
         'anomaly': False,
         'success': True,
-        'received': {
+        'received': [{
             'ip': '151.101.1.184',
             'matches_control': 'ip http cert asnum asname'
-        },
-        'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
-    }, {
-        'domain': 'asana.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'is_control_ip': False,
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {
+        }, {
             'ip': '151.101.129.184',
             'matches_control': 'ip http cert asnum asname'
-        },
-        'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
-    }, {
-        'domain': 'asana.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'is_control_ip': False,
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {
+        }, {
             'ip': '151.101.193.184',
             'matches_control': 'ip http cert asnum asname'
-        },
-        'rcode': ['0'],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
-    }, {
-        'domain': 'asana.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'is_control_ip': False,
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': {
+        }, {
             'ip': '151.101.65.184',
             'matches_control': 'ip cert asnum asname'
-        },
+        }],
         'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
@@ -138,10 +96,9 @@ class FlattenSatelliteTest(unittest.TestCase):
         'error': None,
         'anomaly': True,
         'success': True,
-        'received': {
-            'ip': '160.153.136.3',
-            'matches_control': ''
-        },
+        'received': [{
+            'ip': '160.153.136.3'
+        }],
         'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
@@ -169,9 +126,9 @@ class FlattenSatelliteTest(unittest.TestCase):
         'error': None,
         'anomaly': None,
         'success': True,
-        'received': {
+        'received': [{
             'ip': '217.19.248.132'
-        },
+        }],
         'rcode': ['0'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
@@ -324,8 +281,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': {
-            'ip': '104.20.161.135',
-            'matches_control': ''
+            'ip': '104.20.161.135'
         },
         'rcode': ["0", "0", "0"],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
@@ -345,8 +301,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': {
-            'ip': '104.20.161.134',
-            'matches_control': ''
+            'ip': '104.20.161.134'
         },
         'rcode': ["0", "0", "0"],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',

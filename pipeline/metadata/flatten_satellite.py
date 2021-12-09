@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import json
 import pathlib
 import re
-from typing import Optional, Dict, Any, Iterator
+from typing import Optional, Dict, Any, Iterator, List
 import datetime
 
 from pipeline.metadata import flatten_base
@@ -76,7 +76,7 @@ def format_timestamp(timestamp: str) -> str:
 
 
 def _process_received_ips_v1(
-    row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+    row: Row, received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
 
   Args:
@@ -87,21 +87,42 @@ def _process_received_ips_v1(
   Yields:
     Row with an additional 'received' array field
   """
-  if not received_ips:
+  if received_ips is None:
     yield row
+    return
+
+  # Convert to dict {<ip>: ["tags"]} with no tags
+  if isinstance(received_ips, list):
+    received_dict = {}
+    for ip in received_ips:
+      received_dict[ip] = []
+    received_ips = received_dict
 
   all_received = []
   for (ip, tags) in received_ips.items():
-    approved_tags = [tag for tag in tags if tag in SATELLITE_TAGS]
-    received = {'ip': ip, 'matches_control': approved_tags}
+    received = {'ip': ip}
+    if tags and len(tags) != 0:
+      received['matches_control'] = _append_tags(tags)
     all_received.append(received)
 
   row['received'] = all_received
   yield row
 
 
+def _append_tags(tags: List[str]) -> str:
+  """Return valid received ip tags as a string
+
+  Args:
+    tags: List of tags like ["ip", "http", "cert", "invalid"]
+
+  Returns:
+    string like "ip http cert"
+  """
+  return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
+
+
 def _process_received_ips_v2p1(
-    row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+    row: Row, received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
   Args:
     row: existing row of satellite data
@@ -119,14 +140,10 @@ def _process_received_ips_v2p1(
   if 'error' in received_ips:
     row['error'] = ' | '.join(received_ips.pop('error', []))
 
-  if not received_ips:
-    yield row
-
-  for ip in received_ips:
+  for (ip, tags) in received_ips.items():
     row['received'] = {'ip': ip}
-    if isinstance(received_ips, dict):
-      row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
-          [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
+    if tags:
+      row['received']['matches_control'] = _append_tags(tags)
     yield row.copy()
 
 
@@ -196,8 +213,7 @@ def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
         }
         matched = response['response'][ip].get('matched', [])
         if matched:
-          received['matches_control'] = ' '.join(
-              [tag for tag in matched if tag in SATELLITE_TAGS])
+          received['matches_control'] = _append_tags(matched)
         row['received'].append(received)
       yielded = True
       yield row.copy()
