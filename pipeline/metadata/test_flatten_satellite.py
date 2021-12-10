@@ -112,7 +112,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'error': 'no_answer',
         'anomaly': None,
         'success': False,
-        'received': None,
+        'received': [],
         'rcode': ['-1'],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
@@ -280,29 +280,11 @@ class FlattenSatelliteTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
-        'received': {
+        'received': [{
             'ip': '104.20.161.135'
-        },
-        'rcode': ["0", "0", "0"],
-        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
-        'source': 'CP_Satellite-2021-03-01-12-00-01'
-    }, {
-        'domain': 'abs-cbn.com',
-        'is_control': False,
-        'category': 'Culture',
-        'ip': '114.114.114.110',
-        'is_control_ip': False,
-        'country': 'CN',
-        'date': '2021-03-05',
-        'start_time': '2021-03-05T15:32:05.324807502-05:00',
-        'end_time': '2021-03-05T15:32:05.366104911-05:00',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'controls_failed': False,
-        'received': {
+        }, {
             'ip': '104.20.161.134'
-        },
+        }],
         'rcode': ["0", "0", "0"],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2021-03-01-12-00-01'
@@ -432,6 +414,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'gs://firehook-scans/satellite/CP-Satellite-2021-10-20-12-00-01/results.json'
     ]
 
+    # yapf: disable
     interference = [{
         "confidence": {
             "average": 100,
@@ -439,24 +422,15 @@ class FlattenSatelliteTest(unittest.TestCase):
             "untagged_controls": False,
             "untagged_response": False
         },
-        "passed_liveness":
-            True,
-        "connect_error":
-            False,
-        "in_control_group":
-            True,
-        "anomaly":
-            False,
-        "excluded":
-            False,
-        "vp":
-            "216.238.19.1",
-        "test_url":
-            "11st.co.kr",
-        "start_time":
-            "2021-10-20 14:51:41.295287198 -0400 EDT",
-        "end_time":
-            "2021-10-20 14:51:41.397573385 -0400 EDT",
+        "passed_liveness": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "216.238.19.1",
+        "test_url": "11st.co.kr",
+        "start_time": "2021-10-20 14:51:41.295287198 -0400 EDT",
+        "end_time": "2021-10-20 14:51:41.397573385 -0400 EDT",
         "exclude_reason": [],
         "location": {
             "country_name": "United States",
@@ -467,14 +441,10 @@ class FlattenSatelliteTest(unittest.TestCase):
             "has_type_a": True,
             "response": {
                 "113.217.247.90": {
-                    "http":
-                        "db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090",
-                    "cert":
-                        "6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4",
-                    "asnum":
-                        9644,
-                    "asname":
-                        "SKTELECOM-NET-AS SK Telecom",
+                    "http": "db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090",
+                    "cert": "6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4",
+                    "asnum": 9644,
+                    "asname": "SKTELECOM-NET-AS SK Telecom",
                     "matched": ["ip", "http", "cert", "asnum", "asname"]
                 }
             },
@@ -488,24 +458,15 @@ class FlattenSatelliteTest(unittest.TestCase):
             "untagged_controls": False,
             "untagged_response": False
         },
-        "passed_liveness":
-            False,
-        "connect_error":
-            False,
-        "in_control_group":
-            True,
-        "anomaly":
-            False,
-        "excluded":
-            False,
-        "vp":
-            "5.39.25.152",
-        "test_url":
-            "www.chantelle.com",
-        "start_time":
-            "2021-10-20 17:17:27.241422553 -0400 EDT",
-        "end_time":
-            "2021-10-20 17:17:27.535929324 -0400 EDT",
+        "passed_liveness": False,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "5.39.25.152",
+        "test_url": "www.chantelle.com",
+        "start_time": "2021-10-20 17:17:27.241422553 -0400 EDT",
+        "end_time": "2021-10-20 17:17:27.535929324 -0400 EDT",
         "exclude_reason": [],
         "location": {
             "country_name": "France",
@@ -537,91 +498,59 @@ class FlattenSatelliteTest(unittest.TestCase):
             "untagged_controls": False,
             "untagged_response": False
         },
-        "passed_liveness":
-            False,
-        "connect_error":
-            True,
-        "in_control_group":
-            True,
-        "anomaly":
-            False,
-        "excluded":
-            False,
-        "vp":
-            "62.80.182.26",
-        "test_url":
-            "alipay.com",
-        "start_time":
-            "2021-10-20 14:51:45.952255246 -0400 EDT",
-        "end_time":
-            "2021-10-20 14:51:46.865275642 -0400 EDT",
+        "passed_liveness": False,
+        "connect_error": True,
+        "in_control_group": True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "62.80.182.26",
+        "test_url": "alipay.com",
+        "start_time": "2021-10-20 14:51:45.952255246 -0400 EDT",
+        "end_time": "2021-10-20 14:51:46.865275642 -0400 EDT",
         "exclude_reason": [],
         "location": {
             "country_name": "Ukraine",
             "country_code": "UA"
         },
         "response": [{
-            "url":
-                "a.root-servers.net",
-            "has_type_a":
-                False,
+            "url": "a.root-servers.net",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:6280->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:6280->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }, {
-            "url":
-                "alipay.com",
-            "has_type_a":
-                False,
+            "url": "alipay.com",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:61676->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:61676->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }, {
-            "url":
-                "alipay.com",
-            "has_type_a":
-                False,
+            "url": "alipay.com",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:15097->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:15097->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }, {
-            "url":
-                "alipay.com",
-            "has_type_a":
-                False,
+            "url": "alipay.com",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:45072->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:45072->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }, {
-            "url":
-                "alipay.com",
-            "has_type_a":
-                False,
+            "url": "alipay.com",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:36765->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:36765->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }, {
-            "url":
-                "a.root-servers.net",
-            "has_type_a":
-                False,
+            "url": "a.root-servers.net",
+            "has_type_a": False,
             "response": {},
-            "error":
-                "read udp 141.212.123.185:1295->62.80.182.26:53: read: connection refused",
-            "rcode":
-                -1
+            "error": "read udp 141.212.123.185:1295->62.80.182.26:53: read: connection refused",
+            "rcode": -1
         }]
     }]
+
 
     expected = [{
         'anomaly': False,
@@ -645,19 +574,37 @@ class FlattenSatelliteTest(unittest.TestCase):
         'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': ['0'],
         'received': [{
-            'asname':
-                'SKTELECOM-NET-AS SK Telecom',
-            'asnum':
-                9644,
-            'cert':
-                '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
-            'http':
-                'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
-            'ip':
-                '113.217.247.90',
-            'matches_control':
-                'ip http cert asnum asname'
+            'asname': 'SKTELECOM-NET-AS SK Telecom',
+            'asnum': 9644,
+            'cert': '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
+            'http': 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
+            'ip': '113.217.247.90',
+            'matches_control': 'ip http cert asnum asname'
         }],
+        'success': True,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'Control',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'FR',
+        'date': '2021-10-20',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'start_time': '2021-10-20T17:17:27.241422553-04:00',
+        'end_time': '2021-10-20T17:17:27.535929324-04:00',
+        'error': None,
+        'ip': '5.39.25.152',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['5'],
+        'received': [],
         'success': True,
         'exclude_reason': '',
         'excluded': False
@@ -680,9 +627,57 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['5', '5', '5'],
-        'received': None,
+        'rcode': ['5'],
+        'received': [],
         'success': True,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'Control',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'FR',
+        'date': '2021-10-20',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'start_time': '2021-10-20T17:17:27.241422553-04:00',
+        'end_time': '2021-10-20T17:17:27.535929324-04:00',
+        'error': None,
+        'ip': '5.39.25.152',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['5'],
+        'received': [],
+        'success': True,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'Control',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error': 'read udp 141.212.123.185:6280->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['-1'],
+        'received': [],
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
         'exclude_reason': '',
         'excluded': False
     }, {
@@ -698,26 +693,115 @@ class FlattenSatelliteTest(unittest.TestCase):
         'domain': 'alipay.com',
         'is_control': False,
         'end_time': '2021-10-20T14:51:46.865275642-04:00',
-        'error':
-            'read udp 141.212.123.185:6280->62.80.182.26:53: read: connection '
-            'refused | read udp 141.212.123.185:61676->62.80.182.26:53: read: '
-            'connection refused | read udp '
-            '141.212.123.185:15097->62.80.182.26:53: read: connection refused | '
-            'read udp 141.212.123.185:45072->62.80.182.26:53: read: connection '
-            'refused | read udp 141.212.123.185:36765->62.80.182.26:53: read: '
-            'connection refused | read udp '
-            '141.212.123.185:1295->62.80.182.26:53: read: connection refused',
+        'error': 'read udp 141.212.123.185:61676->62.80.182.26:53: read: connection refused',
         'ip': '62.80.182.26',
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1', '-1', '-1', '-1', '-1', '-1'],
-        'received': None,
+        'rcode': ['-1'],
+        'received': [],
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'E-commerce',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'alipay.com',
+        'is_control': False,
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error': 'read udp 141.212.123.185:15097->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['-1'],
+        'received': [],
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'E-commerce',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'alipay.com',
+        'is_control': False,
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error': 'read udp 141.212.123.185:45072->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['-1'],
+        'received': [],
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'E-commerce',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'alipay.com',
+        'is_control': False,
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error': 'read udp 141.212.123.185:36765->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['-1'],
+        'received': [],
+        'start_time': '2021-10-20T14:51:45.952255246-04:00',
+        'success': False,
+        'exclude_reason': '',
+        'excluded': False
+    }, {
+        'anomaly': False,
+        'category': 'Control',
+        'average_confidence': 0,
+        'matches_confidence': None,
+        'untagged_controls': False,
+        'untagged_response': False,
+        'controls_failed': True,
+        'country': 'UA',
+        'date': '2021-10-20',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'end_time': '2021-10-20T14:51:46.865275642-04:00',
+        'error': 'read udp 141.212.123.185:1295->62.80.182.26:53: read: connection refused',
+        'ip': '62.80.182.26',
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'source': 'CP-Satellite-2021-10-20-12-00-01',
+        'rcode': ['-1'],
+        'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
         'exclude_reason': '',
         'excluded': False
     }]
+    # yapf: enable
 
     flattener = get_satellite_flattener()
     results = []

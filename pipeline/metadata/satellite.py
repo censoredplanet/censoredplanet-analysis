@@ -72,8 +72,11 @@ def _get_satellite_date_partition(row: Row, _: int) -> int:
 
 def _make_date_received_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and received ip from a given row dict."""
-  if row['received']:
-    return (row['date'], row['received']['ip'])
+  from pprint import pprint
+  pprint(("making key", row['date'], row))
+
+  if row['received'] is not None and len(row['received']) > 0:
+    return (row['date'], row['received'][0]['ip'])
   return (row['date'], '')
 
 
@@ -232,7 +235,7 @@ def add_received_ip_tags(
   return rows_with_tags
 
 
-def unflatten_rows(
+def unflatten_received_ip_rows(
     rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Unflatten so that each row contains a array of answer IPs
 
@@ -299,7 +302,7 @@ def _add_satellite_tags(
                     'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
-  return unflatten_rows(rows_with_tags)
+  return unflatten_received_ip_rows(rows_with_tags)
 
 
 def post_processing_satellite(
@@ -372,17 +375,18 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     flattened_measurment: list of dicts representing a flattened measurement,
     where each contains an unique answer IP and tags in the 'received' field
     (other fields are the same for each dict).
-    [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.0','tag':'value1'},...},
-     {'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':{'ip':'0.0.0.1','tag':'value2'},...}]
-    For Satellite v2.2, the 'received' field will already contain an array, e.g.
-    [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH',
-      'received':[{'ip':'0.0.0.0','tag':'value1'},{'ip':'0.0.0.1','tag':'value2'}],...}]
+    [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':[{'ip':'0.0.0.1','tag':'value1'},...}],
+     {'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':[{'ip':'0.0.0.2','tag':'value2'},...}],
+     {'ip':'1.1.1.1','domain':'y.com','measurement_id':'HASH','received':[{'ip':'0.0.0.3','tag':'value3'},...}]]
+
 
   Yields:
-    Row with common fields remaining the same, 'measurement_id' removed,
+    Row with common fields remaining the same,
     and 'received' mapped to an array of answer IP dictionaries.
-    {'ip':'1.1.1.1','domain':'x.com','received':[{'ip':'0.0.0.0','tag':'value1'},{'ip':'0.0.0.1','tag':'value2'}],...}
+    {'ip':'1.1.1.1','domain':'x.com','received':[{'ip':'0.0.0.1','tag':'value1'},{'ip':'0.0.0.2','tag':'value2'}],...}
+    {'ip':'1.1.1.1','domain':'y.com','received':[{'ip':'0.0.0.3,'tag':'value3'}],...}
   """
+
   if flattened_measurement:
     # Get common fields and update 'received' with array of all answer IPs
     combined: Row = {'received': []}
@@ -394,12 +398,43 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
         combined['received'] += received
       elif received:
         combined['received'].append(received)
-    combined.pop('measurement_id')
     # Remove extra tag fields from the measurement. These may be added
     # during the tagging step if a vantage point also appears as a response IP.
     for tag in ['asname', 'asnum', 'http', 'cert']:
       combined.pop(tag, None)
     yield combined
+
+
+def flatten_received_ips(row: Row) -> Iterator[Row]:
+  """Flatten a row with multiple received ips into rows with a single ip.
+
+  Args:
+    row element like
+      {
+        "field": "value"
+        "received" [<dict1>, <dict2>]
+      }
+
+  Returns:
+    Rows like
+      {
+        "field": "value"
+        "received" [<dict1>]
+      }
+      {
+        "field": "value"
+        "received" [<dict2>]
+      }
+  """
+  all_received = row['received']
+
+  if len(all_received) == 0:
+    yield row
+    return
+
+  for received in all_received:
+    row['received'] = [received]
+    yield row.copy()
 
 
 def process_satellite_with_tags(
@@ -419,13 +454,19 @@ def process_satellite_with_tags(
   rows = (
       row_lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(Row))
+
+  # PCollection[Row] each with only a single element in the received arrays
+  received_ip_flattened_rows = (
+      rows | 'flatten received ips' >>
+      beam.FlatMap(flatten_received_ips).with_output_types(Row))
+
   # PCollection[Row]
   tag_rows = (
       tag_lines | 'tag rows' >>
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
+  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
 
   return rows_with_metadata
 
