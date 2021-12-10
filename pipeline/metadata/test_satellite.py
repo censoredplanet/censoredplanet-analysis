@@ -60,66 +60,142 @@ class SatelliteTest(unittest.TestCase):
 
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
-    # yapf: disable
+
+    data_filenames = [
+        "CP_Satellite-2020-09-02-12-00-01/interference.json",
+        "CP_Satellite-2020-09-02-12-00-01/interference.json"
+    ]
+
     _data = [
-      ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'signal.org', 'answers': {'13.249.134.38': ['ip', 'http', 'asnum', 'asname'], '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],'13.249.134.74': ['ip', 'http', 'asnum', 'asname'], '13.249.134.89': ['ip', 'http', 'asnum', 'asname']}, 'passed': True}),
-      ("CP_Satellite-2020-09-02-12-00-01/interference.json", {'resolver': '1.1.1.3','query': 'adl.org', 'answers': {'192.124.249.107': ['ip', 'no_tags']}, 'passed': True}),
-    ]
-
-    data = [(filename, json.dumps(d)) for filename, d in _data]
-
-    _tags = [
-        ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", {'name': 'special','resolver': '1.1.1.3'}),
-        ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", {'resolver': '1.1.1.3', 'country': 'United States'}),
-        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af','ip': '13.249.134.38'}),
-        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71','ip': '13.249.134.44'}),
-        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe','ip': '13.249.134.74'}),
-        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", {'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac','ip': '13.249.134.89'})
-    ]
-
-    tags = [(filename, json.dumps(t)) for filename, t in _tags]
-
-    expected = [
         {
-          'ip': '1.1.1.3',
-          'is_control_ip': False,
-          'country': 'US',
-          'name': 'special',
-          'domain': 'signal.org',
-          'is_control': False,
-          'category': 'Communication Tools',
-          'error': None,
-          'anomaly': False,
-          'success': True,
-          'rcode': ['0'],
-          'received': [
-              {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
-              {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
-              {'ip': '13.249.134.74', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
-              {'ip': '13.249.134.89', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
-          ],
-          'date': '2020-09-02',
-          'source': 'CP_Satellite-2020-09-02-12-00-01'
+            'resolver': '1.1.1.3',
+            'query': 'signal.org',
+            'answers': {
+                '13.249.134.38': ['ip', 'http', 'asnum', 'asname'],
+                '13.249.134.44': ['ip', 'http', 'asnum', 'asname'],
+                '13.249.134.74': ['ip', 'http', 'asnum', 'asname'],
+                '13.249.134.89': ['ip', 'http', 'asnum', 'asname']
+            },
+            'passed': True
         },
         {
-          'ip': '1.1.1.3',
-          'is_control_ip': False,
-          'country': 'US',
-          'name': 'special',
-          'domain': 'adl.org',
-          'is_control': False,
-          'category': 'Religion',
-          'error': None,
-          'anomaly': False,
-          'success': True,
-          'rcode': ['0'],
-          'received': [
-              {'ip': '192.124.249.107', 'matches_control': 'ip'}
-          ],
-          'date': '2020-09-02',
-          'source': 'CP_Satellite-2020-09-02-12-00-01'
-        }
+            'resolver': '1.1.1.3',
+            'query': 'adl.org',
+            'answers': {
+                '192.124.249.107': ['ip', 'no_tags']
+            },
+            'passed': True
+        },
     ]
+
+    data = zip(data_filenames, [json.dumps(d) for d in _data])
+
+    tag_filenames = [
+        "CP_Satellite-2020-09-02-12-00-01/resolvers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json"
+    ]
+
+    # yapf: disable
+    _tags = [{
+        'name': 'special',
+        'resolver': '1.1.1.3'
+    }, {
+        'resolver': '1.1.1.3',
+        'country': 'United States'
+    }, {
+        'asname': 'AMAZON-02',
+        'asnum': 16509,
+        'cert': None,
+        'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+        'ip': '13.249.134.38'
+    }, {
+        'asname': 'AMAZON-02',
+        'asnum': 16509,
+        'cert':  None,
+        'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+        'ip': '13.249.134.44'
+    }, {
+        'asname': 'AMAZON-02',
+        'asnum': 16509,
+        'cert': None,
+        'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+        'ip': '13.249.134.74'
+    }, {
+        'asname': 'AMAZON-02',
+        'asnum': 16509,
+        'cert': None,
+        'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+        'ip': '13.249.134.89'
+    }]
+
+    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+
+    expected = [{
+        'ip': '1.1.1.3',
+        'is_control_ip': False,
+        'country': 'US',
+        'name': 'special',
+        'domain': 'signal.org',
+        'is_control': False,
+        'category': 'Communication Tools',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'rcode': ['0'],
+        'received': [{
+            'ip': '13.249.134.38',
+            'asname': 'AMAZON-02',
+            'asnum': 16509,
+            'cert': None,
+            'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+            'matches_control': 'ip http asnum asname'
+        }, {
+            'ip': '13.249.134.44',
+            'asname': 'AMAZON-02',
+            'asnum': 16509,
+            'cert': None,
+            'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+            'matches_control': 'ip http asnum asname'
+        }, {
+            'ip': '13.249.134.74',
+            'asname': 'AMAZON-02',
+            'asnum': 16509,
+            'cert': None,
+            'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+            'matches_control': 'ip http asnum asname'
+        }, {
+            'ip': '13.249.134.89',
+            'asname': 'AMAZON-02',
+            'asnum': 16509,
+            'cert': None,
+            'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+            'matches_control': 'ip http asnum asname'
+        }],
+        'date': '2020-09-02',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
+    }, {
+        'ip': '1.1.1.3',
+        'is_control_ip': False,
+        'country': 'US',
+        'name': 'special',
+        'domain': 'adl.org',
+        'is_control': False,
+        'category': 'Religion',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'rcode': ['0'],
+        'received': [{
+            'ip': '192.124.249.107',
+            'matches_control': 'ip'
+        }],
+        'date': '2020-09-02',
+        'source': 'CP_Satellite-2020-09-02-12-00-01'
+    }]
     # yapf: enable
 
     with TestPipeline() as p:
@@ -131,28 +207,212 @@ class SatelliteTest(unittest.TestCase):
 
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
-    # yapf: disable
-    data = [
-      ("CP_Satellite-2021-03-01-12-00-01/results.json", """{"vp":"185.228.169.37","location":{"country_code":"IE","country_name":"Ireland"},"test_url":"ar.m.wikipedia.org","response":{"198.35.26.96":["cert","asnum","asname"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":false,"confidence":{"average":60,"matches":[60],"untagged_controls":false,"untagged_response":false},"start_time":"2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
-      ("CP_Satellite-2021-03-01-12-00-01/results.json", """{"vp":"156.154.71.37","location":{"country_code":"US","country_name":"United States"},"test_url":"www.usacasino.com","response":{"15.126.193.233":["no_tags"],"rcode":["0","0","0"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":[0],"untagged_controls":false,"untagged_response":true},"start_time":"2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701","end_time":"2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/results.json", """{"vp":"87.119.233.243","location":{"country_name":"Russia","country_code":"RU"},"test_url":"feedly.com","response":{},"passed_control":false,"connect_error":true,"in_control_group":true,"anomaly":false,"confidence":{"average":0,"matches":null,"untagged_controls":false,"untagged_response":false},"start_time":"2021-04-18 14:49:01.62448452 -0400 EDT m=+10140.555964129","end_time":"2021-04-18 14:49:03.624563629 -0400 EDT m=+10142.556043238"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/results.json", """{"vp":"12.5.76.236","location":{"country_name":"United States","country_code":"US"},"test_url":"ultimate-guitar.com","response":{"rcode":["2"]},"passed_control":true,"connect_error":false,"in_control_group":true,"anomaly":true,"confidence":{"average":0,"matches":null,"untagged_controls":false,"untagged_response":false},"start_time":"2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890","end_time":"2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/responses_control.json", """{"vp":"64.6.65.6","test_url":"ultimate-guitar.com","response":[{"url":"a.root-servers.net","has_type_a":true,"response":["198.41.0.4"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:57.561175746 -0400 EDT m=+10316.492655353","end_time":"2021-04-18 14:51:57.587097567 -0400 EDT m=+10316.518577181"},{"url":"ultimate-guitar.com","has_type_a":true,"response":["178.18.22.152"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:57.587109091 -0400 EDT m=+10316.518588694","end_time":"2021-04-18 14:51:57.61294601 -0400 EDT m=+10316.544425613"}],"passed_control":true,"connect_error":false}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/responses_control.json", """{"vp":"64.6.65.6","test_url":"www.awid.org","response":[{"url":"a.root-servers.net","has_type_a":true,"response":["198.41.0.4"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:45.836310062 -0400 EDT m=+10304.767789664","end_time":"2021-04-18 14:51:45.862080031 -0400 EDT m=+10304.793559633"},{"url":"www.awid.org","has_type_a":false,"response":null,"error":"read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout","rcode":-1,"start_time":"2021-04-18 14:51:45.862091022 -0400 EDT m=+10304.793570624","end_time":"2021-04-18 14:51:47.862170832 -0400 EDT m=+10306.793650435"},{"url":"www.awid.org","has_type_a":true,"response":["204.187.13.189"],"error":"null","rcode":0,"start_time":"2021-04-18 14:51:47.862183185 -0400 EDT m=+10306.793662792","end_time":"2021-04-18 14:51:48.162724942 -0400 EDT m=+10307.094204544"}],"passed_control":true,"connect_error":false}""")
+    data_filenames = [
+        "CP_Satellite-2021-03-01-12-00-01/results.json",
+        "CP_Satellite-2021-03-01-12-00-01/results.json",
+        "CP_Satellite-2021-04-18-12-00-01/results.json",
+        "CP_Satellite-2021-04-18-12-00-01/results.json",
+        "CP_Satellite-2021-04-18-12-00-01/responses_control.json",
+        "CP_Satellite-2021-04-18-12-00-01/responses_control.json"
     ]
 
-    tags = [
-      ("CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"IE","country_name":"Ireland"},"vp":"185.228.169.37"}"""),
-      ("CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json", """{"location":{"country_code":"US","country_name":"United States"},"vp":"156.154.71.37"}"""),
-      ("CP_Satellite-2021-03-01-12-00-01/resolvers.json", """{"name":"rdns37b.ultradns.net.","vp":"156.154.71.37"}"""),
-      ("CP_Satellite-2021-03-01-12-00-01/resolvers.json", """{"name":"customfilter37-dns2.cleanbrowsing.org.","vp":"185.228.169.37"}"""),
-      ("CP_Satellite-2021-03-01-12-00-01/tagged_responses.json", """{"asname":"WIKIMEDIA","asnum":14907,"cert":"9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10","http":"7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca","ip":"198.35.26.96"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name":"87-119-233-243.saransk.ru.","vp":"87.119.233.243"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name":"ns1327.ztomy.com.","vp":"12.5.76.236"}"""),
-      ("CP_Satellite-2021-04-18-12-00-01/resolvers.json", """{"name": "rec1pubns2.ultradns.net.", "vp": "64.6.65.6"}"""),
-    ]
+    # yapf: disable
+    _data = [{
+        "vp": "185.228.169.37",
+        "location": {
+            "country_code": "IE",
+            "country_name": "Ireland"
+        },
+        "test_url": "ar.m.wikipedia.org",
+        "response": {
+            "198.35.26.96": ["cert", "asnum", "asname"],
+            "rcode": ["0", "0", "0"]
+        },
+        "passed_control": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": False,
+        "confidence": {
+            "average": 60,
+            "matches": [60],
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "start_time": "2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701",
+        "end_time": "2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"
+    }, {
+        "vp": "156.154.71.37",
+        "location": {
+            "country_code": "US",
+            "country_name": "United States"
+        },
+        "test_url": "www.usacasino.com",
+        "response": {
+            "15.126.193.233": ["no_tags"],
+            "rcode": ["0", "0", "0"]
+        },
+        "passed_control": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": True,
+        "confidence": {
+            "average": 0,
+            "matches": [0],
+            "untagged_controls": False,
+            "untagged_response": True
+        },
+        "start_time": "2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701",
+        "end_time": "2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"
+    }, {
+        "vp": "87.119.233.243",
+        "location": {
+            "country_name": "Russia",
+            "country_code": "RU"
+        },
+        "test_url": "feedly.com",
+        "response": {},
+        "passed_control": False,
+        "connect_error": True,
+        "in_control_group": True,
+        "anomaly": False,
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "start_time": "2021-04-18 14:49:01.62448452 -0400 EDT m=+10140.555964129",
+        "end_time": "2021-04-18 14:49:03.624563629 -0400 EDT m=+10142.556043238"
+    }, {
+        "vp": "12.5.76.236",
+        "location": {
+            "country_name": "United States",
+            "country_code": "US"
+        },
+        "test_url": "ultimate-guitar.com",
+        "response": {
+            "rcode": ["2"]
+        },
+        "passed_control": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": True,
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "start_time": "2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890",
+        "end_time": "2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"
+    }, {
+        "vp": "64.6.65.6",
+        "test_url": "ultimate-guitar.com",
+        "response": [{
+            "url": "a.root-servers.net",
+            "has_type_a": True,
+            "response": ["198.41.0.4"],
+            "error": "null",
+            "rcode": 0,
+            "start_time": "2021-04-18 14:51:57.561175746 -0400 EDT m=+10316.492655353",
+            "end_time": "2021-04-18 14:51:57.587097567 -0400 EDT m=+10316.518577181"
+        }, {
+            "url": "ultimate-guitar.com",
+            "has_type_a": True,
+            "response": ["178.18.22.152"],
+            "error": "null",
+            "rcode": 0,
+            "start_time": "2021-04-18 14:51:57.587109091 -0400 EDT m=+10316.518588694",
+            "end_time": "2021-04-18 14:51:57.61294601 -0400 EDT m=+10316.544425613"
+        }],
+        "passed_control": True,
+        "connect_error": False
+    }, {
+        "vp": "64.6.65.6",
+        "test_url": "www.awid.org",
+        "response": [{
+            "url": "a.root-servers.net",
+            "has_type_a": True,
+            "response": ["198.41.0.4"],
+            "error": "null",
+            "rcode": 0,
+            "start_time": "2021-04-18 14:51:45.836310062 -0400 EDT m=+10304.767789664",
+            "end_time": "2021-04-18 14:51:45.862080031 -0400 EDT m=+10304.793559633"
+        }, {
+            "url": "www.awid.org",
+            "has_type_a": False,
+            "response": None,
+            "error": "read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout",
+            "rcode": -1,
+            "start_time": "2021-04-18 14:51:45.862091022 -0400 EDT m=+10304.793570624",
+            "end_time": "2021-04-18 14:51:47.862170832 -0400 EDT m=+10306.793650435"
+        }, {
+            "url": "www.awid.org",
+            "has_type_a": True,
+            "response": ["204.187.13.189"],
+            "error": "null",
+            "rcode": 0,
+            "start_time": "2021-04-18 14:51:47.862183185 -0400 EDT m=+10306.793662792",
+            "end_time": "2021-04-18 14:51:48.162724942 -0400 EDT m=+10307.094204544"
+        }],
+        "passed_control": True,
+        "connect_error": False
+    }]
     # yapf: enable
 
+    data = zip(data_filenames, [json.dumps(d) for d in _data])
+
+    tag_filenames = [
+        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
+        "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
+        "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
+        "CP_Satellite-2021-04-18-12-00-01/resolvers.json"
+    ]
+
+    # yapf: disable
+    _tags = [{
+        "location": {
+            "country_code": "IE",
+            "country_name": "Ireland"
+        },
+        "vp": "185.228.169.37"
+    }, {
+        "location": {
+            "country_code": "US",
+            "country_name": "United States"
+        },
+        "vp": "156.154.71.37"
+    }, {
+        "name": "rdns37b.ultradns.net.",
+        "vp": "156.154.71.37"
+    }, {
+        "name": "customfilter37-dns2.cleanbrowsing.org.",
+        "vp": "185.228.169.37"
+    }, {
+        "asname": "WIKIMEDIA",
+        "asnum": 14907,
+        "cert": "9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10",
+        "http": "7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca",
+        "ip": "198.35.26.96"
+    }, {
+        "name": "87-119-233-243.saransk.ru.",
+        "vp": "87.119.233.243"
+    }, {
+        "name": "ns1327.ztomy.com.",
+        "vp": "12.5.76.236"
+    }, {
+        "name": "rec1pubns2.ultradns.net.",
+        "vp": "64.6.65.6"
+    }]
+    # yapf: enable
+
+    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+
+    # yapf: disable
     expected = [{
         'ip': '185.228.169.37',
         'is_control_ip': False,
@@ -166,18 +426,12 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [{
-            'ip':
-                '198.35.26.96',
-            'asname':
-                'WIKIMEDIA',
-            'asnum':
-                14907,
-            'cert':
-                '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
-            'http':
-                '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
-            'matches_control':
-                'cert asnum asname'
+            'ip': '198.35.26.96',
+            'asname': 'WIKIMEDIA',
+            'asnum': 14907,
+            'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
+            'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
+            'matches_control': 'cert asnum asname'
         },],
         'rcode': ['0', '0', '0'],
         'date': '2021-03-01',
@@ -282,6 +536,7 @@ class SatelliteTest(unittest.TestCase):
         'end_time': '2021-04-18T14:51:48.162724942-04:00',
         'source': 'CP_Satellite-2021-04-18-12-00-01'
     }]
+    # yapf: enable
 
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
@@ -351,10 +606,30 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': [
-            {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.74', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.89', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+            {'ip': '13.249.134.38',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+             'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.44',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+             'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.74',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+             'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+             'matches_control': 'ip http asnum asname'}
         ],
         'date': '2020-09-02'
       },
@@ -368,10 +643,30 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': False,
         'success': True,
         'received': [
-            {'ip': '13.249.134.38', 'asname': 'AS1','asnum': 11111,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
-            {'ip': '13.249.134.44', 'asname': 'AS2','asnum': 22222,'cert': 'cert','http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': 'asnum asname'},
-            {'ip': '13.249.134.74', 'asname': 'AS2','asnum': 22222,'cert': None,'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe', 'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.89', 'asname': 'AS2','asnum': 22222,'cert': None,'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac', 'matches_control': 'ip http asnum asname'}
+            {'ip': '13.249.134.38',
+             'asname': 'AS1',
+             'asnum': 11111,
+             'cert': None,
+             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+             'matches_control': ''},
+            {'ip': '13.249.134.44',
+             'asname': 'AS2',
+             'asnum': 22222,
+             'cert': 'cert',
+             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+             'matches_control': 'asnum asname'},
+            {'ip': '13.249.134.74',
+             'asname': 'AS2',
+             'asnum': 22222,
+             'cert': None,
+             'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+             'matches_control': 'ip http asnum asname'},
+            {'ip': '13.249.134.89',
+             'asname': 'AS2',
+             'asnum': 22222,
+             'cert': None,
+             'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+             'matches_control': 'ip http asnum asname'}
         ],
         'date': '2020-09-02'
       }
@@ -418,8 +713,18 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'received': [
-            {'ip': '13.249.134.38', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af', 'matches_control': ''},
-            {'ip': '13.249.134.44', 'asname': 'AMAZON-02','asnum': 16509,'cert': None,'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71', 'matches_control': ''},
+            {'ip': '13.249.134.38',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+             'matches_control': ''},
+            {'ip': '13.249.134.44',
+             'asname': 'AMAZON-02',
+             'asnum': 16509,
+             'cert': None,
+             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+             'matches_control': ''},
         ],
         'date': '2020-09-02'
       },
