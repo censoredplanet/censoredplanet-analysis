@@ -3,6 +3,8 @@
 import json
 from typing import List
 import unittest
+from unittest.mock import patch
+import uuid
 
 import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
@@ -11,6 +13,11 @@ import apache_beam.testing.util as beam_test_util
 from pipeline.metadata.flatten_base import Row
 from pipeline.metadata import satellite
 from pipeline.metadata import flatten
+
+
+def _unset_measurement_id(row: Row) -> Row:
+  row['measurement_id'] = ''
+  return row
 
 
 class SatelliteTest(unittest.TestCase):
@@ -58,6 +65,48 @@ class SatelliteTest(unittest.TestCase):
     ]
     self.assertListEqual(result, expected)
 
+  def test_unflatten_satellite(self) -> None:
+    rows = [{
+        'ip': '1.1.1.1',
+        'domain': 'x.com',
+        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
+        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
+        'received': [{
+            'ip': '0.0.0.1',
+            'tag': 'value1'
+        }]
+    }, {
+        'ip': '1.1.1.1',
+        'domain': 'x.com',
+        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
+        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
+        'received': [{
+            'ip': '0.0.0.2',
+            'tag': 'value2'
+        }]
+    }]
+
+    expected = [{
+        'ip':
+            '1.1.1.1',
+        'domain':
+            'x.com',
+        'measurement_id':
+            '33faf138-f331-43a0-b1f2-ec50ee3190d2',
+        'received': [{
+            'ip': '0.0.0.1',
+            'tag': 'value1'
+        }, {
+            'ip': '0.0.0.2',
+            'tag': 'value2'
+        }]
+    }]
+
+    unflattened = list(satellite._unflatten_satellite(rows))
+    self.assertListEqual(unflattened, expected)
+
+  #@patch('uuid.uuid4',
+  #       lambda: uuid.UUID('bb53b096-ef79-4efd-a985-c0c07c2216be'))
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
 
@@ -176,7 +225,8 @@ class SatelliteTest(unittest.TestCase):
             'matches_control': 'ip http asnum asname'
         }],
         'date': '2020-09-02',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
+        'source': 'CP_Satellite-2020-09-02-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '1.1.1.3',
         'is_control_ip': False,
@@ -194,7 +244,8 @@ class SatelliteTest(unittest.TestCase):
             'matches_control': 'ip'
         }],
         'date': '2020-09-02',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
+        'source': 'CP_Satellite-2020-09-02-12-00-01',
+        'measurement_id': ''
     }]
     # yapf: enable
 
@@ -202,9 +253,15 @@ class SatelliteTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      # Measurement ids are random and can't be tested
+      final = tagged | 'unset measurement ids' >> beam.Map(
+          _unset_measurement_id)
+
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
+  #@patch('uuid.uuid4',
+  #       lambda: uuid.UUID('33900e26-f5d6-4e10-a8fc-98cbd63d8ae9'))
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
@@ -437,7 +494,8 @@ class SatelliteTest(unittest.TestCase):
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01'
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '156.154.71.37',
         'is_control_ip': False,
@@ -458,7 +516,8 @@ class SatelliteTest(unittest.TestCase):
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01'
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '87.119.233.243',
         'is_control_ip': False,
@@ -476,7 +535,8 @@ class SatelliteTest(unittest.TestCase):
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:01.62448452-04:00',
         'end_time': '2021-04-18T14:49:03.624563629-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01'
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '12.5.76.236',
         'is_control_ip': False,
@@ -494,7 +554,29 @@ class SatelliteTest(unittest.TestCase):
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:07.712972288-04:00',
         'end_time': '2021-04-18T14:49:07.749265765-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01'
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '64.6.65.6',
+        'is_control_ip': True,
+        'name': 'rec1pubns2.ultradns.net.',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'category': 'Control',
+        'error': None,
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'has_type_a': True,
+        'received': [{
+            'ip': '198.41.0.4"'
+        }],
+        'rcode': ['0'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:51:57.561175746-04:00',
+        'end_time': '2021-04-18T14:51:57.61294601-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
@@ -510,11 +592,32 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '178.18.22.152'
         }],
-        'rcode': ['0', '0'],
+        'rcode': ['0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:57.561175746-04:00',
         'end_time': '2021-04-18T14:51:57.61294601-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01'
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '64.6.65.6',
+        'is_control_ip': True,
+        'name': 'rec1pubns2.ultradns.net.',
+        'domain': 'a.root-servers.net',
+        'is_control': True,
+        'category': 'Control',
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'has_type_a': True,
+        'received': [{
+            'ip': '198.41.0.4'
+        }],
+        'rcode': ['0'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:51:45.836310062-04:00',
+        'end_time': '2021-04-18 14:51:45.862080031 -0400',
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
@@ -527,14 +630,33 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'has_type_a': True,
+        'received': [],
+        'rcode': ['-1'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:51:45.862091022-04:00',
+        'end_time': '2021-04-18T14:51:47.862170832-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '64.6.65.6',
+        'is_control_ip': True,
+        'name': 'rec1pubns2.ultradns.net.',
+        'domain': 'www.awid.org',
+        'is_control': False,
+        'category': 'Human Rights Issues',
+        'anomaly': None,
+        'success': True,
+        'controls_failed': False,
+        'has_type_a': True,
         'received': [{
             'ip': '204.187.13.189'
         }],
         'rcode': ['0', '-1', '0'],
         'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:45.836310062-04:00',
+        'start_time': '2021-04-18T14:51:47.862183185-04:00',
         'end_time': '2021-04-18T14:51:48.162724942-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01'
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': ''
     }]
     # yapf: enable
 
@@ -542,7 +664,11 @@ class SatelliteTest(unittest.TestCase):
       lines = p | 'create data' >> beam.Create(data)
       lines2 = p | 'create tags' >> beam.Create(tags)
 
-      final = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      # Measurement ids are random and can't be tested
+      final = tagged | 'unset measurement ids' >> beam.Map(
+          _unset_measurement_id)
+
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use

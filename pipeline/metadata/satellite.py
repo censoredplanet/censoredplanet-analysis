@@ -8,6 +8,7 @@ import logging
 import pathlib
 import re
 from typing import Tuple, Dict, Any, Iterator, Iterable
+import uuid
 
 import apache_beam as beam
 
@@ -240,24 +241,24 @@ def unflatten_received_ip_rows(
   """Unflatten so that each row contains a array of answer IPs
 
   Args:
-    rows: measurement rows with a single recieved ip
+    rows: roundtrip rows with a single recieved ip
 
   Returns:
-    measurement rows aggregated so they have an array of recieved responses
+    roundtrip rows aggregated so they have an array of recieved responses
   """
   # PCollection[Tuple[str,Row]]
-  keyed_by_measurement_id = (
-      rows | 'key by measurement id' >>
+  keyed_by_roundtrip_id = (
+      rows | 'key by roundtrip id' >>
       beam.Map(lambda row:
-               (row['measurement_id'], row)).with_output_types(Tuple[str, Row]))
+               (row['roundtrip_id'], row)).with_output_types(Tuple[str, Row]))
 
   # PCollection[Tuple[str,Iterable[Row]]]
-  grouped_by_measurement_id = (
-      keyed_by_measurement_id | 'group by measurement id' >> beam.GroupByKey())
+  grouped_by_roundtrip_id = (
+      keyed_by_roundtrip_id | 'group by roundtrip id' >> beam.GroupByKey())
 
   # PCollection[Row]
   unflattened_rows = (
-      grouped_by_measurement_id | 'unflatten rows' >> beam.FlatMapTuple(
+      grouped_by_roundtrip_id | 'unflatten rows' >> beam.FlatMapTuple(
           lambda k, v: _unflatten_satellite(v)).with_output_types(Row))
 
   return unflattened_rows
@@ -377,14 +378,12 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     (other fields are the same for each dict).
     [{'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':[{'ip':'0.0.0.1','tag':'value1'},...}],
      {'ip':'1.1.1.1','domain':'x.com','measurement_id':'HASH','received':[{'ip':'0.0.0.2','tag':'value2'},...}],
-     {'ip':'1.1.1.1','domain':'y.com','measurement_id':'HASH','received':[{'ip':'0.0.0.3','tag':'value3'},...}]]
 
 
   Yields:
     Row with common fields remaining the same,
     and 'received' mapped to an array of answer IP dictionaries.
     {'ip':'1.1.1.1','domain':'x.com','received':[{'ip':'0.0.0.1','tag':'value1'},{'ip':'0.0.0.2','tag':'value2'}],...}
-    {'ip':'1.1.1.1','domain':'y.com','received':[{'ip':'0.0.0.3,'tag':'value3'}],...}
   """
 
   if flattened_measurement:
@@ -402,6 +401,8 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     # during the tagging step if a vantage point also appears as a response IP.
     for tag in ['asname', 'asnum', 'http', 'cert']:
       combined.pop(tag, None)
+
+    combined.pop('roundtrip_id')  # Remove roundtrip id
     yield combined
 
 
@@ -419,13 +420,18 @@ def flatten_received_ips(row: Row) -> Iterator[Row]:
     Rows like
       {
         "field": "value"
+        "roundtrip_id" = "a"
         "received" [<dict1>]
       }
       {
         "field": "value"
+        "roundtrip_id" = "a"
         "received" [<dict2>]
       }
   """
+  # This id is used to reconstruct the row structure when unflattening
+  row['roundtrip_id'] = uuid.uuid4().hex
+
   all_received = row['received']
 
   if len(all_received) == 0:
