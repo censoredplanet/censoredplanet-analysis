@@ -105,8 +105,6 @@ class SatelliteTest(unittest.TestCase):
     unflattened = list(satellite._unflatten_satellite(rows))
     self.assertListEqual(unflattened, expected)
 
-  #@patch('uuid.uuid4',
-  #       lambda: uuid.UUID('bb53b096-ef79-4efd-a985-c0c07c2216be'))
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
 
@@ -260,15 +258,13 @@ class SatelliteTest(unittest.TestCase):
 
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  #@patch('uuid.uuid4',
-  #       lambda: uuid.UUID('33900e26-f5d6-4e10-a8fc-98cbd63d8ae9'))
   def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
-        "CP_Satellite-2021-03-01-12-00-01/results.json",
-        "CP_Satellite-2021-03-01-12-00-01/results.json",
-        "CP_Satellite-2021-04-18-12-00-01/results.json",
-        "CP_Satellite-2021-04-18-12-00-01/results.json",
+        "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
+        "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
+        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
+        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
         "CP_Satellite-2021-04-18-12-00-01/responses_control.json",
         "CP_Satellite-2021-04-18-12-00-01/responses_control.json"
     ]
@@ -489,7 +485,7 @@ class SatelliteTest(unittest.TestCase):
             'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
             'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
             'matches_control': 'cert asnum asname'
-        },],
+        }],
         'rcode': ['0', '0', '0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
@@ -511,7 +507,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '15.126.193.233',
             'matches_control': ''
-        },],
+        }],
         'rcode': ['0', '0', '0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
@@ -574,7 +570,7 @@ class SatelliteTest(unittest.TestCase):
         'rcode': ['0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:57.561175746-04:00',
-        'end_time': '2021-04-18T14:51:57.61294601-04:00',
+        'end_time': '2021-04-18T14:51:57.587097567-04:00',
         'source': 'CP_Satellite-2021-04-18-12-00-01',
         'measurement_id': ''
     }, {
@@ -594,7 +590,7 @@ class SatelliteTest(unittest.TestCase):
         }],
         'rcode': ['0'],
         'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:57.561175746-04:00',
+        'start_time': '2021-04-18T14:51:57.587109091-04:00',
         'end_time': '2021-04-18T14:51:57.61294601-04:00',
         'source': 'CP_Satellite-2021-04-18-12-00-01',
         'measurement_id': ''
@@ -629,7 +625,7 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': None,
         'success': True,
         'controls_failed': False,
-        'has_type_a': True,
+        'has_type_a': False,
         'received': [],
         'rcode': ['-1'],
         'date': '2021-04-18',
@@ -651,7 +647,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '204.187.13.189'
         }],
-        'rcode': ['0', '-1', '0'],
+        'rcode': ['0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:47.862183185-04:00',
         'end_time': '2021-04-18T14:51:48.162724942-04:00',
