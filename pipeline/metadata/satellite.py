@@ -568,7 +568,7 @@ def _calculate_confidence(scan: Dict[str, Any],
 
   for answer in scan['received'] or []:
     # check tags for each answer IP
-    matches_control = answer['matches_control'].split()
+    matches_control = answer.get('matches_control', '').split()
     total_tags = 0
     matching_tags = 0
 
