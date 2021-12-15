@@ -87,8 +87,12 @@ def _process_received_ips_v1(
   Yields:
     Row with an additional 'received' array field
   """
+  from pprint import pprint
+
+
   if received_ips is None:
     row['received'] = []
+    pprint(("yielding v1 row", row))
     yield row
     return
 
@@ -107,6 +111,7 @@ def _process_received_ips_v1(
     all_received.append(received)
 
   row['received'] = all_received
+  pprint(("yielding v1 row", row))
   yield row
 
 
@@ -131,8 +136,12 @@ def _process_received_ips_v2p1(
   Yields:
     Rows
   """
+  from pprint import pprint
+
+
   if not received_ips:
     row['received'] = []
+    pprint(("yielding v2.1 row", row))
     yield row
     return
 
@@ -150,6 +159,7 @@ def _process_received_ips_v2p1(
     all_received.append(received)
 
   row['received'] = all_received
+  pprint(("yielding v2.1 row", row))
   yield row.copy()
 
 
@@ -415,6 +425,10 @@ class SatelliteFlattener():
     """
     responses = scan.get('response', [])
 
+    from pprint import pprint
+
+    pprint(("responses for scan", responses, scan))
+
     for response in responses:
       is_control_domain = flatten_base.is_control_url(response['url'])
 
@@ -461,13 +475,15 @@ class SatelliteFlattener():
 
       if not received_ips:
         row['received'] = []
+        pprint(("yielding 2.1 control", row))
         yield row
-        return
 
-      all_received = []
-      for ip in received_ips:
-        received = {'ip': ip}
-        all_received.append(received)
-      row['received'] = all_received
+      else:
+        all_received = []
+        for ip in received_ips:
+          received = {'ip': ip}
+          all_received.append(received)
+        row['received'] = all_received
 
-      yield row
+        pprint(("yielding 2.1 control", row))
+        yield row

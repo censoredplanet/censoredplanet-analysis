@@ -258,15 +258,11 @@ class SatelliteTest(unittest.TestCase):
 
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v2p1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
         "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
         "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
-        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
-        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
-        "CP_Satellite-2021-04-18-12-00-01/responses_control.json",
-        "CP_Satellite-2021-04-18-12-00-01/responses_control.json"
     ]
 
     # yapf: disable
@@ -316,7 +312,123 @@ class SatelliteTest(unittest.TestCase):
         },
         "start_time": "2021-03-01 12:43:25.3438285 -0500 EST m=+0.421998701",
         "end_time": "2021-03-01 12:43:25.3696119 -0500 EST m=+0.447782001"
+    }]
+    # yapf: enable
+
+    data = zip(data_filenames, [json.dumps(d) for d in _data])
+
+    tag_filenames = [
+        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
+    ]
+
+    # yapf: disable
+    _tags = [{
+        "location": {
+            "country_code": "IE",
+            "country_name": "Ireland"
+        },
+        "vp": "185.228.169.37"
     }, {
+        "location": {
+            "country_code": "US",
+            "country_name": "United States"
+        },
+        "vp": "156.154.71.37"
+    }, {
+        "name": "rdns37b.ultradns.net.",
+        "vp": "156.154.71.37"
+    }, {
+        "name": "customfilter37-dns2.cleanbrowsing.org.",
+        "vp": "185.228.169.37"
+    }, {
+        "asname": "WIKIMEDIA",
+        "asnum": 14907,
+        "cert": "9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10",
+        "http": "7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca",
+        "ip": "198.35.26.96"
+    }]
+    # yapf: enable
+
+    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+
+    # yapf: disable
+    expected = [{
+        'ip': '185.228.169.37',
+        'is_control_ip': False,
+        'country': 'IE',
+        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        'domain': 'ar.m.wikipedia.org',
+        'is_control': False,
+        'category': 'Culture',
+        'error': None,
+        'anomaly': False,
+        'success': True,
+        'controls_failed': False,
+        'received': [{
+            'ip': '198.35.26.96',
+            'asname': 'WIKIMEDIA',
+            'asnum': 14907,
+            'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
+            'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
+            'matches_control': 'cert asnum asname'
+        }],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01T12:43:25.3438285-05:00',
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '156.154.71.37',
+        'is_control_ip': False,
+        'country': 'US',
+        'name': 'rdns37b.ultradns.net.',
+        'domain': 'www.usacasino.com',
+        'is_control': False,
+        'category': 'Gambling',
+        'error': None,
+        'anomaly': True,
+        'success': True,
+        'controls_failed': False,
+        'received': [{
+            'ip': '15.126.193.233',
+            'matches_control': ''
+        }],
+        'rcode': ['0', '0', '0'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01T12:43:25.3438285-05:00',
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
+    }]
+    # yapf: enable
+
+    with TestPipeline() as p:
+      lines = p | 'create data' >> beam.Create(data)
+      lines2 = p | 'create tags' >> beam.Create(tags)
+
+      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      # Measurement ids are random and can't be tested
+      final = tagged | 'unset measurement ids' >> beam.Map(
+          _unset_measurement_id)
+
+      beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
+
+  def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v2 interference and tag files."""
+    data_filenames = [
+        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
+        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
+        "CP_Satellite-2021-04-18-12-00-01/responses_control.json",
+        "CP_Satellite-2021-04-18-12-00-01/responses_control.json"
+    ]
+
+    # yapf: disable
+    _data = [{
         "vp": "87.119.233.243",
         "location": {
             "country_name": "Russia",
@@ -416,11 +528,6 @@ class SatelliteTest(unittest.TestCase):
     data = zip(data_filenames, [json.dumps(d) for d in _data])
 
     tag_filenames = [
-        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
-        "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
-        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
-        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
-        "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json"
@@ -428,30 +535,6 @@ class SatelliteTest(unittest.TestCase):
 
     # yapf: disable
     _tags = [{
-        "location": {
-            "country_code": "IE",
-            "country_name": "Ireland"
-        },
-        "vp": "185.228.169.37"
-    }, {
-        "location": {
-            "country_code": "US",
-            "country_name": "United States"
-        },
-        "vp": "156.154.71.37"
-    }, {
-        "name": "rdns37b.ultradns.net.",
-        "vp": "156.154.71.37"
-    }, {
-        "name": "customfilter37-dns2.cleanbrowsing.org.",
-        "vp": "185.228.169.37"
-    }, {
-        "asname": "WIKIMEDIA",
-        "asnum": 14907,
-        "cert": "9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10",
-        "http": "7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca",
-        "ip": "198.35.26.96"
-    }, {
         "name": "87-119-233-243.saransk.ru.",
         "vp": "87.119.233.243"
     }, {
@@ -467,54 +550,6 @@ class SatelliteTest(unittest.TestCase):
 
     # yapf: disable
     expected = [{
-        'ip': '185.228.169.37',
-        'is_control_ip': False,
-        'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
-        'domain': 'ar.m.wikipedia.org',
-        'is_control': False,
-        'category': 'Culture',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'controls_failed': False,
-        'received': [{
-            'ip': '198.35.26.96',
-            'asname': 'WIKIMEDIA',
-            'asnum': 14907,
-            'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
-            'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
-            'matches_control': 'cert asnum asname'
-        }],
-        'rcode': ['0', '0', '0'],
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '156.154.71.37',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'rdns37b.ultradns.net.',
-        'domain': 'www.usacasino.com',
-        'is_control': False,
-        'category': 'Gambling',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'controls_failed': False,
-        'received': [{
-            'ip': '15.126.193.233',
-            'matches_control': ''
-        }],
-        'rcode': ['0', '0', '0'],
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
         'ip': '87.119.233.243',
         'is_control_ip': False,
         'country': 'RU',
@@ -565,7 +600,7 @@ class SatelliteTest(unittest.TestCase):
         'controls_failed': False,
         'has_type_a': True,
         'received': [{
-            'ip': '198.41.0.4"'
+            'ip': '198.41.0.4'
         }],
         'rcode': ['0'],
         'date': '2021-04-18',
@@ -601,6 +636,7 @@ class SatelliteTest(unittest.TestCase):
         'domain': 'a.root-servers.net',
         'is_control': True,
         'category': 'Control',
+        'error': None,
         'anomaly': None,
         'success': True,
         'controls_failed': False,
@@ -611,7 +647,7 @@ class SatelliteTest(unittest.TestCase):
         'rcode': ['0'],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:45.836310062-04:00',
-        'end_time': '2021-04-18 14:51:45.862080031 -0400',
+        'end_time': '2021-04-18T14:51:45.862080031-04:00',
         'source': 'CP_Satellite-2021-04-18-12-00-01',
         'measurement_id': ''
     }, {
@@ -640,6 +676,7 @@ class SatelliteTest(unittest.TestCase):
         'domain': 'www.awid.org',
         'is_control': False,
         'category': 'Human Rights Issues',
+        'error': None,
         'anomaly': None,
         'success': True,
         'controls_failed': False,
