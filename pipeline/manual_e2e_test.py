@@ -403,12 +403,14 @@ class PipelineManualE2eTest(unittest.TestCase):
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 12)
 
-      expected_double_domains = ['www.americorps.gov',
-        'custhelp.com', 'www.mainichi.co.jp', 'www.unwatch.org']
+      expected_double_domains = [
+          'www.americorps.gov', 'custhelp.com', 'www.mainichi.co.jp',
+          'www.unwatch.org'
+      ]
       expected_quad_domains = ['a.root-servers.net']
 
-      all_expected_domains = (expected_double_domains * 2
-          + expected_quad_domains * 4)
+      all_expected_domains = (
+          expected_double_domains * 2 + expected_quad_domains * 4)
 
       written_domains = [row[0] for row in written_rows]
       self.assertListEqual(
@@ -430,17 +432,14 @@ class PipelineManualE2eTest(unittest.TestCase):
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
       self.assertEqual(len(written_rows), 18)
 
-      expected_single_domains = [
-          '1688.com', '1337x.to', '104.com.tw'
-      ]
+      expected_single_domains = ['1688.com', '1337x.to', '104.com.tw']
       expected_double_domains = ['a.root-servers.net', '1922.gov.tw']
       expected_triple_domains = ['11st.co.kr']
       expected_quad_domains = ['ajax.aspnetcdn.com', 'alipay.com']
 
-      all_expected_domains = (expected_single_domains
-          + expected_double_domains * 2
-          + expected_triple_domains * 3
-          + expected_quad_domains * 4)
+      all_expected_domains = (
+          expected_single_domains + expected_double_domains * 2 +
+          expected_triple_domains * 3 + expected_quad_domains * 4)
 
       written_domains = [row[0] for row in written_rows]
 

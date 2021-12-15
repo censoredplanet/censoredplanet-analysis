@@ -261,8 +261,8 @@ class SatelliteTest(unittest.TestCase):
   def test_process_satellite_v2p1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
-        "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
-        "CP_Satellite-2021-03-01-12-00-01/results.json", # v2.1
+        "CP_Satellite-2021-03-01-12-00-01/results.json",  # v2.1
+        "CP_Satellite-2021-03-01-12-00-01/results.json",  # v2.1
     ]
 
     # yapf: disable
@@ -421,8 +421,8 @@ class SatelliteTest(unittest.TestCase):
   def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
-        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
-        "CP_Satellite-2021-04-18-12-00-01/results.json", # v2.2
+        "CP_Satellite-2021-04-18-12-00-01/results.json",  # v2.2
+        "CP_Satellite-2021-04-18-12-00-01/results.json",  # v2.2
         "CP_Satellite-2021-04-18-12-00-01/responses_control.json",
         "CP_Satellite-2021-04-18-12-00-01/responses_control.json"
     ]

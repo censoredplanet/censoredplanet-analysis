@@ -89,7 +89,6 @@ def _process_received_ips_v1(
   """
   from pprint import pprint
 
-
   if received_ips is None:
     row['received'] = []
     pprint(("yielding v1 row", row))
@@ -137,7 +136,6 @@ def _process_received_ips_v2p1(
     Rows
   """
   from pprint import pprint
-
 
   if not received_ips:
     row['received'] = []
