@@ -163,10 +163,11 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
     failed_test_rcodes = rcodes
 
   if any([rcode == "0" for rcode in failed_test_rcodes]):
-    raise Error("Satellite v2.1 measurement has multiple 0 rcodes: %{scan}")
+    raise Exception("Satellite v2.1 measurement has multiple 0 rcodes: %{scan}")
 
   if not successful_test_rcode and received_ips:
-    raise Error("Satellite v2.1 measurement has ips but no 0 rcode: %{scan}")
+    raise Exception(
+        "Satellite v2.1 measurement has ips but no 0 rcode: %{scan}")
   else:
     all_received = []
     for (ip, tags) in received_ips.items():
@@ -185,14 +186,15 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
 
   neg_1_rcodes = [rcode for rcode in failed_test_rcodes if rcode == "-1"]
   if len(neg_1_rcodes) > len(errors):
-    raise Error("Satellite v2.1 measurement has more -1 rcodes than errors: %{scan}")
+    raise Exception(
+        "Satellite v2.1 measurement has more -1 rcodes than errors: %{scan}")
 
   for rcode in failed_test_rcodes:
     failed_row = row.copy()
     failed_row['rcode'] = [rcode]
     # -1 rcodes corrospond to the error messages in order.
     if rcode == "-1":
-      error_row['error'] = errors.pop()
+      failed_row['error'] = errors.pop()
     yield failed_row
 
   # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
