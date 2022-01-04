@@ -126,41 +126,6 @@ def _append_tags(tags: List[str]) -> str:
   return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
 
 
-def _process_received_ips_v2p1(
-    row: Row, received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
-  """Add received_ip metadata to a Satellite row
-  Args:
-    row: existing row of satellite data
-    received_ips: data on the response from the resolver (error or ips)
-  Yields:
-    Rows
-  """
-  from pprint import pprint
-
-  if not received_ips:
-    row['received'] = []
-    pprint(("yielding v2.1 row", row))
-    yield row
-    return
-
-  # separate into one answer ip per row for tagging
-  if 'rcode' in received_ips:
-    row['rcode'] = received_ips.pop('rcode', [])
-  if 'error' in received_ips:
-    row['error'] = ' | '.join(received_ips.pop('error', []))
-
-  all_received = []
-  for (ip, tags) in received_ips.items():
-    received = {'ip': ip}
-    if tags:
-      received['matches_control'] = _append_tags(tags)
-    all_received.append(received)
-
-  row['received'] = all_received
-  pprint(("yielding v2.1 row", row))
-  yield row.copy()
-
-
 def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
@@ -172,9 +137,71 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
     Rows
   """
   row['controls_failed'] = not scan['passed_control']
-  row['rcode'] = []
   received_ips = scan.get('response')
-  yield from _process_received_ips_v2p1(row, received_ips)
+
+  from pprint import pprint
+
+  if not received_ips:
+    row['received'] = []
+    pprint(("yielding v2.1 row", row))
+    yield row
+    return
+
+  # separate into one answer ip per row for tagging
+  rcodes = received_ips.pop('rcode', [])
+  errors = received_ips.pop('error', [])
+
+  # v2.1 measurements repeat 4 times or until the test is successful
+  if not rcodes:
+    successful_test_rcode = []
+    failed_test_rcodes = []
+  elif rcodes[-1] == "0":
+    successful_test_rcode = [rcodes[-1]]
+    failed_test_rcodes = rcodes[0:-1]
+  else:
+    successful_test_rcode = []
+    failed_test_rcodes = rcodes
+
+  if any([rcode == "0" for rcode in failed_test_rcodes]):
+    raise Error("Satellite v2.1 measurement has multiple 0 rcodes: %{scan}")
+
+  if not successful_test_rcode and received_ips:
+    raise Error("Satellite v2.1 measurement has ips but no 0 rcode: %{scan}")
+  else:
+    all_received = []
+    for (ip, tags) in received_ips.items():
+      received = {'ip': ip}
+      if tags:
+        received['matches_control'] = _append_tags(tags)
+      all_received.append(received)
+
+    success_row = row.copy()
+    success_row['received'] = all_received
+    success_row['rcode'] = successful_test_rcode
+    pprint(("yielding v2.1 successful row", success_row))
+    yield success_row
+
+  pprint(("failed rcodes and errors", failed_test_rcodes, errors))
+
+  neg_1_rcodes = [rcode for rcode in failed_test_rcodes if rcode == "-1"]
+  if len(neg_1_rcodes) > len(errors):
+    raise Error("Satellite v2.1 measurement has more -1 rcodes than errors: %{scan}")
+
+  for rcode in failed_test_rcodes:
+    failed_row = row.copy()
+    failed_row['rcode'] = [rcode]
+    # -1 rcodes corrospond to the error messages in order.
+    if rcode == "-1":
+      error_row['error'] = errors.pop()
+    yield failed_row
+
+  # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
+  # In that case we add them back in manually
+  for error in errors:
+    error_row = row.copy()
+    error_row['rcode'] = ["-1"]
+    error_row['error'] = error
+    yield error_row
 
 
 class SatelliteFlattener():

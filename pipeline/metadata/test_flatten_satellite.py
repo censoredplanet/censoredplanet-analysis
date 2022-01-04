@@ -162,7 +162,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         "response": {
             "104.20.161.135": [],
             "104.20.161.134": [],
-            "rcode": ["0", "0", "0"]
+            "rcode": ["0"]
         },
         "passed_control": True,
         "connect_error": False,
@@ -285,7 +285,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         }, {
             'ip': '104.20.161.134'
         }],
-        'rcode': ["0", "0", "0"],
+        'rcode': ["0"],
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2021-03-01-12-00-01'
     }, {
