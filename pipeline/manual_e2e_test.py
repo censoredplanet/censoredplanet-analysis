@@ -401,13 +401,12 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 12)
+      self.assertEqual(len(written_rows), 16)
 
-      expected_double_domains = [
-          'www.americorps.gov', 'custhelp.com', 'www.mainichi.co.jp',
-          'www.unwatch.org'
+      expected_double_domains = ['custhelp.com', 'www.unwatch.org']
+      expected_quad_domains = [
+          'a.root-servers.net', 'www.americorps.gov', 'www.mainichi.co.jp'
       ]
-      expected_quad_domains = ['a.root-servers.net']
 
       all_expected_domains = (
           expected_double_domains * 2 + expected_quad_domains * 4)

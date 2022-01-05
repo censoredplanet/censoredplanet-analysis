@@ -406,6 +406,73 @@ class FlattenSatelliteTest(unittest.TestCase):
 
     self.assertListEqual(results, expected)
 
+  def test_flattenmeasurement_satellite_v2p1_single(self) -> None:
+    filename = "CP_Satellite-2021-04-18-12-00-01/results.json"
+
+    line = {
+        "vp":
+            "12.5.76.236",
+        "location": {
+            "country_name": "United States",
+            "country_code": "US"
+        },
+        "test_url":
+            "ultimate-guitar.com",
+        "response": {
+            "rcode": ["2"]
+        },
+        "passed_control":
+            True,
+        "connect_error":
+            False,
+        "in_control_group":
+            True,
+        "anomaly":
+            True,
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "start_time":
+            "2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890",
+        "end_time":
+            "2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"
+    }
+
+    expected = {
+        'ip': '12.5.76.236',
+        'is_control_ip': False,
+        'country': 'US',
+        'domain': 'ultimate-guitar.com',
+        'is_control': False,
+        'category': 'History arts and literature',
+        'error': None,
+        'anomaly': True,
+        'success': True,
+        'controls_failed': False,
+        'received': [],
+        'rcode': ['2'],
+        'date': '2021-04-18',
+        'start_time': '2021-04-18T14:49:07.712972288-04:00',
+        'end_time': '2021-04-18T14:49:07.749265765-04:00',
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc'
+    }
+
+    flattener = get_satellite_flattener()
+    rows = list(
+        flattener.process_satellite(filename, line,
+                                    'ab3b0ed527334c6ba988362e6a2c98fc'))
+
+    from pprint import pprint
+
+    pprint(("bad rows", rows))
+
+    self.assertEqual(len(rows), 1)
+    self.assertEqual(rows[0], expected)
+
   def test_flattenmeasurement_satellite_v2p2(self) -> None:
     """Test flattening of Satellite v2.2 measurements."""
     filenames = [

@@ -275,7 +275,12 @@ class SatelliteTest(unittest.TestCase):
         "test_url": "ar.m.wikipedia.org",
         "response": {
             "198.35.26.96": ["cert", "asnum", "asname"],
-            "rcode": ["0", "0", "0"]
+            "198.35.26.86": ["cert", "asnum", "asname"],
+            "rcode": ["-1", "-1", "0"],
+            "error": [
+              "read udp 141.212.123.185:51880->185.228.169.37:53: i/o timeout",
+              "read udp 141.212.123.185:51430->185.228.169.37:53: i/o timeout"
+            ]
         },
         "passed_control": True,
         "connect_error": False,
@@ -298,7 +303,7 @@ class SatelliteTest(unittest.TestCase):
         "test_url": "www.usacasino.com",
         "response": {
             "15.126.193.233": ["no_tags"],
-            "rcode": ["0", "0", "0"]
+            "rcode": ["2", "0"]
         },
         "passed_control": True,
         "connect_error": False,
@@ -364,6 +369,44 @@ class SatelliteTest(unittest.TestCase):
         'domain': 'ar.m.wikipedia.org',
         'is_control': False,
         'category': 'Culture',
+        'error': 'read udp 141.212.123.185:51880->185.228.169.37:53: i/o timeout',
+        'anomaly': False,
+        'success': True,
+        'controls_failed': False,
+        'received': [],
+        'rcode': ['-1'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01T12:43:25.3438285-05:00',
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '185.228.169.37',
+        'is_control_ip': False,
+        'country': 'IE',
+        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        'domain': 'ar.m.wikipedia.org',
+        'is_control': False,
+        'category': 'Culture',
+        'error': 'read udp 141.212.123.185:51430->185.228.169.37:53: i/o timeout',
+        'anomaly': False,
+        'success': True,
+        'controls_failed': False,
+        'received': [],
+        'rcode': ['-1'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01T12:43:25.3438285-05:00',
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '185.228.169.37',
+        'is_control_ip': False,
+        'country': 'IE',
+        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        'domain': 'ar.m.wikipedia.org',
+        'is_control': False,
+        'category': 'Culture',
         'error': None,
         'anomaly': False,
         'success': True,
@@ -375,8 +418,11 @@ class SatelliteTest(unittest.TestCase):
             'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
             'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
             'matches_control': 'cert asnum asname'
+        }, {
+            'ip': '198.35.26.86',
+            'matches_control': 'cert asnum asname'
         }],
-        'rcode': ['0', '0', '0'],
+        'rcode': ['0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -394,11 +440,31 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
+        'received': [],
+        'rcode': ['2'],
+        'date': '2021-03-01',
+        'start_time': '2021-03-01T12:43:25.3438285-05:00',
+        'end_time': '2021-03-01T12:43:25.3696119-05:00',
+        'source': 'CP_Satellite-2021-03-01-12-00-01',
+        'measurement_id': ''
+    }, {
+        'ip': '156.154.71.37',
+        'is_control_ip': False,
+        'country': 'US',
+        'name': 'rdns37b.ultradns.net.',
+        'domain': 'www.usacasino.com',
+        'is_control': False,
+        'category': 'Gambling',
+        'error': None,
+        'anomaly': True,
+        'success': True,
+        'controls_failed': False,
+        'received': [],
         'received': [{
             'ip': '15.126.193.233',
             'matches_control': ''
         }],
-        'rcode': ['0', '0', '0'],
+        'rcode': ['0'],
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -418,8 +484,8 @@ class SatelliteTest(unittest.TestCase):
 
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
-    """Test processing of Satellite v2 interference and tag files."""
+  def test_process_satellite_v2p1_later(self) -> None:  # pylint: disable=no-self-use
+    """Test processing of Satellite v2p1 interference and tag files."""
     data_filenames = [
         "CP_Satellite-2021-04-18-12-00-01/results.json",  # v2.2
         "CP_Satellite-2021-04-18-12-00-01/results.json",  # v2.2
@@ -562,7 +628,6 @@ class SatelliteTest(unittest.TestCase):
         'success': False,
         'controls_failed': True,
         'received': [],
-        'rcode': [],
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:01.62448452-04:00',
         'end_time': '2021-04-18T14:49:03.624563629-04:00',

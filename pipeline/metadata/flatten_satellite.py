@@ -126,12 +126,14 @@ def _append_tags(tags: List[str]) -> str:
   return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
 
 
-def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
+def _process_satellite_v2p1(row: Row, scan: Any,
+                            filepath: str) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
   Args:
     row: a partially processed row of satellite data
     scan: a loaded json object containing the parsed content of the line
+    filepath: path like "<path>/<filename>.json.gz"
 
   Yields:
     Rows
@@ -162,12 +164,20 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
     successful_test_rcode = []
     failed_test_rcodes = rcodes
 
+  from pprint import pprint
+  pprint(("rcode split", successful_test_rcode, failed_test_rcodes))
+
   if any([rcode == "0" for rcode in failed_test_rcodes]):
-    raise Exception("Satellite v2.1 measurement has multiple 0 rcodes: %{scan}")
+    raise Exception(
+        f"Satellite v2.1 measurement has multiple 0 rcodes: %{filepath} - %{scan}"
+    )
 
   if not successful_test_rcode and received_ips:
     raise Exception(
-        "Satellite v2.1 measurement has ips but no 0 rcode: %{scan}")
+        f"Satellite v2.1 measurement has ips but no 0 rcode: %{filepath} - %{scan}"
+    )
+  if not successful_test_rcode:
+    pass
   else:
     all_received = []
     for (ip, tags) in received_ips.items():
@@ -187,7 +197,8 @@ def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
   neg_1_rcodes = [rcode for rcode in failed_test_rcodes if rcode == "-1"]
   if len(neg_1_rcodes) > len(errors):
     raise Exception(
-        "Satellite v2.1 measurement has more -1 rcodes than errors: %{scan}")
+        f"Satellite v2.1 measurement has more -1 rcodes than errors: %{filepath} - %{scan}"
+    )
 
   for rcode in failed_test_rcodes:
     failed_row = row.copy()
@@ -335,7 +346,7 @@ class SatelliteFlattener():
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
-      yield from _process_satellite_v2p1(row, scan)
+      yield from _process_satellite_v2p1(row, scan, filepath)
     else:
       yield from self._process_satellite_v2p2(row, scan)
 
