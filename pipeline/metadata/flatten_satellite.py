@@ -139,7 +139,7 @@ def _process_satellite_v2p1(row: Row, scan: Any,
     Rows
   """
   row['controls_failed'] = not scan['passed_control']
-  received_ips = scan.get('response')
+  received_ips = scan.get('response').copy()
 
   from pprint import pprint
 
@@ -169,12 +169,12 @@ def _process_satellite_v2p1(row: Row, scan: Any,
 
   if any([rcode == "0" for rcode in failed_test_rcodes]):
     raise Exception(
-        f"Satellite v2.1 measurement has multiple 0 rcodes: %{filepath} - %{scan}"
+        f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {scan}"
     )
 
   if not successful_test_rcode and received_ips:
     raise Exception(
-        f"Satellite v2.1 measurement has ips but no 0 rcode: %{filepath} - %{scan}"
+        f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {scan}"
     )
   if not successful_test_rcode:
     pass
@@ -192,20 +192,12 @@ def _process_satellite_v2p1(row: Row, scan: Any,
     pprint(("yielding v2.1 successful row", success_row))
     yield success_row
 
-  pprint(("failed rcodes and errors", failed_test_rcodes, errors))
-
-  neg_1_rcodes = [rcode for rcode in failed_test_rcodes if rcode == "-1"]
-  if len(neg_1_rcodes) > len(errors):
-    raise Exception(
-        f"Satellite v2.1 measurement has more -1 rcodes than errors: %{filepath} - %{scan}"
-    )
-
   for rcode in failed_test_rcodes:
     failed_row = row.copy()
     failed_row['rcode'] = [rcode]
     # -1 rcodes corrospond to the error messages in order.
     if rcode == "-1":
-      failed_row['error'] = errors.pop()
+      failed_row['error'] = errors.pop() if errors else None
     yield failed_row
 
   # There is a bug in some v2.1 data where -1 rcodes weren't recorded.

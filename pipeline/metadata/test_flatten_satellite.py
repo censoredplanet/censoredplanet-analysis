@@ -409,37 +409,31 @@ class FlattenSatelliteTest(unittest.TestCase):
   def test_flattenmeasurement_satellite_v2p1_single(self) -> None:
     filename = "CP_Satellite-2021-04-18-12-00-01/results.json"
 
+    # yapf: disable
     line = {
-        "vp":
-            "12.5.76.236",
+        "vp": "12.5.76.236",
         "location": {
             "country_name": "United States",
             "country_code": "US"
         },
-        "test_url":
-            "ultimate-guitar.com",
+        "test_url": "ultimate-guitar.com",
         "response": {
             "rcode": ["2"]
         },
-        "passed_control":
-            True,
-        "connect_error":
-            False,
-        "in_control_group":
-            True,
-        "anomaly":
-            True,
+        "passed_control": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": True,
         "confidence": {
             "average": 0,
             "matches": None,
             "untagged_controls": False,
             "untagged_response": False
         },
-        "start_time":
-            "2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890",
-        "end_time":
-            "2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"
+        "start_time": "2021-04-18 14:49:07.712972288 -0400 EDT m=+10146.644451890",
+        "end_time": "2021-04-18 14:49:07.749265765 -0400 EDT m=+10146.680745375"
     }
+    # yapf: enable
 
     expected = {
         'ip': '12.5.76.236',
@@ -466,9 +460,62 @@ class FlattenSatelliteTest(unittest.TestCase):
         flattener.process_satellite(filename, line,
                                     'ab3b0ed527334c6ba988362e6a2c98fc'))
 
-    from pprint import pprint
+    self.assertEqual(len(rows), 1)
+    self.assertEqual(rows[0], expected)
 
-    pprint(("bad rows", rows))
+  def test_flattenmeasurement_satellite_v2p1_neg_rcode_no_error(self) -> None:
+    filename = "CP_Satellite-2021-04-18-12-00-01/results.json"
+
+    # yapf: disable
+    line = {
+        "vp": "109.69.144.30",
+        "location": {
+            "country_name": "Italy",
+            "country_code": "IT"
+        },
+        "test_url": "ok.ru",
+        "response": {
+            "rcode": ["-1"]
+        },
+        "passed_control": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": True,
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "start_time": "2021-04-18 14:49:01.517087379 -0400 EDT m=+10140.448566990",
+        "end_time": "2021-04-18 14:49:01.788309957 -0400 EDT m=+10140.719789564"
+    }
+    # yapf: enable
+
+    expected = {
+        'anomaly': True,
+        'category': 'News Media',
+        'controls_failed': False,
+        'country': 'IT',
+        'date': '2021-04-18',
+        'domain': 'ok.ru',
+        'end_time': '2021-04-18T14:49:01.788309957-04:00',
+        'error': None,
+        'ip': '109.69.144.30',
+        'is_control': False,
+        'is_control_ip': False,
+        'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
+        'rcode': ['-1'],
+        'received': [],
+        'source': 'CP_Satellite-2021-04-18-12-00-01',
+        'start_time': '2021-04-18T14:49:01.517087379-04:00',
+        'success': True
+    }
+
+    flattener = get_satellite_flattener()
+    rows = list(
+        flattener.process_satellite(filename, line,
+                                    'ab3b0ed527334c6ba988362e6a2c98fc'))
 
     self.assertEqual(len(rows), 1)
     self.assertEqual(rows[0], expected)
