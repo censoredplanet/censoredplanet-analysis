@@ -520,6 +520,44 @@ class FlattenSatelliteTest(unittest.TestCase):
     self.assertEqual(len(rows), 1)
     self.assertEqual(rows[0], expected)
 
+  def test_flattenmeasurement_satellite_v2p1_ips_but_no_0_rcode(self) -> None:
+    filename = "CP_Satellite-2021-05-16-12-00-01/results.json"
+
+    # yapf: disable
+    line = {
+        'vp': '111.164.180.5',
+        'location': {
+            'country_name': 'China',
+            'country_code': 'CN'
+        },
+        'test_url': 'protectionline.org',
+        'response': {
+            '217.70.184.55': ['ip', 'no_tags'],
+            'rcode': ['2']
+        },
+        'passed_control': True,
+        'connect_error': False,
+        'in_control_group': True,
+        'anomaly': False,
+        'confidence': {
+            'average': 100,
+            'matches': [100],
+            'untagged_controls': False,
+            'untagged_response': True
+        },
+        'start_time': '2021-05-16 14:46:57.433350046 -0400 EDT m=+10016.312771401',
+        'end_time': '2021-05-16 14:46:57.686318846 -0400 EDT m=+10016.565740205'
+    }
+    # yapf: enable
+
+    flattener = get_satellite_flattener()
+    rows = list(
+        flattener.process_satellite(filename, line,
+                                    'ab3b0ed527334c6ba988362e6a2c98fc'))
+
+    # This line contains an error and currently we drop the data
+    self.assertEqual(len(rows), 0)
+
   def test_flattenmeasurement_satellite_v2p2(self) -> None:
     """Test flattening of Satellite v2.2 measurements."""
     filenames = [

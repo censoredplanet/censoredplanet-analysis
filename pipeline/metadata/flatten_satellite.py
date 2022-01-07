@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import json
+import logging
 import pathlib
 import re
 from typing import Optional, Dict, Any, Iterator, List
@@ -173,9 +174,11 @@ def _process_satellite_v2p1(row: Row, scan: Any,
     )
 
   if not successful_test_rcode and received_ips:
-    raise Exception(
+    # TODO figure out how to handle this bug case from 2021-05-16
+    logging.warning(
         f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {scan}"
     )
+    return
   if not successful_test_rcode:
     pass
   else:
