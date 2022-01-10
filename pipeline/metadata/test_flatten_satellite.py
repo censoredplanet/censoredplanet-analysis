@@ -9,6 +9,8 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 from pipeline.metadata import flatten_satellite
 
+# pylint: disable=too-many-lines
+
 
 def get_satellite_flattener() -> flatten_satellite.SatelliteFlattener:
   blockpage_matcher = BlockpageMatcher()
@@ -407,6 +409,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     self.assertListEqual(results, expected)
 
   def test_flattenmeasurement_satellite_v2p1_single(self) -> None:
+    """Test flattening of a single Satellite v2.1 measurements."""
     filename = "CP_Satellite-2021-04-18-12-00-01/results.json"
 
     # yapf: disable
@@ -464,6 +467,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     self.assertEqual(rows[0], expected)
 
   def test_flattenmeasurement_satellite_v2p1_neg_rcode_no_error(self) -> None:
+    """Test flattening of a Satellite v2.1 measurement with a missing error."""
     filename = "CP_Satellite-2021-04-18-12-00-01/results.json"
 
     # yapf: disable
@@ -521,6 +525,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     self.assertEqual(rows[0], expected)
 
   def test_flattenmeasurement_satellite_v2p1_ips_but_no_0_rcode(self) -> None:
+    """Test flattening of a Satellite v2.1 measurement with a missing 0 rcode."""
     filename = "CP_Satellite-2021-05-16-12-00-01/results.json"
 
     # yapf: disable
@@ -551,12 +556,18 @@ class FlattenSatelliteTest(unittest.TestCase):
     # yapf: enable
 
     flattener = get_satellite_flattener()
-    rows = list(
-        flattener.process_satellite(filename, line,
-                                    'ab3b0ed527334c6ba988362e6a2c98fc'))
+
+    with self.assertLogs() as captured:
+      rows = list(
+          flattener.process_satellite(filename, line,
+                                      'ab3b0ed527334c6ba988362e6a2c98fc'))
 
     # This line contains an error and currently we drop the data
     self.assertEqual(len(rows), 0)
+    self.assertEqual(len(captured.records), 1)
+    self.assertIn(
+        "Satellite v2.1 measurement has ips but no 0 rcode: CP_Satellite-2021-05-16-12-00-01/results.json",
+        captured.records[0].getMessage())
 
   def test_flattenmeasurement_satellite_v2p2(self) -> None:
     """Test flattening of Satellite v2.2 measurements."""

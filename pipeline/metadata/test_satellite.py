@@ -3,8 +3,6 @@
 import json
 from typing import List
 import unittest
-from unittest.mock import patch
-import uuid
 
 import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
@@ -13,6 +11,8 @@ import apache_beam.testing.util as beam_test_util
 from pipeline.metadata.flatten_base import Row
 from pipeline.metadata import satellite
 from pipeline.metadata import flatten
+
+# pylint: disable=too-many-lines
 
 
 def _unset_measurement_id(row: Row) -> Row:
@@ -66,6 +66,7 @@ class SatelliteTest(unittest.TestCase):
     self.assertListEqual(result, expected)
 
   def test_unflatten_satellite(self) -> None:
+    """Test unflattening satellite received ips into a single row."""
     rows = [{
         'ip': '1.1.1.1',
         'domain': 'x.com',
@@ -459,7 +460,6 @@ class SatelliteTest(unittest.TestCase):
         'anomaly': True,
         'success': True,
         'controls_failed': False,
-        'received': [],
         'received': [{
             'ip': '15.126.193.233',
             'matches_control': ''

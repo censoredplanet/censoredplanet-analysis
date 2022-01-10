@@ -6,7 +6,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Optional, Dict, Any, Iterator, List
+from typing import Optional, Dict, Any, Iterator, List, Tuple
 import datetime
 
 from pipeline.metadata import flatten_base
@@ -88,11 +88,8 @@ def _process_received_ips_v1(
   Yields:
     Row with an additional 'received' array field
   """
-  from pprint import pprint
-
   if received_ips is None:
     row['received'] = []
-    pprint(("yielding v1 row", row))
     yield row
     return
 
@@ -111,7 +108,6 @@ def _process_received_ips_v1(
     all_received.append(received)
 
   row['received'] = all_received
-  pprint(("yielding v1 row", row))
   yield row
 
 
@@ -125,6 +121,32 @@ def _append_tags(tags: List[str]) -> str:
     string like "ip http cert"
   """
   return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
+
+
+def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
+  """Split rcodes into successful and failed.
+
+  Args:
+    rcodes: an array of rcode strings like
+      ex: ["0"], ["2", "-1", "0"], or ["-1", "-1", "-1", "-1"]
+
+  Returns:
+    successful_test_rcode: rcodes that succeeded, this should be ["0"] or []
+    failed_test_rcodes: all failure codes, this should never contain "0"
+  """
+
+  # v2.1 measurements repeat 4 times or until the test is successful
+  if not rcodes:
+    successful_test_rcode = []
+    failed_test_rcodes = []
+  elif rcodes[-1] == "0":
+    successful_test_rcode = [rcodes[-1]]
+    failed_test_rcodes = rcodes[0:-1]
+  else:
+    successful_test_rcode = []
+    failed_test_rcodes = rcodes
+
+  return successful_test_rcode, failed_test_rcodes
 
 
 def _process_satellite_v2p1(row: Row, scan: Any,
@@ -142,11 +164,8 @@ def _process_satellite_v2p1(row: Row, scan: Any,
   row['controls_failed'] = not scan['passed_control']
   received_ips = scan.get('response').copy()
 
-  from pprint import pprint
-
   if not received_ips:
     row['received'] = []
-    pprint(("yielding v2.1 row", row))
     yield row
     return
 
@@ -154,34 +173,22 @@ def _process_satellite_v2p1(row: Row, scan: Any,
   rcodes = received_ips.pop('rcode', [])
   errors = received_ips.pop('error', [])
 
-  # v2.1 measurements repeat 4 times or until the test is successful
-  if not rcodes:
-    successful_test_rcode = []
-    failed_test_rcodes = []
-  elif rcodes[-1] == "0":
-    successful_test_rcode = [rcodes[-1]]
-    failed_test_rcodes = rcodes[0:-1]
-  else:
-    successful_test_rcode = []
-    failed_test_rcodes = rcodes
+  successful_test_rcode, failed_test_rcodes = split_rcodes(rcodes)
 
-  from pprint import pprint
-  pprint(("rcode split", successful_test_rcode, failed_test_rcodes))
-
-  if any([rcode == "0" for rcode in failed_test_rcodes]):
+  if any(rcode == "0" for rcode in failed_test_rcodes):
     raise Exception(
         f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {scan}"
     )
 
   if not successful_test_rcode and received_ips:
     # TODO figure out how to handle this bug case from 2021-05-16
+    # for now drop the measurements
     logging.warning(
         f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {scan}"
     )
     return
-  if not successful_test_rcode:
-    pass
-  else:
+
+  if successful_test_rcode:
     all_received = []
     for (ip, tags) in received_ips.items():
       received = {'ip': ip}
@@ -192,7 +199,6 @@ def _process_satellite_v2p1(row: Row, scan: Any,
     success_row = row.copy()
     success_row['received'] = all_received
     success_row['rcode'] = successful_test_rcode
-    pprint(("yielding v2.1 successful row", success_row))
     yield success_row
 
   for rcode in failed_test_rcodes:
@@ -458,10 +464,6 @@ class SatelliteFlattener():
     """
     responses = scan.get('response', [])
 
-    from pprint import pprint
-
-    pprint(("responses for scan", responses, scan))
-
     for response in responses:
       is_control_domain = flatten_base.is_control_url(response['url'])
 
@@ -508,7 +510,6 @@ class SatelliteFlattener():
 
       if not received_ips:
         row['received'] = []
-        pprint(("yielding 2.1 control", row))
         yield row
 
       else:
@@ -518,5 +519,4 @@ class SatelliteFlattener():
           all_received.append(received)
         row['received'] = all_received
 
-        pprint(("yielding 2.1 control", row))
         yield row

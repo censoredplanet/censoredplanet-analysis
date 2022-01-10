@@ -73,9 +73,6 @@ def _get_satellite_date_partition(row: Row, _: int) -> int:
 
 def _make_date_received_ip_key(row: Row) -> DateIpKey:
   """Makes a tuple key of the date and received ip from a given row dict."""
-  from pprint import pprint
-  #pprint(("making key", row['date'], row))
-
   if row['received'] is not None and len(row['received']) > 0:
     return (row['date'], row['received'][0]['ip'])
   return (row['date'], '')

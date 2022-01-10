@@ -53,7 +53,8 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
     new_row.update(row)
     if field == 'received':
       if new_row['received']:
-        # TODO undo this once we figure out double-flattening satellite
+        # Double-flattened rows are stored with a single received ip in each list
+        # to be reconstructed later
         new_row['received'][0].update(ip_metadata)
         new_row['received'][0].pop('date', None)
         new_row['received'][0].pop('name', None)
