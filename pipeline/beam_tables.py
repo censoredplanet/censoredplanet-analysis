@@ -569,7 +569,7 @@ class ScanDataBeamPipelineRunner():
         runtime_type_check=False,  # slow in prod
         experiments=[
             'enable_execution_details_collection',
-            'use_monitoring_state_manager'
+            'use_monitoring_state_manager', 'upload_graph'
         ],
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
