@@ -26,4 +26,4 @@ COPY . ./
 RUN pip install -r requirements.txt
 
 #ENTRYPOINT python3 schedule_pipeline.py
-ENTRYPOINT python3 -m pipeline.run_beam_tables --env=prod --full  --scan_type=all
+ENTRYPOINT python3 -m pipeline.run_beam_tables --env=user --full  --scan_type=satellite --user_dataset=laplante
