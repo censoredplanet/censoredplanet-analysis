@@ -46,7 +46,7 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_DOMAIN_PARTITIONS = 250
+NUM_DOMAIN_PARTITIONS = 500
 NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 
@@ -647,9 +647,9 @@ def process_satellite_lines(
   # PCollection[Row]
   tagged_satellite = process_satellite_with_tags(lines, tags)
   # PCollection[Row]
-  post_processed_satellite = post_processing_satellite(tagged_satellite)
+  # post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
   blockpage_rows = process_satellite_blockpages(blockpages)
 
-  return post_processed_satellite, blockpage_rows
+  return tagged_satellite, blockpage_rows
