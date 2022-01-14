@@ -46,7 +46,7 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_DOMAIN_PARTITIONS = 500
+NUM_DOMAIN_PARTITIONS = 600
 NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 
@@ -469,9 +469,12 @@ def process_satellite_with_tags(
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
+  # TODO turn back on
+  # rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
 
-  return rows_with_metadata
+  unflattened_rows = unflatten_received_ip_rows(received_ip_flattened_rows)
+
+  return unflattened_rows # rows_with_metadata
 
 
 def process_satellite_blockpages(
