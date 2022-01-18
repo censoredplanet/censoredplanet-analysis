@@ -291,12 +291,13 @@ def _add_satellite_tags(
       rows_with_metadata |
       'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
 
+  # TDO turn back on
   # PCollection[Row]
-  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
-                                                 ips_with_metadata)
+  #rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
+  #                                               ips_with_metadata)
 
   # PCollection[Row]
-  rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
+  rows_with_tags = ((rows_pre_v2_2, rows_v2_2) |
                     'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
@@ -469,12 +470,11 @@ def process_satellite_with_tags(
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  # TODO turn back on
-  # rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
+  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
 
-  unflattened_rows = unflatten_received_ip_rows(received_ip_flattened_rows)
+  # unflattened_rows = unflatten_received_ip_rows(received_ip_flattened_rows)
 
-  return unflattened_rows # rows_with_metadata
+  return rows_with_metadata
 
 
 def process_satellite_blockpages(
