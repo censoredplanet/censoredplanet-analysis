@@ -46,7 +46,7 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_DOMAIN_PARTITIONS = 600
+NUM_DOMAIN_PARTITIONS = 1000
 NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 
@@ -293,11 +293,11 @@ def _add_satellite_tags(
 
   # TDO turn back on
   # PCollection[Row]
-  #rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
-  #                                               ips_with_metadata)
+  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2,
+                                                 ips_with_metadata)
 
   # PCollection[Row]
-  rows_with_tags = ((rows_pre_v2_2, rows_v2_2) |
+  rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
                     'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
