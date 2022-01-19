@@ -118,6 +118,11 @@ CREATE TEMP FUNCTION ClassifyError(error STRING,
     WHEN (error = "Certificates do not match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "Cipher suites do not match") THEN "content/tls_mismatch" # HTTPS
     WHEN (error = "TLS versions do not match") THEN "content/tls_mismatch" # HTTPS
+    # Hyperquack v2 multiple errors
+    WHEN (error = "Status lines do not match") THEN StatusMismatch(received_status) # HTTP/S
+    WHEN (error = "Bodies do not match") THEN "content/body_mismatch" # HTTP/S
+    WHEN REGEXP_CONTAINS(error, "header field missing") THEN "content/header_mismatch" # HTTP/S
+    WHEN REGEXP_CONTAINS(error, "header field mismatch") THEN "content/header_mismatch" # HTTP/S
 
     # Unknown errors
     ELSE "unknown/unknown"
@@ -129,6 +134,12 @@ CREATE TEMP FUNCTION ExtractServerHeader(received_headers ARRAY<STRING>) AS (
   (SELECT REGEXP_EXTRACT(header, "Server: (.*)")
    FROM UNNEST(received_headers) AS header
    WHERE STARTS_WITH(header, "Server: ") LIMIT 1)
+);
+
+# Error string with either a single error or multiple split by ;
+# Returns the first error
+CREATE TEMP FUNCTION GetFirstError(errors STRING) AS (
+  IF(STRPOS(errors, ';') > 0, SUBSTR(errors, 1, STRPOS(errors, ';') - 1), errors)
 );
 
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
@@ -164,16 +175,19 @@ WITH AllScans AS (
 ), Grouped AS (
     SELECT
         date,
-
         source,
         country AS country_code,
         as_full_name AS network,
         IF(is_control, "CONTROL", domain) AS domain,
-
-        ClassifyError(error, source, received_status, success, blockpage, page_signature, ExtractServerHeader(received_headers)) AS outcome,
+        ClassifyError(GetFirstError(error),
+                      source,
+                      received_status,
+                      success,
+                      blockpage,
+                      page_signature,
+                      ExtractServerHeader(received_headers)) AS outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
         IFNULL(category, "Uncategorized") AS category,
-
         COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
@@ -201,6 +215,7 @@ SELECT
 DROP FUNCTION StatusMismatch;
 DROP FUNCTION ClassifyError;
 DROP FUNCTION ExtractServerHeader;
+DROP FUNCTION GetFirstError;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
