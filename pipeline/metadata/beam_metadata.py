@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import datetime
 from typing import Tuple, Dict, List, Iterator, Iterable, Optional
 from pprint import pprint
-from pympler import asizeof
 
 import apache_beam as beam
 
@@ -115,7 +114,6 @@ class MetadataAdder(beam.DoFn):
 
     #metadata = ip_metadata_chooser.get_metadata(element['ip'])
     pprint(("total dict length", len(ip_metadata)))
-    pprint(("total dict size", asizeof.asizeof(ip_metadata)))
 
     metadata = ip_metadata[(element['date'], element['ip'])]
     element.update(metadata)
