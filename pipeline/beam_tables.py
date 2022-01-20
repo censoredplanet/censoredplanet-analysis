@@ -28,7 +28,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows, add_ip_metadata
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten_satellite
@@ -628,7 +628,9 @@ class ScanDataBeamPipelineRunner():
                 flatten.FlattenMeasurement()).with_output_types(Row))
 
         # PCollection[Row]
-        rows_with_metadata = self._add_metadata(rows)
+        # rows_with_metadata = self._add_metadata(rows)
+        rows_with_metadata = add_ip_metadata(rows,
+                                             self.metadata_chooser_factory)
 
       _raise_error_if_collection_empty(rows_with_metadata)
 
