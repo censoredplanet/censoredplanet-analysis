@@ -28,7 +28,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows, add_ip_metadata
+from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows, MetadataContainer
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten_satellite
@@ -615,7 +615,9 @@ class ScanDataBeamPipelineRunner():
             lines)
 
         # PCollection[Row]
-        rows_with_metadata = self._add_metadata(satellite_rows)
+        #rows_with_metadata = self._add_metadata(satellite_rows)
+        rows_with_metadata = MetadataContainer(
+            self.metadata_chooser_factory).add_ip_metadata(satellite_rows)
 
         self._write_to_bigquery(
             satellite.SCAN_TYPE_BLOCKPAGE, blockpage_rows,
@@ -629,8 +631,10 @@ class ScanDataBeamPipelineRunner():
 
         # PCollection[Row]
         # rows_with_metadata = self._add_metadata(rows)
-        rows_with_metadata = add_ip_metadata(rows,
-                                             self.metadata_chooser_factory)
+        #rows_with_metadata = add_ip_metadata(rows,
+        #                                     self.metadata_chooser_factory)
+        rows_with_metadata = MetadataContainer(
+            self.metadata_chooser_factory).add_ip_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)
 

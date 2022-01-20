@@ -494,6 +494,21 @@ class PipelineManualE2eTest(unittest.TestCase):
     self.assertEqual(org, None)
     self.assertEqual(asn, 13335)
 
+  def test_ip_metadata_chooser(self) -> None:
+    from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
+
+    chooser_fact = IpMetadataChooserFactory(
+        firehook_resources.CAIDA_FILE_LOCATION,
+        firehook_resources.MAXMIND_FILE_LOCATION,
+        firehook_resources.DBIP_FILE_LOCATION)
+
+    chooser = chooser_fact.make_chooser(datetime.date(2022, 1, 1))
+
+    from pprint import pprint
+    from pympler import asizeof
+
+    pprint(("size", asizeof.asizeof(chooser)))
+
 
 # This test is not run by default in unittest because it takes about a minute
 # to run, plus it reads from and writes to bigquery.
