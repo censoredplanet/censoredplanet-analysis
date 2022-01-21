@@ -509,6 +509,22 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     pprint(("size", asizeof.asizeof(chooser)))
 
+    import csv
+    with open('satellite-2021-11-28-all-received-ips.csv') as csvfile:
+      ipreader = csv.reader(csvfile)
+      ips = [line[0] for line in ipreader]
+
+    pprint(("num ips", len(ips)))
+
+    classified_ips = {}
+    for ip in ips:
+      try:
+        classified_ips[ip] = chooser.get_metadata(ip)
+      except Exception:
+        pass
+
+    pprint(("dict size", asizeof.asizeof(classified_ips)))
+
 
 # This test is not run by default in unittest because it takes about a minute
 # to run, plus it reads from and writes to bigquery.
