@@ -46,7 +46,7 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_DOMAIN_PARTITIONS = 250
+NUM_HASH_PARTITIONS = 250
 NUM_SATELLITE_INPUT_PARTITIONS = 3
 
 
@@ -58,9 +58,13 @@ def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
   return merged
 
 
-def _get_domain_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
+def _get_hash_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
   key = keyed_row[1]
-  return hash(key.get('domain')) % NUM_DOMAIN_PARTITIONS
+  # start_date is uncorrelated received_ips, so it's best to partition on
+  if 'start_time' in key:
+    return hash(key.get('start_time')) % NUM_HASH_PARTITIONS
+  # v1 data doesn't have timestamps, so we use vp ip as second-best
+  return hash(key.get('ip')) % NUM_HASH_PARTITIONS
 
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
@@ -204,13 +208,13 @@ def add_received_ip_tags(
               Tuple[DateIpKey, Row]))
 
   # Iterable[PCollection[Tuple[DateIpKey,Row]]]
-  partition_by_domain = (
-      received_keyed_by_ip_and_date | 'partition by domain' >> beam.Partition(
-          _get_domain_partition, NUM_DOMAIN_PARTITIONS))
+  partition_by_hash = (
+      received_keyed_by_ip_and_date | 'partition by hash' >> beam.Partition(
+          _get_hash_partition, NUM_HASH_PARTITIONS))
 
   collections = []
-  for i in range(0, NUM_DOMAIN_PARTITIONS):
-    elements = partition_by_domain[i]
+  for i in range(0, NUM_HASH_PARTITIONS):
+    elements = partition_by_hash[i]
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
     grouped_received_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
@@ -218,17 +222,17 @@ def add_received_ip_tags(
     }) | f'group by received ip keys {i}' >> beam.CoGroupByKey())
 
     # PCollection[Row]
-    domain_rows_with_tags = (
+    hash_rows_with_tags = (
         grouped_received_metadata_and_rows | f'tag received ips {i}' >>
         beam.FlatMapTuple(lambda k, v: merge_metadata_with_rows(
             k, v, field='received')).with_output_types(Row))
 
-    collections.append(domain_rows_with_tags)
+    collections.append(hash_rows_with_tags)
 
   # PCollection[Row]
   rows_with_tags = (
       collections |
-      'merge domain collections' >> beam.Flatten().with_output_types(Row))
+      'merge hash collections' >> beam.Flatten().with_output_types(Row))
 
   return rows_with_tags
 
