@@ -64,7 +64,7 @@ def _get_hash_partition(keyed_row: Tuple[DateIpKey, Row], _: int) -> int:
   if 'start_time' in key:
     return hash(key.get('start_time')) % NUM_HASH_PARTITIONS
   # v1 data doesn't have timestamps, so we use vp ip as second-best
-  return hash(key.get('ip')) % NUM_HASH_PARTITIONS
+  return hash(key.get('ip') + key.get('domain')) % NUM_HASH_PARTITIONS
 
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
