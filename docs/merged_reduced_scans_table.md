@@ -65,6 +65,18 @@ Not all tests include every stage depending on the type of test. For example sin
 
 ##### Discard
 
+```mermaid
+sequenceDiagram
+    participant probe
+    participant remote
+    note left of probe: Initial Test Setup
+    probe->>remote: Establish TCP Connection
+    probe->>remote: Write HTTP Request
+    probe<<-remote: Read Response
+    note left of probe: Validate response content is empty
+    note left of probe: Test Complete
+```
+
 ![discard connection diagram](diagrams/discard.svg)
 
 ##### Echo
