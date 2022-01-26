@@ -1,39 +1,39 @@
 CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
   CASE
     WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
-    WHEN rcode = "0" THEN "dns/dns.name_not_resolved"
-    WHEN rcode = "1" THEN "dns/dns.formerr"
-    WHEN rcode = "2" THEN "dns/dns.servfail"
-    WHEN rcode = "3" THEN "dns/dns.nxdomain"
-    WHEN rcode = "4" THEN "dns/dns.notimp"
-    WHEN rcode = "5" THEN "dns/dns.refused"
-    WHEN rcode = "6" THEN "dns/dns.yxdomain"
-    WHEN rcode = "7" THEN "dns/dns.yxrrset"
-    WHEN rcode = "8" THEN "dns/dns.nxrrset"
-    WHEN rcode = "9" THEN "dns/dns.notauth"
-    WHEN rcode = "10" THEN "dns/dns.notzone"
-    WHEN rcode = "16" THEN "dns/dns.badsig"
-    WHEN rcode = "17" THEN "dns/dns.badkey"
-    WHEN rcode = "18" THEN "dns/dns.badtime"
-    WHEN rcode = "19" THEN "dns/dns.badmode"
-    WHEN rcode = "20" THEN "dns/dns.badname"
-    WHEN rcode = "21" THEN "dns/dns.badalg"
-    WHEN rcode = "22" THEN "dns/dns.badtrunc"
-    WHEN rcode = "23" THEN "dns/dns.badcookie"
+    WHEN rcode = "0" THEN "dns/rcode.name_not_resolved"
+    WHEN rcode = "1" THEN "dns/rcode.formerr"
+    WHEN rcode = "2" THEN "dns/rcode.servfail"
+    WHEN rcode = "3" THEN "dns/rcode.nxdomain"
+    WHEN rcode = "4" THEN "dns/rcode.notimp"
+    WHEN rcode = "5" THEN "dns/rcode.refused"
+    WHEN rcode = "6" THEN "dns/rcode.yxdomain"
+    WHEN rcode = "7" THEN "dns/rcode.yxrrset"
+    WHEN rcode = "8" THEN "dns/rcode.nxrrset"
+    WHEN rcode = "9" THEN "dns/rcode.notauth"
+    WHEN rcode = "10" THEN "dns/rcode.notzone"
+    WHEN rcode = "16" THEN "dns/rcode.badsig"
+    WHEN rcode = "17" THEN "dns/rcode.badkey"
+    WHEN rcode = "18" THEN "dns/rcode.badtime"
+    WHEN rcode = "19" THEN "dns/rcode.badmode"
+    WHEN rcode = "20" THEN "dns/rcode.badname"
+    WHEN rcode = "21" THEN "dns/rcode.badalg"
+    WHEN rcode = "22" THEN "dns/rcode.badtrunc"
+    WHEN rcode = "23" THEN "dns/rcode.badcookie"
     # Satellite v1
     WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "read/udp.timeout"
     WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
     WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "read/udp.refused"
     WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
     WHEN error = "{}" THEN "dns/unknown"
-    WHEN error = "no_answer" THEN "dns/dns.name_not_resolved"
+    WHEN error = "no_answer" THEN "dns/rcode.name_not_resolved"
     #Satellite v2
     WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
     WHEN ENDS_WITH(error, "message too long") THEN "read/dns.msgsize"
     WHEN ENDS_WITH(error, "connection refused") THEN "read/udp.refused"
     WHEN ENDS_WITH(error, "no route to host") THEN "read/ip.host_no_route"
     WHEN ENDS_WITH(error, "short read") THEN "read/dns.msgsize"
-    ELSE "dns/unknown"
+    ELSE "dns/unknown_classification"
   END
 );
 
@@ -97,7 +97,10 @@ SELECT
     IFNULL(country_name, country_code) AS country_name,
     CASE
         WHEN (STARTS_WITH(outcome, "expected/")) THEN 0
-        WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
+        WHEN (outcome = "read/udp.timeout" # timeouts are common in dns
+              OR STARTS_WITH(outcome, "dial/")
+              OR STARTS_WITH(outcome, "setup/")
+              OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         ELSE count
     END AS unexpected_count
     FROM Grouped
