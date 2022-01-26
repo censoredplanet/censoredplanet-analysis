@@ -49,7 +49,7 @@ def _run_query(filepath: str, base_dataset: str,
 
 def rebuild_all_tables(base_dataset: str = DEFAULT_BASE_DATASET,
                        derived_dataset: str = DEFAULT_DERIVED_DATASET) -> None:
-  for filepath in glob.glob('table/queries/*.sql'):
+  for filepath in glob.glob('table/queries/derived_satellite_scans.sql'):
     try:
       _run_query(filepath, base_dataset, derived_dataset)
     except Exception as ex:
