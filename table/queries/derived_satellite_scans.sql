@@ -1,6 +1,5 @@
-CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
+CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
   CASE
-    WHEN rcode = "-1" AND (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
     WHEN rcode = "0" THEN "dns/rcode.name_not_resolved"
     WHEN rcode = "1" THEN "dns/rcode.formerr"
     WHEN rcode = "2" THEN "dns/rcode.servfail"
@@ -20,6 +19,13 @@ CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
     WHEN rcode = "21" THEN "dns/rcode.badalg"
     WHEN rcode = "22" THEN "dns/rcode.badtrunc"
     WHEN rcode = "23" THEN "dns/rcode.badcookie"
+    ELSE "dns/rcode.unknown"
+  END
+);
+
+CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
+  CASE
+
     # Satellite v1
     WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "read/udp.timeout"
     WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
@@ -37,6 +43,13 @@ CREATE TEMP FUNCTION ClassifySatelliteError(rcode STRING, error STRING) AS (
   END
 );
 
+CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
+  CASE
+    WHEN (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
+    ELSE ClassifySatelliteError(error)
+  END
+);
+
 # Input: array of received IP information, array of rcodes, error,
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
@@ -48,8 +61,9 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, er
         WHEN anomaly THEN "dns/dns.ipmismatch"
         ELSE "expected/match"
       END
-    WHEN ARRAY_LENGTH(rcode) > 0 THEN ClassifySatelliteError(rcode[OFFSET(0)], error)
-    ELSE ClassifySatelliteError("", error)
+    WHEN ARRAY_LENGTH(rcode) = 0 THEN ClassifySatelliteError(error)
+    WHEN rcode[OFFSET(0)] = "-1" THEN ClassifySatelliteErrorNegRCode(error)
+    ELSE ClassifySatelliteRCode(rcode[OFFSET(0)])
   END
 );
 
@@ -75,7 +89,6 @@ WITH Grouped AS (
     SELECT
         date,
 
-        source,
         country AS country_code,
         as_full_name AS network,
         IF(is_control, "CONTROL", domain) AS domain,
@@ -87,8 +100,8 @@ WITH Grouped AS (
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan_flattened_no_received_ip_tagging`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, subnetwork, outcome, domain, category
+    WHERE controls_failed = FALSE OR controls_failed IS NULL # compensating for null controls_failed in v1 data
+    GROUP BY date, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -110,7 +123,9 @@ SELECT
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
+DROP FUNCTION ClassifySatelliteRCode;
 DROP FUNCTION ClassifySatelliteError;
+DROP FUNCTION ClassifySatelliteErrorNegRCode;
 DROP FUNCTION SatelliteOutcome;
 
 # This view is the stable name for the table above.
