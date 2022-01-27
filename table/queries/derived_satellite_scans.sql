@@ -1,37 +1,36 @@
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
   CASE
-    WHEN rcode = "0" THEN "dns/rcode.name_not_resolved"
-    WHEN rcode = "1" THEN "dns/rcode.formerr"
-    WHEN rcode = "2" THEN "dns/rcode.servfail"
-    WHEN rcode = "3" THEN "dns/rcode.nxdomain"
-    WHEN rcode = "4" THEN "dns/rcode.notimp"
-    WHEN rcode = "5" THEN "dns/rcode.refused"
-    WHEN rcode = "6" THEN "dns/rcode.yxdomain"
-    WHEN rcode = "7" THEN "dns/rcode.yxrrset"
-    WHEN rcode = "8" THEN "dns/rcode.nxrrset"
-    WHEN rcode = "9" THEN "dns/rcode.notauth"
-    WHEN rcode = "10" THEN "dns/rcode.notzone"
-    WHEN rcode = "11" THEN "dns/rcode.dsotypeni"
-    WHEN rcode = "12" THEN "dns/rcode.unassigned"
-    WHEN rcode = "13" THEN "dns/rcode.unassigned"
-    WHEN rcode = "14" THEN "dns/rcode.unassigned"
-    WHEN rcode = "15" THEN "dns/rcode.unassigned"
-    WHEN rcode = "16" THEN "dns/rcode.badsig"
-    WHEN rcode = "17" THEN "dns/rcode.badkey"
-    WHEN rcode = "18" THEN "dns/rcode.badtime"
-    WHEN rcode = "19" THEN "dns/rcode.badmode"
-    WHEN rcode = "20" THEN "dns/rcode.badname"
-    WHEN rcode = "21" THEN "dns/rcode.badalg"
-    WHEN rcode = "22" THEN "dns/rcode.badtrunc"
-    WHEN rcode = "23" THEN "dns/rcode.badcookie"
-    ELSE CONCAT("dns/rcode.unknown:", rcode)
+    WHEN rcode = "0" THEN "dns/answer:empty"
+    WHEN rcode = "1" THEN "dns/rcode:FormErr"
+    WHEN rcode = "2" THEN "dns/rcode:ServFail"
+    WHEN rcode = "3" THEN "dns/rcode:NXDomain"
+    WHEN rcode = "4" THEN "dns/rcode:NotImp"
+    WHEN rcode = "5" THEN "dns/rcode:Refused"
+    WHEN rcode = "6" THEN "dns/rcode:YXDomain"
+    WHEN rcode = "7" THEN "dns/rcode:YXRRSet"
+    WHEN rcode = "8" THEN "dns/rcode:NXRRSet"
+    WHEN rcode = "9" THEN "dns/rcode:NotAuth"
+    WHEN rcode = "10" THEN "dns/rcode:NotZone"
+    WHEN rcode = "11" THEN "dns/rcode:DSOTYPENI"
+    WHEN rcode = "12" THEN "dns/rcode:Unassigned"
+    WHEN rcode = "13" THEN "dns/rcode:Unassigned"
+    WHEN rcode = "14" THEN "dns/rcode:Unassigned"
+    WHEN rcode = "15" THEN "dns/rcode:Unassigned"
+    WHEN rcode = "16" THEN "dns/rcode:BadVers"
+    WHEN rcode = "17" THEN "dns/rcode:BadSig"
+    WHEN rcode = "18" THEN "dns/rcode:BadKey"
+    WHEN rcode = "19" THEN "dns/rcode:BadTime"
+    WHEN rcode = "20" THEN "dns/rcode:BadMode"
+    WHEN rcode = "21" THEN "dns/rcode:BadAlg"
+    WHEN rcode = "22" THEN "dns/rcode:BadTrunc"
+    WHEN rcode = "23" THEN "dns/rcode:BadCookie"
+    ELSE CONCAT("dns/unknown_rcode:", rcode)
   END
 );
 
 CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   CASE
-
     # Satellite v1
     WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "read/udp.timeout"
     WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
@@ -67,7 +66,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, er
     WHEN controls_failed THEN "setup/controls"
     WHEN ARRAY_LENGTH(received) > 0 THEN
       CASE
-        WHEN anomaly THEN "dns/dns.ipmismatch"
+        WHEN anomaly THEN "dns/answer:ipmismatch"
         ELSE "expected/match"
       END
     WHEN ARRAY_LENGTH(rcode) = 0 THEN ClassifySatelliteError(error)
