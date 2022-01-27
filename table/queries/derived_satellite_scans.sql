@@ -37,8 +37,8 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "read/udp.refused"
     WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
     WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "setup/system_failure" # Too many open files
-    WHEN error = "{}" THEN "dns/unknown" #TODO figure out origin
-    WHEN error = "no_answer" THEN "dns/rcode.name_not_resolved"
+    WHEN error = "{}" THEN "dns/unknown" # TODO figure out origin
+    WHEN error = "no_answer" THEN "dns/answer:empty"
     #Satellite v2
     WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
     WHEN ENDS_WITH(error, "message too long") THEN "read/dns.msgsize"
@@ -117,13 +117,14 @@ SELECT
     Grouped.* EXCEPT (country_code),
     IFNULL(country_name, country_code) AS country_name,
     CASE
-        WHEN (STARTS_WITH(outcome, "expected/")) THEN 0
-        WHEN (outcome = "read/udp.timeout" # timeouts are common in dns
-              OR STARTS_WITH(outcome, "dial/")
-              OR STARTS_WITH(outcome, "setup/")
-              OR ENDS_WITH(outcome, "/invalid")) THEN NULL
+        WHEN STARTS_WITH(outcome, "expected/") THEN 0
+        WHEN outcome = "read/udp.timeout" THEN NULL # timeouts are common in dns
         ELSE count
-    END AS unexpected_count
+    END AS unexpected_count,
+    CASE
+        WHEN STARTS_WITH(outcome, "expected/") THEN count
+        ELSE 0
+    END AS expected_count,
     FROM Grouped
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
