@@ -1,3 +1,4 @@
+# https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
   CASE
     WHEN rcode = "0" THEN "dns/rcode.name_not_resolved"
@@ -11,6 +12,11 @@ CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
     WHEN rcode = "8" THEN "dns/rcode.nxrrset"
     WHEN rcode = "9" THEN "dns/rcode.notauth"
     WHEN rcode = "10" THEN "dns/rcode.notzone"
+    WHEN rcode = "11" THEN "dns/rcode.dsotypeni"
+    WHEN rcode = "12" THEN "dns/rcode.unassigned"
+    WHEN rcode = "13" THEN "dns/rcode.unassigned"
+    WHEN rcode = "14" THEN "dns/rcode.unassigned"
+    WHEN rcode = "15" THEN "dns/rcode.unassigned"
     WHEN rcode = "16" THEN "dns/rcode.badsig"
     WHEN rcode = "17" THEN "dns/rcode.badkey"
     WHEN rcode = "18" THEN "dns/rcode.badtime"
@@ -19,7 +25,7 @@ CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
     WHEN rcode = "21" THEN "dns/rcode.badalg"
     WHEN rcode = "22" THEN "dns/rcode.badtrunc"
     WHEN rcode = "23" THEN "dns/rcode.badcookie"
-    ELSE "dns/rcode.unknown"
+    ELSE CONCAT("dns/rcode.unknown:", rcode)
   END
 );
 
@@ -31,7 +37,8 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
     WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "read/udp.refused"
     WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
-    WHEN error = "{}" THEN "dns/unknown"
+    WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "setup/system_failure" # Too many open files
+    WHEN error = "{}" THEN "dns/unknown" #TODO figure out origin
     WHEN error = "no_answer" THEN "dns/rcode.name_not_resolved"
     #Satellite v2
     WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
@@ -39,7 +46,9 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN ENDS_WITH(error, "connection refused") THEN "read/udp.refused"
     WHEN ENDS_WITH(error, "no route to host") THEN "read/ip.host_no_route"
     WHEN ENDS_WITH(error, "short read") THEN "read/dns.msgsize"
-    ELSE "dns/unknown_classification"
+    WHEN ENDS_WITH(error, "read: protocol error") THEN "read/protocol_error"
+    WHEN ENDS_WITH(error, "socket: too many open files") THEN "setup/system_failure"
+    ELSE CONCAT("dns/unknown_error:", error)
   END
 );
 
