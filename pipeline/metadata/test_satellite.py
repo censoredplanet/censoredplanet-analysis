@@ -182,11 +182,12 @@ class SatelliteTest(unittest.TestCase):
 
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
+    # Tag fields are currently turned off
     expected = [{
         'ip': '1.1.1.3',
         'is_control_ip': False,
-        'country': 'US',
-        'name': 'special',
+        #'country': 'US',
+        #'name': 'special',
         'domain': 'signal.org',
         'is_control': False,
         'category': 'Communication Tools',
@@ -196,31 +197,31 @@ class SatelliteTest(unittest.TestCase):
         'rcode': ['0'],
         'received': [{
             'ip': '13.249.134.38',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+            #'asname': 'AMAZON-02',
+            #'asnum': 16509,
+            #'cert': None,
+            #'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
             'matches_control': 'ip http asnum asname'
         }, {
             'ip': '13.249.134.44',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+            #'asname': 'AMAZON-02',
+            #'asnum': 16509,
+            #'cert': None,
+            #'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
             'matches_control': 'ip http asnum asname'
         }, {
             'ip': '13.249.134.74',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+            #'asname': 'AMAZON-02',
+            #'asnum': 16509,
+            #'cert': None,
+            #'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
             'matches_control': 'ip http asnum asname'
         }, {
             'ip': '13.249.134.89',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+            #'asname': 'AMAZON-02',
+            #'asnum': 16509,
+            #'cert': None,
+            #'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
             'matches_control': 'ip http asnum asname'
         }],
         'date': '2020-09-02',
@@ -229,8 +230,8 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '1.1.1.3',
         'is_control_ip': False,
-        'country': 'US',
-        'name': 'special',
+        #'country': 'US',
+        #'name': 'special',
         'domain': 'adl.org',
         'is_control': False,
         'category': 'Religion',
@@ -362,11 +363,12 @@ class SatelliteTest(unittest.TestCase):
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
     # yapf: disable
+    # Tag fields are currently turned off
     expected = [{
         'ip': '185.228.169.37',
         'is_control_ip': False,
         'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        #'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
         'is_control': False,
         'category': 'Culture',
@@ -385,7 +387,7 @@ class SatelliteTest(unittest.TestCase):
         'ip': '185.228.169.37',
         'is_control_ip': False,
         'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        #'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
         'is_control': False,
         'category': 'Culture',
@@ -404,7 +406,7 @@ class SatelliteTest(unittest.TestCase):
         'ip': '185.228.169.37',
         'is_control_ip': False,
         'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
+        #'name': 'customfilter37-dns2.cleanbrowsing.org.',
         'domain': 'ar.m.wikipedia.org',
         'is_control': False,
         'category': 'Culture',
@@ -414,10 +416,10 @@ class SatelliteTest(unittest.TestCase):
         'controls_failed': False,
         'received': [{
             'ip': '198.35.26.96',
-            'asname': 'WIKIMEDIA',
-            'asnum': 14907,
-            'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
-            'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
+            #'asname': 'WIKIMEDIA',
+            #'asnum': 14907,
+            #'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
+            #'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
             'matches_control': 'cert asnum asname'
         }, {
             'ip': '198.35.26.86',
@@ -433,7 +435,7 @@ class SatelliteTest(unittest.TestCase):
         'ip': '156.154.71.37',
         'is_control_ip': False,
         'country': 'US',
-        'name': 'rdns37b.ultradns.net.',
+        #'name': 'rdns37b.ultradns.net.',
         'domain': 'www.usacasino.com',
         'is_control': False,
         'category': 'Gambling',
@@ -452,7 +454,7 @@ class SatelliteTest(unittest.TestCase):
         'ip': '156.154.71.37',
         'is_control_ip': False,
         'country': 'US',
-        'name': 'rdns37b.ultradns.net.',
+        #'name': 'rdns37b.ultradns.net.',
         'domain': 'www.usacasino.com',
         'is_control': False,
         'category': 'Gambling',
@@ -615,11 +617,12 @@ class SatelliteTest(unittest.TestCase):
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
     # yapf: disable
+    # Tag fields are currently turned off
     expected = [{
         'ip': '87.119.233.243',
         'is_control_ip': False,
         'country': 'RU',
-        'name': '87-119-233-243.saransk.ru.',
+        #'name': '87-119-233-243.saransk.ru.',
         'domain': 'feedly.com',
         'is_control': False,
         'category': 'E-commerce',
@@ -637,7 +640,7 @@ class SatelliteTest(unittest.TestCase):
         'ip': '12.5.76.236',
         'is_control_ip': False,
         'country': 'US',
-        'name': 'ns1327.ztomy.com.',
+        #'name': 'ns1327.ztomy.com.',
         'domain': 'ultimate-guitar.com',
         'is_control': False,
         'category': 'History arts and literature',
@@ -655,7 +658,7 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
+        #'name': 'rec1pubns2.ultradns.net.',
         'domain': 'a.root-servers.net',
         'is_control': True,
         'category': 'Control',
@@ -676,7 +679,7 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
+        #'name': 'rec1pubns2.ultradns.net.',
         'domain': 'ultimate-guitar.com',
         'is_control': False,
         'category': 'History arts and literature',
@@ -697,7 +700,7 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
+        #'name': 'rec1pubns2.ultradns.net.',
         'domain': 'a.root-servers.net',
         'is_control': True,
         'category': 'Control',
@@ -718,7 +721,7 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
+        #'name': 'rec1pubns2.ultradns.net.',
         'domain': 'www.awid.org',
         'is_control': False,
         'category': 'Human Rights Issues',
@@ -737,7 +740,7 @@ class SatelliteTest(unittest.TestCase):
     }, {
         'ip': '64.6.65.6',
         'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
+        #'name': 'rec1pubns2.ultradns.net.',
         'domain': 'www.awid.org',
         'is_control': False,
         'category': 'Human Rights Issues',
