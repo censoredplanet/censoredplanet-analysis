@@ -337,8 +337,10 @@ def post_processing_satellite(
   # PCollection[Tuple[Tuple[str, str], Row]], PCollection[Tuple[Tuple[str, str], Row]]
   rows, controls = (
       rows | 'key by dates and domains' >> beam.Map(lambda row: (
-          (row['date'], row['domain']), row)) | 'partition test and control' >>
-      beam.Partition(lambda row, p: int(row[1]['anomaly'] is None), 2))
+          (row['date'], row['domain']), row)) |
+      'partition test and control' >> beam.Partition(
+          lambda row, p: int(row[1]['is_control_ip'] or row[1]['anomaly'] is
+                             None), 2))
 
   # PCollection[Tuple[Tuple[str, str], int]]
   num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(
@@ -551,7 +553,7 @@ def _calculate_confidence(scan: Dict[str, Any],
     scan['average_confidence'] = sum(scan['matches_confidence']) / len(
         scan['matches_confidence'])
   # Sanity check for untagged responses: do not claim interference
-  if scan['untagged_response'] or scan['untagged_controls']:
+  if scan['untagged_response']:
     scan['anomaly'] = False
   return scan
 
