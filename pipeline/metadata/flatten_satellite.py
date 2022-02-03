@@ -76,12 +76,13 @@ def format_timestamp(timestamp: str) -> str:
   return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
-def _process_received_ips_v1(
-    row: Row, received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
+def _annotate_received_ips_v1(
+    base_response: Row,
+    received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
 
   Args:
-    row: existing row of satellite data
+    base_response: existing row of satellite data
     received_ips: data on the response from the resolver
       ex: {<ip>: ["tags"]}
 
@@ -89,8 +90,8 @@ def _process_received_ips_v1(
     Row with an additional 'received' array field
   """
   if received_ips is None:
-    row['received'] = []
-    yield row
+    base_response['received'] = []
+    yield base_response
     return
 
   # Convert to dict {<ip>: ["tags"]} with no tags
@@ -107,8 +108,8 @@ def _process_received_ips_v1(
       received['matches_control'] = _append_tags(tags)
     all_received.append(received)
 
-  row['received'] = all_received
-  yield row
+  base_response['received'] = all_received
+  yield base_response
 
 
 def _append_tags(tags: List[str]) -> str:
@@ -149,29 +150,29 @@ def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
   return successful_test_rcode, failed_test_rcodes
 
 
-def _process_satellite_v2p1(row: Row, scan: Any,
+def _process_satellite_v2p1(base_response: Row, scan: Any,
                             filepath: str) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
   Args:
-    row: a partially processed row of satellite data
+    base_response: a partially processed row of satellite data
     scan: a loaded json object containing the parsed content of the line
     filepath: path like "<path>/<filename>.json.gz"
 
   Yields:
     Rows
   """
-  row['controls_failed'] = not scan['passed_control']
-  received_ips = scan.get('response').copy()
+  base_response['controls_failed'] = not scan['passed_control']
+  input_response_data = scan.get('response').copy()
 
-  if not received_ips:
-    row['received'] = []
-    yield row
+  if not input_response_data:
+    base_response['received'] = []
+    yield base_response
     return
 
   # separate into one answer ip per row for tagging
-  rcodes = received_ips.pop('rcode', [])
-  errors = received_ips.pop('error', [])
+  rcodes = input_response_data.pop('rcode', [])
+  errors = input_response_data.pop('error', [])
 
   successful_test_rcode, failed_test_rcodes = split_rcodes(rcodes)
 
@@ -180,7 +181,7 @@ def _process_satellite_v2p1(row: Row, scan: Any,
         f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {scan}"
     )
 
-  if not successful_test_rcode and received_ips:
+  if not successful_test_rcode and input_response_data:
     # TODO figure out how to handle this bug case from 2021-05-16
     # for now drop the measurements
     logging.warning(
@@ -190,32 +191,32 @@ def _process_satellite_v2p1(row: Row, scan: Any,
 
   if successful_test_rcode:
     all_received = []
-    for (ip, tags) in received_ips.items():
+    for (ip, tags) in input_response_data.items():
       received = {'ip': ip}
       if tags:
         received['matches_control'] = _append_tags(tags)
       all_received.append(received)
 
-    success_row = row.copy()
-    success_row['received'] = all_received
-    success_row['rcode'] = successful_test_rcode
-    yield success_row
+    success_observation = base_response.copy()
+    success_observation['received'] = all_received
+    success_observation['rcode'] = successful_test_rcode
+    yield success_observation
 
   for rcode in failed_test_rcodes:
-    failed_row = row.copy()
-    failed_row['rcode'] = [rcode]
+    failed_observation = base_response.copy()
+    failed_observation['rcode'] = [rcode]
     # -1 rcodes corrospond to the error messages in order.
     if rcode == "-1":
-      failed_row['error'] = errors.pop() if errors else None
-    yield failed_row
+      failed_observation['error'] = errors.pop() if errors else None
+    yield failed_observation
 
   # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
   # In that case we add them back in manually
   for error in errors:
-    error_row = row.copy()
-    error_row['rcode'] = ["-1"]
-    error_row['error'] = error
-    yield error_row
+    error_observation = base_response.copy()
+    error_observation['rcode'] = ["-1"]
+    error_observation['error'] = error
+    yield error_observation
 
 
 class SatelliteFlattener():
@@ -297,7 +298,7 @@ class SatelliteFlattener():
       row['error'] = json.dumps(row['error'])
 
     received_ips = scan.get('answers')
-    yield from _process_received_ips_v1(row, received_ips)
+    yield from _annotate_received_ips_v1(row, received_ips)
 
   def _process_satellite_v2(self, scan: Any, filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
