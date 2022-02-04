@@ -51,6 +51,27 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   END
 );
 
+
+CREATE TEMP FUNCTION InvalidIp(received STRUCT<ip STRING, asnum INT, asname STRING, http STRING, cert STRING, matches_control STRING>) AS (
+  CASE
+    WHEN STARTS_WITH(received.ip, "0.") THEN TRUE
+    WHEN STARTS_WITH(received.ip, "127.") then TRUE
+    WHEN STARTS_WITH(received.ip, "10.")
+         OR STARTS_WITH(received.ip, "192.168.") then TRUE
+    ELSE FALSE
+  END
+);
+
+CREATE TEMP FUNCTION InvalidIpType(received STRUCT<ip STRING, asnum INT, asname STRING, http STRING, cert STRING, matches_control STRING>) AS (
+  CASE
+    WHEN STARTS_WITH(received.ip, "0.") then "ip_invalid:zero"
+    WHEN STARTS_WITH(received.ip, "127.") then "ip_invalid:local_host"
+    WHEN STARTS_WITH(received.ip, "10.")
+         OR STARTS_WITH(received.ip, "192.168.") then "ip_invalid:local_net"
+    ELSE "invalid_ip_parse_error"
+  END
+);
+
 CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
   CASE
     WHEN (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
@@ -61,11 +82,13 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
 # Input: array of received IP information, array of rcodes, error,
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
-CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE, rcode ARRAY<STRING>, error STRING, controls_failed BOOL, anomaly BOOL) AS (
+CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
+                                      rcode ARRAY<STRING>, error STRING, controls_failed BOOL, anomaly BOOL) AS (
   CASE
     WHEN controls_failed THEN "setup/controls"
     WHEN ARRAY_LENGTH(received) > 0 THEN
       CASE
+        WHEN InvalidIp(received[OFFSET(0)]) THEN InvalidIpType(received[OFFSET(0)])  # assuming no one will mix valid and invalid ips
         WHEN anomaly THEN "dns/answer:ipmismatch"
         ELSE "expected/match"
       END
@@ -136,6 +159,8 @@ DROP FUNCTION ClassifySatelliteRCode;
 DROP FUNCTION ClassifySatelliteError;
 DROP FUNCTION ClassifySatelliteErrorNegRCode;
 DROP FUNCTION SatelliteOutcome;
+DROP FUNCTION InvalidIp;
+DROP FUNCTION InvalidIpType;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
