@@ -238,7 +238,7 @@ def unflatten_received_ip_rows(
   """Unflatten so that each row contains a array of answer IPs
 
   Args:
-    rows: roundtrip rows with a single recieved ip
+    rows: roundtrip rows with a single received ip
 
   Returns:
     roundtrip rows aggregated so they have an array of recieved responses
