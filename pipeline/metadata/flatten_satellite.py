@@ -14,6 +14,9 @@ from pipeline.metadata.flatten_base import Row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
+# Type definition for input responses, TODO make actual type stricter
+ResponsesEntry = Any
+
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
@@ -150,20 +153,20 @@ def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
   return successful_test_rcode, failed_test_rcodes
 
 
-def _process_satellite_v2p1(base_response: Row, scan: Any,
+def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
                             filepath: str) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
   Args:
     base_response: a partially processed row of satellite data
-    scan: a loaded json object containing the parsed content of the line
+    responses_entry: a loaded json object containing the parsed content of the line
     filepath: path like "<path>/<filename>.json.gz"
 
   Yields:
     Rows
   """
-  base_response['controls_failed'] = not scan['passed_control']
-  input_response_data = scan.get('response').copy()
+  base_response['controls_failed'] = not responses_entry['passed_control']
+  input_response_data = responses_entry.get('response').copy()
 
   if not input_response_data:
     base_response['received'] = []
@@ -178,14 +181,14 @@ def _process_satellite_v2p1(base_response: Row, scan: Any,
 
   if any(rcode == "0" for rcode in failed_test_rcodes):
     raise Exception(
-        f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {scan}"
+        f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {responses_entry}"
     )
 
   if not successful_test_rcode and input_response_data:
     # TODO figure out how to handle this bug case from 2021-05-16
     # for now drop the measurements
     logging.warning(
-        f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {scan}"
+        f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {responses_entry}"
     )
     return
 
@@ -227,13 +230,13 @@ class SatelliteFlattener():
     self.blockpage_matcher = blockpage_matcher
     self.category_matcher = category_matcher
 
-  def process_satellite(self, filepath: str, scan: Any,
+  def process_satellite(self, filepath: str, responses_entry: ResponsesEntry,
                         random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       filepath: a filepath string
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
@@ -246,25 +249,26 @@ class SatelliteFlattener():
       filename = pathlib.PurePosixPath(filename).stem
 
     if filename == SATELLITE_BLOCKPAGES_FILE:
-      yield from self._process_satellite_blockpages(scan, filepath)
+      yield from self._process_satellite_blockpages(responses_entry, filepath)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
-      yield from self._process_satellite_v1(date, scan, filepath,
+      yield from self._process_satellite_v1(date, responses_entry, filepath,
                                             random_measurement_id)
     else:
       if filename == SATELLITE_RESPONSES_CONTROL_FILE:
-        yield from self._process_satellite_v2_control(scan, filepath,
+        yield from self._process_satellite_v2_control(responses_entry, filepath,
                                                       random_measurement_id)
       else:
-        yield from self._process_satellite_v2(scan, filepath,
+        yield from self._process_satellite_v2(responses_entry, filepath,
                                               random_measurement_id)
 
-  def _process_satellite_v1(self, date: str, scan: Any, filepath: str,
+  def _process_satellite_v1(self, date: str, responses_entry: ResponsesEntry,
+                            filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       date: a date string YYYY-mm-DD
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       filepath: one of
         <path>/answers_control.json
         <path>/interference.json
@@ -279,67 +283,80 @@ class SatelliteFlattener():
       filename = pathlib.PurePosixPath(filename).stem
 
     row = {
-        'domain': scan['query'],
-        'is_control': False,  # v1 doesn't have domain controls
-        'category': self.category_matcher.get_category(scan['query'], False),
-        'ip': scan.get('resolver', scan.get('ip')),
-        'is_control_ip': filename == SATELLITE_ANSWERS_CONTROL_FILE,
-        'date': date,
-        'error': scan.get('error', None),
-        'anomaly': not scan['passed'] if 'passed' in scan else None,
-        'success': 'error' not in scan,
+        'domain':
+            responses_entry['query'],
+        'is_control':
+            False,  # v1 doesn't have domain controls
+        'category':
+            self.category_matcher.get_category(responses_entry['query'], False),
+        'ip':
+            responses_entry.get('resolver', responses_entry.get('ip')),
+        'is_control_ip':
+            filename == SATELLITE_ANSWERS_CONTROL_FILE,
+        'date':
+            date,
+        'error':
+            responses_entry.get('error', None),
+        'anomaly':
+            not responses_entry['passed']
+            if 'passed' in responses_entry else None,
+        'success':
+            'error' not in responses_entry,
         'received': [],
-        'rcode': ['0'] if 'error' not in scan else ['-1'],
-        'measurement_id': random_measurement_id,
-        'source': flatten_base.source_from_filename(filepath),
+        'rcode': ['0'] if 'error' not in responses_entry else ['-1'],
+        'measurement_id':
+            random_measurement_id,
+        'source':
+            flatten_base.source_from_filename(filepath),
     }
 
     if isinstance(row['error'], dict):
       row['error'] = json.dumps(row['error'])
 
-    received_ips = scan.get('answers')
+    received_ips = responses_entry.get('answers')
     yield from _annotate_received_ips_v1(row, received_ips)
 
-  def _process_satellite_v2(self, scan: Any, filepath: str,
+  def _process_satellite_v2(self, responses_entry: ResponsesEntry,
+                            filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite v2 data.
 
     Args:
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       filepath: path like "<path>/<filename>.json.gz"
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
       Rows
     """
-    is_control_domain = flatten_base.is_control_url(scan['test_url'])
+    is_control_domain = flatten_base.is_control_url(responses_entry['test_url'])
 
     row = {
         'domain':
-            scan['test_url'],
+            responses_entry['test_url'],
         'is_control':
             is_control_domain,
         'category':
-            self.category_matcher.get_category(scan['test_url'],
+            self.category_matcher.get_category(responses_entry['test_url'],
                                                is_control_domain),
         'ip':
-            scan['vp'],
+            responses_entry['vp'],
         'is_control_ip':
-            scan['vp'] in CONTROL_IPS,
+            responses_entry['vp'] in CONTROL_IPS,
         'country':
-            scan.get('location', {}).get('country_code'),
+            responses_entry.get('location', {}).get('country_code'),
         'date':
-            scan['start_time'][:10],
+            responses_entry['start_time'][:10],
         'start_time':
-            format_timestamp(scan['start_time']),
+            format_timestamp(responses_entry['start_time']),
         'end_time':
-            format_timestamp(scan['end_time']),
+            format_timestamp(responses_entry['end_time']),
         'error':
-            scan.get('error', None),
+            responses_entry.get('error', None),
         'anomaly':
-            scan['anomaly'],
+            responses_entry['anomaly'],
         'success':
-            not scan['connect_error'],
+            not responses_entry['connect_error'],
         'received': [],
         'measurement_id':
             random_measurement_id,
@@ -348,34 +365,38 @@ class SatelliteFlattener():
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
-      yield from _process_satellite_v2p1(row, scan, filepath)
+      yield from _process_satellite_v2p1(row, responses_entry, filepath)
     else:
-      yield from self._process_satellite_v2p2(row, scan)
+      yield from self._process_satellite_v2p2(row, responses_entry)
 
-  def _process_satellite_v2p2(self, row: Row, scan: Any) -> Iterator[Row]:
+  def _process_satellite_v2p2(self, row: Row,
+                              responses_entry: ResponsesEntry) -> Iterator[Row]:
     """Finish processing a line of Satellite v2.2 data.
 
     Args:
       row: a partially processed row of satellite data
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
 
     Yields:
       Rows
     """
-    responses = scan.get('response', [])
-    row['controls_failed'] = not scan['passed_liveness']
+    responses = responses_entry.get('response', [])
+    row['controls_failed'] = not responses_entry['passed_liveness']
 
-    row['average_confidence'] = scan.get('confidence')['average']
-    row['matches_confidence'] = scan.get('confidence')['matches']
-    row['untagged_controls'] = scan.get('confidence')['untagged_controls']
-    row['untagged_response'] = scan.get('confidence')['untagged_response']
+    row['average_confidence'] = responses_entry.get('confidence')['average']
+    row['matches_confidence'] = responses_entry.get('confidence')['matches']
+    row['untagged_controls'] = responses_entry.get(
+        'confidence')['untagged_controls']
+    row['untagged_response'] = responses_entry.get(
+        'confidence')['untagged_response']
 
-    row['excluded'] = scan.get('excluded', False)
-    row['exclude_reason'] = ' '.join(scan.get('exclude_reason', []))
+    row['excluded'] = responses_entry.get('excluded', False)
+    row['exclude_reason'] = ' '.join(responses_entry.get('exclude_reason', []))
 
     for response in responses:
 
       #redefine domain rows to match individual response
+      # TODO normalize this to a domain from a url
       row['domain'] = response['url']
       is_control_domain = flatten_base.is_control_url(response['url'])
       row['is_control'] = is_control_domain
@@ -409,24 +430,24 @@ class SatelliteFlattener():
       row['received'] = all_received
       yield row.copy()
 
-  def _process_satellite_blockpages(self, scan: Any,
+  def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
                                     filepath: str) -> Iterator[Row]:
     """Process a line of Satellite blockpage data.
 
     Args:
-      scan: a loaded json object containing the parsed content of the line
-      filepath: a filepath string
+      blockpage_entry: a loaded json object containing the parsed content of the line
+      filepath: a filepath string like "<path>/blockpages.json.gz"
 
     Yields:
       Rows, usually 2 corresponding to the fetched http and https data respectively
     """
     row = {
-        'domain': scan['keyword'],
-        'ip': scan['ip'],
-        'date': scan['start_time'][:10],
-        'start_time': format_timestamp(scan['start_time']),
-        'end_time': format_timestamp(scan['end_time']),
-        'success': scan['fetched'],
+        'domain': blockpage_entry['keyword'],
+        'ip': blockpage_entry['ip'],
+        'date': blockpage_entry['start_time'][:10],
+        'start_time': format_timestamp(blockpage_entry['start_time']),
+        'end_time': format_timestamp(blockpage_entry['end_time']),
+        'success': blockpage_entry['fetched'],
         'source': flatten_base.source_from_filename(filepath),
     }
 
@@ -434,9 +455,8 @@ class SatelliteFlattener():
         'https': False,
     }
     http.update(row)
-    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
-                                                       scan.get('http', ''),
-                                                       True)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('http', ''), True)
     http.update(received_fields)
     yield http
 
@@ -444,26 +464,25 @@ class SatelliteFlattener():
         'https': True,
     }
     https.update(row)
-    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
-                                                       scan.get('https', ''),
-                                                       True)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('https', ''), True)
     https.update(received_fields)
     yield https
 
   def _process_satellite_v2_control(
-      self, scan: Any, filepath: str,
+      self, responses_entry: ResponsesEntry, filepath: str,
       random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite ip control data.
 
       Args:
-        scan: a loaded json object containing the parsed content of the line
-        filepath: path like "<path>/<filename>.json.gz"
+        responses_entry: a loaded json object containing the parsed content of the line
+        filepath: path like "<path>/responses_control.json.gz"
         random_measurement_id: a hex id identifying this individual measurement
 
       Yields:
         Rows
     """
-    responses = scan.get('response', [])
+    responses = responses_entry.get('response', [])
 
     for response in responses:
       is_control_domain = flatten_base.is_control_url(response['url'])
@@ -477,7 +496,7 @@ class SatelliteFlattener():
               self.category_matcher.get_category(response['url'],
                                                  is_control_domain),
           'ip':
-              scan['vp'],
+              responses_entry['vp'],
           'is_control_ip':
               True,
           'date':
@@ -489,9 +508,9 @@ class SatelliteFlattener():
           'anomaly':
               None,
           'success':
-              not scan['connect_error'],
+              not responses_entry['connect_error'],
           'controls_failed':
-              not scan['passed_control'],
+              not responses_entry['passed_control'],
           'rcode': [str(response['rcode'])],
           'has_type_a':
               response['has_type_a'],

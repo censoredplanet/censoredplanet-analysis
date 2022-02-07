@@ -405,14 +405,18 @@ def _unflatten_satellite(flattened_measurement: Iterable[Row]) -> Iterator[Row]:
     yield combined
 
 
-def flatten_received_ips(row: Row) -> Iterator[Row]:
+def flatten_received_ips(dns_roundtrip: Row) -> Iterator[Row]:
   """Flatten a row with multiple received ips into rows with a single ip.
 
   Args:
     row element like
       {
         "field": "value"
-        "received" [<dict1>, <dict2>]
+        "received" [{
+            'ip': '1.2.3.4'
+        },{
+            'ip': '5.6.7.8'
+        }]
       }
 
   Returns:
@@ -420,26 +424,30 @@ def flatten_received_ips(row: Row) -> Iterator[Row]:
       {
         "field": "value"
         "roundtrip_id" = "a"
-        "received" [<dict1>]
+        "received" [{
+            'ip': '1.2.3.4'
+        }]
       }
       {
         "field": "value"
         "roundtrip_id" = "a"
-        "received" [<dict2>]
+        "received" [{
+            'ip': '5.6.7.8'
+        }]
       }
   """
   # This id is used to reconstruct the row structure when unflattening
-  row['roundtrip_id'] = uuid.uuid4().hex
+  dns_roundtrip['roundtrip_id'] = uuid.uuid4().hex
 
-  all_received = row['received']
+  all_received = dns_roundtrip['received']
 
   if len(all_received) == 0:
-    yield row
+    yield dns_roundtrip
     return
 
   for received in all_received:
-    row['received'] = [received]
-    yield row.copy()
+    dns_roundtrip['received'] = [received]
+    yield dns_roundtrip.copy()
 
 
 def process_satellite_with_tags(
