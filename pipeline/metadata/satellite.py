@@ -241,7 +241,7 @@ def unflatten_received_ip_rows(
     rows: roundtrip rows with a single received ip
 
   Returns:
-    roundtrip rows aggregated so they have an array of recieved responses
+    roundtrip rows aggregated so they have an array of received responses
   """
   # PCollection[Tuple[str,Row]]
   keyed_by_roundtrip_id = (
