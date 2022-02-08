@@ -468,6 +468,29 @@ def process_satellite_with_tags(
       row_lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(Row))
 
+  # TODO we want to change the structure here
+  # Currently we're CoGrouping over two elements using a (date, received_ip) key
+  # A row with flattened received ips like
+  #  {"ip": "1.2.3.4",
+  #   "date": "2021-01-01"
+  #   "domain": "example.com"
+  #   "roundtrip_id": "abc"
+  #   "received" [{"ip": "5.6.7.8"}]
+  # }
+  # and metadata like
+  # {"ip": "5.6.7.8", "date":"2021-01-01", "asn": 123}
+  #
+  # But in the future we want to have three pieces
+  # 1. The inital row (without flattening the received ips) with a roundtrip_id
+  # 2. Information on a single received ip like:
+  #    {"received_ip": "5.6.7.8", "date": "2021-01-01", "roundtrip_id": "abc"}
+  # 3. Metadata as above.
+  #
+  # Then we can CoGroup 2 and 3 together by (date, received_ip)
+  # and then Group them with 1 by roundtrip_id
+  # and add metadata to the appropriate answers
+  # This way we avoid having to multiply rows by their number of received ips
+
   # PCollection[Row] each with only a single element in the received arrays
   received_ip_flattened_rows = (
       rows | 'flatten received ips' >>
