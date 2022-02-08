@@ -3,15 +3,19 @@
 from __future__ import absolute_import
 
 import json
+import logging
 import pathlib
 import re
-from typing import Optional, Dict, Any, Iterator
+from typing import Optional, Dict, Any, Iterator, List, Tuple
 import datetime
 
 from pipeline.metadata import flatten_base
 from pipeline.metadata.flatten_base import Row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
+
+# Type definition for input responses, TODO make actual type stricter
+ResponsesEntry = Any
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
@@ -75,111 +79,147 @@ def format_timestamp(timestamp: str) -> str:
   return f'{date}T{time}{timezone_hour}:{timezone_seconds}'
 
 
-def _process_received_ips(
-    row: Row, received_ips: Optional[Dict[str, str]]) -> Iterator[Row]:
+def _annotate_received_ips_v1(
+    base_response: Row,
+    received_ips: Optional[Dict[str, List[str]]]) -> Iterator[Row]:
   """Add received_ip metadata to a Satellite row
+
   Args:
-    row: existing row of satellite data
-    received_ips: data on the response from the resolver (error or ips)
+    base_response: existing row of satellite data
+    received_ips: data on the response from the resolver
+      ex: {<ip>: ["tags"]}
+
   Yields:
-    Rows
+    Row with an additional 'received' array field
   """
-  if not received_ips:
-    yield row
+  if received_ips is None:
+    base_response['received'] = []
+    yield base_response
     return
 
-  # separate into one answer ip per row for tagging
-  if 'rcode' in received_ips:
-    row['rcode'] = received_ips.pop('rcode', [])
-  if 'error' in received_ips:
-    row['error'] = ' | '.join(received_ips.pop('error', []))
+  # Convert to dict {<ip>: ["tags"]} with no tags
+  if isinstance(received_ips, list):
+    received_dict = {}
+    for ip in received_ips:
+      received_dict[ip] = []
+    received_ips = received_dict
 
-  if not received_ips:
-    yield row
+  all_received = []
+  for (ip, tags) in received_ips.items():
+    received = {'ip': ip}
+    if tags and len(tags) != 0:
+      received['matches_control'] = _append_tags(tags)
+    all_received.append(received)
 
-  for ip in received_ips:
-    row['received'] = {'ip': ip}
-    if isinstance(received_ips, dict):
-      row['received']['matches_control'] = ' '.join(  # pylint: disable=unsupported-assignment-operation
-          [tag for tag in received_ips[ip] if tag in SATELLITE_TAGS])
-    yield row.copy()
+  base_response['received'] = all_received
+  yield base_response
 
 
-def _process_satellite_v2p1(row: Row, scan: Any) -> Iterator[Row]:
+def _append_tags(tags: List[str]) -> str:
+  """Return valid received ip tags as a string
+
+  Args:
+    tags: List of tags like ["ip", "http", "cert", "invalid"]
+
+  Returns:
+    string like "ip http cert"
+  """
+  return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
+
+
+def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
+  """Split rcodes into successful and failed.
+
+  Args:
+    rcodes: an array of rcode strings like
+      ex: ["0"], ["2", "-1", "0"], or ["-1", "-1", "-1", "-1"]
+
+  Returns:
+    successful_test_rcode: rcodes that succeeded, this should be ["0"] or []
+    failed_test_rcodes: all failure codes, this should never contain "0"
+  """
+
+  # v2.1 measurements repeat 4 times or until the test is successful
+  if not rcodes:
+    successful_test_rcode = []
+    failed_test_rcodes = []
+  elif rcodes[-1] == "0":
+    successful_test_rcode = [rcodes[-1]]
+    failed_test_rcodes = rcodes[0:-1]
+  else:
+    successful_test_rcode = []
+    failed_test_rcodes = rcodes
+
+  return successful_test_rcode, failed_test_rcodes
+
+
+def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
+                            filepath: str) -> Iterator[Row]:
   """Finish processing a line of Satellite v2.1 data.
 
   Args:
-    row: a partially processed row of satellite data
-    scan: a loaded json object containing the parsed content of the line
+    base_response: a partially processed row of satellite data
+    responses_entry: a loaded json object containing the parsed content of the line
+    filepath: path like "<path>/<filename>.json.gz"
 
   Yields:
     Rows
   """
-  row['controls_failed'] = not scan['passed_control']
-  row['rcode'] = []
-  received_ips = scan.get('response')
-  yield from _process_received_ips(row, received_ips)
+  base_response['controls_failed'] = not responses_entry['passed_control']
+  input_response_data = responses_entry.get('response').copy()
 
+  if not input_response_data:
+    base_response['received'] = []
+    yield base_response
+    return
 
-def _process_satellite_v2p2(row: Row, scan: Any) -> Iterator[Row]:
-  """Finish processing a line of Satellite v2.2 data.
+  # separate into one answer ip per row for tagging
+  rcodes = input_response_data.pop('rcode', [])
+  errors = input_response_data.pop('error', [])
 
-  Args:
-    row: a partially processed row of satellite data
-    scan: a loaded json object containing the parsed content of the line
+  successful_test_rcode, failed_test_rcodes = split_rcodes(rcodes)
 
-  Yields:
-    Rows
-  """
-  responses = scan.get('response', [])
-  row['controls_failed'] = not scan['passed_liveness']
-  row['rcode'] = [str(response['rcode']) for response in responses]
+  if any(rcode == "0" for rcode in failed_test_rcodes):
+    raise Exception(
+        f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {responses_entry}"
+    )
 
-  row['average_confidence'] = scan.get('confidence')['average']
-  row['matches_confidence'] = scan.get('confidence')['matches']
-  row['untagged_controls'] = scan.get('confidence')['untagged_controls']
-  row['untagged_response'] = scan.get('confidence')['untagged_response']
+  if not successful_test_rcode and input_response_data:
+    # TODO figure out how to handle this bug case from 2021-05-16
+    # for now drop the measurements
+    logging.warning(
+        f"Satellite v2.1 measurement has ips but no 0 rcode: {filepath} - {responses_entry}"
+    )
+    return
 
-  row['excluded'] = scan.get('excluded', False)
-  row['exclude_reason'] = ' '.join(scan.get('exclude_reason', []))
+  if successful_test_rcode:
+    all_received = []
+    for (ip, tags) in input_response_data.items():
+      received = {'ip': ip}
+      if tags:
+        received['matches_control'] = _append_tags(tags)
+      all_received.append(received)
 
-  errors = [
-      response['error']
-      for response in responses
-      if response['error'] and response['error'] != 'null'
-  ]
-  row['error'] = ' | '.join(errors) if errors else None
-  yielded = False
-  has_test_domain = False
-  for response in responses:
-    if response['url'] == row['domain']:
-      has_test_domain = True
-    # Check responses for test domain with valid answers
-    if response['url'] == row['domain'] and (response['rcode'] == 0 and
-                                             response['has_type_a']):
-      row['has_type_a'] = True
-      # Separate into one answer IP per row for tagging
-      row['received'] = []
-      for ip in response['response']:
-        received = {
-            'ip': ip,
-            'http': response['response'][ip].get('http'),
-            'cert': response['response'][ip].get('cert'),
-            'asname': response['response'][ip].get('asname'),
-            'asnum': response['response'][ip].get('asnum'),
-            'matches_control': ''
-        }
-        matched = response['response'][ip].get('matched', [])
-        if matched:
-          received['matches_control'] = ' '.join(
-              [tag for tag in matched if tag in SATELLITE_TAGS])
-        row['received'].append(received)
-      yielded = True
-      yield row.copy()
-    # Do not output rows if there are no trials for the test domain.
-  if not yielded and has_test_domain:
-    # All trials for the test domain in `scan` are errors
-    yield row.copy()
+    success_observation = base_response.copy()
+    success_observation['received'] = all_received
+    success_observation['rcode'] = successful_test_rcode
+    yield success_observation
+
+  for rcode in failed_test_rcodes:
+    failed_observation = base_response.copy()
+    failed_observation['rcode'] = [rcode]
+    # -1 rcodes corrospond to the error messages in order.
+    if rcode == "-1":
+      failed_observation['error'] = errors.pop() if errors else None
+    yield failed_observation
+
+  # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
+  # In that case we add them back in manually
+  for error in errors:
+    error_observation = base_response.copy()
+    error_observation['rcode'] = ["-1"]
+    error_observation['error'] = error
+    yield error_observation
 
 
 class SatelliteFlattener():
@@ -190,13 +230,13 @@ class SatelliteFlattener():
     self.blockpage_matcher = blockpage_matcher
     self.category_matcher = category_matcher
 
-  def process_satellite(self, filepath: str, scan: Any,
+  def process_satellite(self, filepath: str, responses_entry: ResponsesEntry,
                         random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       filepath: a filepath string
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
@@ -209,25 +249,26 @@ class SatelliteFlattener():
       filename = pathlib.PurePosixPath(filename).stem
 
     if filename == SATELLITE_BLOCKPAGES_FILE:
-      yield from self._process_satellite_blockpages(scan, filepath)
+      yield from self._process_satellite_blockpages(responses_entry, filepath)
     elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
-      yield from self._process_satellite_v1(date, scan, filepath,
+      yield from self._process_satellite_v1(date, responses_entry, filepath,
                                             random_measurement_id)
     else:
       if filename == SATELLITE_RESPONSES_CONTROL_FILE:
-        yield from self._process_satellite_v2_control(scan, filepath,
+        yield from self._process_satellite_v2_control(responses_entry, filepath,
                                                       random_measurement_id)
       else:
-        yield from self._process_satellite_v2(scan, filepath,
+        yield from self._process_satellite_v2(responses_entry, filepath,
                                               random_measurement_id)
 
-  def _process_satellite_v1(self, date: str, scan: Any, filepath: str,
+  def _process_satellite_v1(self, date: str, responses_entry: ResponsesEntry,
+                            filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite data.
 
     Args:
       date: a date string YYYY-mm-DD
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       filepath: one of
         <path>/answers_control.json
         <path>/interference.json
@@ -242,69 +283,81 @@ class SatelliteFlattener():
       filename = pathlib.PurePosixPath(filename).stem
 
     row = {
-        'domain': scan['query'],
-        'is_control': False,  # v1 doesn't have domain controls
-        'category': self.category_matcher.get_category(scan['query'], False),
-        'ip': scan.get('resolver', scan.get('ip')),
-        'is_control_ip': filename == SATELLITE_ANSWERS_CONTROL_FILE,
-        'date': date,
-        'error': scan.get('error', None),
-        'anomaly': not scan['passed'] if 'passed' in scan else None,
-        'success': 'error' not in scan,
-        'received': None,
-        'rcode': ['0'] if 'error' not in scan else ['-1'],
-        'measurement_id': random_measurement_id,
-        'source': flatten_base.source_from_filename(filepath),
+        'domain':
+            responses_entry['query'],
+        'is_control':
+            False,  # v1 doesn't have domain controls
+        'category':
+            self.category_matcher.get_category(responses_entry['query'], False),
+        'ip':
+            responses_entry.get('resolver', responses_entry.get('ip')),
+        'is_control_ip':
+            filename == SATELLITE_ANSWERS_CONTROL_FILE,
+        'date':
+            date,
+        'error':
+            responses_entry.get('error', None),
+        'anomaly':
+            not responses_entry['passed']
+            if 'passed' in responses_entry else None,
+        'success':
+            'error' not in responses_entry,
+        'received': [],
+        'rcode': ['0'] if 'error' not in responses_entry else ['-1'],
+        'measurement_id':
+            random_measurement_id,
+        'source':
+            flatten_base.source_from_filename(filepath),
     }
 
     if isinstance(row['error'], dict):
       row['error'] = json.dumps(row['error'])
 
-    received_ips = scan.get('answers')
-    yield from _process_received_ips(row, received_ips)
+    received_ips = responses_entry.get('answers')
+    yield from _annotate_received_ips_v1(row, received_ips)
 
-  def _process_satellite_v2(self, scan: Any, filepath: str,
+  def _process_satellite_v2(self, responses_entry: ResponsesEntry,
+                            filepath: str,
                             random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite v2 data.
 
     Args:
-      scan: a loaded json object containing the parsed content of the line
+      responses_entry: a loaded json object containing the parsed content of the line
       filepath: path like "<path>/<filename>.json.gz"
       random_measurement_id: a hex id identifying this individual measurement
 
     Yields:
       Rows
     """
-    is_control_domain = flatten_base.is_control_url(scan['test_url'])
+    is_control_domain = flatten_base.is_control_url(responses_entry['test_url'])
 
     row = {
         'domain':
-            scan['test_url'],
+            responses_entry['test_url'],
         'is_control':
             is_control_domain,
         'category':
-            self.category_matcher.get_category(scan['test_url'],
+            self.category_matcher.get_category(responses_entry['test_url'],
                                                is_control_domain),
         'ip':
-            scan['vp'],
+            responses_entry['vp'],
         'is_control_ip':
-            scan['vp'] in CONTROL_IPS,
+            responses_entry['vp'] in CONTROL_IPS,
         'country':
-            scan.get('location', {}).get('country_code'),
+            responses_entry.get('location', {}).get('country_code'),
         'date':
-            scan['start_time'][:10],
+            responses_entry['start_time'][:10],
         'start_time':
-            format_timestamp(scan['start_time']),
+            format_timestamp(responses_entry['start_time']),
         'end_time':
-            format_timestamp(scan['end_time']),
+            format_timestamp(responses_entry['end_time']),
         'error':
-            scan.get('error', None),
+            responses_entry.get('error', None),
         'anomaly':
-            scan['anomaly'],
+            responses_entry['anomaly'],
         'success':
-            not scan['connect_error'],
-        'received':
-            None,
+            not responses_entry['connect_error'],
+        'received': [],
         'measurement_id':
             random_measurement_id,
         'source':
@@ -312,28 +365,89 @@ class SatelliteFlattener():
     }
 
     if datetime.date.fromisoformat(row['date']) < SATELLITE_V2_2_START_DATE:
-      yield from _process_satellite_v2p1(row, scan)
+      yield from _process_satellite_v2p1(row, responses_entry, filepath)
     else:
-      yield from _process_satellite_v2p2(row, scan)
+      yield from self._process_satellite_v2p2(row, responses_entry)
 
-  def _process_satellite_blockpages(self, scan: Any,
+  def _process_satellite_v2p2(self, row: Row,
+                              responses_entry: ResponsesEntry) -> Iterator[Row]:
+    """Finish processing a line of Satellite v2.2 data.
+
+    Args:
+      row: a partially processed row of satellite data
+      responses_entry: a loaded json object containing the parsed content of the line
+
+    Yields:
+      Rows
+    """
+    responses = responses_entry.get('response', [])
+    row['controls_failed'] = not responses_entry['passed_liveness']
+
+    row['average_confidence'] = responses_entry.get('confidence')['average']
+    row['matches_confidence'] = responses_entry.get('confidence')['matches']
+    row['untagged_controls'] = responses_entry.get(
+        'confidence')['untagged_controls']
+    row['untagged_response'] = responses_entry.get(
+        'confidence')['untagged_response']
+
+    row['excluded'] = responses_entry.get('excluded', False)
+    row['exclude_reason'] = ' '.join(responses_entry.get('exclude_reason', []))
+
+    for response in responses:
+
+      #redefine domain rows to match individual response
+      # TODO normalize this to a domain from a url
+      row['domain'] = response['url']
+      is_control_domain = flatten_base.is_control_url(response['url'])
+      row['is_control'] = is_control_domain
+      row['category'] = self.category_matcher.get_category(
+          response['url'], is_control_domain)
+
+      if response['error'] and response['error'] != 'null':
+        row['error'] = response['error']
+
+      row['rcode'] = [str(response['rcode'])]
+
+      # Check responses for test domain with valid answers
+      if response['url'] == row['domain'] and (response['rcode'] == 0 and
+                                               response['has_type_a']):
+        row['has_type_a'] = True
+
+      all_received = []
+      for ip in response['response']:
+        received = {
+            'ip': ip,
+            'http': response['response'][ip].get('http'),
+            'cert': response['response'][ip].get('cert'),
+            'asname': response['response'][ip].get('asname'),
+            'asnum': response['response'][ip].get('asnum'),
+            'matches_control': ''
+        }
+        matched = response['response'][ip].get('matched', [])
+        if matched:
+          received['matches_control'] = _append_tags(matched)
+        all_received.append(received)
+      row['received'] = all_received
+      yield row.copy()
+
+  def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
                                     filepath: str) -> Iterator[Row]:
     """Process a line of Satellite blockpage data.
 
     Args:
-      scan: a loaded json object containing the parsed content of the line
-      filepath: a filepath string
+      blockpage_entry: a loaded json object containing the parsed content of the line
+      filepath: a filepath string like "<path>/blockpages.json.gz"
 
     Yields:
       Rows, usually 2 corresponding to the fetched http and https data respectively
     """
     row = {
-        'domain': scan['keyword'],
-        'ip': scan['ip'],
-        'date': scan['start_time'][:10],
-        'start_time': format_timestamp(scan['start_time']),
-        'end_time': format_timestamp(scan['end_time']),
-        'success': scan['fetched'],
+        'domain': blockpage_entry['keyword'],
+        'ip': blockpage_entry['ip'],
+        'date': blockpage_entry['start_time'][:10],
+        'start_time': format_timestamp(blockpage_entry['start_time']),
+        'end_time': format_timestamp(blockpage_entry['end_time']),
+        'success': blockpage_entry['fetched'],
         'source': flatten_base.source_from_filename(filepath),
     }
 
@@ -341,9 +455,8 @@ class SatelliteFlattener():
         'https': False,
     }
     http.update(row)
-    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
-                                                       scan.get('http', ''),
-                                                       True)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('http', ''), True)
     http.update(received_fields)
     yield http
 
@@ -351,74 +464,79 @@ class SatelliteFlattener():
         'https': True,
     }
     https.update(row)
-    received_fields = flatten_base.parse_received_data(self.blockpage_matcher,
-                                                       scan.get('https', ''),
-                                                       True)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('https', ''), True)
     https.update(received_fields)
     yield https
 
   def _process_satellite_v2_control(
-      self, scan: Any, filepath: str,
+      self, responses_entry: ResponsesEntry, filepath: str,
       random_measurement_id: str) -> Iterator[Row]:
     """Process a line of Satellite ip control data.
 
       Args:
-        scan: a loaded json object containing the parsed content of the line
-        filepath: path like "<path>/<filename>.json.gz"
+        responses_entry: a loaded json object containing the parsed content of the line
+        filepath: path like "<path>/responses_control.json.gz"
         random_measurement_id: a hex id identifying this individual measurement
 
       Yields:
         Rows
     """
-    responses = scan.get('response', [])
-    if responses:
-      # An overall satellite v2 measurement
-      # always contains some non-control trial domains
-      is_control_domain = False
+    responses = responses_entry.get('response', [])
+
+    for response in responses:
+      is_control_domain = flatten_base.is_control_url(response['url'])
 
       row = {
           'domain':
-              scan['test_url'],
+              response['url'],
           'is_control':
               is_control_domain,
           'category':
-              self.category_matcher.get_category(scan['test_url'],
+              self.category_matcher.get_category(response['url'],
                                                  is_control_domain),
           'ip':
-              scan['vp'],
+              responses_entry['vp'],
           'is_control_ip':
               True,
           'date':
-              responses[0]['start_time'][:10],
+              response['start_time'][:10],
           'start_time':
-              format_timestamp(responses[0]['start_time']),
+              format_timestamp(response['start_time']),
           'end_time':
-              format_timestamp(responses[-1]['end_time']),
+              format_timestamp(response['end_time']),
           'anomaly':
               None,
           'success':
-              not scan['connect_error'],
+              not responses_entry['connect_error'],
           'controls_failed':
-              not scan['passed_control'],
-          'rcode': [str(response['rcode']) for response in responses],
+              not responses_entry['passed_control'],
+          'rcode': [str(response['rcode'])],
+          'has_type_a':
+              response['has_type_a'],
           'measurement_id':
               random_measurement_id,
           'source':
               flatten_base.source_from_filename(filepath),
       }
-      errors = [
-          response['error']
-          for response in responses
-          if response['error'] and response['error'] != 'null'
-      ]
-      row['error'] = ' | '.join(errors) if errors else None
-      for response in responses:
-        if response['url'] == row['domain']:
-          # Check response for test domain
-          if response['rcode'] == 0 and response['has_type_a']:
-            # Valid answers
-            row['has_type_a'] = True
-            # Separate into one answer IP per row for tagging
-            for ip in response['response']:
-              row['received'] = {'ip': ip}
-              yield row.copy()
+
+      if response['error'] == 'null':
+        error = None
+      else:
+        error = response['error']
+      row['error'] = error
+
+      received_ips = response['response']
+
+      if not received_ips:
+        row['received'] = []
+        yield row
+
+      else:
+        all_received = []
+        for ip in received_ips:
+          received = {'ip': ip}
+          all_received.append(received)
+        row['received'] = all_received
+
+        yield row
