@@ -102,7 +102,7 @@ class FlattenMeasurementTest(unittest.TestCase):
             'ip': '151.101.1.184',
             'matches_control': 'ip http cert asnum asname'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': '',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
     }

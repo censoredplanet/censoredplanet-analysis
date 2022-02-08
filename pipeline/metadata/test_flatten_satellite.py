@@ -85,7 +85,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             'ip': '151.101.65.184',
             'matches_control': 'ip cert asnum asname'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
@@ -101,7 +101,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '160.153.136.3'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
@@ -115,7 +115,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'anomaly': None,
         'success': False,
         'received': [],
-        'rcode': ['-1'],
+        'rcode': -1,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
     }, {
@@ -131,7 +131,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '217.19.248.132'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2020-09-02-12-00-01'
     }]
@@ -287,7 +287,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         }, {
             'ip': '104.20.161.134'
         }],
-        'rcode': ["0"],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP_Satellite-2021-03-01-12-00-01'
     }, {
@@ -306,7 +306,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '93.184.216.34'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
@@ -334,7 +334,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 'ip': '40.126.31.6'
             },
         ],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
@@ -354,7 +354,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '93.184.216.34'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-03-15-12-00-01',
         'has_type_a': True
@@ -386,7 +386,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             'matches_control':
                 'ip http cert asnum asname'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'average_confidence': 100,
         'matches_confidence': [100],
         'untagged_controls': False,
@@ -450,7 +450,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [],
-        'rcode': ['2'],
+        'rcode': 2,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:07.712972288-04:00',
         'end_time': '2021-04-18T14:49:07.749265765-04:00',
@@ -509,7 +509,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control': False,
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'source': 'CP_Satellite-2021-04-18-12-00-01',
         'start_time': '2021-04-18T14:49:01.517087379-04:00',
@@ -564,6 +564,7 @@ class FlattenSatelliteTest(unittest.TestCase):
 
     # This line contains an error and currently we drop the data
     self.assertEqual(len(rows), 0)
+
     self.assertEqual(len(captured.records), 1)
     self.assertIn(
         "Satellite v2.1 measurement has ips but no 0 rcode: CP_Satellite-2021-05-16-12-00-01/results.json",
@@ -735,7 +736,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['0'],
+        'rcode': 0,
         'received': [{
             'asname': 'SKTELECOM-NET-AS SK Telecom',
             'asnum': 9644,
@@ -766,7 +767,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['5'],
+        'rcode': 5,
         'received': [],
         'success': True,
         'exclude_reason': '',
@@ -790,7 +791,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['5'],
+        'rcode': 5,
         'received': [],
         'success': True,
         'exclude_reason': '',
@@ -814,7 +815,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['5'],
+        'rcode': 5,
         'received': [],
         'success': True,
         'exclude_reason': '',
@@ -837,7 +838,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
@@ -861,7 +862,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
@@ -885,7 +886,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
@@ -909,7 +910,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
@@ -933,7 +934,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,
@@ -957,7 +958,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         'is_control_ip': False,
         'measurement_id': 'ab3b0ed527334c6ba988362e6a2c98fc',
         'source': 'CP-Satellite-2021-10-20-12-00-01',
-        'rcode': ['-1'],
+        'rcode': -1,
         'received': [],
         'start_time': '2021-10-20T14:51:45.952255246-04:00',
         'success': False,

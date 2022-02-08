@@ -131,7 +131,7 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
             'cert': ('string', 'nullable'),
             'matches_control': ('string', 'nullable')
         }),
-        'rcode': ('string', 'repeated'),
+        'rcode': ('integer', 'nullable'),
         'average_confidence': ('float', 'nullable'),
         'matches_confidence': ('float', 'repeated'),
         'untagged_controls': ('boolean', 'nullable'),

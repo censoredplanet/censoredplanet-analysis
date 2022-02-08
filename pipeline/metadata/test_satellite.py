@@ -193,7 +193,7 @@ class SatelliteTest(unittest.TestCase):
         'error': None,
         'anomaly': False,
         'success': True,
-        'rcode': ['0'],
+        'rcode': 0,
         'received': [{
             'ip': '13.249.134.38',
             'asname': 'AMAZON-02',
@@ -237,7 +237,7 @@ class SatelliteTest(unittest.TestCase):
         'error': None,
         'anomaly': False,
         'success': True,
-        'rcode': ['0'],
+        'rcode': 0,
         'received': [{
             'ip': '192.124.249.107',
             'matches_control': 'ip'
@@ -375,7 +375,7 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [],
-        'rcode': ['-1'],
+        'rcode': -1,
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -394,7 +394,7 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [],
-        'rcode': ['-1'],
+        'rcode': -1,
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -423,7 +423,7 @@ class SatelliteTest(unittest.TestCase):
             'ip': '198.35.26.86',
             'matches_control': 'cert asnum asname'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -442,7 +442,7 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [],
-        'rcode': ['2'],
+        'rcode': 2,
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -464,7 +464,7 @@ class SatelliteTest(unittest.TestCase):
             'ip': '15.126.193.233',
             'matches_control': ''
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-03-01',
         'start_time': '2021-03-01T12:43:25.3438285-05:00',
         'end_time': '2021-03-01T12:43:25.3696119-05:00',
@@ -646,7 +646,7 @@ class SatelliteTest(unittest.TestCase):
         'success': True,
         'controls_failed': False,
         'received': [],
-        'rcode': ['2'],
+        'rcode': 2,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:49:07.712972288-04:00',
         'end_time': '2021-04-18T14:49:07.749265765-04:00',
@@ -667,7 +667,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '198.41.0.4'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:57.561175746-04:00',
         'end_time': '2021-04-18T14:51:57.587097567-04:00',
@@ -688,7 +688,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '178.18.22.152'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:57.587109091-04:00',
         'end_time': '2021-04-18T14:51:57.61294601-04:00',
@@ -709,7 +709,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '198.41.0.4'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:45.836310062-04:00',
         'end_time': '2021-04-18T14:51:45.862080031-04:00',
@@ -728,7 +728,7 @@ class SatelliteTest(unittest.TestCase):
         'controls_failed': False,
         'has_type_a': False,
         'received': [],
-        'rcode': ['-1'],
+        'rcode': -1,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:45.862091022-04:00',
         'end_time': '2021-04-18T14:51:47.862170832-04:00',
@@ -749,7 +749,7 @@ class SatelliteTest(unittest.TestCase):
         'received': [{
             'ip': '204.187.13.189'
         }],
-        'rcode': ['0'],
+        'rcode': 0,
         'date': '2021-04-18',
         'start_time': '2021-04-18T14:51:47.862183185-04:00',
         'end_time': '2021-04-18T14:51:48.162724942-04:00',
@@ -947,7 +947,7 @@ class SatelliteTest(unittest.TestCase):
         'untagged_response': False,
         'excluded': False,
         'exclude_reason': '',
-        'rcode': ['0'],
+        'rcode': 0,
         'has_type_a': True,
         'received': [{
             'ip': '104.31.16.11',
@@ -987,7 +987,7 @@ class SatelliteTest(unittest.TestCase):
         'untagged_response': False,
         'excluded': False,
         'exclude_reason': '',
-        'rcode': ['2']
+        'rcode': 2
     }, {
         'received': [],
         'domain': 'a.root-servers.net',
@@ -1011,7 +1011,7 @@ class SatelliteTest(unittest.TestCase):
         'untagged_response': False,
         'excluded': False,
         'exclude_reason': '',
-        'rcode': ['-1']
+        'rcode': -1
     }, {
         'received': [],
         'domain': 'alibaba.com',
@@ -1035,7 +1035,7 @@ class SatelliteTest(unittest.TestCase):
         'untagged_response': False,
         'excluded': False,
         'exclude_reason': '',
-        'rcode': ['-1']
+        'rcode': -1
     }, {
         'received': [],
         'domain': 'a.root-servers.net',
@@ -1059,7 +1059,7 @@ class SatelliteTest(unittest.TestCase):
         'untagged_response': False,
         'excluded': False,
         'exclude_reason': '',
-        'rcode': ['-1']
+        'rcode': -1
     }]
     # yapf: enable
 
