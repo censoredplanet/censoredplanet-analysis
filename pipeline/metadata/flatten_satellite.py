@@ -287,6 +287,8 @@ class SatelliteFlattener():
             responses_entry['query'],
         'is_control':
             False,  # v1 doesn't have domain controls
+        'controls_failed':
+            False,  # v1 doesn't have domain controls
         'category':
             self.category_matcher.get_category(responses_entry['query'], False),
         'ip':

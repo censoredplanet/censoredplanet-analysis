@@ -65,6 +65,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     expected = [{
         'domain': 'asana.com',
         'is_control': False,
+        'controls_failed': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'is_control_ip': False,
@@ -91,6 +92,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'domain': 'www.ecequality.org',
         'is_control': False,
+        'controls_failed': False,
         'category': 'LGBT',
         'ip': '145.239.6.50',
         'is_control_ip': False,
@@ -107,6 +109,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'domain': 'www.sportsinteraction.com',
         'is_control': False,
+        'controls_failed': False,
         'category': 'Gambling',
         'ip': '185.228.168.149',
         'is_control_ip': False,
@@ -121,6 +124,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'domain': 'www.usacasino.com',
         'is_control': False,
+        'controls_failed': False,
         'category': 'Gambling',
         'ip': '1.1.1.1',
         'is_control_ip': True,

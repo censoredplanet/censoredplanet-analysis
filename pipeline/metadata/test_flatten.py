@@ -91,6 +91,7 @@ class FlattenMeasurementTest(unittest.TestCase):
     expected_row = {
         'domain': 'asana.com',
         'is_control': False,
+        'controls_failed': False,
         'category': 'E-commerce',
         'ip': '67.69.184.215',
         'is_control_ip': False,
