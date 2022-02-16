@@ -127,16 +127,16 @@ def _append_tags(tags: List[str]) -> str:
   return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
 
 
-def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
-  """Split rcodes into successful and failed.
+def split_rcodes(rcodes: List[str]) -> Tuple[List[int], List[int]]:
+  """Split rcodes into successful and failed. Also convert to ints
 
   Args:
     rcodes: an array of rcode strings like
       ex: ["0"], ["2", "-1", "0"], or ["-1", "-1", "-1", "-1"]
 
   Returns:
-    successful_test_rcode: rcodes that succeeded, this should be ["0"] or []
-    failed_test_rcodes: all failure codes, this should never contain "0"
+    successful_test_rcode: rcodes that succeeded, this should be [0] or []
+    failed_test_rcodes: all failure codes, this should never contain 0
   """
 
   # v2.1 measurements repeat 4 times or until the test is successful
@@ -150,7 +150,10 @@ def split_rcodes(rcodes: List[str]) -> Tuple[List[str], List[str]]:
     successful_test_rcode = []
     failed_test_rcodes = rcodes
 
-  return successful_test_rcode, failed_test_rcodes
+  int_successful_test_rcode = list(map(int, successful_test_rcode))
+  int_failed_test_rcodes = list(map(int, failed_test_rcodes))
+
+  return int_successful_test_rcode, int_failed_test_rcodes
 
 
 def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
@@ -179,7 +182,7 @@ def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
 
   successful_test_rcode, failed_test_rcodes = split_rcodes(rcodes)
 
-  if any(rcode == "0" for rcode in failed_test_rcodes):
+  if any(rcode == 0 for rcode in failed_test_rcodes):
     raise Exception(
         f"Satellite v2.1 measurement has multiple 0 rcodes: {filepath} - {responses_entry}"
     )
@@ -202,14 +205,14 @@ def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
 
     success_observation = base_response.copy()
     success_observation['received'] = all_received
-    success_observation['rcode'] = successful_test_rcode
+    success_observation['rcode'] = successful_test_rcode[0]
     yield success_observation
 
   for rcode in failed_test_rcodes:
     failed_observation = base_response.copy()
-    failed_observation['rcode'] = [rcode]
+    failed_observation['rcode'] = rcode
     # -1 rcodes corrospond to the error messages in order.
-    if rcode == "-1":
+    if rcode == -1:
       failed_observation['error'] = errors.pop() if errors else None
     yield failed_observation
 
@@ -217,7 +220,7 @@ def _process_satellite_v2p1(base_response: Row, responses_entry: ResponsesEntry,
   # In that case we add them back in manually
   for error in errors:
     error_observation = base_response.copy()
-    error_observation['rcode'] = ["-1"]
+    error_observation['rcode'] = -1
     error_observation['error'] = error
     yield error_observation
 
@@ -303,7 +306,8 @@ class SatelliteFlattener():
         'success':
             'error' not in responses_entry,
         'received': [],
-        'rcode': ['0'] if 'error' not in responses_entry else ['-1'],
+        'rcode':
+            0 if 'error' not in responses_entry else -1,
         'measurement_id':
             random_measurement_id,
         'source':
@@ -406,7 +410,7 @@ class SatelliteFlattener():
       if response['error'] and response['error'] != 'null':
         row['error'] = response['error']
 
-      row['rcode'] = [str(response['rcode'])]
+      row['rcode'] = response['rcode']
 
       # Check responses for test domain with valid answers
       if response['url'] == row['domain'] and (response['rcode'] == 0 and
@@ -511,7 +515,8 @@ class SatelliteFlattener():
               not responses_entry['connect_error'],
           'controls_failed':
               not responses_entry['passed_control'],
-          'rcode': [str(response['rcode'])],
+          'rcode':
+              response['rcode'],
           'has_type_a':
               response['has_type_a'],
           'measurement_id':
