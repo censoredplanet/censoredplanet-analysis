@@ -492,19 +492,19 @@ def process_satellite_with_tags(
   # This way we avoid having to multiply rows by their number of received ips
 
   # PCollection[Row] each with only a single element in the received arrays
-  received_ip_flattened_rows = (
-      rows | 'flatten received ips' >>
-      beam.FlatMap(flatten_received_ips).with_output_types(Row))
+  #received_ip_flattened_rows = (
+  #    rows | 'flatten received ips' >>
+  #    beam.FlatMap(flatten_received_ips).with_output_types(Row))
 
   # PCollection[Row]
-  tag_rows = (
-      tag_lines | 'tag rows' >>
-      beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
+  #tag_rows = (
+  #    tag_lines | 'tag rows' >>
+  #    beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
+  #rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
 
-  return rows_with_metadata
+  return rows # rows_with_metadata
 
 
 def process_satellite_blockpages(
