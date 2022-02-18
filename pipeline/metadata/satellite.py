@@ -471,9 +471,9 @@ def process_satellite_with_tags(
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
+  #rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
 
-  return rows_with_metadata
+  return unflatten_received_ip_rows(received_ip_flattened_rows)  # rows_with_metadata
 
 
 def process_satellite_blockpages(
