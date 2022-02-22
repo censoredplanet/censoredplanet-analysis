@@ -1,30 +1,30 @@
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
-CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode STRING) AS (
+CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
   CASE
-    WHEN rcode = "0" THEN "dns/answer:empty"
-    WHEN rcode = "1" THEN "dns/rcode:FormErr"
-    WHEN rcode = "2" THEN "dns/rcode:ServFail"
-    WHEN rcode = "3" THEN "dns/rcode:NXDomain"
-    WHEN rcode = "4" THEN "dns/rcode:NotImp"
-    WHEN rcode = "5" THEN "dns/rcode:Refused"
-    WHEN rcode = "6" THEN "dns/rcode:YXDomain"
-    WHEN rcode = "7" THEN "dns/rcode:YXRRSet"
-    WHEN rcode = "8" THEN "dns/rcode:NXRRSet"
-    WHEN rcode = "9" THEN "dns/rcode:NotAuth"
-    WHEN rcode = "10" THEN "dns/rcode:NotZone"
-    WHEN rcode = "11" THEN "dns/rcode:DSOTYPENI"
-    WHEN rcode = "12" THEN "dns/rcode:Unassigned"
-    WHEN rcode = "13" THEN "dns/rcode:Unassigned"
-    WHEN rcode = "14" THEN "dns/rcode:Unassigned"
-    WHEN rcode = "15" THEN "dns/rcode:Unassigned"
-    WHEN rcode = "16" THEN "dns/rcode:BadVers"
-    WHEN rcode = "17" THEN "dns/rcode:BadSig"
-    WHEN rcode = "18" THEN "dns/rcode:BadKey"
-    WHEN rcode = "19" THEN "dns/rcode:BadTime"
-    WHEN rcode = "20" THEN "dns/rcode:BadMode"
-    WHEN rcode = "21" THEN "dns/rcode:BadAlg"
-    WHEN rcode = "22" THEN "dns/rcode:BadTrunc"
-    WHEN rcode = "23" THEN "dns/rcode:BadCookie"
+    WHEN rcode = 0 THEN "dns/answer:empty"
+    WHEN rcode = 1 THEN "dns/rcode:FormErr"
+    WHEN rcode = 2 THEN "dns/rcode:ServFail"
+    WHEN rcode = 3 THEN "dns/rcode:NXDomain"
+    WHEN rcode = 4 THEN "dns/rcode:NotImp"
+    WHEN rcode = 5 THEN "dns/rcode:Refused"
+    WHEN rcode = 6 THEN "dns/rcode:YXDomain"
+    WHEN rcode = 7 THEN "dns/rcode:YXRRSet"
+    WHEN rcode = 8 THEN "dns/rcode:NXRRSet"
+    WHEN rcode = 9 THEN "dns/rcode:NotAuth"
+    WHEN rcode = 10 THEN "dns/rcode:NotZone"
+    WHEN rcode = 11 THEN "dns/rcode:DSOTYPENI"
+    WHEN rcode = 12 THEN "dns/rcode:Unassigned"
+    WHEN rcode = 13 THEN "dns/rcode:Unassigned"
+    WHEN rcode = 14 THEN "dns/rcode:Unassigned"
+    WHEN rcode = 15 THEN "dns/rcode:Unassigned"
+    WHEN rcode = 16 THEN "dns/rcode:BadVers"
+    WHEN rcode = 17 THEN "dns/rcode:BadSig"
+    WHEN rcode = 18 THEN "dns/rcode:BadKey"
+    WHEN rcode = 19 THEN "dns/rcode:BadTime"
+    WHEN rcode = 20 THEN "dns/rcode:BadMode"
+    WHEN rcode = 21 THEN "dns/rcode:BadAlg"
+    WHEN rcode = 22 THEN "dns/rcode:BadTrunc"
+    WHEN rcode = 23 THEN "dns/rcode:BadCookie"
     ELSE CONCAT("dns/unknown_rcode:", rcode)
   END
 );
@@ -83,7 +83,7 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
 CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
-                                      rcode ARRAY<STRING>, error STRING, controls_failed BOOL, anomaly BOOL) AS (
+                                      rcode INTEGER, error STRING, controls_failed BOOL, anomaly BOOL) AS (
   CASE
     WHEN controls_failed THEN "setup/controls"
     WHEN ARRAY_LENGTH(received) > 0 THEN
@@ -92,9 +92,9 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
         WHEN anomaly THEN "dns/answer:ipmismatch"
         ELSE "expected/match"
       END
-    WHEN ARRAY_LENGTH(rcode) = 0 THEN ClassifySatelliteError(error)
-    WHEN rcode[OFFSET(0)] = "-1" THEN ClassifySatelliteErrorNegRCode(error)
-    ELSE ClassifySatelliteRCode(rcode[OFFSET(0)])
+    WHEN rcode IS NULL THEN ClassifySatelliteError(error)
+    WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(error)
+    ELSE ClassifySatelliteRCode(rcode)
   END
 );
 
@@ -129,9 +129,9 @@ WITH Grouped AS (
         IFNULL(category, "Uncategorized") AS category,
 
         COUNT(1) AS count
-    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan_flattened_no_received_ip_tagging`
+    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE controls_failed = FALSE OR controls_failed IS NULL # compensating for null controls_failed in v1 data
+    WHERE controls_failed = FALSE
     GROUP BY date, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
