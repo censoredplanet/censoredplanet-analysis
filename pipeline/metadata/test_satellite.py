@@ -65,47 +65,6 @@ class SatelliteTest(unittest.TestCase):
     ]
     self.assertListEqual(result, expected)
 
-  def test_unflatten_satellite(self) -> None:
-    """Test unflattening satellite received ips into a single row."""
-    rows = [{
-        'ip': '1.1.1.1',
-        'domain': 'x.com',
-        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
-        'received': [{
-            'ip': '0.0.0.1',
-            'tag': 'value1'
-        }]
-    }, {
-        'ip': '1.1.1.1',
-        'domain': 'x.com',
-        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
-        'received': [{
-            'ip': '0.0.0.2',
-            'tag': 'value2'
-        }]
-    }]
-
-    expected = [{
-        'ip':
-            '1.1.1.1',
-        'domain':
-            'x.com',
-        'measurement_id':
-            '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'received': [{
-            'ip': '0.0.0.1',
-            'tag': 'value1'
-        }, {
-            'ip': '0.0.0.2',
-            'tag': 'value2'
-        }]
-    }]
-
-    unflattened = list(satellite._unflatten_satellite(rows))
-    self.assertListEqual(unflattened, expected)
-
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
 
