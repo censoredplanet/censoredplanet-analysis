@@ -66,11 +66,16 @@ def _get_satellite_date_partition(row: Row, _: int) -> int:
   return 1
 
 
-def _make_date_received_ip_key(row: Row) -> DateIpKey:
-  """Makes a tuple key of the date and received ip from a given row dict."""
-  if row['received'] is not None and len(row['received']) > 0:
-    return (row['date'], row['received'][0]['ip'])
-  return (row['date'], '')
+def _set_random_roundtrip_id(row: Row) -> Row:
+  """Add a roundtrip_id field to a row."""
+  row['roundtrip_id'] = uuid.uuid4().hex
+  return row
+
+
+def _delete_roundtrip_ip(row: Row) -> Row:
+  """Remove the roundtrip_id field from a row."""
+  row.pop('roundtrip_id')
+  return row
 
 
 def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
@@ -85,6 +90,46 @@ def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
   """
   return table_name.replace(f'.{scan_type}',
                             f'.{scan_type}_{SCAN_TYPE_BLOCKPAGE}')
+
+
+def _get_received_ips_with_roundtrip_id_and_date(row: Row) -> Iterable[Row]:
+  """Get all the individual received ips answers from a row.
+
+  Args:
+    row: dicts without metadata in the received ips lke:
+      {
+        'ip': '1.2.3.4'
+        'date': '2021-01-01'
+        'domain': 'ex.com'
+        'roundtrip_id: 'abc'
+        'received' : [{
+            'ip': '4.5.6.7'
+          }, {
+            'ip': '5.6.7.8'
+          },
+        ]
+      }
+
+  Yields individual recieved answers that also include the roundtrip and date
+    ex:
+      {
+        'ip': '4.5.6.7',
+        'date': '2021-01-01',
+        'roundtrip_id: 'abc'
+      }, {
+        'ip': '5.6.7.8',
+        'date': '2021-01-01',
+        'roundtrip_id: 'abc'
+      }
+  """
+  roundtrip_id = row['roundtrip_id']
+  date = row['date']
+
+  for answer in row['received']:
+    received_with_id = answer.copy()
+    received_with_id['roundtrip_id'] = roundtrip_id
+    received_with_id['date'] = date
+    yield received_with_id
 
 
 def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
@@ -154,6 +199,11 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
 
 
 def _is_vantage_point_tag(row: Row) -> bool:
+  """Determine if a given tag should be applied to vantage point or received ips.
+
+  TODO: remove this function and instead do the partitioning
+        as we read the data in _read_satellite_tags.
+  """
   received_ip_exclusive_tags = flatten_satellite.SATELLITE_TAGS.copy()
   received_ip_exclusive_tags.remove('ip')
 
@@ -211,11 +261,11 @@ def _add_satellite_tags(
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
-      rows: PCollection of flattened measurement rows
+      rows: PCollection of measurement rows
       tags: PCollection of geo tag rows
 
     Returns:
-      PCollection of flattened measurement rows containing tag information
+      PCollection of measurement rows containing tag information
   """
   # PCollection[Row]
   rows_with_metadata = _add_vantage_point_tags(rows, tags)
@@ -304,44 +354,60 @@ def post_processing_satellite(
   return post
 
 
-def _get_received_ips_with_roundtrip_id_and_date(row: Row) -> Iterable[Row]:
-  roundtrip_id = row['roundtrip_id']
-  date = row['date']
-
-  for answer in row['received']:
-    received_with_id = answer.copy()
-    received_with_id['roundtrip_id'] = roundtrip_id
-    received_with_id['date'] = date
-    yield received_with_id
-
-
-def set_random_roundtrip_id(row: Row) -> Row:
-  row['roundtrip_id'] = uuid.uuid4().hex
-  return row
-
-
-def _delete_roundtrip_ip(row: Row) -> Row:
-  row.pop('roundtrip_id')
-  return row
-
-
 def _merge_tagged_answers_with_rows(
-    key: str, value: Dict[str, Union[List[Row], List[List[Row]]]]) -> Row:
+    key: str, value: Dict[str, Union[List[Row], List[List[Row]]]]  # pylint: disable=unused-argument
+) -> Row:
   """
-  key: roundtrip_id
+  Args:
+    key: roundtrip_id, unused
+    value:
+      {IP_METADATA_PCOLLECTION_NAME: One element list containing a row
+       ROWS_PCOLLECION_NAME: One element list of many element
+                             list containing tagged answer rows
+      }
+      ex:
+        { IP_METADATA_PCOLLECTION_NAME: [{
+            'ip': '1.2.3.4'
+            'domain': 'ex.com'
+            'received' : [{
+                'ip': '4.5.6.7'
+              }, {
+                'ip': '5.6.7.8'
+              },
+            ]
+          }],
+        ROWS_PCOLLECION_NAME: [[{
+            'ip': '4.5.6.7'
+            'asname': 'AMAZON-AES',
+            'asnum': 14618,
+          }, {
+            'ip': '5.6.7.8'
+            'asname': 'CLOUDFLARE',
+            'asnum': 13335,
+          }]]
+        }
 
-  value
-    {IP_METADATA_PCOLLECTION_NAME: One element list containing a row
-     ROWS_PCOLLECION_NAME: Many element list containing tagged answer rows}
+  Returns: The row with the tagged answers inserted
+    {
+      'ip': '1.2.3.4'
+      'domain': 'ex.com'
+      'received' : [{
+          'ip': '4.5.6.7'
+          'asname': 'AMAZON-AES',
+          'asnum': 14618,
+        }, {
+          'ip': '5.6.7.8'
+          'asname': 'CLOUDFLARE',
+          'asnum': 13335,
+        },
+      ]
+    }
   """
   row: Row = value[IP_METADATA_PCOLLECTION_NAME][0]  # type: ignore
 
   if len(value[ROWS_PCOLLECION_NAME]) == 0:  # No tags
     return row
   tagged_answers: List[Row] = value[ROWS_PCOLLECION_NAME][0]  # type: ignore
-
-  from pprint import pprint
-  pprint(("row and answers", row, tagged_answers))
 
   for untagged_answer in row['received']:
     untagged_ip = untagged_answer['ip']
@@ -354,8 +420,6 @@ def _merge_tagged_answers_with_rows(
     tagged_answer.pop('roundtrip_id')
 
     untagged_answer.update(tagged_answer)
-
-  pprint(("row with tags added", row))
   return row
 
 
@@ -365,7 +429,7 @@ def add_received_ip_tags(
   """Add ip metadata info to received ip lists in rows
 
   Args:
-    rows: PCollection of dicts without metadata in the received ips lke:
+    rows: PCollection of dicts without metadata in the received ips like:
       {
         'ip': '1.2.3.4'
         'domain': 'ex.com'
@@ -378,9 +442,14 @@ def add_received_ip_tags(
       }
     tags: PCollection of received ip metadata like:
       {
+        'ip': '4.5.6.7'
         'asname': 'AMAZON-AES',
         'asnum': 14618,
-        'ip': '4.5.6.7'
+      }
+      {
+        'ip': '5.6.7.8'
+        'asname': 'CLOUDFLARE',
+        'asnum': 13335,
       }
 
   Returns a PCollection of rows with metadata tags added to received ips like
@@ -393,20 +462,27 @@ def add_received_ip_tags(
           'asnum': 14618,
         }, {
           'ip': '5.6.7.8'
+          'asname': 'CLOUDFLARE',
+          'asnum': 13335,
         },
       ]
     }
   """
+  # PCollection[Row]
+  received_ip_tags = (
+      tags | 'filter out vp tags' >> beam.Filter(
+          lambda tag: not _is_vantage_point_tag(tag)).with_output_types(Row))
+
   # PCollection[Tuple[DateIpKey, row]]
   tags_keyed_by_ip_and_date = (
-      tags | 'tags: key by ips and dates' >>
+      received_ip_tags | 'tags: key by ips and dates' >>
       beam.Map(lambda tag: (make_date_ip_key(tag), tag)).with_output_types(
           Tuple[DateIpKey, Row]))
 
   # PCollection[Row]
   rows_with_roundtrip_id = (
       rows | 'add roundtrip_ids' >>
-      beam.Map(set_random_roundtrip_id).with_output_types(Row))
+      beam.Map(_set_random_roundtrip_id).with_output_types(Row))
 
   # PCollection[row] received ip row
   received_ips_with_roundtrip_ip_and_date = (
@@ -448,7 +524,7 @@ def add_received_ip_tags(
       ROWS_PCOLLECION_NAME: received_ips_grouped_by_roundtrip_ip
   }) | 'add received ip tags: group by roundtrip' >> beam.CoGroupByKey())
 
-  # PCollection[Row] received ip row with
+  # PCollection[Row] received ip row with roundtrip id
   rows_with_metadata_and_roundtrip = (
       grouped_rows_and_received_ips |
       'add received ip tags: add tagged answers back' >>
