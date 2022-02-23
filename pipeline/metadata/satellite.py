@@ -240,7 +240,7 @@ def add_received_ip_tags(
   return rows_with_tags
 
 
-def unflatten_received_ip_rows(
+def _unflatten_received_ip_rows(
     rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Unflatten so that each row contains a array of answer IPs
 
@@ -274,11 +274,11 @@ def _add_satellite_tags(
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
-      rows: PCollection of measurement rows
+      rows: PCollection of flattened measurement rows
       tags: PCollection of geo tag rows
 
     Returns:
-      PCollection of measurement rows containing tag information
+      PCollection of flattened measurement rows containing tag information
   """
   # PCollection[Tuple[DateIpKey,Row]]
   ips_with_metadata = (
@@ -307,7 +307,7 @@ def _add_satellite_tags(
                     'combine date partitions' >> beam.Flatten())
 
   # PCollection[Row]
-  return unflatten_received_ip_rows(rows_with_tags)
+  return rows_with_tags
 
 
 def post_processing_satellite(
@@ -509,7 +509,11 @@ def process_satellite_with_tags(
       beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
 
   # PCollection[Row]
-  rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows, tag_rows)
+  flattened_rows_with_metadata = _add_satellite_tags(received_ip_flattened_rows,
+                                                     tag_rows)
+
+  # PCollection[Row]
+  rows_with_metadata = _unflatten_received_ip_rows(flattened_rows_with_metadata)
 
   return rows_with_metadata
 
