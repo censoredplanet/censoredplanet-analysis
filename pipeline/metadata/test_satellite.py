@@ -290,6 +290,7 @@ class SatelliteTest(unittest.TestCase):
         "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
         "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
         "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
+        "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
     ]
 
     # yapf: disable
@@ -317,7 +318,13 @@ class SatelliteTest(unittest.TestCase):
         "cert": "9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10",
         "http": "7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca",
         "ip": "198.35.26.96"
-    }]
+    }, {"asname": "CRONON-AS Obermuensterstr. 9",
+        "asnum": 25504,
+        "cert": "ea6389b446002e14d21bd7fd39d4433a5356948a906634365299b79781b43e2b",
+        "http": None,
+        "ip": "185.228.169.37"  # received ip tag shouldn't tag vantage point ip
+    }
+    ]
     # yapf: enable
 
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])

@@ -153,10 +153,17 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
   yield tags
 
 
+def _is_vantage_point_tag(row: Row) -> bool:
+  received_ip_exclusive_tags = flatten_satellite.SATELLITE_TAGS.copy()
+  received_ip_exclusive_tags.remove('ip')
+
+  common_tags = received_ip_exclusive_tags & set(row.keys())
+  return len(common_tags) == 0
+
+
 def _add_vantage_point_tags(
     rows: beam.pvalue.PCollection[Row],
-    ips_with_metadata: beam.pvalue.PCollection[Tuple[DateIpKey, Row]]
-) -> beam.pvalue.PCollection[Row]:
+    tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Add tags for vantage point IPs - resolver name (hostname/control/special) and country
 
   Args:
@@ -166,6 +173,18 @@ def _add_vantage_point_tags(
     Returns:
       PCollection of measurement rows with tag information added to the ip row
   """
+  # PCollection[Row]
+  vp_tags = (
+      tags | 'filter out received ip tags' >>
+      beam.Filter(_is_vantage_point_tag).with_output_types(Row))
+
+  # PCollection[Tuple[DateIpKey,Row]]
+  ips_with_metadata = (
+      vp_tags | 'tags key by ips and dates' >>
+      beam.Map(lambda row: (make_date_ip_key(row), row)) |
+      'combine duplicate tags' >>
+      beam.CombinePerKey(_merge_dicts).with_output_types(Tuple[DateIpKey, Row]))
+
   # PCollection[Tuple[DateIpKey,Row]]
   rows_keyed_by_ip_and_date = (
       rows | 'add vp tags: key by ips and dates' >>
@@ -198,15 +217,8 @@ def _add_satellite_tags(
     Returns:
       PCollection of flattened measurement rows containing tag information
   """
-  # PCollection[Tuple[DateIpKey,Row]]
-  ips_with_metadata = (
-      tags | 'tags key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)) |
-      'combine duplicate tags' >>
-      beam.CombinePerKey(_merge_dicts).with_output_types(Tuple[DateIpKey, Row]))
-
   # PCollection[Row]
-  rows_with_metadata = _add_vantage_point_tags(rows, ips_with_metadata)
+  rows_with_metadata = _add_vantage_point_tags(rows, tags)
 
   # Starting with the Satellite v2.2 format, the rows include received ip tags.
   # Received tagging steps are only required prior to v2.2
@@ -217,7 +229,7 @@ def _add_satellite_tags(
       'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
 
   # PCollection[Row]
-  rows_pre_v2_2_with_tags = add_received_ip_tags_3xcogroup(rows_pre_v2_2, tags)
+  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2, tags)
 
   # PCollection[Row]
   rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
@@ -313,8 +325,8 @@ def _delete_roundtrip_ip(row: Row) -> Row:
   return row
 
 
-def _merge_tagged_answers_with_rows(key: str, value: Dict[str,
-                                                          Union[List[Row], List[List[Row]]]]) -> Row:
+def _merge_tagged_answers_with_rows(
+    key: str, value: Dict[str, Union[List[Row], List[List[Row]]]]) -> Row:
   """
   key: roundtrip_id
 
@@ -347,14 +359,44 @@ def _merge_tagged_answers_with_rows(key: str, value: Dict[str,
   return row
 
 
-def add_received_ip_tags_3xcogroup(
+def add_received_ip_tags(
     rows: beam.pvalue.PCollection[Row],
     tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
-  """
-  Take a bunch of row information with received ip tags
-  And tag, and add the tags to the received ip rows
-  """
+  """Add ip metadata info to received ip lists in rows
 
+  Args:
+    rows: PCollection of dicts without metadata in the received ips lke:
+      {
+        'ip': '1.2.3.4'
+        'domain': 'ex.com'
+        'received' : [{
+            'ip': '4.5.6.7'
+          }, {
+            'ip': '5.6.7.8'
+          },
+        ]
+      }
+    tags: PCollection of received ip metadata like:
+      {
+        'asname': 'AMAZON-AES',
+        'asnum': 14618,
+        'ip': '4.5.6.7'
+      }
+
+  Returns a PCollection of rows with metadata tags added to received ips like
+    {
+      'ip': '1.2.3.4'
+      'domain': 'ex.com'
+      'received' : [{
+          'ip': '4.5.6.7'
+          'asname': 'AMAZON-AES',
+          'asnum': 14618,
+        }, {
+          'ip': '5.6.7.8'
+        },
+      ]
+    }
+  """
   # PCollection[Tuple[DateIpKey, row]]
   tags_keyed_by_ip_and_date = (
       tags | 'tags: key by ips and dates' >>
