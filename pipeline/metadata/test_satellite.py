@@ -1294,14 +1294,9 @@ class SatelliteTest(unittest.TestCase):
             "success": True,
             "source": "CP_Satellite-2022-01-02-12-00-01",
             "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
+            "rcode": 0,
             "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
-            ],
+            "matches_confidence": [100, 100],
             "untagged_controls": False,
             "untagged_response": False,
             "excluded": False,
@@ -1341,11 +1336,7 @@ class SatelliteTest(unittest.TestCase):
             "success": True,
             "source": "CP_Satellite-2022-01-02-12-00-01",
             "controls_failed": True,
-            "rcode": [
-                "-1",
-                "0",
-                "-1"
-            ],
+            "rcode": 0,
             "average_confidence": 0,
             "matches_confidence": None,
             "untagged_controls": False,
@@ -1387,14 +1378,9 @@ class SatelliteTest(unittest.TestCase):
             "success": True,
             "source": "CP_Satellite-2022-01-02-12-00-01",
             "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
+            "rcode": 0,
             "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
-            ],
+            "matches_confidence": [100, 100],
             "untagged_controls": False,
             "untagged_response": False,
             "excluded": False,
@@ -1434,14 +1420,9 @@ class SatelliteTest(unittest.TestCase):
             "success": True,
             "source": "CP_Satellite-2022-01-02-12-00-01",
             "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
+            "rcode": 0,
             "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
-            ],
+            "matches_confidence": [100, 100],
             "untagged_controls": False,
             "untagged_response": False,
             "excluded": False,
@@ -1481,13 +1462,9 @@ class SatelliteTest(unittest.TestCase):
             "success": True,
             "source": "CP_Satellite-2022-01-02-12-00-01",
             "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
+            "rcode": 0,
             "average_confidence": 0,
-            "matches_confidence": [
-                0
-            ],
+            "matches_confidence": [0],
             "untagged_controls": False,
             "untagged_response": False,
             "excluded": False,
