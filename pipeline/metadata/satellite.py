@@ -12,7 +12,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
+from pipeline.metadata.beam_metadata import DateIpKey, BEAM_COGROUP_A_SIDE, BEAM_COGROUP_B_SIDE, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
@@ -236,8 +236,8 @@ def _add_vantage_point_tags(
 
   # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
   grouped_metadata_and_rows = (({
-      IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+      BEAM_COGROUP_A_SIDE: ips_with_metadata,
+      BEAM_COGROUP_B_SIDE: rows_keyed_by_ip_and_date
   }) | 'add vp tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Row]
@@ -348,7 +348,8 @@ def post_processing_satellite(
 
 
 def _merge_tagged_answers_with_rows(
-    key: str, value: Dict[str, Union[List[Row], List[List[Row]]]]  # pylint: disable=unused-argument
+    key: str,  # pylint: disable=unused-argument
+    value: Dict[str, Union[List[Row], List[List[Row]]]]
 ) -> Row:
   """
   Args:
@@ -396,11 +397,11 @@ def _merge_tagged_answers_with_rows(
       ]
     }
   """
-  row: Row = value[IP_METADATA_PCOLLECTION_NAME][0]  # type: ignore
+  row: Row = value[BEAM_COGROUP_A_SIDE][0]  # type: ignore
 
-  if len(value[ROWS_PCOLLECION_NAME]) == 0:  # No tags
+  if len(value[BEAM_COGROUP_B_SIDE]) == 0:  # No tags
     return row
-  tagged_answers: List[Row] = value[ROWS_PCOLLECION_NAME][0]  # type: ignore
+  tagged_answers: List[Row] = value[BEAM_COGROUP_B_SIDE][0]  # type: ignore
 
   for untagged_answer in row['received']:
     untagged_ip = untagged_answer['ip']
@@ -490,8 +491,8 @@ def add_received_ip_tags(
           Tuple[DateIpKey, Row]))
 
   grouped_metadata_and_received_ips = (({
-      IP_METADATA_PCOLLECTION_NAME: tags_keyed_by_ip_and_date,
-      ROWS_PCOLLECION_NAME: received_ips_keyed_by_ip_and_date
+      BEAM_COGROUP_A_SIDE: tags_keyed_by_ip_and_date,
+      BEAM_COGROUP_B_SIDE: received_ips_keyed_by_ip_and_date
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Row] received ip row with
@@ -513,8 +514,8 @@ def add_received_ip_tags(
           Tuple[str, Iterable[Row]]))
 
   grouped_rows_and_received_ips = (({
-      IP_METADATA_PCOLLECTION_NAME: rows_keyed_by_roundtrip_id,
-      ROWS_PCOLLECION_NAME: received_ips_grouped_by_roundtrip_ip
+      BEAM_COGROUP_A_SIDE: rows_keyed_by_roundtrip_id,
+      BEAM_COGROUP_B_SIDE: received_ips_grouped_by_roundtrip_ip
   }) | 'add received ip tags: group by roundtrip' >> beam.CoGroupByKey())
 
   # PCollection[Row] received ip row with roundtrip id

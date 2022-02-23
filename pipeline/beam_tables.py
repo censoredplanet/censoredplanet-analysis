@@ -28,7 +28,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
+from pipeline.metadata.beam_metadata import DateIpKey, BEAM_COGROUP_A_SIDE, BEAM_COGROUP_B_SIDE, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten_satellite
@@ -485,8 +485,8 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
     grouped_metadata_and_rows = (({
-        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+        BEAM_COGROUP_A_SIDE: ips_with_metadata,
+        BEAM_COGROUP_B_SIDE: rows_keyed_by_ip_and_date
     }) | 'group by keys' >> beam.CoGroupByKey())
 
     # PCollection[Row]

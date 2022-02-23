@@ -31,8 +31,8 @@ class BeamMetadataTest(unittest.TestCase):
         'date': '2020-01-01',
     }]
     value: Dict[str, List[Row]] = {
-        beam_metadata.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
-        beam_metadata.ROWS_PCOLLECION_NAME: rows
+        beam_metadata.BEAM_COGROUP_A_SIDE: [ip_metadata],
+        beam_metadata.BEAM_COGROUP_B_SIDE: rows
     }
 
     expected_rows = [{

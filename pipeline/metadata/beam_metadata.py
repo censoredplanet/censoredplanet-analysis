@@ -11,8 +11,8 @@ from pipeline.metadata.flatten import Row
 DateIpKey = Tuple[str, str]
 
 # PCollection key names used internally by the beam pipeline
-IP_METADATA_PCOLLECTION_NAME = 'metadata'
-ROWS_PCOLLECION_NAME = 'rows'
+BEAM_COGROUP_A_SIDE = 'a'
+BEAM_COGROUP_B_SIDE = 'b'
 
 
 def make_date_ip_key(row: Row) -> DateIpKey:
@@ -28,8 +28,8 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   Args:
     key: The DateIpKey tuple that we joined on. This is thrown away.
     value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
-               ROWS_PCOLLECION_NAME: Many element list containing row dicts}
+      {BEAM_COGROUP_A_SIDE: One element list containing an ipmetadata
+       BEAM_COGROUP_B_SIDE: Many element list containing row dicts}
       where ipmetadata is a dict of the format {column_name, value}
        {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
       and row is a dict of the format {column_name, value}
@@ -39,11 +39,11 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
     row dict {column_name, value} containing both row and metadata cols/values
   """
   # pyformat: enable
-  if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+  if value[BEAM_COGROUP_A_SIDE]:
+    ip_metadata = value[BEAM_COGROUP_A_SIDE][0]
   else:
     ip_metadata = {}
-  rows = value[ROWS_PCOLLECION_NAME]
+  rows = value[BEAM_COGROUP_B_SIDE]
 
   for row in rows:
     new_row: Row = {}
