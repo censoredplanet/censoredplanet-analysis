@@ -322,7 +322,7 @@ class SatelliteTest(unittest.TestCase):
         "asnum": 25504,
         "cert": "ea6389b446002e14d21bd7fd39d4433a5356948a906634365299b79781b43e2b",
         "http": None,
-        "ip": "185.228.169.37"  # received ip tag shouldn't tag vantage point ip
+        "ip": "185.228.169.37"  # Don't tag vps with received ip tags
     }
     ]
     # yapf: enable
@@ -564,6 +564,7 @@ class SatelliteTest(unittest.TestCase):
     tag_filenames = [
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
+        "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json"
     ]
 
@@ -577,6 +578,9 @@ class SatelliteTest(unittest.TestCase):
     }, {
         "name": "rec1pubns2.ultradns.net.",
         "vp": "64.6.65.6"
+    }, {
+        "name": "example.com",
+        "vp": "204.187.13.189"  # Don't tag received ips with vp tags
     }]
     # yapf: enable
 
