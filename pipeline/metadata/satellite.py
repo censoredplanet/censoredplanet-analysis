@@ -162,10 +162,17 @@ def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
     logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
                     line)
     return
-  if 'location' in scan:
+  if 'location' in scan and 'name' in scan:
+    # from v2.2 resolvers.json
+    tags = {
+        'ip': scan.get('vp'),
+        'name': scan['name'],
+        'country': scan['location']['country_code']
+    }
+  elif 'location' in scan:
     # from v2 tagged_resolvers.json, not needed
     return
-  if 'name' in scan:
+  elif 'name' in scan:
     # from resolvers.json
     tags = {'ip': scan.get('resolver', scan.get('vp')), 'name': scan['name']}
   elif 'country' in scan:
