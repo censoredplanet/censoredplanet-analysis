@@ -998,7 +998,7 @@ class SatelliteTest(unittest.TestCase):
         'is_control':  True,
         'category': 'Control',
         'ip': '62.80.182.26',
-        'name': 'ns1.chpros.com.',
+        'name': 'mx4.orlantrans.com.',
         'is_control_ip': False,
         'country': 'UA',
         'date': '2021-10-20',
