@@ -120,19 +120,22 @@ WITH Grouped AS (
     SELECT
         date,
 
-        country AS country_code,
+        IF(name="special","special",NET.REG_DOMAIN(name)) as reg_hostname,
+        name as hostname,
         as_full_name AS network,
-        IF(is_control, "CONTROL", domain) AS domain,
-
-        SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome,
         CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
+        country AS country_code,
+
+        IF(is_control, "CONTROL", domain) AS domain,
         IFNULL(category, "Uncategorized") AS category,
 
+        SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome,
+        
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE controls_failed = FALSE
-    GROUP BY date, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
