@@ -46,8 +46,10 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_DOMAIN_PARTITIONS = 250
 NUM_SATELLITE_INPUT_PARTITIONS = 3
+
+# PCollection key name used internally by the beam pipeline
+RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 
 
 def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
@@ -355,18 +357,19 @@ def post_processing_satellite(
 
 
 def _merge_tagged_answers_with_rows(
-    key: str, value: Dict[str, Union[List[Row], List[List[Row]]]]  # pylint: disable=unused-argument
+    key: str,  # pylint: disable=unused-argument
+    value: Dict[str, Union[List[Row], List[List[Row]]]]
 ) -> Row:
   """
   Args:
     key: roundtrip_id, unused
     value:
-      {IP_METADATA_PCOLLECTION_NAME: One element list containing a row
-       ROWS_PCOLLECION_NAME: One element list of many element
+      {ROWS_PCOLLECION_NAME: One element list containing a row
+       RECEIVED_IPS_PCOLLECTION_NAME: One element list of many element
                              list containing tagged answer rows
       }
       ex:
-        { IP_METADATA_PCOLLECTION_NAME: [{
+        {ROWS_PCOLLECION_NAME: [{
             'ip': '1.2.3.4'
             'domain': 'ex.com'
             'received' : [{
@@ -376,7 +379,7 @@ def _merge_tagged_answers_with_rows(
               },
             ]
           }],
-        ROWS_PCOLLECION_NAME: [[{
+         RECEIVED_IPS_PCOLLECTION_NAME: [[{
             'ip': '4.5.6.7'
             'asname': 'AMAZON-AES',
             'asnum': 14618,
@@ -403,11 +406,12 @@ def _merge_tagged_answers_with_rows(
       ]
     }
   """
-  row: Row = value[IP_METADATA_PCOLLECTION_NAME][0]  # type: ignore
+  row: Row = value[ROWS_PCOLLECION_NAME][0]  # type: ignore
 
-  if len(value[ROWS_PCOLLECION_NAME]) == 0:  # No tags
+  if len(value[RECEIVED_IPS_PCOLLECTION_NAME]) == 0:  # No tags
     return row
-  tagged_answers: List[Row] = value[ROWS_PCOLLECION_NAME][0]  # type: ignore
+  tagged_answers: List[Row] = value[RECEIVED_IPS_PCOLLECTION_NAME][
+      0]  # type: ignore
 
   for untagged_answer in row['received']:
     untagged_ip = untagged_answer['ip']
@@ -498,14 +502,16 @@ def add_received_ip_tags(
 
   grouped_metadata_and_received_ips = (({
       IP_METADATA_PCOLLECTION_NAME: tags_keyed_by_ip_and_date,
-      ROWS_PCOLLECION_NAME: received_ips_keyed_by_ip_and_date
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Row] received ip row with
   received_ips_with_metadata = (
       grouped_metadata_and_received_ips |
       'add received ip tags: merge metadata with rows' >>
-      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+      beam.FlatMapTuple(lambda key, value: merge_metadata_with_rows(
+          key, value, rows_pcollection_name=RECEIVED_IPS_PCOLLECTION_NAME)
+                       ).with_output_types(Row))
 
   # PCollection[Tuple[roundtrip_id, Row]]
   rows_keyed_by_roundtrip_id = (
@@ -520,8 +526,8 @@ def add_received_ip_tags(
           Tuple[str, Iterable[Row]]))
 
   grouped_rows_and_received_ips = (({
-      IP_METADATA_PCOLLECTION_NAME: rows_keyed_by_roundtrip_id,
-      ROWS_PCOLLECION_NAME: received_ips_grouped_by_roundtrip_ip
+      ROWS_PCOLLECION_NAME: rows_keyed_by_roundtrip_id,
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_grouped_by_roundtrip_ip
   }) | 'add received ip tags: group by roundtrip' >> beam.CoGroupByKey())
 
   # PCollection[Row] received ip row with roundtrip id

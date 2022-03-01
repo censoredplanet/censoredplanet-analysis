@@ -21,7 +21,9 @@ def make_date_ip_key(row: Row) -> DateIpKey:
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
-    key: DateIpKey, value: Dict[str, List[Row]]) -> Iterator[Row]:
+    key: DateIpKey,
+    value: Dict[str, List[Row]],
+    rows_pcollection_name: str = ROWS_PCOLLECION_NAME) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -34,6 +36,8 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
        {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
       and row is a dict of the format {column_name, value}
        {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
+    rows_pcollection_name: default ROWS_PCOLLECION_NAME
+      set if joining a pcollection with a different name
 
   Yields:
     row dict {column_name, value} containing both row and metadata cols/values
@@ -43,7 +47,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
     ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
   else:
     ip_metadata = {}
-  rows = value[ROWS_PCOLLECION_NAME]
+  rows = value[rows_pcollection_name]
 
   for row in rows:
     new_row: Row = {}
