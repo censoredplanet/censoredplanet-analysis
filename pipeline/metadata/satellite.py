@@ -46,7 +46,7 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_SATELLITE_INPUT_PARTITIONS = 3
+NUM_SATELLITE_INPUT_PARTITIONS = 4
 
 # PCollection key name used internally by the beam pipeline
 RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
@@ -156,20 +156,15 @@ def _read_satellite_resolver_tags(filepath: str, line: str) -> Iterator[Row]:
       filepath: source Satellite file
       line: json str (dictionary containing geo tag data)
 
-  Returns:
+  Yields:
       A row dict of the format
         {
          'ip': '1.1.1.1',
          'date': '2020-01-01'
-         'http': ''e3c1d3...' # optional
-         'cert': 'a2fed1...' # optional
-         'asname': 'CLOUDFLARENET' # optional
-         'asnum': 13335 # optional
+         'country': 'US'  # optional
+         'name': 'one.one.one.one'  # optional
         }
   """
-  filename = _get_filename(filepath)
-  if filename not in flatten_satellite.SATELLITE_RESOLVER_TAG_FILES:
-    return
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
@@ -204,13 +199,12 @@ def _read_satellite_answer_tags(filepath: str, line: str) -> Iterator[Row]:
         {
          'ip': '1.1.1.1',
          'date': '2020-01-01'
-         'country': 'US'
-         'name': 'one.one.one.one'
+         'http': ''e3c1d3...' # optional
+         'cert': 'a2fed1...' # optional
+         'asname': 'CLOUDFLARENET' # optional
+         'asnum': 13335 # optional
         }
   """
-  filename = _get_filename(filepath)
-  if filename not in flatten_satellite.SATELLITE_ANSWER_TAG_FILES:
-    return
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
@@ -552,13 +546,15 @@ def add_received_ip_tags(
 
 def process_satellite_with_tags(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    tag_lines: beam.pvalue.PCollection[Tuple[str, str]]
+    answer_lines: beam.pvalue.PCollection[Tuple[str, str]],
+    resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags.
 
   Args:
-    row_lines: Row objects
-    tag_lines: Tuple[filepath, json line]
+    row_lines: Tuple[filepath, json_line]
+    answer_lines: Tuple[filepath, json_line]
+    resolver_lines: Tuple[filepath, json_line]
 
   Returns:
     PCollection[Row] of rows with tag metadata added
@@ -570,12 +566,12 @@ def process_satellite_with_tags(
 
   # PCollection[Row]
   resolver_tags = (
-      tag_lines | 'resolver tag rows' >>
+      resolver_lines | 'resolver tag rows' >>
       beam.FlatMapTuple(_read_satellite_resolver_tags).with_output_types(Row))
 
   # PCollection[Row]
   answer_tags = (
-      tag_lines | 'answer tag rows' >>
+      answer_lines | 'answer tag rows' >>
       beam.FlatMapTuple(_read_satellite_answer_tags).with_output_types(Row))
 
   rows_with_metadata = _add_satellite_tags(rows, resolver_tags, answer_tags)
@@ -604,18 +600,19 @@ def process_satellite_blockpages(
 def partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
-  """Partitions Satellite input into tags (0) blockpages (1) and rows (2).
+  """Partitions Satellite input into answer/resolver_tags, blockpages and rows.
 
   Args:
     line: an input line Tuple[filename, line_content]
       filename is "<path>/name.json"
-    num_partitions: number of partitions to use, always 3
+    num_partitions: number of partitions to use, always 4
 
   Returns:
     int,
-      0 - line is a tag file
-      1 - line is a blockpage
-      2 - line is a dns measurement or control
+      0 - line is an answer tag file
+      1 - line is a resolver tag file
+      2 - line is a blockpage
+      3 - line is a dns measurement or control
 
   Raises:
     Exception if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS
@@ -627,12 +624,14 @@ def partition_satellite_input(
     )
 
   filename = _get_filename(line[0])
-  if filename in flatten_satellite.SATELLITE_TAG_FILES:
+  if filename in flatten_satellite.SATELLITE_ANSWER_TAG_FILES:
     return 0
-  if filename in flatten_satellite.SATELLITE_BLOCKPAGE_FILES:
+  if filename in flatten_satellite.SATELLITE_RESOLVER_TAG_FILES:
     return 1
-  if filename in flatten_satellite.SATELLITE_OBSERVATION_FILES:
+  if filename in flatten_satellite.SATELLITE_BLOCKPAGE_FILES:
     return 2
+  if filename in flatten_satellite.SATELLITE_OBSERVATION_FILES:
+    return 3
   raise Exception(f"Unknown filename in Satellite data: {filename}")
 
 
@@ -734,18 +733,19 @@ def process_satellite_lines(
     post_processed_satellite: rows of satellite scan data
     blockpage_rows: rows of blockpage data
   """
-  # PCollection[Tuple[filename,line]] x3
-  tags, blockpages, lines = lines | beam.Partition(
+  # PCollection[Tuple[filename,line]] x4
+  answer_lines, resolver_lines, blockpage_lines, row_lines = lines | beam.Partition(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # PCollection[Row]
-  tagged_satellite = process_satellite_with_tags(lines, tags)
+  tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
+                                                 resolver_lines)
 
   # TODO turn back on once memory problems are fixed
   # PCollection[Row]
   # post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
-  blockpage_rows = process_satellite_blockpages(blockpages)
+  blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
   return tagged_satellite, blockpage_rows
