@@ -29,7 +29,7 @@ class SatelliteTest(unittest.TestCase):
     row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
     self.assertEqual(satellite.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
-  def test_read_satellite_tags(self) -> None:
+  def test_read_satellite_tags(self) -> None:  # pylint: disable=no-self-use
     """Test reading rows from Satellite tag files."""
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
     tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
@@ -41,6 +41,20 @@ class SatelliteTest(unittest.TestCase):
       'cert': 'a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
       'http': 'e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
     }
+
+    lines = [
+        json.dumps(tagged_resolver1),
+        json.dumps(tagged_resolver2),
+        json.dumps(tagged_answer1)
+    ]
+
+    filenames = [
+      "CP_Satellite-2020-12-17-12-00-01/resolvers.json",
+      "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz",
+      "CP_Satellite-2020-12-17-12-00-01/tagged_responses.json",
+    ]
+
+    data = zip(filenames, lines)
 
     row1 = {'ip': '1.1.1.1', 'date': '2020-12-17', 'country': 'US'}
     row2 = {'ip': '1.1.1.3', 'date': '2020-12-17', 'country': 'AU'}
@@ -54,16 +68,26 @@ class SatelliteTest(unittest.TestCase):
     }
     # yapf: enable
 
-    data = [
-        json.dumps(tagged_resolver1),
-        json.dumps(tagged_resolver2),
-        json.dumps(tagged_answer1)
-    ]
-    expected = [row1, row2, row3]
-    result = [
-        next(satellite._read_satellite_tags('2020-12-17', d)) for d in data
-    ]
-    self.assertListEqual(result, expected)
+    expected_resolver_tags = [row1, row2]
+    expected_answer_tags = [row3]
+
+    with TestPipeline() as p:
+      lines = p | 'create tags' >> beam.Create(data)
+
+      resolver_tags = lines | 'read resolver tags' >> beam.FlatMapTuple(
+          satellite._read_satellite_resolver_tags)
+      answer_tags = lines | 'read answer tags' >> beam.FlatMapTuple(
+          satellite._read_satellite_answer_tags)
+
+      beam_test_util.assert_that(
+          resolver_tags,
+          beam_test_util.equal_to(expected_resolver_tags),
+          label='assert_that/resolvers')
+
+      beam_test_util.assert_that(
+          answer_tags,
+          beam_test_util.equal_to(expected_answer_tags),
+          label='assert_that/answers')
 
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
