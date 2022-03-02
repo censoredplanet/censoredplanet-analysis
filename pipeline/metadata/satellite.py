@@ -502,16 +502,14 @@ def add_received_ip_tags(
 
   grouped_metadata_and_received_ips = (({
       IP_METADATA_PCOLLECTION_NAME: tags_keyed_by_ip_and_date,
-      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
+      ROWS_PCOLLECION_NAME: received_ips_keyed_by_ip_and_date
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[Row] received ip row with
   received_ips_with_metadata = (
       grouped_metadata_and_received_ips |
       'add received ip tags: merge metadata with rows' >>
-      beam.FlatMapTuple(lambda key, value: merge_metadata_with_rows(
-          key, value, rows_pcollection_name=RECEIVED_IPS_PCOLLECTION_NAME)
-                       ).with_output_types(Row))
+      beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
 
   # PCollection[Tuple[roundtrip_id, Row]]
   rows_keyed_by_roundtrip_id = (
