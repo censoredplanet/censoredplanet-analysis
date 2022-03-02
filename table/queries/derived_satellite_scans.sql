@@ -98,6 +98,24 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
   END
 );
 
+
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
+PARTITION BY date
+CLUSTER BY country, asn
+AS (
+  SELECT a.* EXCEPT (received),
+         r.ip as received_ip,
+         r.asnum as received_asnum,
+         r.asname as received_asname,
+         r.http as received_http,
+         r.cert as received_cert,
+         r.matches_control as received_matches_control
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
+       LEFT JOIN UNNEST(received) as r
+);
+
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -155,6 +173,7 @@ SELECT
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
 );
+
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
