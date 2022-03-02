@@ -21,9 +21,7 @@ def make_date_ip_key(row: Row) -> DateIpKey:
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
-    key: DateIpKey,
-    value: Dict[str, List[Row]],
-    field: str = None) -> Iterator[Row]:
+    key: DateIpKey, value: Dict[str, List[Row]]) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -36,7 +34,8 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
        {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
       and row is a dict of the format {column_name, value}
        {'domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...}
-    field: indicates a row field to update with metadata instead of the row (default).
+    rows_pcollection_name: default ROWS_PCOLLECION_NAME
+      set if joining a pcollection with a different name
 
   Yields:
     row dict {column_name, value} containing both row and metadata cols/values
@@ -51,14 +50,5 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   for row in rows:
     new_row: Row = {}
     new_row.update(row)
-    if field == 'received':
-      if new_row['received']:
-        # Double-flattened rows are stored with a single received ip in each list
-        # to be reconstructed later
-        new_row['received'][0].update(ip_metadata)
-        new_row['received'][0].pop('date', None)
-        new_row['received'][0].pop('name', None)
-        new_row['received'][0].pop('country', None)
-    else:
-      new_row.update(ip_metadata)
+    new_row.update(ip_metadata)
     yield new_row
