@@ -414,14 +414,16 @@ class SatelliteFlattener():
       roundtrip_row['success'] = roundtrip['rcode'] == 0
 
       # Check responses for test domain with valid answers
-      if roundtrip['url'] == roundtrip_row['domain'] and (roundtrip['rcode'] == 0 and
-                                               roundtrip['has_type_a']):
+      if roundtrip['url'] == roundtrip_row['domain'] and (
+          roundtrip['rcode'] == 0 and roundtrip['has_type_a']):
         roundtrip_row['has_type_a'] = True
-      
+
       answers = roundtrip['response']
       if answers:  # confidince only corresponds to fields with received ips
-        roundtrip_row['average_confidence'] = responses_entry.get('confidence')['average']
-        roundtrip_row['matches_confidence'] = responses_entry.get('confidence')['matches']
+        roundtrip_row['average_confidence'] = responses_entry.get(
+            'confidence')['average']
+        roundtrip_row['matches_confidence'] = responses_entry.get(
+            'confidence')['matches']
 
       all_received = []
       for (ip, answer) in answers.items():

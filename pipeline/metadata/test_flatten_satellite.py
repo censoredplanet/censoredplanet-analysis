@@ -755,8 +755,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'Control',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -773,14 +771,12 @@ class FlattenSatelliteTest(unittest.TestCase):
         'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': 5,
         'received': [],
-        'success': True,
+        'success': False,
         'exclude_reason': '',
         'excluded': False
     }, {
         'anomaly': False,
         'category': 'Provocative Attire',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -797,14 +793,12 @@ class FlattenSatelliteTest(unittest.TestCase):
         'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': 5,
         'received': [],
-        'success': True,
+        'success': False,
         'exclude_reason': '',
         'excluded': False
     }, {
         'anomaly': False,
         'category': 'Control',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -821,14 +815,12 @@ class FlattenSatelliteTest(unittest.TestCase):
         'source': 'CP-Satellite-2021-10-20-12-00-01',
         'rcode': 5,
         'received': [],
-        'success': True,
+        'success': False,
         'exclude_reason': '',
         'excluded': False
     }, {
         'anomaly': False,
         'category': 'Control',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -851,8 +843,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'E-commerce',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -875,8 +865,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'E-commerce',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -899,8 +887,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'E-commerce',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -923,8 +909,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'E-commerce',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -947,8 +931,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     }, {
         'anomaly': False,
         'category': 'Control',
-        'average_confidence': 0,
-        'matches_confidence': None,
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': True,
@@ -981,7 +963,6 @@ class FlattenSatelliteTest(unittest.TestCase):
 
     self.assertListEqual(results, expected)
 
-
   def test_flattenmeasurement_satellite_v2p2_fail_then_success(self) -> None:
     """Test flattening of Satellite v2.2 measurements that fail but eventually succeed."""
     filenames = [
@@ -991,55 +972,55 @@ class FlattenSatelliteTest(unittest.TestCase):
     # yapf: disable
     interference = [
         {
-        "confidence":{
-            "average":66.66666666666667,
-            "matches":[66.66666666666667, 66.66666666666667],
-            "untagged_controls":False,
-            "untagged_response":False
+        "confidence": {
+            "average": 66.66666666666667,
+            "matches": [66.66666666666667, 66.66666666666667],
+            "untagged_controls": False,
+            "untagged_response": False
         },
-        "passed_liveness":True,
-        "connect_error":False,
-        "in_control_group":True,
-        "anomaly":False,
-        "excluded":False,
-        "vp":"178.45.11.236",
-        "test_url":"www.army.mil",
-        "start_time":"2022-01-23 16:54:03.57575605 -0500 EST",
-        "end_time":"2022-01-23 16:54:10.009546222 -0500 EST",
-        "exclude_reason":[],
-        "location":{
-            "country_name":"Russia",
-            "country_code":"RU"
+        "passed_liveness": True,
+        "connect_error": False,
+        "in_control_group": True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "178.45.11.236",
+        "test_url": "www.army.mil",
+        "start_time": "2022-01-23 16:54:03.57575605 -0500 EST",
+        "end_time": "2022-01-23 16:54:10.009546222 -0500 EST",
+        "exclude_reason": [],
+        "location": {
+            "country_name": "Russia",
+            "country_code": "RU"
         },
-        "response":[
+        "response": [
             {
-                "url":"www.army.mil",
-                "has_type_a":False,
-                "response":{},
-                "error":"read udp 141.212.123.185:61223->178.45.11.236:53: i/o timeout",
-                "rcode":-1
+                "url": "www.army.mil",
+                "has_type_a": False,
+                "response": {},
+                "error": "read udp 141.212.123.185:61223->178.45.11.236:53: i/o timeout",
+                "rcode": -1
             },
             {
-                "url":"www.army.mil",
-                "has_type_a":True,
-                "response":{
-                    "92.123.189.40":{
-                    "http":"b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb",
-                    "cert":"",
-                    "asnum":20940,
-                    "asname":"AKAMAI-ASN1",
-                    "matched":["asnum", "asname"]
+                "url": "www.army.mil",
+                "has_type_a": True,
+                "response": {
+                    "92.123.189.40": {
+                    "http": "b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb",
+                    "cert": "",
+                    "asnum": 20940,
+                    "asname": "AKAMAI-ASN1",
+                    "matched": ["asnum", "asname"]
                     },
-                    "92.123.189.41":{
-                    "http":"65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e",
-                    "cert":"",
-                    "asnum":20940,
-                    "asname":"AKAMAI-ASN1",
-                    "matched":["asnum", "asname"]
+                    "92.123.189.41": {
+                    "http": "65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e",
+                    "cert": "",
+                    "asnum": 20940,
+                    "asname": "AKAMAI-ASN1",
+                    "matched": ["asnum", "asname"]
                     }
                 },
-                "error":"null",
-                "rcode":0
+                "error": "null",
+                "rcode": 0
             }
         ]
         }
