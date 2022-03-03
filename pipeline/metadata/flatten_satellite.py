@@ -419,7 +419,7 @@ class SatelliteFlattener():
         roundtrip_row['has_type_a'] = True
 
       answers = roundtrip['response']
-      if answers:  # confidince only corresponds to fields with received ips
+      if answers:  # confidence only corresponds to fields with received ips
         roundtrip_row['average_confidence'] = responses_entry.get(
             'confidence')['average']
         roundtrip_row['matches_confidence'] = responses_entry.get(
