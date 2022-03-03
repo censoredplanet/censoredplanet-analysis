@@ -388,53 +388,57 @@ class SatelliteFlattener():
     """
     responses = responses_entry.get('response', [])
     row['controls_failed'] = not responses_entry['passed_liveness']
-
-    row['average_confidence'] = responses_entry.get('confidence')['average']
-    row['matches_confidence'] = responses_entry.get('confidence')['matches']
     row['untagged_controls'] = responses_entry.get(
         'confidence')['untagged_controls']
     row['untagged_response'] = responses_entry.get(
         'confidence')['untagged_response']
-
     row['excluded'] = responses_entry.get('excluded', False)
     row['exclude_reason'] = ' '.join(responses_entry.get('exclude_reason', []))
 
-    for response in responses:
+    # We yield a row for each individual roundrip in the measurement
+    for roundtrip in responses:
+      roundtrip_row = row.copy()
 
       #redefine domain rows to match individual response
       # TODO normalize this to a domain from a url
-      row['domain'] = response['url']
-      is_control_domain = flatten_base.is_control_url(response['url'])
-      row['is_control'] = is_control_domain
-      row['category'] = self.category_matcher.get_category(
-          response['url'], is_control_domain)
+      roundtrip_row['domain'] = roundtrip['url']
+      is_control_domain = flatten_base.is_control_url(roundtrip['url'])
+      roundtrip_row['is_control'] = is_control_domain
+      roundtrip_row['category'] = self.category_matcher.get_category(
+          roundtrip['url'], is_control_domain)
 
-      if response['error'] and response['error'] != 'null':
-        row['error'] = response['error']
+      if roundtrip['error'] and roundtrip['error'] != 'null':
+        roundtrip_row['error'] = roundtrip['error']
 
-      row['rcode'] = response['rcode']
+      roundtrip_row['rcode'] = roundtrip['rcode']
+      roundtrip_row['success'] = roundtrip['rcode'] == 0
 
       # Check responses for test domain with valid answers
-      if response['url'] == row['domain'] and (response['rcode'] == 0 and
-                                               response['has_type_a']):
-        row['has_type_a'] = True
+      if roundtrip['url'] == roundtrip_row['domain'] and (roundtrip['rcode'] == 0 and
+                                               roundtrip['has_type_a']):
+        roundtrip_row['has_type_a'] = True
+      
+      answers = roundtrip['response']
+      if answers:  # confidince only corresponds to fields with received ips
+        roundtrip_row['average_confidence'] = responses_entry.get('confidence')['average']
+        roundtrip_row['matches_confidence'] = responses_entry.get('confidence')['matches']
 
       all_received = []
-      for ip in response['response']:
+      for (ip, answer) in answers.items():
         received = {
             'ip': ip,
-            'http': response['response'][ip].get('http'),
-            'cert': response['response'][ip].get('cert'),
-            'asname': response['response'][ip].get('asname'),
-            'asnum': response['response'][ip].get('asnum'),
+            'http': answer.get('http'),
+            'cert': answer.get('cert'),
+            'asname': answer.get('asname'),
+            'asnum': answer.get('asnum'),
             'matches_control': ''
         }
-        matched = response['response'][ip].get('matched', [])
+        matched = answer.get('matched', [])
         if matched:
           received['matches_control'] = _append_tags(matched)
         all_received.append(received)
-      row['received'] = all_received
-      yield row.copy()
+      roundtrip_row['received'] = all_received
+      yield roundtrip_row
 
   def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
                                     filepath: str) -> Iterator[Row]:

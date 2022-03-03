@@ -1049,8 +1049,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     expected = [{
         'anomaly': False,
         'category': 'Government',
-        'average_confidence': None,
-        'matches_confidence': [],
         'untagged_controls': False,
         'untagged_response': False,
         'controls_failed': False,
