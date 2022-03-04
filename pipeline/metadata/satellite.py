@@ -628,7 +628,7 @@ def partition_satellite_input(
     return 0
   if filename in flatten_satellite.SATELLITE_RESOLVER_TAG_FILES:
     return 1
-  if filename in flatten_satellite.SATELLITE_BLOCKPAGE_FILES:
+  if filename == flatten_satellite.SATELLITE_BLOCKPAGES_FILE:
     return 2
   if filename in flatten_satellite.SATELLITE_OBSERVATION_FILES:
     return 3
