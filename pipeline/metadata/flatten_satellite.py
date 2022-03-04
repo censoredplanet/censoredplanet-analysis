@@ -375,29 +375,30 @@ class SatelliteFlattener():
     else:
       yield from self._process_satellite_v2p2(row, responses_entry)
 
-  def _process_satellite_v2p2(self, row: Row,
+  def _process_satellite_v2p2(self, base_row: Row,
                               responses_entry: ResponsesEntry) -> Iterator[Row]:
     """Finish processing a line of Satellite v2.2 data.
 
     Args:
-      row: a partially processed row of satellite data
+      base_row: a partially processed row of satellite data
       responses_entry: a loaded json object containing the parsed content of the line
 
     Yields:
       Rows
     """
     responses = responses_entry.get('response', [])
-    row['controls_failed'] = not responses_entry['passed_liveness']
-    row['untagged_controls'] = responses_entry.get(
+    base_row['controls_failed'] = not responses_entry['passed_liveness']
+    base_row['untagged_controls'] = responses_entry.get(
         'confidence')['untagged_controls']
-    row['untagged_response'] = responses_entry.get(
+    base_row['untagged_response'] = responses_entry.get(
         'confidence')['untagged_response']
-    row['excluded'] = responses_entry.get('excluded', False)
-    row['exclude_reason'] = ' '.join(responses_entry.get('exclude_reason', []))
+    base_row['excluded'] = responses_entry.get('excluded', False)
+    base_row['exclude_reason'] = ' '.join(
+        responses_entry.get('exclude_reason', []))
 
     # We yield a row for each individual roundrip in the measurement
     for roundtrip in responses:
-      roundtrip_row = row.copy()
+      roundtrip_row = base_row.copy()
 
       #redefine domain rows to match individual response
       # TODO normalize this to a domain from a url
