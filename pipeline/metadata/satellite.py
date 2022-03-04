@@ -67,14 +67,6 @@ def _get_filename(filepath: str) -> str:
   return filename
 
 
-def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
-  """Helper method for merging dictionaries."""
-  merged = {}
-  for dict_ in dicts:
-    merged.update(dict_)
-  return merged
-
-
 def _get_satellite_date_partition(row: Row, _: int) -> int:
   """Partition Satellite data by date, corresponding to v2.2 format change."""
   if datetime.date.fromisoformat(
@@ -239,9 +231,8 @@ def _add_vantage_point_tags(
   # PCollection[Tuple[DateIpKey,Row]]
   ips_with_metadata = (
       tags | 'tags key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)) |
-      'combine duplicate tags' >>
-      beam.CombinePerKey(_merge_dicts).with_output_types(Tuple[DateIpKey, Row]))
+      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+          Tuple[DateIpKey, Row]))
 
   # PCollection[Tuple[DateIpKey,Row]]
   rows_keyed_by_ip_and_date = (

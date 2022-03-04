@@ -28,7 +28,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   Args:
     key: The DateIpKey tuple that we joined on. This is thrown away.
     value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: One element list containing an ipmetadata
+      {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing an ipmetadatas
                ROWS_PCOLLECION_NAME: Many element list containing row dicts}
       where ipmetadata is a dict of the format {column_name, value}
        {'netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...}
@@ -42,13 +42,14 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   """
   # pyformat: enable
   if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+    ip_metadatas = value[IP_METADATA_PCOLLECTION_NAME]
   else:
-    ip_metadata = {}
+    ip_metadatas = []
   rows = value[ROWS_PCOLLECION_NAME]
 
   for row in rows:
     new_row: Row = {}
     new_row.update(row)
-    new_row.update(ip_metadata)
+    for ip_metadata in ip_metadatas:
+      new_row.update(ip_metadata)
     yield new_row
