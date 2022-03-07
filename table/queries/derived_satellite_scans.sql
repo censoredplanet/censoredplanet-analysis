@@ -52,7 +52,12 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
 );
 
 
-CREATE TEMP FUNCTION InvalidIp(received STRUCT<ip STRING, asnum INT, asname STRING, http STRING, cert STRING, matches_control STRING>) AS (
+CREATE TEMP FUNCTION InvalidIp(received STRUCT<ip STRING,
+                                               asnum INT, 
+                                               asname STRING, 
+                                               http STRING, 
+                                               cert STRING, 
+                                               matches_control STRING>) AS (
   CASE
     WHEN STARTS_WITH(received.ip, "0.") THEN TRUE
     WHEN STARTS_WITH(received.ip, "127.") then TRUE
@@ -62,7 +67,12 @@ CREATE TEMP FUNCTION InvalidIp(received STRUCT<ip STRING, asnum INT, asname STRI
   END
 );
 
-CREATE TEMP FUNCTION InvalidIpType(received STRUCT<ip STRING, asnum INT, asname STRING, http STRING, cert STRING, matches_control STRING>) AS (
+CREATE TEMP FUNCTION InvalidIpType(received STRUCT<ip STRING, 
+                                                   asnum INT, 
+                                                   asname STRING, 
+                                                   http STRING, 
+                                                   cert STRING, 
+                                                   matches_control STRING>) AS (
   CASE
     WHEN STARTS_WITH(received.ip, "0.") then "ip_invalid:zero"
     WHEN STARTS_WITH(received.ip, "127.") then "ip_invalid:local_host"
@@ -83,12 +93,16 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
 CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
-                                      rcode INTEGER, error STRING, controls_failed BOOL, anomaly BOOL) AS (
+                                      rcode INTEGER, 
+                                      error STRING, 
+                                      controls_failed BOOL, 
+                                      anomaly BOOL) AS (
   CASE
     WHEN controls_failed THEN "setup/controls"
     WHEN ARRAY_LENGTH(received) > 0 THEN
       CASE
-        WHEN InvalidIp(received[OFFSET(0)]) THEN InvalidIpType(received[OFFSET(0)])  # assuming no one will mix valid and invalid ips
+        # assuming no one will mix valid and invalid ips
+        WHEN InvalidIp(received[OFFSET(0)]) THEN InvalidIpType(received[OFFSET(0)])
         WHEN anomaly THEN "dns/answer:ipmismatch"
         ELSE "expected/match"
       END
