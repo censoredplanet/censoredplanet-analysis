@@ -7,7 +7,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Union, List, Tuple, Dict, Any, Iterator, Iterable
+from typing import Union, List, Tuple, Dict, Iterator, Iterable
 import uuid
 
 import apache_beam as beam
@@ -42,6 +42,10 @@ BLOCKPAGE_BIGQUERY_SCHEMA = {
     'received_tls_cert': ('string', 'nullable'),
 }
 
+# A key containing a date and Domain
+# ex: ("2020-01-01", 'example.com')
+DateDomainKey = Tuple[str, str]
+
 SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
@@ -50,6 +54,7 @@ NUM_SATELLITE_INPUT_PARTITIONS = 4
 
 # PCollection key name used internally by the beam pipeline
 RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
+CONTROLS_PCOLLECTION_NAME = 'controls'
 
 
 def _get_filename(filepath: str) -> str:
@@ -290,6 +295,58 @@ def _add_satellite_tags(
   return rows_with_tags
 
 
+def _total_tags(key: DateDomainKey, row: Row) -> Tuple[DateDomainKey, int]:
+  total_tags = 0
+  for tag_type in flatten_satellite.SATELLITE_TAGS:
+    if tag_type != 'ip':
+      type_tags = {
+          ans[tag_type] for ans in row['received'] if ans.get(tag_type)
+      }
+      total_tags += len(type_tags)
+  return (key, total_tags)
+
+
+def _flat_rows_controls(  # pylint: disable=unused-argument
+    key: DateDomainKey,
+    value: Dict[str, Union[List[Row], List[int]]]) -> Iterator[Tuple[Row, int]]:
+  """Flatten out controls vs rows.
+
+  Args:
+    key, a date/domain key the data is joined on, unused
+    value: a dict
+      {
+        ROWS_PCOLLECION_NAME: List[Rows]
+        CONTROLS_PCOLLECTION_NAME: List[int]
+          single element list with the # of control tags for these rows
+      }
+
+  Yields:
+    Tuple[Row, num_control_tags]
+  """
+  rows: List[Row] = value[ROWS_PCOLLECION_NAME]  # type: ignore
+  num_control_tags_list: List[int] = value[
+      CONTROLS_PCOLLECTION_NAME]  # type: ignore
+
+  num_control_tags = 0
+  if len(num_control_tags_list) > 0:
+    num_control_tags = num_control_tags_list[0]
+  for row in rows:
+    yield (row, num_control_tags)
+
+
+def _key_by_date_domain(row: Row) -> Tuple[DateDomainKey, Row]:
+  return ((row['date'], row['domain']), row)
+
+
+def _partition_test_and_control(row_tuple: Tuple[DateDomainKey, Row],
+                                _: int) -> int:
+  row: Row = row_tuple[1]
+  # 'anomaly' is None for control measurements
+  if row['is_control_ip'] or row['anomaly'] is None:
+    return 1
+  return 0
+
+
 def post_processing_satellite(
     rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Run post processing on Satellite v1 data (calculate confidence, verify interference).
@@ -300,49 +357,42 @@ def post_processing_satellite(
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
+  # PCollection[Tuple[DateDomainKey, Row]]
+  rows_keyed_by_date_domains = (
+      rows | 'key by dates and domains' >>
+      beam.Map(_key_by_date_domain).with_output_types(Tuple[DateDomainKey, Row])
+  )
 
-  def _total_tags(key: Tuple[str, str],
-                  row: Row) -> Tuple[Tuple[str, str], int]:
-    total_tags = 0
-    for tag_type in flatten_satellite.SATELLITE_TAGS:
-      if tag_type != 'ip':
-        type_tags = {
-            ans[tag_type] for ans in row['received'] if ans.get(tag_type)
-        }
-        total_tags += len(type_tags)
-    return (key, total_tags)
-
-  def _flat_rows_controls(key: Any, value: Row) -> Iterator[Tuple[Row, int]]:  # pylint: disable=unused-argument
-    num_control_tags = 0
-    if len(value['control']) > 0:
-      num_control_tags = value['control'][0]
-    for row in value['test']:
-      yield (row, num_control_tags)
-
-  # Partition rows into test measurements and control measurements
-  # 'anomaly' is None for control measurements
-
-  # PCollection[Tuple[Tuple[str, str], Row]], PCollection[Tuple[Tuple[str, str], Row]]
+  # PCollection[Tuple[DateDomainKey, Row]] x2
   rows, controls = (
-      rows | 'key by dates and domains' >> beam.Map(lambda row: (
-          (row['date'], row['domain']), row)) |
-      'partition test and control' >> beam.Partition(
-          lambda row, p: int(row[1]['is_control_ip'] or row[1]['anomaly'] is
-                             None), 2))
+      rows_keyed_by_date_domains | 'partition test and control' >>
+      beam.Partition(_partition_test_and_control, 2).with_output_types(
+          Tuple[DateDomainKey, Row]))
 
-  # PCollection[Tuple[Tuple[str, str], int]]
-  num_ctags = controls | 'calculate # control tags' >> beam.MapTuple(
-      _total_tags)
+  # PCollection[Tuple[DateDomainKey, int]]
+  num_ctags = (
+      controls | 'calculate # control tags' >>
+      beam.MapTuple(_total_tags).with_output_types(Tuple[DateDomainKey, int]))
+
+  grouped_rows_num_controls = ({
+      ROWS_PCOLLECION_NAME: rows,
+      CONTROLS_PCOLLECTION_NAME: num_ctags
+  } | 'group rows and # control tags by keys' >> beam.CoGroupByKey())
+
+  # PCollection[Tuple[Row, num_controls]]
+  rows_with_num_controls = (
+      grouped_rows_num_controls | 'flatmap to (row, # control tags)' >>
+      beam.FlatMapTuple(_flat_rows_controls).with_output_types(Tuple[Row, int]))
 
   # PCollection[Row]
-  post = ({
-      'test': rows,
-      'control': num_ctags
-  } | 'group rows and # control tags by keys' >> beam.CoGroupByKey() |
-          'flatmap to (row, # control tags)' >>
-          beam.FlatMapTuple(_flat_rows_controls) |
-          'calculate confidence' >> beam.MapTuple(_calculate_confidence) |
-          'verify interference' >> beam.Map(_verify).with_output_types(Row))
+  confidence = (
+      rows_with_num_controls | 'calculate confidence' >>
+      beam.MapTuple(_calculate_confidence).with_output_types(Row))
+
+  # PCollection[Row]
+  verified = (
+      confidence |
+      'verify interference' >> beam.Map(_verify).with_output_types(Row))
 
   # PCollection[Row]
   # pylint: disable=no-value-for-parameter
@@ -350,7 +400,7 @@ def post_processing_satellite(
       controls | 'unkey control' >> beam.Values().with_output_types(Row))
 
   # PCollection[Row]
-  post = ((post, controls) | 'flatten test and control' >> beam.Flatten())
+  post = ((verified, controls) | 'flatten test and control' >> beam.Flatten())
 
   return post
 
@@ -626,16 +676,15 @@ def partition_satellite_input(
   raise Exception(f"Unknown filename in Satellite data: {filename}")
 
 
-def _calculate_confidence(scan: Dict[str, Any],
-                          num_control_tags: int) -> Dict[str, Any]:
+def _calculate_confidence(scan: Row, num_control_tags: int) -> Row:
   """Calculate confidence for a Satellite measurement.
 
     Args:
-      scan: dict containing measurement data
+      scan: row containing measurement data
       control_tags: dict containing control tags for the test domain
 
     Returns:
-      scan dict with new records:
+      row dict with new records:
         'average_confidence':
           average percentage of tags that match control queries
         'matches_confidence': array of percentage match per answer IP
@@ -684,7 +733,7 @@ def _calculate_confidence(scan: Dict[str, Any],
   return scan
 
 
-def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
+def _verify(scan: Row) -> Row:
   """Verify that a Satellite measurement with interference is not a false positive.
 
     Args:
