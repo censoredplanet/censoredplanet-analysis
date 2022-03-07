@@ -341,8 +341,7 @@ def _key_by_date_domain(row: Row) -> Tuple[DateDomainKey, Row]:
 def _partition_test_and_control(row_tuple: Tuple[DateDomainKey, Row],
                                 _: int) -> int:
   row: Row = row_tuple[1]
-  # 'anomaly' is None for control measurements
-  if row['is_control_ip'] or row['anomaly'] is None:
+  if row['is_control_ip'] or row['is_control']:
     return 1
   return 0
 
@@ -781,11 +780,10 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
-  # TODO turn back on once memory problems are fixed
   # PCollection[Row]
-  # post_processed_satellite = post_processing_satellite(tagged_satellite)
+  post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
   blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
-  return tagged_satellite, blockpage_rows
+  return post_processed_satellite, blockpage_rows
