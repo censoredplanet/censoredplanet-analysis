@@ -1,7 +1,7 @@
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
   CASE
-    WHEN rcode = 0 THEN "dns/answer:empty"
+    WHEN rcode = 0 THEN "dns/answer:no_answer"
     WHEN rcode = 1 THEN "dns/rcode:FormErr"
     WHEN rcode = 2 THEN "dns/rcode:ServFail"
     WHEN rcode = 3 THEN "dns/rcode:NXDomain"
@@ -38,7 +38,7 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
     WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "setup/system_failure" # Too many open files
     WHEN error = "{}" THEN "dns/unknown" # TODO figure out origin
-    WHEN error = "no_answer" THEN "dns/answer:empty"
+    WHEN error = "no_answer" THEN "dns/answer:no_answer"
     #Satellite v2
     WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
     WHEN ENDS_WITH(error, "message too long") THEN "read/dns.msgsize"
