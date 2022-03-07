@@ -46,18 +46,25 @@ SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
-NUM_SATELLITE_INPUT_PARTITIONS = 3
+NUM_SATELLITE_INPUT_PARTITIONS = 4
 
 # PCollection key name used internally by the beam pipeline
 RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 
 
-def _merge_dicts(dicts: Iterable[Dict[Any, Any]]) -> Dict[Any, Any]:
-  """Helper method for merging dictionaries."""
-  merged = {}
-  for dict_ in dicts:
-    merged.update(dict_)
-  return merged
+def _get_filename(filepath: str) -> str:
+  """Get just filename from filepath
+
+  Args:
+    filepath like: "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz"
+
+  Returns:
+    base filename like "resolvers.json"
+  """
+  filename = pathlib.PurePosixPath(filepath).name
+  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+    filename = pathlib.PurePosixPath(filename).stem
+  return filename
 
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
@@ -134,83 +141,79 @@ def _get_received_ips_with_roundtrip_id_and_date(row: Row) -> Iterable[Row]:
     yield received_with_id
 
 
-def _read_satellite_tags(filename: str, line: str) -> Iterator[Row]:
+def _read_satellite_resolver_tags(filepath: str, line: str) -> Iterator[Row]:
   """Read data for IP tagging from Satellite.
 
     Args:
-      filename: source Satellite file
+      filepath: source Satellite file
       line: json str (dictionary containing geo tag data)
 
-    Yields:
+  Yields:
       A row dict of the format
-        {'ip': '1.1.1.1',
+        {
+         'ip': '1.1.1.1',
          'date': '2020-01-01'
+         'country': 'US'  # optional
+         'name': 'one.one.one.one'  # optional
+        }
+  """
+  try:
+    scan = json.loads(line)
+  except json.decoder.JSONDecodeError as e:
+    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filepath,
+                    line)
+    return
 
-         And then one of:
-         'name': 'special',
-         or
-         'country': 'US',
-         or
+  ip: str = scan.get('resolver') or scan.get('vp')
+  date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
+  tags = {'ip': ip, 'date': date}
+
+  if 'name' in scan:
+    tags['name'] = scan['name']
+
+  if 'location' in scan:
+    tags['country'] = scan['location']['country_code']
+  if 'country' in scan:
+    tags['country'] = country_name_to_code(scan['country'])
+
+  yield tags
+
+
+def _read_satellite_answer_tags(filepath: str, line: str) -> Iterator[Row]:
+  """Read data for IP tagging from Satellite.
+
+    Args:
+      filepath: source Satellite file
+      line: json str (dictionary containing geo tag data)
+
+  Yields:
+      A row dict of the format
+        {
+         'ip': '1.1.1.1',
+         'date': '2020-01-01'
          'http': ''e3c1d3...' # optional
          'cert': 'a2fed1...' # optional
          'asname': 'CLOUDFLARENET' # optional
          'asnum': 13335 # optional
         }
-      Or an empty dictionary
   """
   try:
     scan = json.loads(line)
   except json.decoder.JSONDecodeError as e:
-    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+    logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filepath,
                     line)
     return
-  if 'location' in scan and 'name' in scan:
-    # from v2.2 resolvers.json
-    tags = {
-        'ip': scan.get('vp'),
-        'name': scan['name'],
-        'country': scan['location']['country_code']
-    }
-  elif 'location' in scan:
-    # from v2 tagged_resolvers.json, not needed
-    return
-  elif 'name' in scan:
-    # from resolvers.json
-    tags = {'ip': scan.get('resolver', scan.get('vp')), 'name': scan['name']}
-  elif 'country' in scan:
-    # from v1 tagged_resolvers.json
-    # contains resolver's full country name
-    # convert to country code
-    tags = {
-        'ip': scan['resolver'],
-        'country': country_name_to_code(scan['country'])
-    }
-  elif 'http' in scan:
-    # from tagged_answers.json
-    tags = {
-        'ip': scan['ip'],
-        'http': scan['http'],
-        'cert': scan['cert'],
-        'asname': scan['asname'],
-        'asnum': scan['asnum'],
-    }
-  else:
-    raise Exception(f"Unknown satellite tag format: {scan}")
-  tags['date'] = re.findall(r'\d\d\d\d-\d\d-\d\d', filename)[0]
+
+  tags = {
+      'ip': scan['ip'],
+      'http': scan['http'],
+      'cert': scan['cert'],
+      'asname': scan['asname'],
+      'asnum': scan['asnum'],
+      'date': re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
+  }
+
   yield tags
-
-
-def _is_vantage_point_tag(row: Row) -> bool:
-  """Determine if a given tag should be applied to vantage point or received ips.
-
-  TODO: remove this function and instead do the partitioning
-        as we read the data in _read_satellite_tags.
-  """
-  received_ip_exclusive_tags = flatten_satellite.SATELLITE_TAGS.copy()
-  received_ip_exclusive_tags.remove('ip')
-
-  common_tags = received_ip_exclusive_tags & set(row.keys())
-  return len(common_tags) == 0
 
 
 def _add_vantage_point_tags(
@@ -225,17 +228,11 @@ def _add_vantage_point_tags(
     Returns:
       PCollection of measurement rows with tag information added to the ip row
   """
-  # PCollection[Row]
-  vp_tags = (
-      tags | 'filter out received ip tags' >>
-      beam.Filter(_is_vantage_point_tag).with_output_types(Row))
-
   # PCollection[Tuple[DateIpKey,Row]]
   ips_with_metadata = (
-      vp_tags | 'tags key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)) |
-      'combine duplicate tags' >>
-      beam.CombinePerKey(_merge_dicts).with_output_types(Tuple[DateIpKey, Row]))
+      tags | 'tags key by ips and dates' >>
+      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
+          Tuple[DateIpKey, Row]))
 
   # PCollection[Tuple[DateIpKey,Row]]
   rows_keyed_by_ip_and_date = (
@@ -259,18 +256,20 @@ def _add_vantage_point_tags(
 
 def _add_satellite_tags(
     rows: beam.pvalue.PCollection[Row],
-    tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+    resolver_tags: beam.pvalue.PCollection[Row],
+    answer_tags: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
       rows: PCollection of measurement rows
-      tags: PCollection of geo tag rows
+      resolver_tags: PCollection of tag info for resolvers
+      answer_tags: PCollection of geo/asn tag info for received ips
 
     Returns:
       PCollection of measurement rows containing tag information
   """
   # PCollection[Row]
-  rows_with_metadata = _add_vantage_point_tags(rows, tags)
+  rows_with_metadata = _add_vantage_point_tags(rows, resolver_tags)
 
   # Starting with the Satellite v2.2 format, the rows include received ip tags.
   # Received tagging steps are only required prior to v2.2
@@ -281,7 +280,7 @@ def _add_satellite_tags(
       'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
 
   # PCollection[Row]
-  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2, tags)
+  rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2, answer_tags)
 
   # PCollection[Row]
   rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
@@ -472,14 +471,9 @@ def add_received_ip_tags(
       ]
     }
   """
-  # PCollection[Row]
-  received_ip_tags = (
-      tags | 'filter out vp tags' >> beam.Filter(
-          lambda tag: not _is_vantage_point_tag(tag)).with_output_types(Row))
-
   # PCollection[Tuple[DateIpKey, row]]
   tags_keyed_by_ip_and_date = (
-      received_ip_tags | 'tags: key by ips and dates' >>
+      tags | 'tags: key by ips and dates' >>
       beam.Map(lambda tag: (make_date_ip_key(tag), tag)).with_output_types(
           Tuple[DateIpKey, Row]))
 
@@ -543,13 +537,15 @@ def add_received_ip_tags(
 
 def process_satellite_with_tags(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    tag_lines: beam.pvalue.PCollection[Tuple[str, str]]
+    answer_lines: beam.pvalue.PCollection[Tuple[str, str]],
+    resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[Row]:
   """Process Satellite measurements and tags.
 
   Args:
-    row_lines: Row objects
-    tag_lines: various
+    row_lines: Tuple[filepath, json_line]
+    answer_lines: Tuple[filepath, json_line]
+    resolver_lines: Tuple[filepath, json_line]
 
   Returns:
     PCollection[Row] of rows with tag metadata added
@@ -560,11 +556,16 @@ def process_satellite_with_tags(
           flatten.FlattenMeasurement()).with_output_types(Row))
 
   # PCollection[Row]
-  tag_rows = (
-      tag_lines | 'tag rows' >>
-      beam.FlatMapTuple(_read_satellite_tags).with_output_types(Row))
+  resolver_tags = (
+      resolver_lines | 'resolver tag rows' >>
+      beam.FlatMapTuple(_read_satellite_resolver_tags).with_output_types(Row))
 
-  rows_with_metadata = _add_satellite_tags(rows, tag_rows)
+  # PCollection[Row]
+  answer_tags = (
+      answer_lines | 'answer tag rows' >>
+      beam.FlatMapTuple(_read_satellite_answer_tags).with_output_types(Row))
+
+  rows_with_metadata = _add_satellite_tags(rows, resolver_tags, answer_tags)
 
   return rows_with_metadata
 
@@ -590,18 +591,19 @@ def process_satellite_blockpages(
 def partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
-  """Partitions Satellite input into tags (0) blockpages (1) and rows (2).
+  """Partitions Satellite input into answer/resolver_tags, blockpages and rows.
 
   Args:
     line: an input line Tuple[filename, line_content]
       filename is "<path>/name.json"
-    num_partitions: number of partitions to use, always 3
+    num_partitions: number of partitions to use, always 4
 
   Returns:
     int,
-      0 - line is a tag file
-      1 - line is a blockpage
-      2 - line is a dns measurement or control
+      0 - line is an answer tag file
+      1 - line is a resolver tag file
+      2 - line is a blockpage
+      3 - line is a dns measurement or control
 
   Raises:
     Exception if num_partitions != NUM_SATELLITE_INPUT_PARTITIONS
@@ -612,28 +614,15 @@ def partition_satellite_input(
         "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
     )
 
-  filename = pathlib.PurePosixPath(line[0]).name
-  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
-    filename = pathlib.PurePosixPath(filename).stem
-
-  if filename in [
-      flatten_satellite.SATELLITE_RESOLVERS_FILE,
-      flatten_satellite.SATELLITE_TAGGED_RESOLVERS_FILE,
-      flatten_satellite.SATELLITE_TAGGED_ANSWERS_FILE,
-      flatten_satellite.SATELLITE_TAGGED_RESPONSES
-  ]:
+  filename = _get_filename(line[0])
+  if filename in flatten_satellite.SATELLITE_ANSWER_TAG_FILES:
     return 0
-  if filename == flatten_satellite.SATELLITE_BLOCKPAGES_FILE:
+  if filename in flatten_satellite.SATELLITE_RESOLVER_TAG_FILES:
     return 1
-  if filename in [
-      flatten_satellite.SATELLITE_INTERFERENCE_FILE,
-      flatten_satellite.SATELLITE_INTERFERENCE_ERR_FILE,
-      flatten_satellite.SATELLITE_ANSWERS_CONTROL_FILE,
-      flatten_satellite.SATELLITE_RESPONSES_CONTROL_FILE,
-      flatten_satellite.SATELLITE_RESULTS_FILE,
-      flatten_satellite.SATELLITE_ANSWERS_ERR_FILE
-  ]:
+  if filename == flatten_satellite.SATELLITE_BLOCKPAGES_FILE:
     return 2
+  if filename in flatten_satellite.SATELLITE_OBSERVATION_FILES:
+    return 3
   raise Exception(f"Unknown filename in Satellite data: {filename}")
 
 
@@ -735,18 +724,19 @@ def process_satellite_lines(
     post_processed_satellite: rows of satellite scan data
     blockpage_rows: rows of blockpage data
   """
-  # PCollection[Tuple[filename,line]] x3
-  tags, blockpages, lines = lines | beam.Partition(
+  # PCollection[Tuple[filename,line]] x4
+  answer_lines, resolver_lines, blockpage_lines, row_lines = lines | beam.Partition(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # PCollection[Row]
-  tagged_satellite = process_satellite_with_tags(lines, tags)
+  tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
+                                                 resolver_lines)
 
   # TODO turn back on once memory problems are fixed
   # PCollection[Row]
   # post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
-  blockpage_rows = process_satellite_blockpages(blockpages)
+  blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
   return tagged_satellite, blockpage_rows

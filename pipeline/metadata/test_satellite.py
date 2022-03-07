@@ -29,10 +29,41 @@ class SatelliteTest(unittest.TestCase):
     row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
     self.assertEqual(satellite.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
-  def test_read_satellite_tags(self) -> None:
-    """Test reading rows from Satellite tag files."""
+  def test_read_satellite_resolver_tags(self) -> None:  # pylint: disable=no-self-use
+    """Test reading rows from Satellite resolver tag files."""
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
     tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
+    # yapf: disable
+
+    lines = [
+        json.dumps(tagged_resolver1),
+        json.dumps(tagged_resolver2),
+    ]
+
+    filenames = [
+      "CP_Satellite-2020-12-17-12-00-01/resolvers.json",
+      "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz",
+    ]
+
+    data = zip(filenames, lines)
+
+    row1 = {'ip': '1.1.1.1', 'date': '2020-12-17', 'country': 'US'}
+    row2 = {'ip': '1.1.1.3', 'date': '2020-12-17', 'country': 'AU'}
+    # yapf: enable
+
+    expected_resolver_tags = [row1, row2]
+
+    with TestPipeline() as p:
+      lines = p | 'create tags' >> beam.Create(data)
+
+      resolver_tags = lines | 'read resolver tags' >> beam.FlatMapTuple(
+          satellite._read_satellite_resolver_tags)
+
+      beam_test_util.assert_that(
+          resolver_tags, beam_test_util.equal_to(expected_resolver_tags))
+
+  def test_read_satellite_answer_tags(self) -> None:  # pylint: disable=no-self-use
+    """Test reading rows from Satellite answer tag files."""
     # yapf: disable
     tagged_answer1 = {
       'ip': '60.210.17.137',
@@ -42,9 +73,17 @@ class SatelliteTest(unittest.TestCase):
       'http': 'e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
     }
 
-    row1 = {'ip': '1.1.1.1', 'date': '2020-12-17', 'country': 'US'}
-    row2 = {'ip': '1.1.1.3', 'date': '2020-12-17', 'country': 'AU'}
-    row3 = {
+    lines = [
+        json.dumps(tagged_answer1)
+    ]
+
+    filenames = [
+      "CP_Satellite-2020-12-17-12-00-01/tagged_responses.json",
+    ]
+
+    data = zip(filenames, lines)
+
+    row1 = {
       'ip': '60.210.17.137',
       'date': '2020-12-17',
       'asname': 'CHINA169-BACKBONE CHINA UNICOM China169 Backbone',
@@ -53,17 +92,16 @@ class SatelliteTest(unittest.TestCase):
       'http': 'e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
     }
     # yapf: enable
+    expected_answer_tags = [row1]
 
-    data = [
-        json.dumps(tagged_resolver1),
-        json.dumps(tagged_resolver2),
-        json.dumps(tagged_answer1)
-    ]
-    expected = [row1, row2, row3]
-    result = [
-        next(satellite._read_satellite_tags('2020-12-17', d)) for d in data
-    ]
-    self.assertListEqual(result, expected)
+    with TestPipeline() as p:
+      lines = p | 'create tags' >> beam.Create(data)
+
+      answer_tags = lines | 'read answer tags' >> beam.FlatMapTuple(
+          satellite._read_satellite_answer_tags)
+
+      beam_test_util.assert_that(answer_tags,
+                                 beam_test_util.equal_to(expected_answer_tags))
 
   def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
     """Test processing of Satellite v1 interference and tag files."""
@@ -97,9 +135,12 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(data_filenames, [json.dumps(d) for d in _data])
 
-    tag_filenames = [
+    resolver_tag_filenames = [
         "CP_Satellite-2020-09-02-12-00-01/resolvers.json",
-        "CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json",
+        "CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json"
+    ]
+
+    answer_tag_filenames = [
         "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
         "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
         "CP_Satellite-2020-09-02-12-00-01/tagged_answers.json",
@@ -107,13 +148,15 @@ class SatelliteTest(unittest.TestCase):
     ]
 
     # yapf: disable
-    _tags = [{
+    _resolver_tags = [{
         'name': 'special',
         'resolver': '1.1.1.3'
     }, {
         'resolver': '1.1.1.3',
         'country': 'United States'
-    }, {
+    }]
+
+    _answer_tags = [{
         'asname': 'AMAZON-02',
         'asnum': 16509,
         'cert': None,
@@ -139,7 +182,8 @@ class SatelliteTest(unittest.TestCase):
         'ip': '13.249.134.89'
     }]
 
-    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+    resolver_tags = zip(resolver_tag_filenames, [json.dumps(t) for t in _resolver_tags])
+    answer_tags = zip(answer_tag_filenames, [json.dumps(t) for t in _answer_tags])
 
     expected = [{
         'ip': '1.1.1.3',
@@ -210,10 +254,14 @@ class SatelliteTest(unittest.TestCase):
     # yapf: enable
 
     with TestPipeline() as p:
-      lines = p | 'create data' >> beam.Create(data)
-      lines2 = p | 'create tags' >> beam.Create(tags)
+      row_lines = p | 'create data' >> beam.Create(data)
+      resolver_tag_lines = p | 'create resolver tags' >> beam.Create(
+          resolver_tags)
+      answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(row_lines,
+                                                     answer_tag_lines,
+                                                     resolver_tag_lines)
       # Measurement ids are random and can't be tested
       final = tagged | 'unset measurement ids' >> beam.Map(
           _unset_measurement_id)
@@ -284,17 +332,20 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(data_filenames, [json.dumps(d) for d in _data])
 
-    tag_filenames = [
+    resolver_tag_filenames = [
         "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
         "CP_Satellite-2021-03-01-12-00-01/tagged_resolvers.json",
         "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
-        "CP_Satellite-2021-03-01-12-00-01/resolvers.json",
+        "CP_Satellite-2021-03-01-12-00-01/resolvers.json"
+    ]
+
+    answer_tag_filenames = [
         "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
         "CP_Satellite-2021-03-01-12-00-01/tagged_responses.json",
     ]
 
     # yapf: disable
-    _tags = [{
+    _resolver_tags = [{
         "location": {
             "country_code": "IE",
             "country_name": "Ireland"
@@ -312,7 +363,9 @@ class SatelliteTest(unittest.TestCase):
     }, {
         "name": "customfilter37-dns2.cleanbrowsing.org.",
         "vp": "185.228.169.37"
-    }, {
+    }]
+
+    _answer_tags = [{
         "asname": "WIKIMEDIA",
         "asnum": 14907,
         "cert": "9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10",
@@ -323,11 +376,13 @@ class SatelliteTest(unittest.TestCase):
         "cert": "ea6389b446002e14d21bd7fd39d4433a5356948a906634365299b79781b43e2b",
         "http": None,
         "ip": "185.228.169.37"  # Don't tag vps with received ip tags
-    }
-    ]
+    }]
     # yapf: enable
 
-    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+    resolver_tags = zip(resolver_tag_filenames,
+                        [json.dumps(t) for t in _resolver_tags])
+    answer_tags = zip(answer_tag_filenames,
+                      [json.dumps(t) for t in _answer_tags])
 
     # yapf: disable
     expected = [{
@@ -442,10 +497,14 @@ class SatelliteTest(unittest.TestCase):
     # yapf: enable
 
     with TestPipeline() as p:
-      lines = p | 'create data' >> beam.Create(data)
-      lines2 = p | 'create tags' >> beam.Create(tags)
+      row_lines = p | 'create data' >> beam.Create(data)
+      resolver_tag_lines = p | 'create resolver tags' >> beam.Create(
+          resolver_tags)
+      answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(row_lines,
+                                                     answer_tag_lines,
+                                                     resolver_tag_lines)
       # Measurement ids are random and can't be tested
       final = tagged | 'unset measurement ids' >> beam.Map(
           _unset_measurement_id)
@@ -561,7 +620,7 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(data_filenames, [json.dumps(d) for d in _data])
 
-    tag_filenames = [
+    resolver_tag_filenames = [
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
         "CP_Satellite-2021-04-18-12-00-01/resolvers.json",
@@ -569,7 +628,7 @@ class SatelliteTest(unittest.TestCase):
     ]
 
     # yapf: disable
-    _tags = [{
+    _resolver_tags = [{
         "name": "87-119-233-243.saransk.ru.",
         "vp": "87.119.233.243"
     }, {
@@ -584,7 +643,8 @@ class SatelliteTest(unittest.TestCase):
     }]
     # yapf: enable
 
-    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+    resolver_tags = zip(resolver_tag_filenames,
+                        [json.dumps(t) for t in _resolver_tags])
 
     # yapf: disable
     expected = [{
@@ -731,10 +791,14 @@ class SatelliteTest(unittest.TestCase):
     # yapf: enable
 
     with TestPipeline() as p:
-      lines = p | 'create data' >> beam.Create(data)
-      lines2 = p | 'create tags' >> beam.Create(tags)
+      row_lines = p | 'create data' >> beam.Create(data)
+      resolver_tag_lines = p | 'create resolver tags' >> beam.Create(
+          resolver_tags)
+      answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(row_lines,
+                                                     answer_tag_lines,
+                                                     resolver_tag_lines)
       # Measurement ids are random and can't be tested
       final = tagged | 'unset measurement ids' >> beam.Map(
           _unset_measurement_id)
@@ -874,14 +938,14 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(data_filenames, [json.dumps(d) for d in _data])
 
-    tag_filenames = [
+    resolver_tag_filenames = [
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
     ]
 
     # yapf: disable
-    _tags = [
+    _resolver_tags = [
         {"vp": "208.67.220.220",
          "name": "resolver2.opendns.com.",
          "location": {"country_name": "United States","country_code": "US"}},
@@ -894,7 +958,8 @@ class SatelliteTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
+    resolver_tags = zip(resolver_tag_filenames,
+                        [json.dumps(t) for t in _resolver_tags])
 
     # yapf: disable
     expected = [{
@@ -1033,10 +1098,14 @@ class SatelliteTest(unittest.TestCase):
     # yapf: enable
 
     with TestPipeline() as p:
-      lines = p | 'create data' >> beam.Create(data)
-      lines2 = p | 'create tags' >> beam.Create(tags)
+      row_lines = p | 'create data' >> beam.Create(data)
+      resolver_tag_lines = p | 'create resolver tags' >> beam.Create(
+          resolver_tags)
+      answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      tagged = satellite.process_satellite_with_tags(lines, lines2)
+      tagged = satellite.process_satellite_with_tags(row_lines,
+                                                     answer_tag_lines,
+                                                     resolver_tag_lines)
       # Measurement ids are random and can't be tested
       final = tagged | 'unset measurement ids' >> beam.Map(
           _unset_measurement_id)
@@ -1045,30 +1114,39 @@ class SatelliteTest(unittest.TestCase):
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
     """Test partitioning of Satellite input into tags, blockpages, and results."""
-    data = [("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
-            ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "tag"),
-            ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
-            ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json", "tag"),
-            ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
-            ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "tag"),
-            ("CP_Satellite-2021-09-02-12-00-01/blockpages.json", "blockpage"),
-            ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row"),
-            ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")]
+    data = [
+        ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "resolver_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "resolver_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json",
+         "resolver_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json",
+         "resolver_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "answer_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "answer_tag"),
+        ("CP_Satellite-2021-09-02-12-00-01/blockpages.json", "blockpage"),
+        ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row"),
+        ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")
+    ]
 
-    expected_tags = data[0:6]
+    expected_resolver_tags = data[0:4]
+    expected_answer_tags = data[4:6]
     expected_blockpages = data[6:7]
     expected_rows = data[7:]
 
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
 
-      tags, blockpages, rows = lines | beam.Partition(
-          satellite.partition_satellite_input, 3)
+      answer_tags, resolver_tags, blockpages, rows = lines | beam.Partition(
+          satellite.partition_satellite_input, 4)
 
       beam_test_util.assert_that(
-          tags,
-          beam_test_util.equal_to(expected_tags),
-          label='assert_that/tags')
+          resolver_tags,
+          beam_test_util.equal_to(expected_resolver_tags),
+          label='assert_that/resolver_tags')
+      beam_test_util.assert_that(
+          answer_tags,
+          beam_test_util.equal_to(expected_answer_tags),
+          label='assert_that/answer_tags')
       beam_test_util.assert_that(
           blockpages,
           beam_test_util.equal_to(expected_blockpages),
