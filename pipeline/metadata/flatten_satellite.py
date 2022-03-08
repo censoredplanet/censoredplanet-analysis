@@ -19,6 +19,9 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 # Type definition for input responses, TODO make actual type stricter
 ResponsesEntry = Any
 
+# Rows that contain blockpages
+BlockpageRow = Row
+
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
@@ -509,7 +512,7 @@ class FlattenBlockpages(beam.DoFn):
     self.blockpage_matcher = BlockpageMatcher()
     #pylint: enable=attribute-defined-outside-init
 
-  def process(self, element: Tuple[str, str]) -> Iterator[Row]:
+  def process(self, element: Tuple[str, str]) -> Iterator[BlockpageRow]:
     (filename, line) = element
 
     try:
@@ -522,7 +525,7 @@ class FlattenBlockpages(beam.DoFn):
     yield from self._process_satellite_blockpages(scan, filename)
 
   def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
-                                    filepath: str) -> Iterator[Row]:
+                                    filepath: str) -> Iterator[BlockpageRow]:
     """Process a line of Satellite blockpage data.
 
     Args:
@@ -530,7 +533,7 @@ class FlattenBlockpages(beam.DoFn):
       filepath: a filepath string like "<path>/blockpages.json.gz"
 
     Yields:
-      Rows, usually 2 corresponding to the fetched http and https data respectively
+      BlockpageRows, usually 2 corresponding to the fetched http and https data
     """
     row = {
         'domain': blockpage_entry['keyword'],
