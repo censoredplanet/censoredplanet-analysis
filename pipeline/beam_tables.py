@@ -31,7 +31,6 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata import flatten_base
-from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
@@ -423,7 +422,7 @@ class ScanDataBeamPipelineRunner():
       existing_sources = []
 
     if scan_type == satellite.SCAN_TYPE_SATELLITE:
-      files_to_load = flatten_satellite.SATELLITE_FILES
+      files_to_load = satellite.SATELLITE_FILES
     else:
       files_to_load = SCAN_FILES
 
