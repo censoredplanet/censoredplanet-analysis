@@ -4,7 +4,6 @@ import json
 import unittest
 from typing import List
 
-from pipeline.metadata.flatten_base import Row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -1145,7 +1144,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     filename = 'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/blockpages.json'
 
     # yapf: disable
-    expected_rows: List[Row] = [
+    expected_rows: List[flatten_satellite.BlockpageRow] = [
       {
         'domain': 'xvideos.com',
         'ip': '93.158.134.250',

@@ -14,6 +14,7 @@ import apache_beam as beam
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
+from pipeline.metadata.flatten_satellite import BlockpageRow
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
 
@@ -598,18 +599,19 @@ def process_satellite_with_tags(
 
 def process_satellite_blockpages(
     blockpages: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[Row]:
+) -> beam.pvalue.PCollection[BlockpageRow]:
   """Process Satellite measurements and tags.
 
   Args:
     blockpages: (filepath, Row) objects
 
   Returns:
-    PCollection[Row] of blockpage rows in bigquery format
+    PCollection[BlockpageRow] of blockpage rows in bigquery format
   """
   rows = (
       blockpages | 'flatten blockpages' >> beam.ParDo(
-          flatten_satellite.FlattenBlockpages()).with_output_types(Row))
+          flatten_satellite.FlattenBlockpages()).with_output_types(BlockpageRow)
+  )
   return rows
 
 
@@ -739,7 +741,7 @@ def _verify(scan: Dict[str, Any]) -> Dict[str, Any]:
 
 def process_satellite_lines(
     lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[Row]]:
+) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[BlockpageRow]]:
   """Process both satellite and blockpage data files.
 
   Args:
@@ -761,7 +763,7 @@ def process_satellite_lines(
   # PCollection[Row]
   # post_processed_satellite = post_processing_satellite(tagged_satellite)
 
-  # PCollection[Row]
+  # PCollection[BlockpageRow]
   blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
   return tagged_satellite, blockpage_rows
