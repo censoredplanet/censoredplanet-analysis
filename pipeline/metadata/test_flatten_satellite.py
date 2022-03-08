@@ -1,5 +1,6 @@
 """Unit tests for satellite flattening functions"""
 
+import json
 import unittest
 from typing import List
 
@@ -17,6 +18,12 @@ def get_satellite_flattener() -> flatten_satellite.SatelliteFlattener:
   category_matcher = DomainCategoryMatcher()
   return flatten_satellite.SatelliteFlattener(blockpage_matcher,
                                               category_matcher)
+
+
+def get_blockpage_flattener() -> flatten_satellite.FlattenBlockpages:
+  flattener = flatten_satellite.FlattenBlockpages()
+  flattener.setup()
+  return flattener
 
 
 class FlattenSatelliteTest(unittest.TestCase):
@@ -1176,9 +1183,8 @@ class FlattenSatelliteTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    flattener = get_satellite_flattener()
+    flattener = get_blockpage_flattener()
 
-    rows = flattener.process_satellite(filename, line,
-                                       'ab3b0ed527334c6ba988362e6a2c98fc')
+    rows = flattener.process((filename, json.dumps(line)))
 
     self.assertEqual(list(rows), expected_rows)
