@@ -113,20 +113,31 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
 );
 
 
-#CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
-#PARTITION BY date
-#CLUSTER BY country, asn
-#AS (
-#  SELECT a.* EXCEPT (received),
-#         r.ip as received_ip,
-#         r.asnum as received_asnum,
-#         r.asname as received_asname,
-#         r.http as received_http,
-#         r.cert as received_cert,
-#         r.matches_control as received_matches_control
-#  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
-#       LEFT JOIN UNNEST(received) as r
-#);
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
+PARTITION BY date
+CLUSTER BY country, asn
+AS (
+  SELECT a.* EXCEPT (received),
+         r.ip as received_ip,
+         r.asnum as received_asnum,
+         r.asname as received_asname,
+         r.http as received_http,
+         r.cert as received_cert,
+         r.matches_control as received_matches_control
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
+       LEFT JOIN UNNEST(received) as r
+);
+
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.satellite_scan_with_blockpages`
+PARTITION BY date
+CLUSTER BY country, asn
+AS (
+  SELECT a.*,
+         b.* except (domain, ip, date, start_time, end_time, success, source),
+  FROM `firehook-censoredplanet.laplante.satellite_scan_left_joined` as a
+       LEFT JOIN `firehook-censoredplanet.laplante.satellite_blockpage_scan` as b
+       ON (a.date = b.date AND a.domain = b.domain AND a.received_ip = b.ip)
+);
 
 
 
