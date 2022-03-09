@@ -103,7 +103,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
       CASE
         # assuming no one will mix valid and invalid ips
         WHEN InvalidIp(received[OFFSET(0)]) THEN InvalidIpType(received[OFFSET(0)])
-        WHEN anomaly THEN "dns/answer:ipmismatch"
+        WHEN anomaly THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
         ELSE "expected/match"
       END
     WHEN rcode IS NULL THEN ClassifySatelliteError(error)
@@ -113,20 +113,20 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
 );
 
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
-PARTITION BY date
-CLUSTER BY country, asn
-AS (
-  SELECT a.* EXCEPT (received),
-         r.ip as received_ip,
-         r.asnum as received_asnum,
-         r.asname as received_asname,
-         r.http as received_http,
-         r.cert as received_cert,
-         r.matches_control as received_matches_control
-  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
-       LEFT JOIN UNNEST(received) as r
-);
+#CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
+#PARTITION BY date
+#CLUSTER BY country, asn
+#AS (
+#  SELECT a.* EXCEPT (received),
+#         r.ip as received_ip,
+#         r.asnum as received_asnum,
+#         r.asname as received_asname,
+#         r.http as received_http,
+#         r.cert as received_cert,
+#         r.matches_control as received_matches_control
+#  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
+#       LEFT JOIN UNNEST(received) as r
+#);
 
 
 
