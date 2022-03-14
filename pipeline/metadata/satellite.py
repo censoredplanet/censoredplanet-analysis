@@ -338,13 +338,22 @@ def _key_by_date_domain(row: Row) -> Tuple[DateDomainKey, Row]:
   return ((row['date'], row['domain']), row)
 
 
-def _partition_test_and_control(row_tuple: Tuple[DateDomainKey, Row],
-                                _: int) -> int:
+def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, Row],
+                                 _: int) -> int:
+  """Partition tests from domain and ip controls
+
+  Returns
+    0 = domain control
+    1 = ip control
+    2 = test measurement
+  """
   row: Row = row_tuple[1]
+  if row['is_control']:
+    return 0
   # 'anomaly' is None for control measurements
   if row['is_control_ip'] or row['anomaly'] is None:
     return 1
-  return 0
+  return 2
 
 
 def post_processing_satellite(
@@ -363,19 +372,19 @@ def post_processing_satellite(
       beam.Map(_key_by_date_domain).with_output_types(Tuple[DateDomainKey, Row])
   )
 
-  # PCollection[Tuple[DateDomainKey, Row]] x2
-  rows, controls = (
+  # PCollection[Tuple[DateDomainKey, Row]] x3
+  domain_controls, ip_controls, tests = (
       rows_keyed_by_date_domains | 'partition test and control' >>
-      beam.Partition(_partition_test_and_control, 2).with_output_types(
+      beam.Partition(_partition_test_and_controls, 3).with_output_types(
           Tuple[DateDomainKey, Row]))
 
   # PCollection[Tuple[DateDomainKey, int]]
   num_ctags = (
-      controls | 'calculate # control tags' >>
+      ip_controls | 'calculate # control tags' >>
       beam.MapTuple(_total_tags).with_output_types(Tuple[DateDomainKey, int]))
 
   grouped_rows_num_controls = ({
-      ROWS_PCOLLECION_NAME: rows,
+      ROWS_PCOLLECION_NAME: tests,
       CONTROLS_PCOLLECTION_NAME: num_ctags
   } | 'group rows and # control tags by keys' >> beam.CoGroupByKey())
 
@@ -396,11 +405,18 @@ def post_processing_satellite(
 
   # PCollection[Row]
   # pylint: disable=no-value-for-parameter
-  controls = (
-      controls | 'unkey control' >> beam.Values().with_output_types(Row))
+  ip_controls = (
+      ip_controls | 'unkey ip controls' >> beam.Values().with_output_types(Row))
 
   # PCollection[Row]
-  post = ((verified, controls) | 'flatten test and control' >> beam.Flatten())
+  # pylint: disable=no-value-for-parameter
+  domain_controls = (
+      domain_controls |
+      'unkey domain controls' >> beam.Values().with_output_types(Row))
+
+  # PCollection[Row]
+  post = ((verified, ip_controls, domain_controls) |
+          'flatten test and controls' >> beam.Flatten())
 
   return post
 
@@ -781,11 +797,10 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
-  # TODO turn back on once memory problems are fixed
   # PCollection[Row]
-  # post_processed_satellite = post_processing_satellite(tagged_satellite)
+  post_processed_satellite = post_processing_satellite(tagged_satellite)
 
   # PCollection[Row]
   blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
-  return tagged_satellite, blockpage_rows
+  return post_processed_satellite, blockpage_rows
