@@ -1,18 +1,101 @@
 """Shared functionality for flattening rows."""
 
 from __future__ import absolute_import
+from __future__ import annotations  # required to use class as a type inside the class
 
+import dataclasses
+from dataclasses import dataclass
 import os
 from typing import Optional, Dict, List, Any, Union
 
 from pipeline.metadata.blockpage import BlockpageMatcher
+
+
+@dataclass
+class SatelliteAnswer():
+  """Class for keeping track of Satellite answer content"""
+  ip: str
+  asnum: Optional[int] = None
+  asname: Optional[str] = None
+  http: Optional[str] = None
+  cert: Optional[str] = None
+  matches_control: Optional[str] = None
+
+  # Used internally for tag-grouping purposes
+  date: Optional[str] = None
+
 
 # Custom Type
 # All or part of a scan row to be written to bigquery
 # ex (only scan data): {'domain': 'test.com', 'ip': '1.2.3.4', 'success' true}
 # ex (only ip metadata): {'asn': 13335, 'as_name': 'CLOUDFLAREINC'}
 # ex (both): {'domain': 'test.com', 'ip': '1.2.3.4', 'asn': 13335}
-Row = Dict[str, Any]
+@dataclass
+class Row:  # Corrosponds to BASE_BIGQUERY_SCHEMA
+  """Class for keeping track of row content"""
+  domain: Optional[str] = None
+  category: Optional[str] = None
+  ip: Optional[str] = None
+  date: Optional[str] = None
+  start_time: Optional[str] = None
+  end_time: Optional[str] = None
+  error: Optional[str] = None
+  anomaly: Optional[bool] = None
+  success: Optional[bool] = None
+  is_control: Optional[bool] = None
+  controls_failed: Optional[bool] = None
+  measurement_id: Optional[str] = None
+  source: Optional[str] = None
+
+  # Metadata
+  netblock: Optional[str] = None
+  asn: Optional[int] = None
+  as_name: Optional[str] = None
+  as_full_name: Optional[str] = None
+  as_class: Optional[str] = None
+  country: Optional[str] = None
+  organization: Optional[str] = None
+
+  # Hyperquack
+  blockpage: Optional[bool] = None
+  page_signature: Optional[str] = None
+  stateful_block: Optional[bool] = None
+  received_status: Optional[str] = None
+  received_body: Optional[str] = None
+  received_tls_version: Optional[int] = None
+  received_tls_cipher_suite: Optional[int] = None
+  received_tls_cert: Optional[str] = None
+  received_headers: List[str] = dataclasses.field(default_factory=list)
+
+  # Satellite
+  rcode: Optional[int] = None
+  name: Optional[str] = None
+  is_control_ip: Optional[bool] = None
+  average_confidence: Optional[float] = None
+  untagged_controls: Optional[bool] = None
+  untagged_response: Optional[bool] = None
+  excluded: Optional[bool] = None
+  exclude_reason: Optional[str] = None
+  has_type_a: Optional[bool] = None
+  received: List[SatelliteAnswer] = dataclasses.field(default_factory=list)
+  matches_confidence: List[float] = dataclasses.field(default_factory=list)
+
+  # Satellite Blockpages
+  https: Optional[bool] = None
+
+  # Internal
+  roundtrip_id: Optional[str] = None
+
+  # imitation update method that matches the semantics of python's dict update
+  def update(self, new: Row) -> None:
+    for field in dataclasses.fields(new):
+      value = getattr(new, field.name)
+      if value is not None and value != []:
+        setattr(self, field.name, value)
+
+
+# Union type for Metadata tagging information
+Tag = Union[Row, SatelliteAnswer]
 
 # For Hyperquack v1
 CONTROL_URLS = [
@@ -78,10 +161,10 @@ def _reconstruct_http_response(row: Row) -> str:
 
     Returns: a string imitating the original http response
     """
-  full_response = row['received_status'] + '\r\n'
-  for header in row['received_headers']:
+  full_response = (row.received_status or '') + '\r\n'
+  for header in row.received_headers:
     full_response += header + '\r\n'
-  full_response += '\r\n' + row['received_body']
+  full_response += '\r\n' + (row.received_body or '')
   return full_response
 
 
@@ -98,8 +181,8 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
   """
   if anomaly:
     blockpage, signature = blockpage_matcher.match_page(content)
-    row['blockpage'] = blockpage
-    row['page_signature'] = signature
+    row.blockpage = blockpage
+    row.page_signature = signature
 
 
 def parse_received_data(blockpage_matcher: BlockpageMatcher,
@@ -115,16 +198,16 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   Returns:
     a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
   """
+  row = Row()
+
   if isinstance(received, str):
-    row: Row = {'received_status': received}
+    row.received_status = received
     _add_blockpage_match(blockpage_matcher, received, anomaly, row)
     return row
 
-  row = {
-      'received_status': received['status_line'],
-      'received_body': received['body'],
-      'received_headers': parse_received_headers(received.get('headers', {})),
-  }
+  row.received_status = received['status_line']
+  row.received_body = received['body']
+  row.received_headers = parse_received_headers(received.get('headers', {}))
 
   full_http_response = _reconstruct_http_response(row)
   _add_blockpage_match(blockpage_matcher, full_http_response, anomaly, row)
@@ -132,20 +215,14 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   # hyperquack v1 TLS format
   tls = received.get('tls', None)
   if tls:
-    tls_row = {
-        'received_tls_version': tls['version'],
-        'received_tls_cipher_suite': tls['cipher_suite'],
-        'received_tls_cert': tls['cert']
-    }
-    row.update(tls_row)
+    row.received_tls_version = tls['version']
+    row.received_tls_cipher_suite = tls['cipher_suite']
+    row.received_tls_cert = tls['cert']
 
   # hyperquack v2 TLS format
   if 'TlsVersion' in received:
-    tls_row = {
-        'received_tls_version': received['TlsVersion'],
-        'received_tls_cipher_suite': received['CipherSuite'],
-        'received_tls_cert': received['Certificate']
-    }
-    row.update(tls_row)
+    row.received_tls_version = received['TlsVersion']
+    row.received_tls_cipher_suite = received['CipherSuite']
+    row.received_tls_cert = received['Certificate']
 
   return row

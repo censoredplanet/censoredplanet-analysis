@@ -3,6 +3,7 @@
 import unittest
 
 from pipeline.metadata import flatten
+from pipeline.metadata.flatten_base import Row, SatelliteAnswer
 
 
 class FlattenMeasurementTest(unittest.TestCase):
@@ -47,28 +48,27 @@ class FlattenMeasurementTest(unittest.TestCase):
     }
     """
 
-    expected_row = {
-        'anomaly': False,
-        'category': 'News Media',
-        'controls_failed': False,
-        'date': '2020-11-14',
-        'domain': 'google.com.ua',
-        'end_time': '2020-11-14T07:54:49.279150352-05:00',
-        'ip': '146.112.62.39',
-        'is_control': False,
-        'measurement_id': '',
-        'source': 'CP_Quack-echo-2019-10-16-01-01-17',
-        'start_time': '2020-11-14T07:54:49.246304766-05:00',
-        'stateful_block': False,
-        'success': True
-    }
+    expected_row = Row(
+        anomaly=False,
+        category='News Media',
+        controls_failed=False,
+        date='2020-11-14',
+        domain='google.com.ua',
+        end_time='2020-11-14T07:54:49.279150352-05:00',
+        ip='146.112.62.39',
+        is_control=False,
+        measurement_id='',
+        source='CP_Quack-echo-2019-10-16-01-01-17',
+        start_time='2020-11-14T07:54:49.246304766-05:00',
+        stateful_block=False,
+        success=True)
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
 
     row = list(flattener.process((filename, line)))[0]
     # Measurement ids are random, so we can't test them.
-    row['measurement_id'] = ''
+    row.measurement_id = ''
 
     self.assertEqual(row, expected_row)
 
@@ -88,30 +88,29 @@ class FlattenMeasurementTest(unittest.TestCase):
     }
     """
 
-    expected_row = {
-        'domain': 'asana.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'ip': '67.69.184.215',
-        'is_control_ip': False,
-        'date': '2020-09-02',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': [{
-            'ip': '151.101.1.184',
-            'matches_control': 'ip http cert asnum asname'
-        }],
-        'rcode': 0,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2020-09-02-12-00-01'
-    }
+    expected_row = Row(
+        domain='asana.com',
+        is_control=False,
+        category='E-commerce',
+        ip='67.69.184.215',
+        is_control_ip=False,
+        date='2020-09-02',
+        error=None,
+        anomaly=False,
+        success=True,
+        received=[
+            SatelliteAnswer(
+                ip='151.101.1.184', matches_control='ip http cert asnum asname')
+        ],
+        rcode=0,
+        measurement_id='',
+        source='CP_Satellite-2020-09-02-12-00-01')
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
 
     row = list(flattener.process((filename, line)))[0]
     # Measurement ids are random, so we can't test them.
-    row['measurement_id'] = ''
+    row.measurement_id = ''
 
     self.assertEqual(row, expected_row)

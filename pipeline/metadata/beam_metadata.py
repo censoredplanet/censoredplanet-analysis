@@ -4,7 +4,9 @@ from __future__ import absolute_import
 
 from typing import Tuple, Dict, List, Iterator
 
-from pipeline.metadata.flatten import Row
+from pprint import pprint
+
+from pipeline.metadata.flatten_base import Row, SatelliteAnswer, Tag
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -15,14 +17,14 @@ IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 
 
-def make_date_ip_key(row: Row) -> DateIpKey:
+def make_date_ip_key(tag: Tag) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
-  return (row['date'], row['ip'])
+  return (tag.date or '', tag.ip or '')
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey,
-    value: Dict[str, List[Row]],
+    value: Dict[str, List[Tag]],
     field: str = None) -> Iterator[Row]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
@@ -43,22 +45,37 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   """
   # pyformat: enable
   if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadata = value[IP_METADATA_PCOLLECTION_NAME][0]
+    ip_metadata: Tag = value[IP_METADATA_PCOLLECTION_NAME][0]
   else:
-    ip_metadata = {}
-  rows = value[ROWS_PCOLLECION_NAME]
+    ip_metadata = Row()
+  rows: List[Row] = value[ROWS_PCOLLECION_NAME]
+
+
+  if len(rows) == 0:
+    pprint(("no rows", key))
+  else:
+    pprint("attempting to add metadata")
+    pprint(("key", key))
+    pprint(("field", field))
+    pprint(("rows", len(rows), rows))
+    pprint(("metadata", ip_metadata))
 
   for row in rows:
-    new_row: Row = {}
+    new_row = Row()
     new_row.update(row)
     if field == 'received':
-      if new_row['received']:
+      if new_row.received:
         # Double-flattened rows are stored with a single received ip in each list
         # to be reconstructed later
-        new_row['received'][0].update(ip_metadata)
-        new_row['received'][0].pop('date', None)
-        new_row['received'][0].pop('name', None)
-        new_row['received'][0].pop('country', None)
+        answer: SatelliteAnswer = new_row.received[0]
+        answer.asnum = ip_metadata.asn
+        answer.asname = ip_metadata.as_name
+
+        #new_row.received[0].update(ip_metadata)
+        #new_row.received[0].pop('date', None)
+        #new_row.received[0].pop('name', None)
+        #new_row.received[0].pop('country', None)
     else:
       new_row.update(ip_metadata)
+    pprint(("new row", new_row))
     yield new_row

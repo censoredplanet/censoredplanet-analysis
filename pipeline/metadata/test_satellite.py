@@ -8,7 +8,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.flatten_base import Row
+from pipeline.metadata.flatten_base import Row, SatelliteAnswer
 from pipeline.metadata import satellite
 from pipeline.metadata import flatten
 
@@ -16,7 +16,7 @@ from pipeline.metadata import flatten
 
 
 def _unset_measurement_id(row: Row) -> Row:
-  row['measurement_id'] = ''
+  row.measurement_id = ''
   return row
 
 
@@ -26,7 +26,10 @@ class SatelliteTest(unittest.TestCase):
   # pylint: disable=protected-access
 
   def test_make_date_ip_key(self) -> None:
-    row = {'date': '2020-01-01', 'ip': '1.2.3.4', 'other_field': None}
+    row = Row(
+        date='2020-01-01',
+        ip='1.2.3.4',
+    )
     self.assertEqual(satellite.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
 
   def test_read_satellite_tags(self) -> None:
@@ -67,41 +70,28 @@ class SatelliteTest(unittest.TestCase):
 
   def test_unflatten_satellite(self) -> None:
     """Test unflattening satellite received ips into a single row."""
-    rows = [{
-        'ip': '1.1.1.1',
-        'domain': 'x.com',
-        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
-        'received': [{
-            'ip': '0.0.0.1',
-            'tag': 'value1'
-        }]
-    }, {
-        'ip': '1.1.1.1',
-        'domain': 'x.com',
-        'measurement_id': '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'roundtrip_id': '58df0d3d-c374-4c01-a9b9-5174e4274cf9',
-        'received': [{
-            'ip': '0.0.0.2',
-            'tag': 'value2'
-        }]
-    }]
+    rows = [
+        Row(ip='1.1.1.1',
+            domain='x.com',
+            measurement_id='33faf138-f331-43a0-b1f2-ec50ee3190d2',
+            roundtrip_id='58df0d3d-c374-4c01-a9b9-5174e4274cf9',
+            received=[SatelliteAnswer(ip='0.0.0.1', cert='value1')]),
+        Row(ip='1.1.1.1',
+            domain='x.com',
+            measurement_id='33faf138-f331-43a0-b1f2-ec50ee3190d2',
+            roundtrip_id='58df0d3d-c374-4c01-a9b9-5174e4274cf9',
+            received=[SatelliteAnswer(ip='0.0.0.2', cert='value2')])
+    ]
 
-    expected = [{
-        'ip':
-            '1.1.1.1',
-        'domain':
-            'x.com',
-        'measurement_id':
-            '33faf138-f331-43a0-b1f2-ec50ee3190d2',
-        'received': [{
-            'ip': '0.0.0.1',
-            'tag': 'value1'
-        }, {
-            'ip': '0.0.0.2',
-            'tag': 'value2'
-        }]
-    }]
+    expected = [
+        Row(ip='1.1.1.1',
+            domain='x.com',
+            measurement_id='33faf138-f331-43a0-b1f2-ec50ee3190d2',
+            received=[
+                SatelliteAnswer(ip='0.0.0.1', cert='value1'),
+                SatelliteAnswer(ip='0.0.0.2', cert='value2')
+            ])
+    ]
 
     unflattened = list(satellite._unflatten_satellite(rows))
     self.assertListEqual(unflattened, expected)
@@ -182,70 +172,70 @@ class SatelliteTest(unittest.TestCase):
 
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
-    expected = [{
-        'ip': '1.1.1.3',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'special',
-        'domain': 'signal.org',
-        'is_control': False,
-        'category': 'Communication Tools',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'rcode': 0,
-        'received': [{
-            'ip': '13.249.134.38',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-            'matches_control': 'ip http asnum asname'
-        }, {
-            'ip': '13.249.134.44',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-            'matches_control': 'ip http asnum asname'
-        }, {
-            'ip': '13.249.134.74',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-            'matches_control': 'ip http asnum asname'
-        }, {
-            'ip': '13.249.134.89',
-            'asname': 'AMAZON-02',
-            'asnum': 16509,
-            'cert': None,
-            'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-            'matches_control': 'ip http asnum asname'
-        }],
-        'date': '2020-09-02',
-        'source': 'CP_Satellite-2020-09-02-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '1.1.1.3',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'special',
-        'domain': 'adl.org',
-        'is_control': False,
-        'category': 'Religion',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'rcode': 0,
-        'received': [{
-            'ip': '192.124.249.107',
-            'matches_control': 'ip'
-        }],
-        'date': '2020-09-02',
-        'source': 'CP_Satellite-2020-09-02-12-00-01',
-        'measurement_id': ''
-    }]
+    expected = [Row(
+        ip = '1.1.1.3',
+        is_control_ip = False,
+        country = 'US',
+        name = 'special',
+        domain = 'signal.org',
+        is_control = False,
+        category = 'Communication Tools',
+        error = None,
+        anomaly = False,
+        success = True,
+        rcode = 0,
+        received = [SatelliteAnswer(
+            ip = '13.249.134.38',
+            asname = 'AMAZON-02',
+            asnum = 16509,
+            cert = None,
+            http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+            matches_control = 'ip http asnum asname'
+        ), SatelliteAnswer(
+            ip = '13.249.134.44',
+            asname = 'AMAZON-02',
+            asnum = 16509,
+            cert = None,
+            http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+            matches_control = 'ip http asnum asname'
+        ), SatelliteAnswer(
+            ip = '13.249.134.74',
+            asname = 'AMAZON-02',
+            asnum = 16509,
+            cert = None,
+            http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+            matches_control = 'ip http asnum asname'
+        ), SatelliteAnswer(
+            ip = '13.249.134.89',
+            asname = 'AMAZON-02',
+            asnum = 16509,
+            cert = None,
+            http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+            matches_control = 'ip http asnum asname'
+        )],
+        date = '2020-09-02',
+        source = 'CP_Satellite-2020-09-02-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '1.1.1.3',
+        is_control_ip = False,
+        country = 'US',
+        name = 'special',
+        domain = 'adl.org',
+        is_control = False,
+        category = 'Religion',
+        error = None,
+        anomaly = False,
+        success = True,
+        rcode = 0,
+        received = [SatelliteAnswer(
+            ip = '192.124.249.107',
+            matches_control = 'ip'
+        )],
+        date = '2020-09-02',
+        source = 'CP_Satellite-2020-09-02-12-00-01',
+        measurement_id = ''
+    )]
     # yapf: enable
 
     with TestPipeline() as p:
@@ -362,115 +352,115 @@ class SatelliteTest(unittest.TestCase):
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
     # yapf: disable
-    expected = [{
-        'ip': '185.228.169.37',
-        'is_control_ip': False,
-        'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
-        'domain': 'ar.m.wikipedia.org',
-        'is_control': False,
-        'category': 'Culture',
-        'error': 'read udp 141.212.123.185:51880->185.228.169.37:53: i/o timeout',
-        'anomaly': False,
-        'success': True,
-        'controls_failed': False,
-        'received': [],
-        'rcode': -1,
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '185.228.169.37',
-        'is_control_ip': False,
-        'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
-        'domain': 'ar.m.wikipedia.org',
-        'is_control': False,
-        'category': 'Culture',
-        'error': 'read udp 141.212.123.185:51430->185.228.169.37:53: i/o timeout',
-        'anomaly': False,
-        'success': True,
-        'controls_failed': False,
-        'received': [],
-        'rcode': -1,
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '185.228.169.37',
-        'is_control_ip': False,
-        'country': 'IE',
-        'name': 'customfilter37-dns2.cleanbrowsing.org.',
-        'domain': 'ar.m.wikipedia.org',
-        'is_control': False,
-        'category': 'Culture',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'controls_failed': False,
-        'received': [{
-            'ip': '198.35.26.96',
-            'asname': 'WIKIMEDIA',
-            'asnum': 14907,
-            'cert': '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
-            'http': '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
-            'matches_control': 'cert asnum asname'
-        }, {
-            'ip': '198.35.26.86',
-            'matches_control': 'cert asnum asname'
-        }],
-        'rcode': 0,
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '156.154.71.37',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'rdns37b.ultradns.net.',
-        'domain': 'www.usacasino.com',
-        'is_control': False,
-        'category': 'Gambling',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'controls_failed': False,
-        'received': [],
-        'rcode': 2,
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '156.154.71.37',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'rdns37b.ultradns.net.',
-        'domain': 'www.usacasino.com',
-        'is_control': False,
-        'category': 'Gambling',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'controls_failed': False,
-        'received': [{
-            'ip': '15.126.193.233',
-            'matches_control': ''
-        }],
-        'rcode': 0,
-        'date': '2021-03-01',
-        'start_time': '2021-03-01T12:43:25.3438285-05:00',
-        'end_time': '2021-03-01T12:43:25.3696119-05:00',
-        'source': 'CP_Satellite-2021-03-01-12-00-01',
-        'measurement_id': ''
-    }]
+    expected = [Row(
+        ip = '185.228.169.37',
+        is_control_ip = False,
+        country = 'IE',
+        name = 'customfilter37-dns2.cleanbrowsing.org.',
+        domain = 'ar.m.wikipedia.org',
+        is_control = False,
+        category = 'Culture',
+        error = 'read udp 141.212.123.185:51880->185.228.169.37:53: i/o timeout',
+        anomaly = False,
+        success = True,
+        controls_failed = False,
+        received = [],
+        rcode = -1,
+        date = '2021-03-01',
+        start_time = '2021-03-01T12:43:25.3438285-05:00',
+        end_time = '2021-03-01T12:43:25.3696119-05:00',
+        source = 'CP_Satellite-2021-03-01-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '185.228.169.37',
+        is_control_ip = False,
+        country = 'IE',
+        name = 'customfilter37-dns2.cleanbrowsing.org.',
+        domain = 'ar.m.wikipedia.org',
+        is_control = False,
+        category = 'Culture',
+        error = 'read udp 141.212.123.185:51430->185.228.169.37:53: i/o timeout',
+        anomaly = False,
+        success = True,
+        controls_failed = False,
+        received = [],
+        rcode = -1,
+        date = '2021-03-01',
+        start_time = '2021-03-01T12:43:25.3438285-05:00',
+        end_time = '2021-03-01T12:43:25.3696119-05:00',
+        source = 'CP_Satellite-2021-03-01-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '185.228.169.37',
+        is_control_ip = False,
+        country = 'IE',
+        name = 'customfilter37-dns2.cleanbrowsing.org.',
+        domain = 'ar.m.wikipedia.org',
+        is_control = False,
+        category = 'Culture',
+        error = None,
+        anomaly = False,
+        success = True,
+        controls_failed = False,
+        received = [SatelliteAnswer(
+            ip = '198.35.26.96',
+            asname = 'WIKIMEDIA',
+            asnum = 14907,
+            cert = '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
+            http = '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
+            matches_control = 'cert asnum asname'
+        ), SatelliteAnswer(
+            ip = '198.35.26.86',
+            matches_control = 'cert asnum asname'
+        )],
+        rcode = 0,
+        date = '2021-03-01',
+        start_time = '2021-03-01T12:43:25.3438285-05:00',
+        end_time = '2021-03-01T12:43:25.3696119-05:00',
+        source = 'CP_Satellite-2021-03-01-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '156.154.71.37',
+        is_control_ip = False,
+        country = 'US',
+        name = 'rdns37b.ultradns.net.',
+        domain = 'www.usacasino.com',
+        is_control = False,
+        category = 'Gambling',
+        error = None,
+        anomaly = True,
+        success = True,
+        controls_failed = False,
+        received = [],
+        rcode = 2,
+        date = '2021-03-01',
+        start_time = '2021-03-01T12:43:25.3438285-05:00',
+        end_time = '2021-03-01T12:43:25.3696119-05:00',
+        source = 'CP_Satellite-2021-03-01-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '156.154.71.37',
+        is_control_ip = False,
+        country = 'US',
+        name = 'rdns37b.ultradns.net.',
+        domain = 'www.usacasino.com',
+        is_control = False,
+        category = 'Gambling',
+        error = None,
+        anomaly = True,
+        success = True,
+        controls_failed = False,
+        received = [SatelliteAnswer(
+            ip = '15.126.193.233',
+            matches_control = ''
+        )],
+        rcode = 0,
+        date = '2021-03-01',
+        start_time = '2021-03-01T12:43:25.3438285-05:00',
+        end_time = '2021-03-01T12:43:25.3696119-05:00',
+        source = 'CP_Satellite-2021-03-01-12-00-01',
+        measurement_id = ''
+    )]
     # yapf: enable
 
     with TestPipeline() as p:
@@ -615,147 +605,147 @@ class SatelliteTest(unittest.TestCase):
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
     # yapf: disable
-    expected = [{
-        'ip': '87.119.233.243',
-        'is_control_ip': False,
-        'country': 'RU',
-        'name': '87-119-233-243.saransk.ru.',
-        'domain': 'feedly.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'error': None,
-        'anomaly': False,
-        'success': False,
-        'controls_failed': True,
-        'received': [],
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:49:01.62448452-04:00',
-        'end_time': '2021-04-18T14:49:03.624563629-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '12.5.76.236',
-        'is_control_ip': False,
-        'country': 'US',
-        'name': 'ns1327.ztomy.com.',
-        'domain': 'ultimate-guitar.com',
-        'is_control': False,
-        'category': 'History arts and literature',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'controls_failed': False,
-        'received': [],
-        'rcode': 2,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:49:07.712972288-04:00',
-        'end_time': '2021-04-18T14:49:07.749265765-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '64.6.65.6',
-        'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
-        'domain': 'a.root-servers.net',
-        'is_control': True,
-        'category': 'Control',
-        'error': None,
-        'anomaly': None,
-        'success': True,
-        'controls_failed': False,
-        'has_type_a': True,
-        'received': [{
-            'ip': '198.41.0.4'
-        }],
-        'rcode': 0,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:57.561175746-04:00',
-        'end_time': '2021-04-18T14:51:57.587097567-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '64.6.65.6',
-        'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
-        'domain': 'ultimate-guitar.com',
-        'is_control': False,
-        'category': 'History arts and literature',
-        'error': None,
-        'anomaly': None,
-        'success': True,
-        'controls_failed': False,
-        'has_type_a': True,
-        'received': [{
-            'ip': '178.18.22.152'
-        }],
-        'rcode': 0,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:57.587109091-04:00',
-        'end_time': '2021-04-18T14:51:57.61294601-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '64.6.65.6',
-        'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
-        'domain': 'a.root-servers.net',
-        'is_control': True,
-        'category': 'Control',
-        'error': None,
-        'anomaly': None,
-        'success': True,
-        'controls_failed': False,
-        'has_type_a': True,
-        'received': [{
-            'ip': '198.41.0.4'
-        }],
-        'rcode': 0,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:45.836310062-04:00',
-        'end_time': '2021-04-18T14:51:45.862080031-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '64.6.65.6',
-        'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
-        'domain': 'www.awid.org',
-        'is_control': False,
-        'category': 'Human Rights Issues',
-        'error': 'read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout',
-        'anomaly': None,
-        'success': True,
-        'controls_failed': False,
-        'has_type_a': False,
-        'received': [],
-        'rcode': -1,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:45.862091022-04:00',
-        'end_time': '2021-04-18T14:51:47.862170832-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }, {
-        'ip': '64.6.65.6',
-        'is_control_ip': True,
-        'name': 'rec1pubns2.ultradns.net.',
-        'domain': 'www.awid.org',
-        'is_control': False,
-        'category': 'Human Rights Issues',
-        'error': None,
-        'anomaly': None,
-        'success': True,
-        'controls_failed': False,
-        'has_type_a': True,
-        'received': [{
-            'ip': '204.187.13.189'
-        }],
-        'rcode': 0,
-        'date': '2021-04-18',
-        'start_time': '2021-04-18T14:51:47.862183185-04:00',
-        'end_time': '2021-04-18T14:51:48.162724942-04:00',
-        'source': 'CP_Satellite-2021-04-18-12-00-01',
-        'measurement_id': ''
-    }]
+    expected = [Row(
+        ip = '87.119.233.243',
+        is_control_ip = False,
+        country = 'RU',
+        name = '87-119-233-243.saransk.ru.',
+        domain = 'feedly.com',
+        is_control = False,
+        category = 'E-commerce',
+        error = None,
+        anomaly = False,
+        success = False,
+        controls_failed = True,
+        received = [],
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:49:01.62448452-04:00',
+        end_time = '2021-04-18T14:49:03.624563629-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '12.5.76.236',
+        is_control_ip = False,
+        country = 'US',
+        name = 'ns1327.ztomy.com.',
+        domain = 'ultimate-guitar.com',
+        is_control = False,
+        category = 'History arts and literature',
+        error = None,
+        anomaly = True,
+        success = True,
+        controls_failed = False,
+        received = [],
+        rcode = 2,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:49:07.712972288-04:00',
+        end_time = '2021-04-18T14:49:07.749265765-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '64.6.65.6',
+        is_control_ip = True,
+        name = 'rec1pubns2.ultradns.net.',
+        domain = 'a.root-servers.net',
+        is_control = True,
+        category = 'Control',
+        error = None,
+        anomaly = None,
+        success = True,
+        controls_failed = False,
+        has_type_a = True,
+        received = [SatelliteAnswer(
+            ip = '198.41.0.4'
+        )],
+        rcode = 0,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:51:57.561175746-04:00',
+        end_time = '2021-04-18T14:51:57.587097567-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '64.6.65.6',
+        is_control_ip = True,
+        name = 'rec1pubns2.ultradns.net.',
+        domain = 'ultimate-guitar.com',
+        is_control = False,
+        category = 'History arts and literature',
+        error = None,
+        anomaly = None,
+        success = True,
+        controls_failed = False,
+        has_type_a = True,
+        received = [SatelliteAnswer(
+            ip = '178.18.22.152'
+        )],
+        rcode = 0,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:51:57.587109091-04:00',
+        end_time = '2021-04-18T14:51:57.61294601-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '64.6.65.6',
+        is_control_ip = True,
+        name = 'rec1pubns2.ultradns.net.',
+        domain = 'a.root-servers.net',
+        is_control = True,
+        category = 'Control',
+        error = None,
+        anomaly = None,
+        success = True,
+        controls_failed = False,
+        has_type_a = True,
+        received = [SatelliteAnswer(
+            ip = '198.41.0.4'
+        )],
+        rcode = 0,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:51:45.836310062-04:00',
+        end_time = '2021-04-18T14:51:45.862080031-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '64.6.65.6',
+        is_control_ip = True,
+        name = 'rec1pubns2.ultradns.net.',
+        domain = 'www.awid.org',
+        is_control = False,
+        category = 'Human Rights Issues',
+        error = 'read udp 141.212.123.185:39868->64.6.65.6:53: i/o timeout',
+        anomaly = None,
+        success = True,
+        controls_failed = False,
+        has_type_a = False,
+        received = [],
+        rcode = -1,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:51:45.862091022-04:00',
+        end_time = '2021-04-18T14:51:47.862170832-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    ), Row(
+        ip = '64.6.65.6',
+        is_control_ip = True,
+        name = 'rec1pubns2.ultradns.net.',
+        domain = 'www.awid.org',
+        is_control = False,
+        category = 'Human Rights Issues',
+        error = None,
+        anomaly = None,
+        success = True,
+        controls_failed = False,
+        has_type_a = True,
+        received = [SatelliteAnswer(
+            ip = '204.187.13.189'
+        )],
+        rcode = 0,
+        date = '2021-04-18',
+        start_time = '2021-04-18T14:51:47.862183185-04:00',
+        end_time = '2021-04-18T14:51:48.162724942-04:00',
+        source = 'CP_Satellite-2021-04-18-12-00-01',
+        measurement_id = ''
+    )]
     # yapf: enable
 
     with TestPipeline() as p:
@@ -925,142 +915,142 @@ class SatelliteTest(unittest.TestCase):
     tags = zip(tag_filenames, [json.dumps(t) for t in _tags])
 
     # yapf: disable
-    expected = [{
-        'domain': '1337x.to',
-        'is_control': False,
-        'category': 'Media sharing',
-        'ip': '208.67.220.220',
-        'is_control_ip': False,
-        'country': 'US',
-        'date': '2021-10-20',
-        'start_time': '2021-10-20T14:51:41.297636661-04:00',
-        'end_time': '2021-10-20T14:51:41.348612088-04:00',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2021-10-20-12-00-01',
-        'controls_failed': False,
-        'average_confidence': 100,
-        'matches_confidence': [100, 100],
-        'untagged_controls': False,
-        'untagged_response': False,
-        'excluded': False,
-        'exclude_reason': '',
-        'rcode': 0,
-        'has_type_a': True,
-        'received': [{
-            'ip': '104.31.16.11',
-            'http': '0728405c8a7cfa601fc6e8a0dff71038624dd672fbbfc91605905a536ff9e1a8',
-            'cert': '',
-            'asname': 'CLOUDFLARENET',
-            'asnum': 13335,
-            'matches_control': 'ip http asnum asname'
-        }, {
-            'ip': '104.31.16.118',
-            'http': '2022c19b47cac1c5746f9d2efa5b7383f78c4bd1b4443f96e28f3a3019cc8ba0',
-            'cert': '',
-            'asname': 'CLOUDFLARENET',
-            'asnum': 13335,
-            'matches_control': 'ip http asnum asname'
-        }]
-    }, {
-        'received': [],
-        'domain': '1922.gov.tw',
-        'is_control': False,
-        'category': None,
-        'ip': '69.10.61.18',
-        'is_control_ip': False,
-        'country': 'US',
-        'date': '2021-10-20',
-        'start_time': '2021-10-20T14:51:41.288634425-04:00',
-        'end_time': '2021-10-20T14:51:41.506755185-04:00',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2021-10-20-12-00-01',
-        'controls_failed': False,
-        'average_confidence': 0,
-        'matches_confidence': None,
-        'untagged_controls': False,
-        'untagged_response': False,
-        'excluded': False,
-        'exclude_reason': '',
-        'rcode': 2
-    }, {
-        'received': [],
-        'domain': 'a.root-servers.net',
-        'is_control':  True,
-        'category': 'Control',
-        'ip': '62.80.182.26',
-        'is_control_ip': False,
-        'country': 'UA',
-        'date': '2021-10-20',
-        'start_time': '2021-10-20T14:51:45.361175691-04:00',
-        'end_time': '2021-10-20T14:51:46.261234037-04:00',
-        'error': 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
-        'anomaly': False,
-        'success': False,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2021-10-20-12-00-01',
-        'controls_failed': True,
-        'average_confidence': 0,
-        'matches_confidence': None,
-        'untagged_controls': False,
-        'untagged_response': False,
-        'excluded': False,
-        'exclude_reason': '',
-        'rcode': -1
-    }, {
-        'received': [],
-        'domain': 'alibaba.com',
-        'is_control': False,
-        'category': 'E-commerce',
-        'ip': '62.80.182.26',
-        'is_control_ip': False,
-        'country': 'UA',
-        'date': '2021-10-20',
-        'start_time': '2021-10-20T14:51:45.361175691-04:00',
-        'end_time': '2021-10-20T14:51:46.261234037-04:00',
-        'error': 'read udp 141.212.123.185:23315->62.80.182.26:53: read: connection refused',
-        'anomaly': False,
-        'success': False,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2021-10-20-12-00-01',
-        'controls_failed': True,
-        'average_confidence': 0,
-        'matches_confidence': None,
-        'untagged_controls': False,
-        'untagged_response': False,
-        'excluded': False,
-        'exclude_reason': '',
-        'rcode': -1
-    }, {
-        'received': [],
-        'domain': 'a.root-servers.net',
-        'is_control': True,
-        'category': 'Control',
-        'ip': '62.80.182.26',
-        'is_control_ip': False,
-        'country': 'UA',
-        'date': '2021-10-20',
-        'start_time': '2021-10-20T14:51:45.361175691-04:00',
-        'end_time': '2021-10-20T14:51:46.261234037-04:00',
-        'error': 'read udp 141.212.123.185:53501->62.80.182.26:53: read: connection refused',
-        'anomaly': False,
-        'success': False,
-        'measurement_id': '',
-        'source': 'CP_Satellite-2021-10-20-12-00-01',
-        'controls_failed': True,
-        'average_confidence': 0,
-        'matches_confidence': None,
-        'untagged_controls': False,
-        'untagged_response': False,
-        'excluded': False,
-        'exclude_reason': '',
-        'rcode': -1
-    }]
+    expected = [Row(
+        domain = '1337x.to',
+        is_control = False,
+        category = 'Media sharing',
+        ip = '208.67.220.220',
+        is_control_ip = False,
+        country = 'US',
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:41.297636661-04:00',
+        end_time = '2021-10-20T14:51:41.348612088-04:00',
+        error = None,
+        anomaly = False,
+        success = True,
+        measurement_id = '',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = False,
+        average_confidence = 100,
+        matches_confidence = [100, 100],
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = 0,
+        has_type_a = True,
+        received = [SatelliteAnswer(
+            ip = '104.31.16.11',
+            http = '0728405c8a7cfa601fc6e8a0dff71038624dd672fbbfc91605905a536ff9e1a8',
+            cert = '',
+            asname = 'CLOUDFLARENET',
+            asnum = 13335,
+            matches_control = 'ip http asnum asname'
+        ), SatelliteAnswer(
+            ip = '104.31.16.118',
+            http = '2022c19b47cac1c5746f9d2efa5b7383f78c4bd1b4443f96e28f3a3019cc8ba0',
+            cert = '',
+            asname = 'CLOUDFLARENET',
+            asnum = 13335,
+            matches_control = 'ip http asnum asname'
+        )]
+    ), Row(
+        received = [],
+        domain = '1922.gov.tw',
+        is_control = False,
+        category = None,
+        ip = '69.10.61.18',
+        is_control_ip = False,
+        country = 'US',
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:41.288634425-04:00',
+        end_time = '2021-10-20T14:51:41.506755185-04:00',
+        error = None,
+        anomaly = True,
+        success = True,
+        measurement_id = '',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = False,
+        average_confidence = 0,
+        matches_confidence = [],
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = 2
+    ), Row(
+        received = [],
+        domain = 'a.root-servers.net',
+        is_control =  True,
+        category = 'Control',
+        ip = '62.80.182.26',
+        is_control_ip = False,
+        country = 'UA',
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:45.361175691-04:00',
+        end_time = '2021-10-20T14:51:46.261234037-04:00',
+        error = 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
+        anomaly = False,
+        success = False,
+        measurement_id = '',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = True,
+        average_confidence = 0,
+        matches_confidence = [],
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = -1
+    ), Row(
+        received = [],
+        domain = 'alibaba.com',
+        is_control = False,
+        category = 'E-commerce',
+        ip = '62.80.182.26',
+        is_control_ip = False,
+        country = 'UA',
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:45.361175691-04:00',
+        end_time = '2021-10-20T14:51:46.261234037-04:00',
+        error = 'read udp 141.212.123.185:23315->62.80.182.26:53: read: connection refused',
+        anomaly = False,
+        success = False,
+        measurement_id = '',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = True,
+        average_confidence = 0,
+        matches_confidence = [],
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = -1
+    ), Row(
+        received = [],
+        domain = 'a.root-servers.net',
+        is_control = True,
+        category = 'Control',
+        ip = '62.80.182.26',
+        is_control_ip = False,
+        country = 'UA',
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:45.361175691-04:00',
+        end_time = '2021-10-20T14:51:46.261234037-04:00',
+        error = 'read udp 141.212.123.185:53501->62.80.182.26:53: read: connection refused',
+        anomaly = False,
+        success = False,
+        measurement_id = '',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = True,
+        average_confidence = 0,
+        matches_confidence = [],
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = -1
+    )]
     # yapf: enable
 
     with TestPipeline() as p:
@@ -1112,93 +1102,102 @@ class SatelliteTest(unittest.TestCase):
   def test_calculate_confidence(self) -> None:
     """Test calculating the confidence metrics for Satellite v1 data."""
     # yapf: disable
-    scans: List[flatten.Row] = [
-      {
-        'ip': '114.114.114.110',
-        'country': 'CN',
-        'name': 'name',
-        'domain': 'abs-cbn.com',
-        'category': 'Culture',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
-        'date': '2020-09-02'
-      },
-      {
-        'ip': '1.1.1.3',
-        'country': 'US',
-        'name': 'special',
-        'domain': 'signal.org',
-        'category': 'Communication Tools',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': [
-            {'ip': '13.249.134.38',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-             'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.44',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-             'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.74',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-             'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.89',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-             'matches_control': 'ip http asnum asname'}
+    scans = [
+      Row(
+        ip = '114.114.114.110',
+        country = 'CN',
+        name = 'name',
+        domain = 'abs-cbn.com',
+        category = 'Culture',
+        error = None,
+        anomaly = True,
+        success = True,
+        received = [SatelliteAnswer(
+            ip = '104.20.161.134',
+            matches_control = ''
+        )],
+        date = '2020-09-02'
+      ), Row(
+        ip = '1.1.1.3',
+        country = 'US',
+        name = 'special',
+        domain = 'signal.org',
+        category = 'Communication Tools',
+        error = None,
+        anomaly = False,
+        success = True,
+        received = [
+            SatelliteAnswer(
+                ip = '13.249.134.38',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+                matches_control = 'ip http asnum asname'),
+            SatelliteAnswer(
+                ip = '13.249.134.44',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+                matches_control = 'ip http asnum asname'),
+            SatelliteAnswer(
+                ip = '13.249.134.74',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+                matches_control = 'ip http asnum asname'),
+            SatelliteAnswer(
+                ip = '13.249.134.89',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+                matches_control = 'ip http asnum asname')
         ],
-        'date': '2020-09-02'
-      },
-      {
-        'ip': '1.1.1.3',
-        'country': 'US',
-        'name': 'special',
-        'domain': 'signal.org',
-        'category': 'Communication Tools',
-        'error': None,
-        'anomaly': False,
-        'success': True,
-        'received': [
-            {'ip': '13.249.134.38',
-             'asname': 'AS1',
-             'asnum': 11111,
-             'cert': None,
-             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-             'matches_control': ''},
-            {'ip': '13.249.134.44',
-             'asname': 'AS2',
-             'asnum': 22222,
-             'cert': 'cert',
-             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-             'matches_control': 'asnum asname'},
-            {'ip': '13.249.134.74',
-             'asname': 'AS2',
-             'asnum': 22222,
-             'cert': None,
-             'http': '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-             'matches_control': 'ip http asnum asname'},
-            {'ip': '13.249.134.89',
-             'asname': 'AS2',
-             'asnum': 22222,
-             'cert': None,
-             'http': '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-             'matches_control': 'ip http asnum asname'}
+        date = '2020-09-02'
+      ), Row(
+        ip = '1.1.1.3',
+        country = 'US',
+        name = 'special',
+        domain = 'signal.org',
+        category = 'Communication Tools',
+        error = None,
+        anomaly = False,
+        success = True,
+        received = [
+            SatelliteAnswer(
+                ip = '13.249.134.38',
+                asname = 'AS1',
+                asnum = 11111,
+                cert = None,
+                http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+                matches_control = ''),
+            SatelliteAnswer(
+                ip = '13.249.134.44',
+                asname = 'AS2',
+                asnum = 22222,
+                cert = 'cert',
+                http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+                matches_control = 'asnum asname'),
+            SatelliteAnswer(
+                ip = '13.249.134.74',
+                asname = 'AS2',
+                asnum = 22222,
+                cert = None,
+                http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
+                matches_control = 'ip http asnum asname'),
+            SatelliteAnswer(
+                ip = '13.249.134.89',
+                asname = 'AS2',
+                asnum = 22222,
+                cert = None,
+                http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
+                matches_control = 'ip http asnum asname')
         ],
-        'date': '2020-09-02'
-      }
+        date = '2020-09-02'
+      )
     ]
 
     expected = [
@@ -1211,52 +1210,56 @@ class SatelliteTest(unittest.TestCase):
     result = []
     for scan in scans:
       scan = satellite._calculate_confidence(scan, 1)
-      result.append((scan['average_confidence'], scan['matches_confidence'],
-                     scan['untagged_controls'], scan['untagged_response']))
+      result.append((scan.average_confidence, scan.matches_confidence,
+                     scan.untagged_controls, scan.untagged_response))
 
     self.assertListEqual(result, expected)
 
   def test_verify(self) -> None:
     """Test verification of Satellite v1 data."""
     # yapf: disable
-    scans: List[Row] = [
-      {
-        'ip': '114.114.114.110',
-        'country': 'CN',
-        'name': 'name',
-        'domain': 'abs-cbn.com',
-        'category': 'Culture',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'received': [{'ip': '104.20.161.134', 'matches_control': ''}],
-        'date': '2020-09-02'
-      },
-      {
-        'ip': '1.1.1.3',
-        'country': 'US',
-        'name': 'special',
-        'domain': 'signal.org',
-        'category': 'Communication Tools',
-        'error': None,
-        'anomaly': True,
-        'success': True,
-        'received': [
-            {'ip': '13.249.134.38',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-             'matches_control': ''},
-            {'ip': '13.249.134.44',
-             'asname': 'AMAZON-02',
-             'asnum': 16509,
-             'cert': None,
-             'http': '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-             'matches_control': ''},
+    scans = [
+      Row(
+        ip = '114.114.114.110',
+        country = 'CN',
+        name = 'name',
+        domain = 'abs-cbn.com',
+        category = 'Culture',
+        error = None,
+        anomaly = True,
+        success = True,
+        received = [SatelliteAnswer(
+            ip = '104.20.161.134',
+            matches_control = ''
+        )],
+        date = '2020-09-02'
+      ), Row(
+        ip = '1.1.1.3',
+        country = 'US',
+        name = 'special',
+        domain = 'signal.org',
+        category = 'Communication Tools',
+        error = None,
+        anomaly = True,
+        success = True,
+        received = [
+            SatelliteAnswer(
+                ip = '13.249.134.38',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+                matches_control = ''),
+            SatelliteAnswer(
+                ip = '13.249.134.44',
+                asname = 'AMAZON-02',
+                asnum = 16509,
+                cert = None,
+                http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
+                matches_control = ''),
         ],
-        'date': '2020-09-02'
-      },
+        date = '2020-09-02'
+      ),
     ]
     # yapf: enable
 
@@ -1269,7 +1272,7 @@ class SatelliteTest(unittest.TestCase):
     result = []
     for scan in scans:
       scan = satellite._verify(scan)
-      result.append((scan['excluded'], scan['exclude_reason']))
+      result.append((scan.excluded, scan.exclude_reason))
 
     self.assertListEqual(result, expected)
 
@@ -1277,231 +1280,204 @@ class SatelliteTest(unittest.TestCase):
     """Test postprocessing on Satellite v2.2 data."""
     # yapf: disable
     data = [
-        {
-            "domain": "1337x.to",
-            "is_control": False,
-            "category": "Media sharing",
-            "ip": "8.8.8.8",
-            "is_control_ip": True,
-            "country": "US",
-            "date": "2022-01-02",
-            "start_time": "2022-01-02T14:47:22.608859091-05:00",
-            "end_time": "2022-01-02T14:47:22.987814778-05:00",
-            "error": None,
-            "anomaly": False,
-            "success": True,
-            "source": "CP_Satellite-2022-01-02-12-00-01",
-            "controls_failed": False,
-            "rcode": [
-                "0"
+        Row(
+            domain = "1337x.to",
+            is_control = False,
+            category = "Media sharing",
+            ip = "8.8.8.8",
+            is_control_ip = True,
+            country = "US",
+            date = "2022-01-02",
+            start_time = "2022-01-02T14:47:22.608859091-05:00",
+            end_time = "2022-01-02T14:47:22.987814778-05:00",
+            error = None,
+            anomaly = False,
+            success = True,
+            source = "CP_Satellite-2022-01-02-12-00-01",
+            controls_failed = False,
+            rcode = 0,
+            average_confidence = 100,
+            matches_confidence = [100,100],
+            untagged_controls = False,
+            untagged_response = False,
+            excluded = False,
+            exclude_reason = "",
+            has_type_a = True,
+            received = [
+                SatelliteAnswer(
+                    ip = "104.31.16.11",
+                    http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                ),
+                SatelliteAnswer(
+                    ip = "104.31.16.118",
+                    http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                )
             ],
-            "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
+        ), Row(
+            domain = "1337x.to",
+            is_control = False,
+            category = "Media sharing",
+            ip = "8.8.4.4",
+            is_control_ip = True,
+            country = "US",
+            date = "2022-01-02",
+            start_time = "2022-01-02T14:47:22.609624461-05:00",
+            end_time = "2022-01-02T14:47:22.98110208-05:00",
+            error = None,
+            anomaly = False,
+            success = True,
+            source = "CP_Satellite-2022-01-02-12-00-01",
+            controls_failed = True,
+            rcode = 0,
+            average_confidence = 0,
+            matches_confidence = [],
+            untagged_controls = False,
+            untagged_response = False,
+            excluded = False,
+            exclude_reason = "",
+            has_type_a = True,
+            received = [
+                SatelliteAnswer(
+                    ip = "104.31.16.11",
+                    http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = ""
+                ),
+                SatelliteAnswer(
+                    ip = "104.31.16.118",
+                    http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = ""
+                )
             ],
-            "untagged_controls": False,
-            "untagged_response": False,
-            "excluded": False,
-            "exclude_reason": "",
-            "has_type_a": True,
-            "received": [
-                {
-                    "ip": "104.31.16.11",
-                    "http": "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                },
-                {
-                    "ip": "104.31.16.118",
-                    "http": "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                }
+        ), Row(
+            domain = "1337x.to",
+            is_control = False,
+            category = "Media sharing",
+            ip = "64.6.64.6",
+            is_control_ip = True,
+            country = "US",
+            date = "2022-01-02",
+            start_time = "2022-01-02T16:41:54.579216934-05:00",
+            end_time = "2022-01-02T16:41:54.617330171-05:00",
+            error = None,
+            anomaly = False,
+            success = True,
+            source = "CP_Satellite-2022-01-02-12-00-01",
+            controls_failed = False,
+            rcode = 0,
+            average_confidence = 100,
+            matches_confidence = [100,100],
+            untagged_controls = False,
+            untagged_response = False,
+            excluded = False,
+            exclude_reason = "",
+            has_type_a = True,
+            received = [
+                SatelliteAnswer(
+                    ip = "104.31.16.11",
+                    http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                ),
+                SatelliteAnswer(
+                    ip = "104.31.16.118",
+                    http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                )
             ],
-        },
-        {
-            "domain": "1337x.to",
-            "is_control": False,
-            "category": "Media sharing",
-            "ip": "8.8.4.4",
-            "is_control_ip": True,
-            "country": "US",
-            "date": "2022-01-02",
-            "start_time": "2022-01-02T14:47:22.609624461-05:00",
-            "end_time": "2022-01-02T14:47:22.98110208-05:00",
-            "error": None,
-            "anomaly": False,
-            "success": True,
-            "source": "CP_Satellite-2022-01-02-12-00-01",
-            "controls_failed": True,
-            "rcode": [
-                "-1",
-                "0",
-                "-1"
+        ), Row(
+            domain = "1337x.to",
+            is_control = False,
+            category = "Media sharing",
+            ip = "64.6.65.6",
+            is_control_ip = True,
+            country = "US",
+            date = "2022-01-02",
+            start_time = "2022-01-02T15:08:04.399147076-05:00",
+            end_time = "2022-01-02T15:08:04.437950734-05:00",
+            error = None,
+            anomaly = False,
+            success = True,
+            source = "CP_Satellite-2022-01-02-12-00-01",
+            controls_failed = False,
+            rcode = 0,
+            average_confidence = 100,
+            matches_confidence = [100,100],
+            untagged_controls = False,
+            untagged_response = False,
+            excluded = False,
+            exclude_reason = "",
+            has_type_a = True,
+            received = [
+                SatelliteAnswer(
+                    ip = "104.31.16.11",
+                    http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                ),
+                SatelliteAnswer(
+                    ip = "104.31.16.118",
+                    http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert = "",
+                    asname = "CLOUDFLARENET",
+                    asnum = 13335,
+                    matches_control = "ip http asnum asname"
+                )
             ],
-            "average_confidence": 0,
-            "matches_confidence": None,
-            "untagged_controls": False,
-            "untagged_response": False,
-            "excluded": False,
-            "exclude_reason": "",
-            "has_type_a": True,
-            "received": [
-                {
-                    "ip": "104.31.16.11",
-                    "http": "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": ""
-                },
-                {
-                    "ip": "104.31.16.118",
-                    "http": "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": ""
-                }
+        ), Row(
+            domain = "1337x.to",
+            is_control = False,
+            category = "Media sharing",
+            ip = "77.247.174.150",
+            is_control_ip = False,
+            country = "RU",
+            date = "2022-01-02",
+            start_time = "2022-01-02T14:47:22.708705995-05:00",
+            end_time = "2022-01-02T14:47:22.983863812-05:00",
+            error = None,
+            anomaly = True,
+            success = True,
+            source = "CP_Satellite-2022-01-02-12-00-01",
+            controls_failed = False,
+            rcode = 0,
+            average_confidence = 0,
+            matches_confidence = [0],
+            untagged_controls = False,
+            untagged_response = False,
+            excluded = False,
+            exclude_reason = "",
+            has_type_a = True,
+            received = [
+                SatelliteAnswer(
+                    ip = "188.186.157.49",
+                    http = "177a8341782a57778766a7334d3e99ecb61ce54bbcc48838ddda846ea076726d",
+                    cert = "",
+                    asname = "ERTELECOM-DC-AS",
+                    asnum = 31483,
+                    matches_control = ""
+                )
             ],
-        },
-        {
-            "domain": "1337x.to",
-            "is_control": False,
-            "category": "Media sharing",
-            "ip": "64.6.64.6",
-            "is_control_ip": True,
-            "country": "US",
-            "date": "2022-01-02",
-            "start_time": "2022-01-02T16:41:54.579216934-05:00",
-            "end_time": "2022-01-02T16:41:54.617330171-05:00",
-            "error": None,
-            "anomaly": False,
-            "success": True,
-            "source": "CP_Satellite-2022-01-02-12-00-01",
-            "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
-            "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
-            ],
-            "untagged_controls": False,
-            "untagged_response": False,
-            "excluded": False,
-            "exclude_reason": "",
-            "has_type_a": True,
-            "received": [
-                {
-                    "ip": "104.31.16.11",
-                    "http": "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                },
-                {
-                    "ip": "104.31.16.118",
-                    "http": "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                }
-            ],
-        },
-        {
-            "domain": "1337x.to",
-            "is_control": False,
-            "category": "Media sharing",
-            "ip": "64.6.65.6",
-            "is_control_ip": True,
-            "country": "US",
-            "date": "2022-01-02",
-            "start_time": "2022-01-02T15:08:04.399147076-05:00",
-            "end_time": "2022-01-02T15:08:04.437950734-05:00",
-            "error": None,
-            "anomaly": False,
-            "success": True,
-            "source": "CP_Satellite-2022-01-02-12-00-01",
-            "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
-            "average_confidence": 100,
-            "matches_confidence": [
-                100,
-                100
-            ],
-            "untagged_controls": False,
-            "untagged_response": False,
-            "excluded": False,
-            "exclude_reason": "",
-            "has_type_a": True,
-            "received": [
-                {
-                    "ip": "104.31.16.11",
-                    "http": "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                },
-                {
-                    "ip": "104.31.16.118",
-                    "http": "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
-                    "cert": "",
-                    "asname": "CLOUDFLARENET",
-                    "asnum": 13335,
-                    "matches_control": "ip http asnum asname"
-                }
-            ],
-        },
-        {
-            "domain": "1337x.to",
-            "is_control": False,
-            "category": "Media sharing",
-            "ip": "77.247.174.150",
-            "is_control_ip": False,
-            "country": "RU",
-            "date": "2022-01-02",
-            "start_time": "2022-01-02T14:47:22.708705995-05:00",
-            "end_time": "2022-01-02T14:47:22.983863812-05:00",
-            "error": None,
-            "anomaly": True,
-            "success": True,
-            "source": "CP_Satellite-2022-01-02-12-00-01",
-            "controls_failed": False,
-            "rcode": [
-                "0"
-            ],
-            "average_confidence": 0,
-            "matches_confidence": [
-                0
-            ],
-            "untagged_controls": False,
-            "untagged_response": False,
-            "excluded": False,
-            "exclude_reason": "",
-            "has_type_a": True,
-            "received": [
-                {
-                    "ip": "188.186.157.49",
-                    "http": "177a8341782a57778766a7334d3e99ecb61ce54bbcc48838ddda846ea076726d",
-                    "cert": "",
-                    "asname": "ERTELECOM-DC-AS",
-                    "asnum": 31483,
-                    "matches_control": ""
-                }
-            ],
-        }
+        )
     ]
     # yapf: enable
 

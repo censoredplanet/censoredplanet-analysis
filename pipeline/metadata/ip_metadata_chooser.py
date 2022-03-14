@@ -27,14 +27,14 @@ class IpMetadataChooser():
     try:
       (netblock, asn, as_name, as_full_name, as_type,
        country) = self.caida.lookup(ip)
-      metadata_values = {
-          'netblock': netblock,
-          'asn': asn,
-          'as_name': as_name,
-          'as_full_name': as_full_name,
-          'as_class': as_type,
-          'country': country,
-      }
+      metadata_values = Row(
+          netblock=netblock,
+          asn=asn,
+          as_name=as_name,
+          as_full_name=as_full_name,
+          as_class=as_type,
+          country=country,
+      )
 
       (org, dbip_asn) = self.dbip.lookup(ip)
       if org and asn == dbip_asn:
@@ -42,7 +42,7 @@ class IpMetadataChooser():
         # which becomes less accurate for past data
         # we're doing the simple thing here and only including organization info
         # if the AS from dbip matches the AS from CAIDA
-        metadata_values['organization'] = org
+        metadata_values.organization = org
 
       # Turning off maxmind data for now.
       # if not metadata_values['country']:  # try Maxmind
@@ -51,7 +51,8 @@ class IpMetadataChooser():
       #   metadata_values['country'] = country
     except KeyError as e:
       logging.warning('KeyError: %s\n', e)
-      metadata_values = {}  # values are missing, but entry should still exist
+      metadata_values = Row(
+      )  # values are missing, but entry should still exist
 
     return metadata_values
 

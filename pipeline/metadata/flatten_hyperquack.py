@@ -113,21 +113,20 @@ class HyperquackFlattener():
       else:
         domain = sent_domain
 
-      row = {
-          'domain': domain,
-          'category': self.category_matcher.get_category(domain, is_control),
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'anomaly': scan['Blocked'],
-          'success': result['Success'],
-          'stateful_block': scan['StatefulBlock'],
-          'is_control': is_control,
-          'controls_failed': scan['FailSanity'],
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
-      }
+      row = Row(
+          domain=domain,
+          category=self.category_matcher.get_category(domain, is_control),
+          ip=scan['Server'],
+          date=date,
+          start_time=result['StartTime'],
+          end_time=result['EndTime'],
+          anomaly=scan['Blocked'],
+          success=result['Success'],
+          stateful_block=scan['StatefulBlock'],
+          is_control=is_control,
+          controls_failed=scan['FailSanity'],
+          measurement_id=random_measurement_id,
+          source=flatten_base.source_from_filename(filename))
 
       if 'Received' in result:
         received = result.get('Received', '')
@@ -136,7 +135,7 @@ class HyperquackFlattener():
         row.update(received_fields)
 
       if 'Error' in result:
-        row['error'] = result['Error']
+        row.error = result['Error']
 
       yield row
 
@@ -159,21 +158,21 @@ class HyperquackFlattener():
       domain: str = response.get('control_url', scan['test_url'])
       is_control = 'control_url' in response
 
-      row = {
-          'domain': domain,
-          'category': self.category_matcher.get_category(domain, is_control),
-          'ip': scan['vp'],
-          'date': date,
-          'start_time': response['start_time'],
-          'end_time': response['end_time'],
-          'anomaly': scan['anomaly'],
-          'success': response['matches_template'],
-          'stateful_block': scan['stateful_block'],
-          'is_control': is_control,
-          'controls_failed': scan.get('controls_failed', None),
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
-      }
+      row = Row(
+          domain=domain,
+          category=self.category_matcher.get_category(domain, is_control),
+          ip=scan['vp'],
+          date=date,
+          start_time=response['start_time'],
+          end_time=response['end_time'],
+          anomaly=scan['anomaly'],
+          success=response['matches_template'],
+          stateful_block=scan['stateful_block'],
+          is_control=is_control,
+          controls_failed=scan.get('controls_failed', None),
+          measurement_id=random_measurement_id,
+          source=flatten_base.source_from_filename(filename),
+      )
 
       if 'response' in response:
         received = response.get('response', '')
@@ -182,6 +181,6 @@ class HyperquackFlattener():
         row.update(received_fields)
 
       if 'error' in response:
-        row['error'] = response['error']
+        row.error = response['error']
 
       yield row
