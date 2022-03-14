@@ -18,6 +18,9 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # Type definition for input responses, TODO make actual type stricter
 ResponsesEntry = Any
+# Type definition for blockpage responses
+# https://docs.censoredplanet.org/dns.html#id1
+BlockpageEntry = Any
 
 # Rows that contain blockpages
 BlockpageRow = Row
@@ -524,7 +527,7 @@ class FlattenBlockpages(beam.DoFn):
 
     yield from self._process_satellite_blockpages(scan, filename)
 
-  def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
+  def _process_satellite_blockpages(self, blockpage_entry: BlockpageEntry,
                                     filepath: str) -> Iterator[BlockpageRow]:
     """Process a line of Satellite blockpage data.
 
