@@ -112,6 +112,8 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
   END
 );
 
+# BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
+# which will be replaced when running the query
 
 CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
 PARTITION BY date
@@ -128,24 +130,19 @@ AS (
        LEFT JOIN UNNEST(received) as r
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.satellite_scan_with_blockpages`
+
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_blockpage_certs_scan`
 PARTITION BY date
-CLUSTER BY country, asn
 AS (
-  SELECT a.*,
-         b.* except (domain, ip, date, start_time, end_time, success, source),
-         SAFE_CONVERT_BYTES_TO_STRING(FROM_BASE64(received_tls_cert)) as received_tls_cert_base64,
-         (STRPOS(FROM_BASE64(received_tls_cert), CAST(b.domain as bytes)) > 0
-          OR STRPOS(FROM_BASE64(received_tls_cert), CAST(CONCAT("*.", NET.REG_DOMAIN(b.domain)) as bytes)) > 0) as received_tls_cert_matches
-  FROM `firehook-censoredplanet.laplante.satellite_scan_left_joined` as a
-       LEFT JOIN `firehook-censoredplanet.laplante.satellite_blockpage_scan` as b
-       ON (a.date = b.date AND a.domain = b.domain AND a.received_ip = b.ip)
+  SELECT *,
+         SAFE_CONVERT_BYTES_TO_STRING(FROM_BASE64(received_tls_cert)) as received_tls_cert_string,
+         (STRPOS(FROM_BASE64(received_tls_cert),
+                 CAST(domain as bytes)) > 0
+          OR STRPOS(FROM_BASE64(received_tls_cert),
+                    CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0) as received_tls_cert_matches
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_blockpage_scan`
 );
 
-
-
-# BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
-# which will be replaced when running the query
 
 # Increment the version of this table if you change the table in a backwards-incomatible way.
 
