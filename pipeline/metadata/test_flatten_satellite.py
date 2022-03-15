@@ -1,9 +1,9 @@
 """Unit tests for satellite flattening functions"""
 
+import json
 import unittest
 from typing import List
 
-from pipeline.metadata.flatten_base import Row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -17,6 +17,12 @@ def get_satellite_flattener() -> flatten_satellite.SatelliteFlattener:
   category_matcher = DomainCategoryMatcher()
   return flatten_satellite.SatelliteFlattener(blockpage_matcher,
                                               category_matcher)
+
+
+def get_blockpage_flattener() -> flatten_satellite.FlattenBlockpages:
+  flattener = flatten_satellite.FlattenBlockpages()
+  flattener.setup()
+  return flattener
 
 
 class FlattenSatelliteTest(unittest.TestCase):
@@ -1138,7 +1144,7 @@ class FlattenSatelliteTest(unittest.TestCase):
     filename = 'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/blockpages.json'
 
     # yapf: disable
-    expected_rows: List[Row] = [
+    expected_rows: List[flatten_satellite.BlockpageRow] = [
       {
         'domain': 'xvideos.com',
         'ip': '93.158.134.250',
@@ -1176,9 +1182,8 @@ class FlattenSatelliteTest(unittest.TestCase):
     ]
     # yapf: enable
 
-    flattener = get_satellite_flattener()
+    flattener = get_blockpage_flattener()
 
-    rows = flattener.process_satellite(filename, line,
-                                       'ab3b0ed527334c6ba988362e6a2c98fc')
+    rows = flattener.process((filename, json.dumps(line)))
 
     self.assertEqual(list(rows), expected_rows)

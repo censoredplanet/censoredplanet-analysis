@@ -2,12 +2,14 @@
 
 from __future__ import absolute_import
 
+import datetime
 import json
 import logging
 import pathlib
 import re
 from typing import Optional, Dict, Any, Iterator, List, Tuple
-import datetime
+
+import apache_beam as beam
 
 from pipeline.metadata import flatten_base
 from pipeline.metadata.flatten_base import Row
@@ -16,52 +18,19 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
 # Type definition for input responses, TODO make actual type stricter
 ResponsesEntry = Any
+# Type definition for blockpage responses
+# https://docs.censoredplanet.org/dns.html#id1
+BlockpageEntry = Any
+
+# Rows that contain blockpages
+BlockpageRow = Row
 
 SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
 
-# Data files for the Satellite pipeline
-SATELLITE_RESOLVERS_FILE = 'resolvers.json'  #v1, v2.2
-
-SATELLITE_RESULTS_FILE = 'results.json'  # v2.1, v2.2
-
-SATELLITE_TAGGED_ANSWERS_FILE = 'tagged_answers.json'  # v1
 SATELLITE_ANSWERS_CONTROL_FILE = 'answers_control.json'  #v1
-SATELLITE_INTERFERENCE_FILE = 'interference.json'  # v1
-SATELLITE_INTERFERENCE_ERR_FILE = 'interference_err.json'  # v1
-SATELLITE_ANSWERS_ERR_FILE = 'answers_err.json'  # v1
-
-SATELLITE_TAGGED_RESOLVERS_FILE = 'tagged_resolvers.json'  # v2.1
 SATELLITE_RESPONSES_CONTROL_FILE = 'responses_control.json'  # v2.1
-SATELLITE_TAGGED_RESPONSES = 'tagged_responses.json'  # v2.1
-
-SATELLITE_BLOCKPAGES_FILE = 'blockpages.json'  # v2.2
-
-# Files containing metadata for satellite DNS resolvers
-SATELLITE_RESOLVER_TAG_FILES = [
-    SATELLITE_RESOLVERS_FILE, SATELLITE_TAGGED_RESOLVERS_FILE
-]
-
-# Files containing metadata for satellite receives answer ips
-SATELLITE_ANSWER_TAG_FILES = [
-    SATELLITE_TAGGED_ANSWERS_FILE, SATELLITE_TAGGED_RESPONSES
-]
-
-# Files containing satellite ip metadata
-SATELLITE_TAG_FILES = SATELLITE_RESOLVER_TAG_FILES + SATELLITE_ANSWER_TAG_FILES
-
-# Files containing satellite DNS tests
-SATELLITE_OBSERVATION_FILES = [
-    SATELLITE_INTERFERENCE_FILE, SATELLITE_INTERFERENCE_ERR_FILE,
-    SATELLITE_ANSWERS_CONTROL_FILE, SATELLITE_RESPONSES_CONTROL_FILE,
-    SATELLITE_RESULTS_FILE, SATELLITE_ANSWERS_ERR_FILE
-]
-
-# All satellite files
-SATELLITE_FILES = (
-    SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
-    SATELLITE_OBSERVATION_FILES)
 
 # Component that will match every satellite filepath
 # filepaths look like
@@ -70,6 +39,21 @@ SATELLITE_PATH_COMPONENT = "Satellite"
 
 # For Satellite
 CONTROL_IPS = ['1.1.1.1', '8.8.8.8', '8.8.4.4', '64.6.64.6', '64.6.65.6']
+
+
+def get_filename(filepath: str) -> str:
+  """Get just filename from filepath
+
+  Args:
+    filepath like: "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz"
+
+  Returns:
+    base filename like "resolvers.json"
+  """
+  filename = pathlib.PurePosixPath(filepath).name
+  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
+    filename = pathlib.PurePosixPath(filename).stem
+  return filename
 
 
 def format_timestamp(timestamp: str) -> str:
@@ -257,14 +241,9 @@ class SatelliteFlattener():
       Rows
     """
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
+    filename = get_filename(filepath)
 
-    filename = pathlib.PurePosixPath(filepath).name
-    if '.gz' in pathlib.PurePosixPath(filename).suffixes:
-      filename = pathlib.PurePosixPath(filename).stem
-
-    if filename == SATELLITE_BLOCKPAGES_FILE:
-      yield from self._process_satellite_blockpages(responses_entry, filepath)
-    elif datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
+    if datetime.date.fromisoformat(date) < SATELLITE_V2_1_START_DATE:
       yield from self._process_satellite_v1(date, responses_entry, filepath,
                                             random_measurement_id)
     else:
@@ -454,45 +433,6 @@ class SatelliteFlattener():
       roundtrip_row['received'] = all_received
       yield roundtrip_row
 
-  def _process_satellite_blockpages(self, blockpage_entry: ResponsesEntry,
-                                    filepath: str) -> Iterator[Row]:
-    """Process a line of Satellite blockpage data.
-
-    Args:
-      blockpage_entry: a loaded json object containing the parsed content of the line
-      filepath: a filepath string like "<path>/blockpages.json.gz"
-
-    Yields:
-      Rows, usually 2 corresponding to the fetched http and https data respectively
-    """
-    row = {
-        'domain': blockpage_entry['keyword'],
-        'ip': blockpage_entry['ip'],
-        'date': blockpage_entry['start_time'][:10],
-        'start_time': format_timestamp(blockpage_entry['start_time']),
-        'end_time': format_timestamp(blockpage_entry['end_time']),
-        'success': blockpage_entry['fetched'],
-        'source': flatten_base.source_from_filename(filepath),
-    }
-
-    http = {
-        'https': False,
-    }
-    http.update(row)
-    received_fields = flatten_base.parse_received_data(
-        self.blockpage_matcher, blockpage_entry.get('http', ''), True)
-    http.update(received_fields)
-    yield http
-
-    https = {
-        'https': True,
-    }
-    https.update(row)
-    received_fields = flatten_base.parse_received_data(
-        self.blockpage_matcher, blockpage_entry.get('https', ''), True)
-    https.update(received_fields)
-    yield https
-
   def _process_satellite_v2_control(
       self, responses_entry: ResponsesEntry, filepath: str,
       random_measurement_id: str) -> Iterator[Row]:
@@ -565,3 +505,63 @@ class SatelliteFlattener():
         row['received'] = all_received
 
         yield row
+
+
+class FlattenBlockpages(beam.DoFn):
+  """DoFn class for flattening lines of blockpage text into Rows."""
+
+  def setup(self) -> None:
+    #pylint: disable=attribute-defined-outside-init
+    self.blockpage_matcher = BlockpageMatcher()
+    #pylint: enable=attribute-defined-outside-init
+
+  def process(self, element: Tuple[str, str]) -> Iterator[BlockpageRow]:
+    (filename, line) = element
+
+    try:
+      scan = json.loads(line)
+    except json.decoder.JSONDecodeError as e:
+      logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
+                      line)
+      return
+
+    yield from self._process_satellite_blockpages(scan, filename)
+
+  def _process_satellite_blockpages(self, blockpage_entry: BlockpageEntry,
+                                    filepath: str) -> Iterator[BlockpageRow]:
+    """Process a line of Satellite blockpage data.
+
+    Args:
+      blockpage_entry: a loaded json object containing the parsed content of the line
+      filepath: a filepath string like "<path>/blockpages.json.gz"
+
+    Yields:
+      BlockpageRows, usually 2 corresponding to the fetched http and https data
+    """
+    row = {
+        'domain': blockpage_entry['keyword'],
+        'ip': blockpage_entry['ip'],
+        'date': blockpage_entry['start_time'][:10],
+        'start_time': format_timestamp(blockpage_entry['start_time']),
+        'end_time': format_timestamp(blockpage_entry['end_time']),
+        'success': blockpage_entry['fetched'],
+        'source': flatten_base.source_from_filename(filepath),
+    }
+
+    http = {
+        'https': False,
+    }
+    http.update(row)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('http', ''), True)
+    http.update(received_fields)
+    yield http
+
+    https = {
+        'https': True,
+    }
+    https.update(row)
+    received_fields = flatten_base.parse_received_data(
+        self.blockpage_matcher, blockpage_entry.get('https', ''), True)
+    https.update(received_fields)
+    yield https

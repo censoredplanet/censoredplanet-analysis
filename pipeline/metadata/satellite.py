@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import datetime
 import json
 import logging
-import pathlib
 import re
 from typing import Union, List, Tuple, Dict, Iterator, Iterable
 import uuid
@@ -15,8 +14,51 @@ import apache_beam as beam
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.flatten import Row
 from pipeline.metadata.lookup_country_code import country_name_to_code
+from pipeline.metadata.flatten_satellite import BlockpageRow
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
+
+# Data files for the Satellite pipeline
+SATELLITE_RESOLVERS_FILE = 'resolvers.json'  #v1, v2.2
+
+SATELLITE_RESULTS_FILE = 'results.json'  # v2.1, v2.2
+
+SATELLITE_TAGGED_ANSWERS_FILE = 'tagged_answers.json'  # v1
+SATELLITE_INTERFERENCE_FILE = 'interference.json'  # v1
+SATELLITE_INTERFERENCE_ERR_FILE = 'interference_err.json'  # v1
+SATELLITE_ANSWERS_ERR_FILE = 'answers_err.json'  # v1
+
+SATELLITE_TAGGED_RESOLVERS_FILE = 'tagged_resolvers.json'  # v2.1
+
+SATELLITE_TAGGED_RESPONSES = 'tagged_responses.json'  # v2.1
+
+SATELLITE_BLOCKPAGES_FILE = 'blockpages.json'  # v2.2
+
+# Files containing metadata for satellite DNS resolvers
+SATELLITE_RESOLVER_TAG_FILES = [
+    SATELLITE_RESOLVERS_FILE, SATELLITE_TAGGED_RESOLVERS_FILE
+]
+
+# Files containing metadata for satellite receives answer ips
+SATELLITE_ANSWER_TAG_FILES = [
+    SATELLITE_TAGGED_ANSWERS_FILE, SATELLITE_TAGGED_RESPONSES
+]
+
+# Files containing satellite ip metadata
+SATELLITE_TAG_FILES = SATELLITE_RESOLVER_TAG_FILES + SATELLITE_ANSWER_TAG_FILES
+
+# Files containing satellite DNS tests
+SATELLITE_OBSERVATION_FILES = [
+    SATELLITE_INTERFERENCE_FILE, SATELLITE_INTERFERENCE_ERR_FILE,
+    flatten_satellite.SATELLITE_ANSWERS_CONTROL_FILE,
+    flatten_satellite.SATELLITE_RESPONSES_CONTROL_FILE, SATELLITE_RESULTS_FILE,
+    SATELLITE_ANSWERS_ERR_FILE
+]
+
+# All satellite files
+SATELLITE_FILES = (
+    SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
+    SATELLITE_OBSERVATION_FILES)
 
 BLOCKPAGE_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -55,21 +97,6 @@ NUM_SATELLITE_INPUT_PARTITIONS = 4
 # PCollection key name used internally by the beam pipeline
 RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 CONTROLS_PCOLLECTION_NAME = 'controls'
-
-
-def _get_filename(filepath: str) -> str:
-  """Get just filename from filepath
-
-  Args:
-    filepath like: "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz"
-
-  Returns:
-    base filename like "resolvers.json"
-  """
-  filename = pathlib.PurePosixPath(filepath).name
-  if '.gz' in pathlib.PurePosixPath(filename).suffixes:
-    filename = pathlib.PurePosixPath(filename).stem
-  return filename
 
 
 def _get_satellite_date_partition(row: Row, _: int) -> int:
@@ -638,19 +665,19 @@ def process_satellite_with_tags(
 
 def process_satellite_blockpages(
     blockpages: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[Row]:
+) -> beam.pvalue.PCollection[BlockpageRow]:
   """Process Satellite measurements and tags.
 
   Args:
-    blockpages: Row objects
+    blockpages: (filepath, Row) objects
 
   Returns:
-    PCollection[Row] of blockpage rows in bigquery format
+    PCollection[BlockpageRow] of blockpage rows in bigquery format
   """
   rows = (
       blockpages | 'flatten blockpages' >> beam.ParDo(
-          flatten.FlattenMeasurement()).with_output_types(Row))
-
+          flatten_satellite.FlattenBlockpages()).with_output_types(BlockpageRow)
+  )
   return rows
 
 
@@ -660,8 +687,8 @@ def partition_satellite_input(
   """Partitions Satellite input into answer/resolver_tags, blockpages and rows.
 
   Args:
-    line: an input line Tuple[filename, line_content]
-      filename is "<path>/name.json"
+    line: an input line Tuple[filepath, line_content]
+      filepath is "<path>/name.json"
     num_partitions: number of partitions to use, always 4
 
   Returns:
@@ -680,14 +707,14 @@ def partition_satellite_input(
         "Bad input number of partitions; always use NUM_SATELLITE_INPUT_PARTITIONS."
     )
 
-  filename = _get_filename(line[0])
-  if filename in flatten_satellite.SATELLITE_ANSWER_TAG_FILES:
+  filename = flatten_satellite.get_filename(line[0])
+  if filename in SATELLITE_ANSWER_TAG_FILES:
     return 0
-  if filename in flatten_satellite.SATELLITE_RESOLVER_TAG_FILES:
+  if filename in SATELLITE_RESOLVER_TAG_FILES:
     return 1
-  if filename == flatten_satellite.SATELLITE_BLOCKPAGES_FILE:
+  if filename == SATELLITE_BLOCKPAGES_FILE:
     return 2
-  if filename in flatten_satellite.SATELLITE_OBSERVATION_FILES:
+  if filename in SATELLITE_OBSERVATION_FILES:
     return 3
   raise Exception(f"Unknown filename in Satellite data: {filename}")
 
@@ -779,7 +806,7 @@ def _verify(scan: Row) -> Row:
 
 def process_satellite_lines(
     lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[Row]]:
+) -> Tuple[beam.pvalue.PCollection[Row], beam.pvalue.PCollection[BlockpageRow]]:
   """Process both satellite and blockpage data files.
 
   Args:
@@ -800,7 +827,7 @@ def process_satellite_lines(
   # PCollection[Row]
   post_processed_satellite = post_processing_satellite(tagged_satellite)
 
-  # PCollection[Row]
+  # PCollection[BlockpageRow]
   blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
   return post_processed_satellite, blockpage_rows
