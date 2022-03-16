@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+import dataclasses
 import datetime
 import logging
 import pathlib
@@ -29,7 +30,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.flatten import Row
+from pipeline.metadata.flatten_base import Row, IpMetadata
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -477,12 +478,13 @@ class ScanDataBeamPipelineRunner():
         deduped_ips_and_dates | 'group by date' >>
         beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
 
-    # PCollection[Tuple[DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,IpMetadata]]
     ips_with_metadata = (
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
-            self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
+            self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
+                                                           IpMetadata]))
 
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row|IpMetadata]]]]
     grouped_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
@@ -495,8 +497,9 @@ class ScanDataBeamPipelineRunner():
 
     return rows_with_metadata
 
-  def _add_ip_metadata(self, date: str,
-                       ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+  def _add_ip_metadata(
+      self, date: str,
+      ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadata]]:
     """Add Autonymous System metadata for ips in the given rows.
 
     Args:
@@ -504,8 +507,7 @@ class ScanDataBeamPipelineRunner():
       ips: a list of ips
 
     Yields:
-      Tuples (DateIpKey, metadata_dict)
-      where metadata_dict is a row Dict[column_name, values]
+      Tuples (DateIpKey, IpMetadata)
     """
     ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(
         datetime.date.fromisoformat(date))
@@ -540,7 +542,12 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
+    # Pcollection[Dict[str, Any]]
+    dict_rows = (
+        rows | f'dataclass to dicts {scan_type}' >> beam.Map(
+            dataclasses.asdict).with_output_types(Dict[str, Any]))
+
+    (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
@@ -609,11 +616,11 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        # PCollection[Row], PCollection[Row]
+        # PCollection[SatelliteRow], PCollection[BlockpageRow]
         satellite_rows, blockpage_rows = satellite.process_satellite_lines(
             lines)
 
-        # PCollection[Row]
+        # PCollection[SatelliteRow]
         rows_with_metadata = self._add_metadata(satellite_rows)
 
         self._write_to_bigquery(
@@ -621,12 +628,12 @@ class ScanDataBeamPipelineRunner():
             satellite.get_blockpage_table_name(table_name, scan_type),
             incremental_load)
       else:  # Hyperquack scans
-        # PCollection[Row]
+        # PCollection[HyperquackRow]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
                 flatten.FlattenMeasurement()).with_output_types(Row))
 
-        # PCollection[Row]
+        # PCollection[HyperquackRow]
         rows_with_metadata = self._add_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)
