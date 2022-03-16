@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 
 # pylint: disable=too-many-instance-attributes
 
@@ -84,8 +84,30 @@ class Row:  # Corrosponds to BASE_BIGQUERY_SCHEMA
   country: Optional[str] = None
   organization: Optional[str] = None
 
-  # imitation update method that matches the semantics of python's dict update
-  def update(self, new: Row) -> None:
+
+@dataclass
+class ReceivedHttps:
+  """Class for the parsed content of a received HTTP/S request
+
+  These are both passed around independantly, and as part of
+  HyperquackRow/BlockpageRow objects
+  """
+  blockpage: Optional[bool] = None
+  page_signature: Optional[str] = None
+
+  received_status: Optional[str] = None
+  received_body: Optional[str] = None
+  received_tls_version: Optional[int] = None
+  received_tls_cipher_suite: Optional[int] = None
+  received_tls_cert: Optional[str] = None
+  received_headers: List[str] = dataclasses.field(default_factory=list)
+
+  def update_received(self, new: ReceivedHttps) -> None:
+    """Imitation update method that matches the semantics of python's dict update
+
+    Both HyperquackRow and BlockpageRow use this method
+    to add in ReceivedHttps fields to themselves.
+    """
     for field in dataclasses.fields(new):
       value = getattr(new, field.name)
       if value is not None and value != []:
@@ -93,17 +115,9 @@ class Row:  # Corrosponds to BASE_BIGQUERY_SCHEMA
 
 
 @dataclass
-class HyperquackRow(Row):
+class HyperquackRow(Row, ReceivedHttps):
   """Class for hyperquack specific fields"""
-  blockpage: Optional[bool] = None
-  page_signature: Optional[str] = None
   stateful_block: Optional[bool] = None
-  received_status: Optional[str] = None
-  received_body: Optional[str] = None
-  received_tls_version: Optional[int] = None
-  received_tls_cipher_suite: Optional[int] = None
-  received_tls_cert: Optional[str] = None
-  received_headers: List[str] = dataclasses.field(default_factory=list)
 
 
 @dataclass
@@ -123,7 +137,7 @@ class SatelliteRow(Row):
 
 
 @dataclass
-class BlockpageRow():
+class BlockpageRow(ReceivedHttps):
   """Class for blockpage specific fields"""
   domain: Optional[str] = None
   ip: Optional[str] = None
@@ -133,23 +147,6 @@ class BlockpageRow():
   success: Optional[bool] = None
   https: Optional[bool] = None
   source: Optional[str] = None
-
-  blockpage: Optional[bool] = None
-  page_signature: Optional[str] = None
-
-  received_status: Optional[str] = None
-  received_body: Optional[str] = None
-  received_tls_version: Optional[int] = None
-  received_tls_cipher_suite: Optional[int] = None
-  received_tls_cert: Optional[str] = None
-  received_headers: List[str] = dataclasses.field(default_factory=list)
-
-  # imitation update method that matches the semantics of python's dict update
-  def update(self, new: Union[BlockpageRow, HyperquackRow]) -> None:
-    for field in dataclasses.fields(new):
-      value = getattr(new, field.name)
-      if value is not None and value != []:
-        setattr(self, field.name, value)
 
 
 # key: (type, mode)

@@ -510,16 +510,14 @@ class FlattenBlockpages(beam.DoFn):
 
     http_row = deepcopy(row)
     http_row.https = False
-    http_row.update(row)
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('http', ''), True)
-    http_row.update(received_fields)
+    http_row.update_received(received_fields)
     yield http_row
 
     https_row = deepcopy(row)
     https_row.https = True
-    https_row.update(row)
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('https', ''), True)
-    https_row.update(received_fields)
+    https_row.update_received(received_fields)
     yield https_row
