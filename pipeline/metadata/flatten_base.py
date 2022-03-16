@@ -32,7 +32,8 @@ class SatelliteAnswerMetadata(SatelliteAnswer):
 
   When this metadata is being passed around
   it needs an additional date field to keep track of when it's valid.
-  In the final Row object written to bigwuery we don't include that field.
+  In the final SatelliteAnswer object written to bigquery
+  we don't include that field.
   """
   date: str = ''
 

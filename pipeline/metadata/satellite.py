@@ -168,12 +168,12 @@ def _read_satellite_resolver_tags(filepath: str,
 
   Yields:
       A IpMetadata of the format
-        {
-         'ip': '1.1.1.1',
-         'date': '2020-01-01'
-         'country': 'US'  # optional
-         'name': 'one.one.one.one'  # optional
-        }
+        IpMetadata(
+          ip='1.1.1.1',
+          date='2020-01-01'
+          country='US'  # optional
+          name='one.one.one.one'  # optional
+        )
   """
   try:
     scan = json.loads(line)
@@ -207,13 +207,13 @@ def _read_satellite_answer_tags(filepath: str,
 
   Yields:
       A SatelliteAnswer of the format
-        (
-         'ip': '1.1.1.1',
-         'date': '2020-01-01'
-         'http': ''e3c1d3...' # optional
-         'cert': 'a2fed1...' # optional
-         'asname': 'CLOUDFLARENET' # optional
-         'asnum': 13335 # optional
+        SatelliteAnswer(
+          ip='1.1.1.1',
+          date='2020-01-01'
+          http='e3c1d3...' # optional
+          cert='a2fed1...' # optional
+          asname='CLOUDFLARENET' # optional
+          asnum=13335 # optional
         )
   """
   try:

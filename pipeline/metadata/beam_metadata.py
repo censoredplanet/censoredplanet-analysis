@@ -68,15 +68,11 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
     value: A two-element dict
       {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing IpMetadata
                ROWS_PCOLLECION_NAME: Many element list containing Rows}
-      where ipmetadata is a dict of the format {column_name, value}
-       ('netblock': '1.0.0.1/24', 'asn': 13335, 'as_name': 'CLOUDFLARENET', ...)
-      and row is a dict of the format {column_name, value}
-       ('domain': 'test.com', 'ip': '1.1.1.1', 'success': true ...)
     rows_pcollection_name: default ROWS_PCOLLECION_NAME
       set if joining a pcollection with a different name
 
   Yields:
-    row dict {column_name, value} containing both row and metadata cols/values
+    Rows containing both row and metadata cols/values
   """
   # pyformat: enable
   if value[IP_METADATA_PCOLLECTION_NAME]:
@@ -137,42 +133,44 @@ def merge_tagged_answers_with_rows(
                              list containing tagged answer rows
       }
       ex:
-        {ROWS_PCOLLECION_NAME: [{
-            'ip': '1.2.3.4'
-            'domain': 'ex.com'
-            'received' : [{
-                'ip': '4.5.6.7'
-              }, {
-                'ip': '5.6.7.8'
+        {ROWS_PCOLLECION_NAME: [SatelliteRow(
+            ip='1.2.3.4'
+            domain='ex.com'
+            date
+            received=[SatelliteAnswer(
+                'ip='4.5.6.7'
+              }, SatelliteAnswer(
+                'ip='5.6.7.8'
               },
             ]
           }],
-         RECEIVED_IPS_PCOLLECTION_NAME: [[{
-            'ip': '4.5.6.7'
-            'asname': 'AMAZON-AES',
-            'asnum': 14618,
-          }, {
-            'ip': '5.6.7.8'
-            'asname': 'CLOUDFLARE',
-            'asnum': 13335,
-          }]]
+         RECEIVED_IPS_PCOLLECTION_NAME: [[
+           SatelliteAnswerMetadata(
+            ip='4.5.6.7'
+            asname='AMAZON-AES',
+            asnum=14618,
+          ), SatelliteAnswerMetadata(
+            ip='5.6.7.8'
+            asname='CLOUDFLARE',
+            asnum=13335,
+          )]]
         }
 
   Returns: The row with the tagged answers inserted
-    {
-      'ip': '1.2.3.4'
-      'domain': 'ex.com'
-      'received' : [{
-          'ip': '4.5.6.7'
-          'asname': 'AMAZON-AES',
-          'asnum': 14618,
-        }, {
-          'ip': '5.6.7.8'
-          'asname': 'CLOUDFLARE',
-          'asnum': 13335,
-        },
+    SatelliteRow(
+      ip='1.2.3.4'
+      domain='ex.com'
+      received=[SatelliteAnswer(
+          ip='4.5.6.7'
+          asname='AMAZON-AES',
+          asnum=14618,
+        ), SatelliteAnswer(
+          ip='5.6.7.8'
+          asname='CLOUDFLARE',
+          asnum=13335,
+        ),
       ]
-    }
+    )
   """
   row: SatelliteRow = value[ROWS_PCOLLECION_NAME][0]  # type: ignore
 
