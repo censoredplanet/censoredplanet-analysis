@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.flatten_base import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines

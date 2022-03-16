@@ -4,7 +4,7 @@ import logging
 
 from pipeline.metadata import caida_ip_metadata
 from pipeline.metadata import dbip
-from pipeline.metadata.flatten_base import IpMetadata
+from pipeline.metadata.schema import IpMetadata
 
 
 # pylint: disable=too-many-instance-attributes

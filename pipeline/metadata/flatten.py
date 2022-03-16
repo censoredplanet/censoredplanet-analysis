@@ -9,7 +9,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.flatten_base import Row
+from pipeline.metadata.schema import Row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT

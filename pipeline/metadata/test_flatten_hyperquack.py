@@ -2,7 +2,7 @@
 
 import unittest
 
-from pipeline.metadata.flatten_base import HyperquackRow
+from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 

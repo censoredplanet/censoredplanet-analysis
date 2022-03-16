@@ -3,7 +3,7 @@
 import unittest
 
 from pipeline.metadata import flatten
-from pipeline.metadata.flatten_base import HyperquackRow, SatelliteRow, SatelliteAnswer
+from pipeline.metadata.schema import HyperquackRow, SatelliteRow, SatelliteAnswer
 
 
 class FlattenMeasurementTest(unittest.TestCase):

@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from pipeline.metadata.flatten_base import SatelliteRow, SatelliteAnswer, BlockpageRow
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 

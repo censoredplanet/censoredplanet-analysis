@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.flatten_base import Row, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata
+from pipeline.metadata.schema import Row, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')

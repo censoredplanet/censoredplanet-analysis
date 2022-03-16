@@ -30,7 +30,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.flatten_base import Row, IpMetadata
+from pipeline.metadata.schema import Row, IpMetadata, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -59,88 +59,6 @@ SCAN_FILES = ['results.json']
 # An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
 EMPTY_GZIPPED_FILE_SIZE = 33
 
-# key: (type, mode)
-BASE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
-    'domain': ('string', 'nullable'),
-    'category': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
-    'date': ('date', 'nullable'),
-    'start_time': ('timestamp', 'nullable'),
-    'end_time': ('timestamp', 'nullable'),
-    'error': ('string', 'nullable'),
-    'anomaly': ('boolean', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'is_control': ('boolean', 'nullable'),
-    'controls_failed': ('boolean', 'nullable'),
-    'measurement_id': ('string', 'nullable'),
-    'source': ('string', 'nullable'),
-
-    # Columns added from CAIDA data
-    'netblock': ('string', 'nullable'),
-    'asn': ('integer', 'nullable'),
-    'as_name': ('string', 'nullable'),
-    'as_full_name': ('string', 'nullable'),
-    'as_class': ('string', 'nullable'),
-    'country': ('string', 'nullable'),
-    # Columns from DBIP
-    'organization': ('string', 'nullable'),
-}
-# Future fields
-"""
-    'as_traffic': ('integer', 'nullable'),
-"""
-
-
-def _add_schemas(schema_a: Dict[str, Any],
-                 schema_b: Dict[str, Any]) -> Dict[str, Any]:
-  """Add two bigquery schemas together."""
-  full_schema: Dict[str, Any] = {}
-  full_schema.update(schema_a)
-  full_schema.update(schema_b)
-  return full_schema
-
-
-HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'blockpage': ('boolean', 'nullable'),
-        'page_signature': ('string', 'nullable'),
-        'stateful_block': ('boolean', 'nullable'),
-
-        # Column filled in all tables
-        'received_status': ('string', 'nullable'),
-        # Columns filled only in HTTP/HTTPS tables
-        'received_body': ('string', 'nullable'),
-        'received_headers': ('string', 'repeated'),
-        # Columns filled only in HTTPS tables
-        'received_tls_version': ('integer', 'nullable'),
-        'received_tls_cipher_suite': ('integer', 'nullable'),
-        'received_tls_cert': ('string', 'nullable'),
-    })
-
-SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA, {
-        'name': ('string', 'nullable'),
-        'is_control_ip': ('boolean', 'nullable'),
-        'received': ('record', 'repeated', {
-            'ip': ('string', 'nullable'),
-            'asnum': ('integer', 'nullable'),
-            'asname': ('string', 'nullable'),
-            'http': ('string', 'nullable'),
-            'cert': ('string', 'nullable'),
-            'matches_control': ('string', 'nullable')
-        }),
-        'rcode': ('integer', 'nullable'),
-        'average_confidence': ('float', 'nullable'),
-        'matches_confidence': ('float', 'repeated'),
-        'untagged_controls': ('boolean', 'nullable'),
-        'untagged_response': ('boolean', 'nullable'),
-        'excluded': ('boolean', 'nullable'),
-        'exclude_reason': ('string', 'nullable'),
-        'has_type_a': ('boolean', 'nullable')
-    })
-
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
@@ -153,7 +71,7 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
     A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
   """
   if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-    return satellite.BLOCKPAGE_BIGQUERY_SCHEMA
+    return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == satellite.SCAN_TYPE_SATELLITE:
     return SATELLITE_BIGQUERY_SCHEMA
   # Otherwise Hyperquack

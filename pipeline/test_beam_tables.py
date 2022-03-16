@@ -21,7 +21,7 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.flatten_base import Row, IpMetadata
+from pipeline.metadata.schema import Row, IpMetadata
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import satellite
@@ -52,7 +52,7 @@ class PipelineMainTest(unittest.TestCase):
 
   def test_get_bigquery_schema_blockpage(self) -> None:
     blockpage_schema = beam_tables._get_bigquery_schema('blockpage')
-    self.assertEqual(blockpage_schema, satellite.BLOCKPAGE_BIGQUERY_SCHEMA)
+    self.assertEqual(blockpage_schema, beam_tables.BLOCKPAGE_BIGQUERY_SCHEMA)
 
   def test_get_beam_bigquery_schema(self) -> None:
     """Test making a bigquery schema for beam's table writing."""

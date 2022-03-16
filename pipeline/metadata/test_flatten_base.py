@@ -5,6 +5,7 @@ import unittest
 from pipeline.metadata.blockpage import BlockpageMatcher
 
 from pipeline.metadata import flatten_base
+from pipeline.metadata.schema import HyperquackRow
 
 
 class FlattenBaseTest(unittest.TestCase):
@@ -47,7 +48,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'
     }
 
-    expected = flatten_base.HyperquackRow(
+    expected = HyperquackRow(
         received_status = '403 Forbidden',
         received_body = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
         received_headers = [],
@@ -67,7 +68,7 @@ class FlattenBaseTest(unittest.TestCase):
         # No 'headers' field
     }
 
-    expected = flatten_base.HyperquackRow(
+    expected = HyperquackRow(
         received_status='403 Forbidden',
         received_body='<test-body>',
         received_headers=[],
@@ -86,7 +87,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head></title></head><body>test/body></html>'
     }
 
-    expected = flatten_base.HyperquackRow(
+    expected = HyperquackRow(
         received_status='521 Origin Down',
         received_body='<html><head></title></head><body>test/body></html>',
         received_headers=[],
@@ -107,7 +108,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head></title></head><body>test/body></html>'
     }
 
-    expected = flatten_base.HyperquackRow(
+    expected = HyperquackRow(
         received_status='403 Forbidden',
         received_body='<html><head></title></head><body>test/body></html>',
         received_headers=['Server: Barracuda/NGFirewall'],
@@ -142,7 +143,7 @@ class FlattenBaseTest(unittest.TestCase):
         }
     }
 
-    expected = flatten_base.HyperquackRow(
+    expected = HyperquackRow(
         received_status = '403 Forbidden',
         received_body = '<HTML><HEAD>\n<TITLE>Access Denied</TITLE>\n</HEAD><BODY>\n<H1>Access Denied</H1>\n \nYou don\'t have permission to access "discover.com" on this server.<P>\nReference 18b535dd581604694259a71c660\n</BODY>\n</HTML>\n',
         received_tls_version = 771,

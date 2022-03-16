@@ -13,7 +13,7 @@ import uuid
 import apache_beam as beam
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows
-from pipeline.metadata.flatten_base import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata, BlockpageRow
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata, BlockpageRow
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -59,30 +59,6 @@ SATELLITE_OBSERVATION_FILES = [
 SATELLITE_FILES = (
     SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
     SATELLITE_OBSERVATION_FILES)
-
-BLOCKPAGE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
-    'domain': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
-    'date': ('date', 'nullable'),
-    'start_time': ('timestamp', 'nullable'),
-    'end_time': ('timestamp', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'https': ('boolean', 'nullable'),
-    'source': ('string', 'nullable'),
-    'blockpage': ('boolean', 'nullable'),
-    'page_signature': ('string', 'nullable'),
-
-    # Column filled in all tables
-    'received_status': ('string', 'nullable'),
-    # Columns filled only in HTTP/HTTPS tables
-    'received_body': ('string', 'nullable'),
-    'received_headers': ('string', 'repeated'),
-    # Columns filled only in HTTPS tables
-    'received_tls_version': ('integer', 'nullable'),
-    'received_tls_cipher_suite': ('integer', 'nullable'),
-    'received_tls_cert': ('string', 'nullable'),
-}
 
 # A key containing a date and Domain
 # ex: ("2020-01-01", 'example.com')

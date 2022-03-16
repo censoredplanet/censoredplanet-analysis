@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 import unittest
 
 from pipeline.metadata import beam_metadata
-from pipeline.metadata.flatten_base import Row, IpMetadata
+from pipeline.metadata.schema import Row, IpMetadata
 
 
 class BeamMetadataTest(unittest.TestCase):

@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Iterator, List, Tuple
 import apache_beam as beam
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.flatten_base import SatelliteRow, BlockpageRow, SatelliteAnswer
+from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
