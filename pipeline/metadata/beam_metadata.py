@@ -23,40 +23,6 @@ def make_date_ip_key(
   return (tag.date or '', tag.ip or '')
 
 
-def _add_tag_to_answer(answer: SatelliteAnswer,
-                       tag: SatelliteAnswerMetadata) -> None:
-  if tag.asnum:
-    answer.asnum = tag.asnum
-  if tag.asname:
-    answer.asname = tag.asname
-  if tag.http:
-    answer.http = tag.http
-  if tag.cert:
-    answer.cert = tag.cert
-  if tag.matches_control:
-    answer.matches_control = tag.matches_control
-
-
-def _add_metadata_to_row(row: Row, metadata: IpMetadata) -> None:
-  if metadata.netblock:
-    row.netblock = metadata.netblock
-  if metadata.asn:
-    row.asn = metadata.asn
-  if metadata.as_name:
-    row.as_name = metadata.as_name
-  if metadata.as_full_name:
-    row.as_full_name = metadata.as_full_name
-  if metadata.as_class:
-    row.as_class = metadata.as_class
-  if metadata.country:
-    row.country = metadata.country
-  if metadata.organization:
-    row.organization = metadata.organization
-
-  if isinstance(row, SatelliteRow) and metadata.name:
-    row.name = metadata.name
-
-
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey, value: Dict[str, Union[List[Row],
                                            List[IpMetadata]]]) -> Iterator[Row]:
@@ -85,7 +51,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   for row in rows:
     new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      _add_metadata_to_row(new_row, ip_metadata)
+      new_row.add_metadata_to_row(ip_metadata)
 
     yield new_row
 
@@ -115,7 +81,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
   for (roundtrip_id, answer) in received_ips:
     for tag in tags:
-      _add_tag_to_answer(answer, tag)
+      answer.add_tag_to_answer(tag)
     yield (roundtrip_id, answer)
 
 
@@ -184,5 +150,5 @@ def merge_tagged_answers_with_rows(
   for untagged_answer in row.received:
     for tags in tagged_answers:
       if tags.ip == untagged_answer.ip:
-        _add_tag_to_answer(untagged_answer, tags)
+        untagged_answer.add_tag_to_answer(tags)
   return row
