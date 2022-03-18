@@ -128,19 +128,7 @@ AS (
        LEFT JOIN UNNEST(received) as r
 );
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.satellite_scan_with_blockpages`
-PARTITION BY date
-CLUSTER BY country, asn
-AS (
-  SELECT a.*,
-         b.* except (domain, ip, date, start_time, end_time, success, source),
-         SAFE_CONVERT_BYTES_TO_STRING(FROM_BASE64(received_tls_cert)) as received_tls_cert_base64,
-         (STRPOS(FROM_BASE64(received_tls_cert), CAST(b.domain as bytes)) > 0
-          OR STRPOS(FROM_BASE64(received_tls_cert), CAST(CONCAT("*.", NET.REG_DOMAIN(b.domain)) as bytes)) > 0) as received_tls_cert_matches
-  FROM `firehook-censoredplanet.laplante.satellite_scan_left_joined` as a
-       LEFT JOIN `firehook-censoredplanet.laplante.satellite_blockpage_scan` as b
-       ON (a.date = b.date AND a.domain = b.domain AND a.received_ip = b.ip)
-);
+
 
 
 
