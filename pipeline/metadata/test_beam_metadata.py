@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 import unittest
 
 from pipeline.metadata import beam_metadata
-from pipeline.metadata.schema import Row, IpMetadata
+from pipeline.metadata.schema import BigqueryRow, IpMetadata
 
 
 class BeamMetadataTest(unittest.TestCase):
@@ -24,24 +24,24 @@ class BeamMetadataTest(unittest.TestCase):
         country='US',
     )
     rows = [
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-01',
         ),
-        Row(
+        BigqueryRow(
             domain='www.example2.com',
             ip='1.1.1.1',
             date='2020-01-01',
         )
     ]
-    value: Dict[str, Union[List[Row], List[IpMetadata]]] = {
+    value: Dict[str, Union[List[BigqueryRow], List[IpMetadata]]] = {
         beam_metadata.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
         beam_metadata.ROWS_PCOLLECION_NAME: rows
     }
 
     expected_rows = [
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-01',
@@ -52,7 +52,7 @@ class BeamMetadataTest(unittest.TestCase):
             as_class='Content',
             country='US',
         ),
-        Row(
+        BigqueryRow(
             domain='www.example2.com',
             ip='1.1.1.1',
             date='2020-01-01',

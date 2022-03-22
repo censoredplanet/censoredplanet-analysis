@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import Row, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata, add_metadata_to_row, add_tags_to_answer
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -18,14 +18,15 @@ RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 
 
 def make_date_ip_key(
-    tag: Union[IpMetadata, Row, SatelliteAnswerMetadata]) -> DateIpKey:
+    tag: Union[IpMetadata, BigqueryRow, SatelliteAnswerMetadata]) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
-    key: DateIpKey, value: Dict[str, Union[List[Row],
-                                           List[IpMetadata]]]) -> Iterator[Row]:
+    key: DateIpKey,
+    value: Dict[str, Union[List[BigqueryRow],
+                           List[IpMetadata]]]) -> Iterator[BigqueryRow]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
@@ -46,12 +47,12 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
         IP_METADATA_PCOLLECTION_NAME]  # type: ignore
   else:
     ip_metadatas = []
-  rows: List[Row] = value[ROWS_PCOLLECION_NAME]  # type: ignore
+  rows: List[BigqueryRow] = value[ROWS_PCOLLECION_NAME]  # type: ignore
 
   for row in rows:
     new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      new_row.add_metadata_to_row(ip_metadata)
+      add_metadata_to_row(new_row, ip_metadata)
 
     yield new_row
 
@@ -81,7 +82,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
   for (roundtrip_id, answer) in received_ips:
     for tag in tags:
-      answer.add_tag_to_answer(tag)
+      add_tags_to_answer(answer, tag)
     yield (roundtrip_id, answer)
 
 
@@ -150,5 +151,5 @@ def merge_tagged_answers_with_rows(
   for untagged_answer in row.received:
     for tags in tagged_answers:
       if tags.ip == untagged_answer.ip:
-        untagged_answer.add_tag_to_answer(tags)
+        add_tags_to_answer(untagged_answer, tags)
   return row

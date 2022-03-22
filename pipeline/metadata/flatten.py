@@ -9,7 +9,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.schema import Row
+from pipeline.metadata.schema import BigqueryRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
@@ -17,7 +17,7 @@ from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
 
 
 class FlattenMeasurement(beam.DoFn):
-  """DoFn class for flattening lines of json text into Rows."""
+  """DoFn class for flattening lines of json text into BigqueryRow."""
 
   def setup(self) -> None:
     blockpage_matcher = BlockpageMatcher()
@@ -29,8 +29,8 @@ class FlattenMeasurement(beam.DoFn):
                                                   category_matcher)
     #pylint: enable=attribute-defined-outside-init
 
-  def process(self, element: Tuple[str, str]) -> Iterator[Row]:
-    """Flatten a measurement string into several roundtrip Rows.
+  def process(self, element: Tuple[str, str]) -> Iterator[BigqueryRow]:
+    """Flatten a measurement string into several roundtrip BigqueryRow.
 
     Args:
       element: Tuple(filepath, line)
@@ -42,7 +42,7 @@ class FlattenMeasurement(beam.DoFn):
                     {'Success': false}]}
 
     Yields:
-      Row dicts containing individual roundtrip information
+      BigqueryRow dicts containing individual roundtrip information
       {'column_name': field_value}
       examples:
       {'domain': 'test.com', 'ip': '1.2.3.4', 'success': true}

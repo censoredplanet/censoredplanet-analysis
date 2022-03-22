@@ -6,7 +6,7 @@ import re
 from typing import Optional, Any, Iterator
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import HyperquackRow
+from pipeline.metadata.schema import HyperquackRow, add_received_to_row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -133,7 +133,7 @@ class HyperquackFlattener():
         received = result.get('Received', '')
         received_fields = flatten_base.parse_received_data(
             self.blockpage_matcher, received, scan['Blocked'])
-        row.update_received(received_fields)
+        add_received_to_row(row, received_fields)
 
       if 'Error' in result:
         row.error = result['Error']
@@ -180,7 +180,7 @@ class HyperquackFlattener():
         received = response.get('response', '')
         received_fields = flatten_base.parse_received_data(
             self.blockpage_matcher, received, scan['anomaly'])
-        row.update_received(received_fields)
+        add_received_to_row(row, received_fields)
 
       if 'error' in response:
         row.error = response['error']

@@ -30,7 +30,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import Row, IpMetadata, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
+from pipeline.metadata.schema import BigqueryRow, IpMetadata, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -273,7 +273,7 @@ def _raise_exception_if_zero(num: int) -> None:
 
 
 def _raise_error_if_collection_empty(
-    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection:
+    rows: beam.pvalue.PCollection[BigqueryRow]) -> beam.pvalue.PCollection:
   count_collection = (
       rows | "Count" >> beam.combiners.Count.Globally() |
       "Error if empty" >> beam.Map(_raise_exception_if_zero))
@@ -363,22 +363,23 @@ class ScanDataBeamPipelineRunner():
     return filtered_filenames
 
   def _add_metadata(
-      self, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+      self, rows: beam.pvalue.PCollection[BigqueryRow]
+  ) -> beam.pvalue.PCollection[BigqueryRow]:
     """Add ip metadata to a collection of roundtrip rows.
 
     Args:
-      rows: beam.PCollection[Row]
+      rows: beam.PCollection[BigqueryRow]
 
     Returns:
-      PCollection[Row]
+      PCollection[BigqueryRow]
       The same rows as above with with additional metadata columns added.
     """
 
-    # PCollection[Tuple[DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,BigqueryRow]]
     rows_keyed_by_ip_and_date = (
         rows | 'key by ips and dates' >>
         beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-            Tuple[DateIpKey, Row]))
+            Tuple[DateIpKey, BigqueryRow]))
 
     # PCollection[DateIpKey]
     # pylint: disable=no-value-for-parameter
@@ -402,16 +403,17 @@ class ScanDataBeamPipelineRunner():
             self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
                                                            IpMetadata]))
 
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row|IpMetadata]]]]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadata]]]]
     grouped_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
     }) | 'group by keys' >> beam.CoGroupByKey())
 
-    # PCollection[Row]
+    # PCollection[BigqueryRow]
     rows_with_metadata = (
-        grouped_metadata_and_rows | 'merge metadata with rows' >>
-        beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+        grouped_metadata_and_rows |
+        'merge metadata with rows' >> beam.FlatMapTuple(
+            merge_metadata_with_rows).with_output_types(BigqueryRow))
 
     return rows_with_metadata
 
@@ -437,14 +439,14 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[Row], table_name: str,
-                         incremental_load: bool) -> None:
+                         rows: beam.pvalue.PCollection[BigqueryRow],
+                         table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
         'satellite' or 'blockpage'
-      rows: PCollection[Row] of data to write.
+      rows: PCollection[BigqueryRow] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
       incremental_load: boolean. If true, only load the latest new data, if
@@ -549,7 +551,7 @@ class ScanDataBeamPipelineRunner():
         # PCollection[HyperquackRow]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
-                flatten.FlattenMeasurement()).with_output_types(Row))
+                flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
 
         # PCollection[HyperquackRow]
         rows_with_metadata = self._add_metadata(rows)

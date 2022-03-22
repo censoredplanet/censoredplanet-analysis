@@ -21,7 +21,7 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import Row, IpMetadata
+from pipeline.metadata.schema import BigqueryRow, IpMetadata
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import satellite
@@ -172,25 +172,25 @@ class PipelineMainTest(unittest.TestCase):
   def test_add_metadata(self) -> None:  # pylint: disable=no-self-use
     """Test adding IP metadata to mesurements."""
     rows = [
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
             date='2020-01-01',
             success=True,
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-01',
             success=False,
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
             date='2020-01-02',
             success=False,
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-02',
@@ -207,7 +207,7 @@ class PipelineMainTest(unittest.TestCase):
     rows_with_metadata = runner._add_metadata(rows)
 
     expected = [
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
             date='2020-01-01',
@@ -219,7 +219,7 @@ class PipelineMainTest(unittest.TestCase):
             as_class='Content',
             country='US',
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-01',
@@ -231,7 +231,7 @@ class PipelineMainTest(unittest.TestCase):
             as_class='Content',
             country='US',
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
             date='2020-01-02',
@@ -243,7 +243,7 @@ class PipelineMainTest(unittest.TestCase):
             as_class='Content',
             country='US',
         ),
-        Row(
+        BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-02',

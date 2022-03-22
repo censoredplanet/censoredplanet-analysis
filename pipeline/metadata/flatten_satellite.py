@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Iterator, List, Tuple
 import apache_beam as beam
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer
+from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer, add_received_to_row
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -512,12 +512,12 @@ class FlattenBlockpages(beam.DoFn):
     http_row.https = False
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('http', ''), True)
-    http_row.update_received(received_fields)
+    add_received_to_row(http_row, received_fields)
     yield http_row
 
     https_row = deepcopy(row)
     https_row.https = True
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('https', ''), True)
-    https_row.update_received(received_fields)
+    add_received_to_row(https_row, received_fields)
     yield https_row

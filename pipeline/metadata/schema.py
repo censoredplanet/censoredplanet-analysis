@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 # pylint: disable=too-many-instance-attributes
 
@@ -22,18 +22,20 @@ class SatelliteAnswer():
   cert: Optional[str] = None
   matches_control: Optional[str] = None
 
-  def add_tag_to_answer(self, tag: SatelliteAnswerMetadata) -> None:
-    """Add tag information to a Satellite answer"""
-    if tag.asnum is not None:
-      self.asnum = tag.asnum
-    if tag.asname is not None:
-      self.asname = tag.asname
-    if tag.http is not None:
-      self.http = tag.http
-    if tag.cert is not None:
-      self.cert = tag.cert
-    if tag.matches_control is not None:
-      self.matches_control = tag.matches_control
+
+def add_tags_to_answer(answer: SatelliteAnswer,
+                       tag: SatelliteAnswerMetadata) -> None:
+  """Add tag information to a Satellite answer"""
+  if tag.asnum is not None:
+    answer.asnum = tag.asnum
+  if tag.asname is not None:
+    answer.asname = tag.asname
+  if tag.http is not None:
+    answer.http = tag.http
+  if tag.cert is not None:
+    answer.cert = tag.cert
+  if tag.matches_control is not None:
+    answer.matches_control = tag.matches_control
 
 
 @dataclass
@@ -83,33 +85,10 @@ class ReceivedHttps:
   received_tls_cert: Optional[str] = None
   received_headers: List[str] = dataclasses.field(default_factory=list)
 
-  def update_received(self, new: ReceivedHttps) -> None:
-    """Imitation update method that matches the semantics of python's dict update
-
-    Both HyperquackRow and BlockpageRow use this method
-    to add in ReceivedHttps fields to themselves.
-    """
-    if new.blockpage is not None:
-      self.blockpage = new.blockpage
-    if new.page_signature is not None:
-      self.page_signature = new.page_signature
-    if new.received_status is not None:
-      self.received_status = new.received_status
-    if new.received_body is not None:
-      self.received_body = new.received_body
-    if new.received_tls_version is not None:
-      self.received_tls_version = new.received_tls_version
-    if new.received_tls_cipher_suite is not None:
-      self.received_tls_cipher_suite = new.received_tls_cipher_suite
-    if new.received_tls_cert is not None:
-      self.received_tls_cert = new.received_tls_cert
-    if new.received_headers != []:
-      self.received_headers = new.received_headers
-
 
 # All or part of a scan row to be written to bigquery
 @dataclass
-class Row:  # Corresponds to BASE_BIGQUERY_SCHEMA
+class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
   """Class for keeping track of row content"""
   domain: Optional[str] = None
   category: Optional[str] = None
@@ -134,32 +113,15 @@ class Row:  # Corresponds to BASE_BIGQUERY_SCHEMA
   country: Optional[str] = None
   organization: Optional[str] = None
 
-  def add_metadata_to_row(self, metadata: IpMetadata) -> None:
-    """Add metadata info to a Row."""
-    if metadata.netblock is not None:
-      self.netblock = metadata.netblock
-    if metadata.asn is not None:
-      self.asn = metadata.asn
-    if metadata.as_name is not None:
-      self.as_name = metadata.as_name
-    if metadata.as_full_name is not None:
-      self.as_full_name = metadata.as_full_name
-    if metadata.as_class is not None:
-      self.as_class = metadata.as_class
-    if metadata.country is not None:
-      self.country = metadata.country
-    if metadata.organization is not None:
-      self.organization = metadata.organization
-
 
 @dataclass
-class HyperquackRow(Row, ReceivedHttps):
+class HyperquackRow(BigqueryRow, ReceivedHttps):
   """Class for hyperquack specific fields"""
   stateful_block: Optional[bool] = None
 
 
 @dataclass
-class SatelliteRow(Row):
+class SatelliteRow(BigqueryRow):
   """Class for satellite specific fields"""
   rcode: Optional[int] = None
   name: Optional[str] = None
@@ -173,10 +135,26 @@ class SatelliteRow(Row):
   received: List[SatelliteAnswer] = dataclasses.field(default_factory=list)
   matches_confidence: List[float] = dataclasses.field(default_factory=list)
 
-  def add_metadata_to_row(self, metadata: IpMetadata) -> None:
-    Row.add_metadata_to_row(self, metadata)
-    if metadata.name:
-      self.name = metadata.name
+
+def add_metadata_to_row(row: BigqueryRow, metadata: IpMetadata) -> None:
+  """Add metadata info to a Row."""
+  if metadata.netblock is not None:
+    row.netblock = metadata.netblock
+  if metadata.asn is not None:
+    row.asn = metadata.asn
+  if metadata.as_name is not None:
+    row.as_name = metadata.as_name
+  if metadata.as_full_name is not None:
+    row.as_full_name = metadata.as_full_name
+  if metadata.as_class is not None:
+    row.as_class = metadata.as_class
+  if metadata.country is not None:
+    row.country = metadata.country
+  if metadata.organization is not None:
+    row.organization = metadata.organization
+
+  if isinstance(row, SatelliteRow) and metadata.name:
+    row.name = metadata.name
 
 
 @dataclass
@@ -190,6 +168,31 @@ class BlockpageRow(ReceivedHttps):
   success: Optional[bool] = None
   https: Optional[bool] = None
   source: Optional[str] = None
+
+
+def add_received_to_row(row: Union[HyperquackRow, BlockpageRow],
+                        https: ReceivedHttps) -> None:
+  """Imitation update method that matches the semantics of python's dict update
+
+  Both HyperquackRow and BlockpageRow use this method
+  to add in ReceivedHttps fields to themselves.
+  """
+  if https.blockpage is not None:
+    row.blockpage = https.blockpage
+  if https.page_signature is not None:
+    row.page_signature = https.page_signature
+  if https.received_status is not None:
+    row.received_status = https.received_status
+  if https.received_body is not None:
+    row.received_body = https.received_body
+  if https.received_tls_version is not None:
+    row.received_tls_version = https.received_tls_version
+  if https.received_tls_cipher_suite is not None:
+    row.received_tls_cipher_suite = https.received_tls_cipher_suite
+  if https.received_tls_cert is not None:
+    row.received_tls_cert = https.received_tls_cert
+  if https.received_headers != []:
+    row.received_headers = https.received_headers
 
 
 # key: (type, mode)
