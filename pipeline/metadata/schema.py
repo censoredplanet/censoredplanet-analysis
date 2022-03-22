@@ -109,7 +109,7 @@ class ReceivedHttps:
 
 # All or part of a scan row to be written to bigquery
 @dataclass
-class Row:  # Corrosponds to BASE_BIGQUERY_SCHEMA
+class Row:  # Corresponds to BASE_BIGQUERY_SCHEMA
   """Class for keeping track of row content"""
   domain: Optional[str] = None
   category: Optional[str] = None
