@@ -15,6 +15,9 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
 from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
 
+# Randomly chosen UUID used as a namespace for generating further UUIDs
+CENSORED_PLANET_NAMESPACE = uuid.UUID('23fd299b-6547-4dca-b630-cb05dec70e0e')
+
 
 class FlattenMeasurement(beam.DoFn):
   """DoFn class for flattening lines of json text into BigqueryRow."""
@@ -59,11 +62,11 @@ class FlattenMeasurement(beam.DoFn):
       return
 
     # Add a unique id per-measurement so single retry rows can be reassembled
-    random_measurement_id = uuid.uuid4().hex
+    measurement_id = uuid.uuid5(CENSORED_PLANET_NAMESPACE, filename + line).hex
 
     if SATELLITE_PATH_COMPONENT in filename:
       yield from self.satellite_flattener.process_satellite(
-          filename, scan, random_measurement_id)
+          filename, scan, measurement_id)
     else:
       yield from self.hyperquack_flattener.process_hyperquack(
-          filename, scan, random_measurement_id)
+          filename, scan, measurement_id)
