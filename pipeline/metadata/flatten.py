@@ -15,8 +15,8 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
 from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
 
-# Randomly chosen UUID used as a namespace for generating further UUIDs
-CENSORED_PLANET_NAMESPACE = uuid.UUID('23fd299b-6547-4dca-b630-cb05dec70e0e')
+#  UUID used as a namespace for generating further UUIDs
+CENSORED_PLANET_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "censoredplanet.org")
 
 
 class FlattenMeasurement(beam.DoFn):
