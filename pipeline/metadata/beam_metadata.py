@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata, add_metadata_to_row, add_tags_to_answer
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata, merge_ip_metadata, merge_satellite_tags
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -52,8 +52,10 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   for row in rows:
     new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      add_metadata_to_row(new_row, ip_metadata)
-
+      if new_row.ip_metadata:
+        merge_ip_metadata(new_row.ip_metadata, ip_metadata)
+      else:
+        new_row.ip_metadata = ip_metadata
     yield new_row
 
 
@@ -82,7 +84,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
   for (roundtrip_id, answer) in received_ips:
     for tag in tags:
-      add_tags_to_answer(answer, tag)
+      merge_satellite_tags(answer, tag)
     yield (roundtrip_id, answer)
 
 
@@ -151,5 +153,5 @@ def merge_tagged_answers_with_rows(
   for untagged_answer in row.received:
     for tags in tagged_answers:
       if tags.ip == untagged_answer.ip:
-        add_tags_to_answer(untagged_answer, tags)
+        merge_satellite_tags(untagged_answer, tags)
   return row

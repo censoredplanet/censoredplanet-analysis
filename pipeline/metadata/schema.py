@@ -23,21 +23,6 @@ class SatelliteAnswer():
   matches_control: Optional[str] = None
 
 
-def add_tags_to_answer(answer: SatelliteAnswer,
-                       tag: SatelliteAnswerMetadata) -> None:
-  """Add tag information to a Satellite answer"""
-  if tag.asnum is not None:
-    answer.asnum = tag.asnum
-  if tag.asname is not None:
-    answer.asname = tag.asname
-  if tag.http is not None:
-    answer.http = tag.http
-  if tag.cert is not None:
-    answer.cert = tag.cert
-  if tag.matches_control is not None:
-    answer.matches_control = tag.matches_control
-
-
 @dataclass
 class SatelliteAnswerMetadata(SatelliteAnswer):
   """Satellite Answer Metadata.
@@ -48,6 +33,21 @@ class SatelliteAnswerMetadata(SatelliteAnswer):
   we don't include that field since it's redundant.
   """
   date: str = ''
+
+
+def merge_satellite_tags(answer: SatelliteAnswer,
+                         tags: SatelliteAnswerMetadata) -> None:
+  """Add tag information to a Satellite answer"""
+  if tags.asnum is not None:
+    answer.asnum = tags.asnum
+  if tags.asname is not None:
+    answer.asname = tags.asname
+  if tags.http is not None:
+    answer.http = tags.http
+  if tags.cert is not None:
+    answer.cert = tags.cert
+  if tags.matches_control is not None:
+    answer.matches_control = tags.matches_control
 
 
 @dataclass
@@ -66,6 +66,23 @@ class IpMetadata():
   organization: Optional[str] = None
   # Satellite Metadata
   name: Optional[str] = None
+
+def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
+  """Merge metadata info into an existing metadata."""
+  if new.netblock is not None:
+    base.netblock = new.netblock
+  if new.asn is not None:
+    base.asn = new.asn
+  if new.as_name is not None:
+    base.as_name = new.as_name
+  if new.as_full_name is not None:
+    base.as_full_name = new.as_full_name
+  if new.as_class is not None:
+    base.as_class = new.as_class
+  if new.country is not None:
+    base.country = new.country
+  if new.organization is not None:
+    base.organization = new.organization
 
 
 @dataclass
@@ -104,19 +121,13 @@ class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
   measurement_id: Optional[str] = None
   source: Optional[str] = None
 
-  # Metadata
-  netblock: Optional[str] = None
-  asn: Optional[int] = None
-  as_name: Optional[str] = None
-  as_full_name: Optional[str] = None
-  as_class: Optional[str] = None
-  country: Optional[str] = None
-  organization: Optional[str] = None
+  ip_metadata: Optional[IpMetadata] = None
 
 
 @dataclass
-class HyperquackRow(BigqueryRow, ReceivedHttps):
+class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
+  received_https: Optional[ReceivedHttps] = None
   stateful_block: Optional[bool] = None
 
 
@@ -136,30 +147,11 @@ class SatelliteRow(BigqueryRow):
   matches_confidence: List[float] = dataclasses.field(default_factory=list)
 
 
-def add_metadata_to_row(row: BigqueryRow, metadata: IpMetadata) -> None:
-  """Add metadata info to a Row."""
-  if metadata.netblock is not None:
-    row.netblock = metadata.netblock
-  if metadata.asn is not None:
-    row.asn = metadata.asn
-  if metadata.as_name is not None:
-    row.as_name = metadata.as_name
-  if metadata.as_full_name is not None:
-    row.as_full_name = metadata.as_full_name
-  if metadata.as_class is not None:
-    row.as_class = metadata.as_class
-  if metadata.country is not None:
-    row.country = metadata.country
-  if metadata.organization is not None:
-    row.organization = metadata.organization
-
-  if isinstance(row, SatelliteRow) and metadata.name:
-    row.name = metadata.name
-
-
 @dataclass
 class BlockpageRow(ReceivedHttps):
   """Class for blockpage specific fields"""
+  received_https: Optional[ReceivedHttps] = None
+
   domain: Optional[str] = None
   ip: Optional[str] = None
   date: Optional[str] = None
@@ -168,31 +160,6 @@ class BlockpageRow(ReceivedHttps):
   success: Optional[bool] = None
   https: Optional[bool] = None
   source: Optional[str] = None
-
-
-def add_received_to_row(row: Union[HyperquackRow, BlockpageRow],
-                        https: ReceivedHttps) -> None:
-  """Imitation update method that matches the semantics of python's dict update
-
-  Both HyperquackRow and BlockpageRow use this method
-  to add in ReceivedHttps fields to themselves.
-  """
-  if https.blockpage is not None:
-    row.blockpage = https.blockpage
-  if https.page_signature is not None:
-    row.page_signature = https.page_signature
-  if https.received_status is not None:
-    row.received_status = https.received_status
-  if https.received_body is not None:
-    row.received_body = https.received_body
-  if https.received_tls_version is not None:
-    row.received_tls_version = https.received_tls_version
-  if https.received_tls_cipher_suite is not None:
-    row.received_tls_cipher_suite = https.received_tls_cipher_suite
-  if https.received_tls_cert is not None:
-    row.received_tls_cert = https.received_tls_cert
-  if https.received_headers != []:
-    row.received_headers = https.received_headers
 
 
 # key: (type, mode)
