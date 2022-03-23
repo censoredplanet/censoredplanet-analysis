@@ -19,7 +19,7 @@ import datetime
 import logging
 import pathlib
 import re
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
@@ -29,7 +29,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.flatten import Row
+from pipeline.metadata.schema import BigqueryRow, BlockpageRow, IpMetadataWithKeys, flatten_for_bigquery, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -58,88 +58,6 @@ SCAN_FILES = ['results.json']
 # An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
 EMPTY_GZIPPED_FILE_SIZE = 33
 
-# key: (type, mode)
-BASE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
-    'domain': ('string', 'nullable'),
-    'category': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
-    'date': ('date', 'nullable'),
-    'start_time': ('timestamp', 'nullable'),
-    'end_time': ('timestamp', 'nullable'),
-    'error': ('string', 'nullable'),
-    'anomaly': ('boolean', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'is_control': ('boolean', 'nullable'),
-    'controls_failed': ('boolean', 'nullable'),
-    'measurement_id': ('string', 'nullable'),
-    'source': ('string', 'nullable'),
-
-    # Columns added from CAIDA data
-    'netblock': ('string', 'nullable'),
-    'asn': ('integer', 'nullable'),
-    'as_name': ('string', 'nullable'),
-    'as_full_name': ('string', 'nullable'),
-    'as_class': ('string', 'nullable'),
-    'country': ('string', 'nullable'),
-    # Columns from DBIP
-    'organization': ('string', 'nullable'),
-}
-# Future fields
-"""
-    'as_traffic': ('integer', 'nullable'),
-"""
-
-
-def _add_schemas(schema_a: Dict[str, Any],
-                 schema_b: Dict[str, Any]) -> Dict[str, Any]:
-  """Add two bigquery schemas together."""
-  full_schema: Dict[str, Any] = {}
-  full_schema.update(schema_a)
-  full_schema.update(schema_b)
-  return full_schema
-
-
-HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'blockpage': ('boolean', 'nullable'),
-        'page_signature': ('string', 'nullable'),
-        'stateful_block': ('boolean', 'nullable'),
-
-        # Column filled in all tables
-        'received_status': ('string', 'nullable'),
-        # Columns filled only in HTTP/HTTPS tables
-        'received_body': ('string', 'nullable'),
-        'received_headers': ('string', 'repeated'),
-        # Columns filled only in HTTPS tables
-        'received_tls_version': ('integer', 'nullable'),
-        'received_tls_cipher_suite': ('integer', 'nullable'),
-        'received_tls_cert': ('string', 'nullable'),
-    })
-
-SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA, {
-        'name': ('string', 'nullable'),
-        'is_control_ip': ('boolean', 'nullable'),
-        'received': ('record', 'repeated', {
-            'ip': ('string', 'nullable'),
-            'asnum': ('integer', 'nullable'),
-            'asname': ('string', 'nullable'),
-            'http': ('string', 'nullable'),
-            'cert': ('string', 'nullable'),
-            'matches_control': ('string', 'nullable')
-        }),
-        'rcode': ('integer', 'nullable'),
-        'average_confidence': ('float', 'nullable'),
-        'matches_confidence': ('float', 'repeated'),
-        'untagged_controls': ('boolean', 'nullable'),
-        'untagged_response': ('boolean', 'nullable'),
-        'excluded': ('boolean', 'nullable'),
-        'exclude_reason': ('string', 'nullable'),
-        'has_type_a': ('boolean', 'nullable')
-    })
-
 
 def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
@@ -152,7 +70,7 @@ def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
     A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
   """
   if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-    return satellite.BLOCKPAGE_BIGQUERY_SCHEMA
+    return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == satellite.SCAN_TYPE_SATELLITE:
     return SATELLITE_BIGQUERY_SCHEMA
   # Otherwise Hyperquack
@@ -354,7 +272,7 @@ def _raise_exception_if_zero(num: int) -> None:
 
 
 def _raise_error_if_collection_empty(
-    rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection:
+    rows: beam.pvalue.PCollection[BigqueryRow]) -> beam.pvalue.PCollection:
   count_collection = (
       rows | "Count" >> beam.combiners.Count.Globally() |
       "Error if empty" >> beam.Map(_raise_exception_if_zero))
@@ -444,22 +362,23 @@ class ScanDataBeamPipelineRunner():
     return filtered_filenames
 
   def _add_metadata(
-      self, rows: beam.pvalue.PCollection[Row]) -> beam.pvalue.PCollection[Row]:
+      self, rows: beam.pvalue.PCollection[BigqueryRow]
+  ) -> beam.pvalue.PCollection[BigqueryRow]:
     """Add ip metadata to a collection of roundtrip rows.
 
     Args:
-      rows: beam.PCollection[Row]
+      rows: beam.PCollection[BigqueryRow]
 
     Returns:
-      PCollection[Row]
+      PCollection[BigqueryRow]
       The same rows as above with with additional metadata columns added.
     """
 
-    # PCollection[Tuple[DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,BigqueryRow]]
     rows_keyed_by_ip_and_date = (
         rows | 'key by ips and dates' >>
         beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-            Tuple[DateIpKey, Row]))
+            Tuple[DateIpKey, BigqueryRow]))
 
     # PCollection[DateIpKey]
     # pylint: disable=no-value-for-parameter
@@ -477,26 +396,29 @@ class ScanDataBeamPipelineRunner():
         deduped_ips_and_dates | 'group by date' >>
         beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
 
-    # PCollection[Tuple[DateIpKey,Row]]
+    # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
     ips_with_metadata = (
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
-            self._add_ip_metadata).with_output_types(Tuple[DateIpKey, Row]))
+            self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
+                                                           IpMetadataWithKeys]))
 
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[Row]]]]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadataWithKeys]]]]
     grouped_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
     }) | 'group by keys' >> beam.CoGroupByKey())
 
-    # PCollection[Row]
+    # PCollection[BigqueryRow]
     rows_with_metadata = (
-        grouped_metadata_and_rows | 'merge metadata with rows' >>
-        beam.FlatMapTuple(merge_metadata_with_rows).with_output_types(Row))
+        grouped_metadata_and_rows |
+        'merge metadata with rows' >> beam.FlatMapTuple(
+            merge_metadata_with_rows).with_output_types(BigqueryRow))
 
     return rows_with_metadata
 
-  def _add_ip_metadata(self, date: str,
-                       ips: List[str]) -> Iterator[Tuple[DateIpKey, Row]]:
+  def _add_ip_metadata(
+      self, date: str,
+      ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadataWithKeys]]:
     """Add Autonymous System metadata for ips in the given rows.
 
     Args:
@@ -504,8 +426,7 @@ class ScanDataBeamPipelineRunner():
       ips: a list of ips
 
     Yields:
-      Tuples (DateIpKey, metadata_dict)
-      where metadata_dict is a row Dict[column_name, values]
+      Tuples (DateIpKey, IpMetadataWithKeys)
     """
     ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(
         datetime.date.fromisoformat(date))
@@ -517,14 +438,15 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[Row], table_name: str,
-                         incremental_load: bool) -> None:
+                         rows: beam.pvalue.PCollection[Union[BigqueryRow,
+                                                             BlockpageRow]],
+                         table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
         'satellite' or 'blockpage'
-      rows: PCollection[Row] of data to write.
+      rows: PCollection[BigqueryRow] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
       incremental_load: boolean. If true, only load the latest new data, if
@@ -540,7 +462,12 @@ class ScanDataBeamPipelineRunner():
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
 
-    (rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
+    # Pcollection[Dict[str, Any]]
+    dict_rows = (
+        rows | f'dataclass to dicts {scan_type}' >>
+        beam.Map(flatten_for_bigquery).with_output_types(Dict[str, Any]))
+
+    (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
         schema=schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
@@ -609,11 +536,11 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        # PCollection[Row], PCollection[Row]
+        # PCollection[SatelliteRow], PCollection[BlockpageRow]
         satellite_rows, blockpage_rows = satellite.process_satellite_lines(
             lines)
 
-        # PCollection[Row]
+        # PCollection[SatelliteRow]
         rows_with_metadata = self._add_metadata(satellite_rows)
 
         self._write_to_bigquery(
@@ -621,12 +548,12 @@ class ScanDataBeamPipelineRunner():
             satellite.get_blockpage_table_name(table_name, scan_type),
             incremental_load)
       else:  # Hyperquack scans
-        # PCollection[Row]
+        # PCollection[HyperquackRow]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
-                flatten.FlattenMeasurement()).with_output_types(Row))
+                flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
 
-        # PCollection[Row]
+        # PCollection[HyperquackRow]
         rows_with_metadata = self._add_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)

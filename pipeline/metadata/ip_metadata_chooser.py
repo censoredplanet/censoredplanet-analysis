@@ -4,14 +4,15 @@ import logging
 
 from pipeline.metadata import caida_ip_metadata
 from pipeline.metadata import dbip
-from pipeline.metadata.flatten import Row
+from pipeline.metadata.schema import IpMetadataWithKeys
 
 
 # pylint: disable=too-many-instance-attributes
 class IpMetadataChooser():
   """Business logic for selecting IP metadata values from a number of sources"""
 
-  def __init__(self, caida_db: caida_ip_metadata.CaidaIpMetadata,
+  def __init__(self, date: datetime.date,
+               caida_db: caida_ip_metadata.CaidaIpMetadata,
                dbip_db: dbip.DbipMetadata) -> None:
     """Store all metadata sources for future querying
 
@@ -19,22 +20,25 @@ class IpMetadataChooser():
       caida: CAIDA database
       dbip: dbip database
     """
+    self.date = date
     self.caida = caida_db
     self.dbip = dbip_db
 
-  def get_metadata(self, ip: str) -> Row:
+  def get_metadata(self, ip: str) -> IpMetadataWithKeys:
     """Pick which metadata values to return for an IP from our sources."""
     try:
       (netblock, asn, as_name, as_full_name, as_type,
        country) = self.caida.lookup(ip)
-      metadata_values = {
-          'netblock': netblock,
-          'asn': asn,
-          'as_name': as_name,
-          'as_full_name': as_full_name,
-          'as_class': as_type,
-          'country': country,
-      }
+      metadata_values = IpMetadataWithKeys(
+          ip=ip,
+          date=self.date.isoformat(),
+          netblock=netblock,
+          asn=asn,
+          as_name=as_name,
+          as_full_name=as_full_name,
+          as_class=as_type,
+          country=country,
+      )
 
       (org, dbip_asn) = self.dbip.lookup(ip)
       if org and asn == dbip_asn:
@@ -42,7 +46,7 @@ class IpMetadataChooser():
         # which becomes less accurate for past data
         # we're doing the simple thing here and only including organization info
         # if the AS from dbip matches the AS from CAIDA
-        metadata_values['organization'] = org
+        metadata_values.organization = org
 
       # Turning off maxmind data for now.
       # if not metadata_values['country']:  # try Maxmind
@@ -51,7 +55,8 @@ class IpMetadataChooser():
       #   metadata_values['country'] = country
     except KeyError as e:
       logging.warning('KeyError: %s\n', e)
-      metadata_values = {}  # values are missing, but entry should still exist
+      metadata_values = IpMetadataWithKeys(ip=ip, date=self.date.isoformat())
+      # metadata values are missing, but entry should still exist
 
     return metadata_values
 
@@ -75,7 +80,7 @@ class IpMetadataChooserFactory():
     # maxmind = maxmind.MaxmindIpMetadata(self.maxmind_file_location)
     dbip_db = dbip.DbipMetadata(self.dbip_file_location)
 
-    return IpMetadataChooser(caida_db, dbip_db)
+    return IpMetadataChooser(date, caida_db, dbip_db)
 
 
 class FakeIpMetadataChooserFactory(IpMetadataChooserFactory):
@@ -85,5 +90,5 @@ class FakeIpMetadataChooserFactory(IpMetadataChooserFactory):
     pass
 
   def make_chooser(self, date: datetime.date) -> IpMetadataChooser:
-    return IpMetadataChooser(caida_ip_metadata.FakeCaidaIpMetadata(),
+    return IpMetadataChooser(date, caida_ip_metadata.FakeCaidaIpMetadata(),
                              dbip.FakeDbipMetadata())

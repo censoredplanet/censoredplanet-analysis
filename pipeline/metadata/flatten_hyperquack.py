@@ -6,7 +6,7 @@ import re
 from typing import Optional, Any, Iterator
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.flatten_base import Row
+from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -62,7 +62,7 @@ class HyperquackFlattener():
     self.category_matcher = category_matcher
 
   def process_hyperquack(self, filename: str, scan: Any,
-                         random_measurement_id: str) -> Iterator[Row]:
+                         random_measurement_id: str) -> Iterator[HyperquackRow]:
     """Process a line of Echo/Discard/HTTP/S data.
 
     Args:
@@ -82,8 +82,9 @@ class HyperquackFlattener():
     else:
       raise Exception(f"Line with unknown hyperquack format:\n{scan}")
 
-  def _process_hyperquack_v1(self, filename: str, scan: Any,
-                             random_measurement_id: str) -> Iterator[Row]:
+  def _process_hyperquack_v1(
+      self, filename: str, scan: Any,
+      random_measurement_id: str) -> Iterator[HyperquackRow]:
     """Process a line of Echo/Discard/HTTP/S data in HyperQuack V1 format.
 
     https://github.com/censoredplanet/censoredplanet/blob/master/docs/hyperquackv1.rst
@@ -113,35 +114,35 @@ class HyperquackFlattener():
       else:
         domain = sent_domain
 
-      row = {
-          'domain': domain,
-          'category': self.category_matcher.get_category(domain, is_control),
-          'ip': scan['Server'],
-          'date': date,
-          'start_time': result['StartTime'],
-          'end_time': result['EndTime'],
-          'anomaly': scan['Blocked'],
-          'success': result['Success'],
-          'stateful_block': scan['StatefulBlock'],
-          'is_control': is_control,
-          'controls_failed': scan['FailSanity'],
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
-      }
+      row = HyperquackRow(
+          domain=domain,
+          category=self.category_matcher.get_category(domain, is_control),
+          ip=scan['Server'],
+          date=date,
+          start_time=result['StartTime'],
+          end_time=result['EndTime'],
+          anomaly=scan['Blocked'],
+          success=result['Success'],
+          stateful_block=scan['StatefulBlock'],
+          is_control=is_control,
+          controls_failed=scan['FailSanity'],
+          measurement_id=random_measurement_id,
+          source=flatten_base.source_from_filename(filename))
 
       if 'Received' in result:
         received = result.get('Received', '')
         received_fields = flatten_base.parse_received_data(
             self.blockpage_matcher, received, scan['Blocked'])
-        row.update(received_fields)
+        row.received = received_fields
 
       if 'Error' in result:
-        row['error'] = result['Error']
+        row.error = result['Error']
 
       yield row
 
-  def _process_hyperquack_v2(self, filename: str, scan: Any,
-                             random_measurement_id: str) -> Iterator[Row]:
+  def _process_hyperquack_v2(
+      self, filename: str, scan: Any,
+      random_measurement_id: str) -> Iterator[HyperquackRow]:
     """Process a line of Echo/Discard/HTTP/S data in HyperQuack V2 format.
 
     https://github.com/censoredplanet/censoredplanet/blob/master/docs/hyperquackv2.rst
@@ -159,29 +160,29 @@ class HyperquackFlattener():
       domain: str = response.get('control_url', scan['test_url'])
       is_control = 'control_url' in response
 
-      row = {
-          'domain': domain,
-          'category': self.category_matcher.get_category(domain, is_control),
-          'ip': scan['vp'],
-          'date': date,
-          'start_time': response['start_time'],
-          'end_time': response['end_time'],
-          'anomaly': scan['anomaly'],
-          'success': response['matches_template'],
-          'stateful_block': scan['stateful_block'],
-          'is_control': is_control,
-          'controls_failed': scan.get('controls_failed', None),
-          'measurement_id': random_measurement_id,
-          'source': flatten_base.source_from_filename(filename),
-      }
+      row = HyperquackRow(
+          domain=domain,
+          category=self.category_matcher.get_category(domain, is_control),
+          ip=scan['vp'],
+          date=date,
+          start_time=response['start_time'],
+          end_time=response['end_time'],
+          anomaly=scan['anomaly'],
+          success=response['matches_template'],
+          stateful_block=scan['stateful_block'],
+          is_control=is_control,
+          controls_failed=scan.get('controls_failed', None),
+          measurement_id=random_measurement_id,
+          source=flatten_base.source_from_filename(filename),
+      )
 
       if 'response' in response:
         received = response.get('response', '')
         received_fields = flatten_base.parse_received_data(
             self.blockpage_matcher, received, scan['anomaly'])
-        row.update(received_fields)
+        row.received = received_fields
 
       if 'error' in response:
-        row['error'] = response['error']
+        row.error = response['error']
 
       yield row
