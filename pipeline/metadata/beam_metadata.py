@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, SatelliteAnswer, SatelliteAnswerMetadata, merge_ip_metadata, merge_satellite_tags
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerMetadata, merge_ip_metadata, merge_satellite_tags
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -18,7 +18,8 @@ RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 
 
 def make_date_ip_key(
-    tag: Union[IpMetadata, BigqueryRow, SatelliteAnswerMetadata]) -> DateIpKey:
+    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerMetadata]
+) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
 
@@ -26,14 +27,14 @@ def make_date_ip_key(
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey,
     value: Dict[str, Union[List[BigqueryRow],
-                           List[IpMetadata]]]) -> Iterator[BigqueryRow]:
+                           List[IpMetadataWithKeys]]]) -> Iterator[BigqueryRow]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
   Args:
     key: The DateIpKey tuple that we joined on. This is thrown away.
     value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing IpMetadata
+      {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing IpMetadataWithKeys
                ROWS_PCOLLECION_NAME: Many element list containing Rows}
     rows_pcollection_name: default ROWS_PCOLLECION_NAME
       set if joining a pcollection with a different name
@@ -43,7 +44,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   """
   # pyformat: enable
   if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadatas: List[IpMetadata] = value[
+    ip_metadatas: List[IpMetadataWithKeys] = value[
         IP_METADATA_PCOLLECTION_NAME]  # type: ignore
   else:
     ip_metadatas = []
@@ -52,10 +53,9 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   for row in rows:
     new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      if new_row.ip_metadata:
-        merge_ip_metadata(new_row.ip_metadata, ip_metadata)
-      else:
-        new_row.ip_metadata = ip_metadata
+      if new_row.ip_metadata is None:
+        new_row.ip_metadata = IpMetadata()
+      merge_ip_metadata(new_row.ip_metadata, ip_metadata)
     yield new_row
 
 

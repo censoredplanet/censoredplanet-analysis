@@ -21,7 +21,7 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import BigqueryRow, IpMetadata
+from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithKeys
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import satellite
@@ -212,49 +212,53 @@ class PipelineMainTest(unittest.TestCase):
             ip='8.8.8.8',
             date='2020-01-01',
             success=True,
-            netblock='8.8.8.0/24',
-            asn=15169,
-            as_name='GOOGLE',
-            as_full_name='Google LLC',
-            as_class='Content',
-            country='US',
-        ),
+            ip_metadata=IpMetadata(
+                netblock='8.8.8.0/24',
+                asn=15169,
+                as_name='GOOGLE',
+                as_full_name='Google LLC',
+                as_class='Content',
+                country='US',
+            )),
         BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-01',
             success=False,
-            netblock='1.0.0.1/24',
-            asn=13335,
-            as_name='CLOUDFLARENET',
-            as_full_name='Cloudflare Inc.',
-            as_class='Content',
-            country='US',
-        ),
+            ip_metadata=IpMetadata(
+                netblock='1.0.0.1/24',
+                asn=13335,
+                as_name='CLOUDFLARENET',
+                as_full_name='Cloudflare Inc.',
+                as_class='Content',
+                country='US',
+            )),
         BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
             date='2020-01-02',
             success=False,
-            netblock='8.8.8.0/24',
-            asn=15169,
-            as_name='GOOGLE',
-            as_full_name='Google LLC',
-            as_class='Content',
-            country='US',
-        ),
+            ip_metadata=IpMetadata(
+                netblock='8.8.8.0/24',
+                asn=15169,
+                as_name='GOOGLE',
+                as_full_name='Google LLC',
+                as_class='Content',
+                country='US',
+            )),
         BigqueryRow(
             domain='www.example.com',
             ip='1.1.1.1',
             date='2020-01-02',
             success=True,
-            netblock='1.0.0.1/24',
-            asn=13335,
-            as_name='CLOUDFLARENET',
-            as_full_name='Cloudflare Inc.',
-            as_class='Content',
-            country='US',
-        )
+            ip_metadata=IpMetadata(
+                netblock='1.0.0.1/24',
+                asn=13335,
+                as_name='CLOUDFLARENET',
+                as_full_name='Cloudflare Inc.',
+                as_class='Content',
+                country='US',
+            ))
     ]
 
     beam_test_util.assert_that(rows_with_metadata,
@@ -269,7 +273,7 @@ class PipelineMainTest(unittest.TestCase):
         runner._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1: satellite.DateIpKey = ('2020-01-01', '1.1.1.1')
-    expected_value_1 = IpMetadata(
+    expected_value_1 = IpMetadataWithKeys(
         ip='1.1.1.1',
         date='2020-01-01',
         netblock='1.0.0.1/24',
@@ -282,7 +286,7 @@ class PipelineMainTest(unittest.TestCase):
     )
 
     expected_key_2: satellite.DateIpKey = ('2020-01-01', '8.8.8.8')
-    expected_value_2 = IpMetadata(
+    expected_value_2 = IpMetadataWithKeys(
         ip='8.8.8.8',
         date='2020-01-01',
         netblock='8.8.8.0/24',
@@ -309,7 +313,7 @@ class PipelineMainTest(unittest.TestCase):
     # Test Maxmind lookup when country data is missing
     # Cloudflare IPs return Australia
     expected_key_1 = ('2020-01-01', '1.1.1.3')
-    expected_value_1 = IpMetadata(
+    expected_value_1 = IpMetadataWithKeys(
         ip='1.1.1.3',
         date='2020-01-01',
         netblock='1.0.0.1/24',

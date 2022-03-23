@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 
 # pylint: disable=too-many-instance-attributes
 
@@ -53,9 +53,6 @@ def merge_satellite_tags(answer: SatelliteAnswer,
 @dataclass
 class IpMetadata():
   """Class for keeping track of ip metadata"""
-  # Keys
-  ip: str
-  date: str
   # Metadata
   netblock: Optional[str] = None
   asn: Optional[int] = None
@@ -67,7 +64,16 @@ class IpMetadata():
   # Satellite Metadata
   name: Optional[str] = None
 
-def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
+
+@dataclass
+class IpMetadataWithKeys(IpMetadata):
+  """Extension of IpMetadata with ip and date keys."""
+  # Keys
+  ip: str = ''
+  date: str = ''
+
+
+def merge_ip_metadata(base: IpMetadata, new: IpMetadataWithKeys) -> None:
   """Merge metadata info into an existing metadata."""
   if new.netblock is not None:
     base.netblock = new.netblock
@@ -83,6 +89,8 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
     base.country = new.country
   if new.organization is not None:
     base.organization = new.organization
+  if new.name is not None:
+    base.name = new.name
 
 
 @dataclass
@@ -127,7 +135,7 @@ class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
 @dataclass
 class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
-  received_https: Optional[ReceivedHttps] = None
+  received: Optional[ReceivedHttps] = None
   stateful_block: Optional[bool] = None
 
 
@@ -135,7 +143,6 @@ class HyperquackRow(BigqueryRow):
 class SatelliteRow(BigqueryRow):
   """Class for satellite specific fields"""
   rcode: Optional[int] = None
-  name: Optional[str] = None
   is_control_ip: Optional[bool] = None
   average_confidence: Optional[float] = None
   untagged_controls: Optional[bool] = None
@@ -148,9 +155,9 @@ class SatelliteRow(BigqueryRow):
 
 
 @dataclass
-class BlockpageRow(ReceivedHttps):
+class BlockpageRow():
   """Class for blockpage specific fields"""
-  received_https: Optional[ReceivedHttps] = None
+  received: Optional[ReceivedHttps] = None
 
   domain: Optional[str] = None
   ip: Optional[str] = None
@@ -160,6 +167,131 @@ class BlockpageRow(ReceivedHttps):
   success: Optional[bool] = None
   https: Optional[bool] = None
   source: Optional[str] = None
+
+
+def flatten_for_bigquery(row: BigqueryRow) -> Dict[str, Any]:
+  if isinstance(row, HyperquackRow):
+    return flatten_for_bigquery_hyperquack(row)
+  if isinstance(row, SatelliteRow):
+    return flatten_for_bigquery_satellite(row)
+  if isinstance(row, BlockpageRow):
+    return flatten_for_bigquery_blockpage(row)
+  raise Exception(f'Unknown row type: {type(row)}')
+
+
+def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
+  """Convert a structured hyperquack dataclass into a flat dict."""
+  ip_metadata = row.ip_metadata or IpMetadata()
+  received = row.received or ReceivedHttps()
+
+  flat: Dict[str, Any] = {
+      'domain': row.domain,
+      'category': row.category,
+      'ip': row.ip,
+      'date': row.date,
+      'start_time': row.start_time,
+      'end_time': row.end_time,
+      'error': row.error,
+      'anomaly': row.anomaly,
+      'success': row.success,
+      'is_control': row.is_control,
+      'controls_failed': row.controls_failed,
+      'measurement_id': row.measurement_id,
+      'source': row.source,
+      'stateful_block': row.stateful_block,
+      'netblock': ip_metadata.netblock,
+      'asn': ip_metadata.asn,
+      'as_name': ip_metadata.as_name,
+      'as_full_name': ip_metadata.as_full_name,
+      'as_class': ip_metadata.as_class,
+      'country': ip_metadata.country,
+      'organization': ip_metadata.organization,
+      'blockpage': received.blockpage,
+      'page_signature': received.page_signature,
+      'received_status': received.received_status,
+      'received_body': received.received_body,
+      'received_headers': received.received_headers,
+      'received_tls_version': received.received_tls_version,
+      'received_tls_cipher_suite': received.received_tls_cipher_suite,
+      'received_tls_cert': received.received_tls_cert,
+  }
+  return flat
+
+
+def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
+  """Convert a structured satellite dataclass into a flat dict."""
+  ip_metadata = row.ip_metadata or IpMetadata()
+
+  flat: Dict[str, Any] = {
+      'domain': row.domain,
+      'category': row.category,
+      'ip': row.ip,
+      'date': row.date,
+      'start_time': row.start_time,
+      'end_time': row.end_time,
+      'error': row.error,
+      'anomaly': row.anomaly,
+      'success': row.success,
+      'is_control': row.is_control,
+      'controls_failed': row.controls_failed,
+      'measurement_id': row.measurement_id,
+      'source': row.source,
+      'is_control_ip': row.is_control_ip,
+      'rcode': row.rcode,
+      'average_confidence': row.average_confidence,
+      'matches_confidence': row.matches_confidence,
+      'untagged_controls': row.untagged_controls,
+      'untagged_response': row.untagged_response,
+      'excluded': row.excluded,
+      'exclude_reason': row.exclude_reason,
+      'has_type_a': row.has_type_a,
+      'received': [],
+      'name': ip_metadata.name,
+      'netblock': ip_metadata.netblock,
+      'asn': ip_metadata.asn,
+      'as_name': ip_metadata.as_name,
+      'as_full_name': ip_metadata.as_full_name,
+      'as_class': ip_metadata.as_class,
+      'country': ip_metadata.country,
+      'organization': ip_metadata.organization,
+  }
+
+  for received_answer in row.received:
+    answer = {
+        'ip': received_answer.ip,
+        'asnum': received_answer.asnum,
+        'asname': received_answer.asname,
+        'http': received_answer.http,
+        'cert': received_answer.cert,
+        'matches_control': received_answer.matches_control,
+    }
+    flat['received'].append(answer)
+  return flat
+
+
+def flatten_for_bigquery_blockpage(row: BlockpageRow) -> Dict[str, Any]:
+  """Convert a structured blockpage dataclass into a flat dict."""
+  received = row.received or ReceivedHttps()
+
+  flat: Dict[str, Any] = {
+      'domain': row.domain,
+      'ip': row.ip,
+      'date': row.date,
+      'start_time': row.start_time,
+      'end_time': row.end_time,
+      'success': row.success,
+      'source': row.source,
+      'https': row.https,
+      'blockpage': received.blockpage,
+      'page_signature': received.page_signature,
+      'received_status': received.received_status,
+      'received_body': received.received_body,
+      'received_headers': received.received_headers,
+      'received_tls_version': received.received_tls_version,
+      'received_tls_cipher_suite': received.received_tls_cipher_suite,
+      'received_tls_cert': received.received_tls_cert,
+  }
+  return flat
 
 
 # key: (type, mode)

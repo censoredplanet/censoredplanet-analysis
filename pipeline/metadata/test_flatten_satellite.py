@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow, IpMetadata, ReceivedHttps
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -140,7 +140,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             received=[SatelliteAnswer(ip='217.19.248.132')],
             rcode=0,
             measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
-            source='CP_Satellite-2020-09-02-12-00-01')
+            source='CP_Satellite-2020-09-02-12-00-01'),
     ]
 
     flattener = get_satellite_flattener()
@@ -282,7 +282,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             category='Culture',
             ip='114.114.114.110',
             is_control_ip=False,
-            country='CN',
             date='2021-03-05',
             start_time='2021-03-05T15:32:05.324807502-05:00',
             end_time='2021-03-05T15:32:05.366104911-05:00',
@@ -296,7 +295,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             ],
             rcode=0,
             measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
-            source='CP_Satellite-2021-03-01-12-00-01'),
+            source='CP_Satellite-2021-03-01-12-00-01',
+            ip_metadata=IpMetadata(country='CN')),
         SatelliteRow(
             domain='www.example.com',
             is_control=True,
@@ -361,7 +361,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             category=None,
             ip='91.135.154.38',
             is_control_ip=False,
-            country='RU',
             date='2021-09-16',
             start_time='2021-09-16T17:49:17.488153752-04:00',
             end_time='2021-09-16T17:49:17.741250869-04:00',
@@ -389,7 +388,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             exclude_reason='',
             measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
             source='CP-Satellite-2021-09-16-12-00-01',
-            has_type_a=True)
+            has_type_a=True,
+            ip_metadata=IpMetadata(country='RU'))
     ]
 
     flattener = get_satellite_flattener()
@@ -435,7 +435,6 @@ class FlattenSatelliteTest(unittest.TestCase):
     expected = SatelliteRow(
         ip='12.5.76.236',
         is_control_ip=False,
-        country='US',
         domain='ultimate-guitar.com',
         is_control=False,
         category='History arts and literature',
@@ -449,7 +448,8 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time='2021-04-18T14:49:07.712972288-04:00',
         end_time='2021-04-18T14:49:07.749265765-04:00',
         source='CP_Satellite-2021-04-18-12-00-01',
-        measurement_id='ab3b0ed527334c6ba988362e6a2c98fc')
+        measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+        ip_metadata=IpMetadata(country='US'))
 
     flattener = get_satellite_flattener()
     rows = list(
@@ -493,7 +493,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly=True,
         category='News Media',
         controls_failed=False,
-        country='IT',
         date='2021-04-18',
         domain='ok.ru',
         end_time='2021-04-18T14:49:01.788309957-04:00',
@@ -506,7 +505,8 @@ class FlattenSatelliteTest(unittest.TestCase):
         received=[],
         source='CP_Satellite-2021-04-18-12-00-01',
         start_time='2021-04-18T14:49:01.517087379-04:00',
-        success=True)
+        success=True,
+        ip_metadata=IpMetadata(country='IT'))
 
     flattener = get_satellite_flattener()
     rows = list(
@@ -716,7 +716,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = False,
-        country = 'US',
         date = '2021-10-20',
         domain = '11st.co.kr',
         is_control = False,
@@ -739,7 +738,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         )],
         success = True,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'US',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'Control',
@@ -748,7 +750,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'FR',
         date = '2021-10-20',
         domain = 'a.root-servers.net',
         is_control = True,
@@ -763,7 +764,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         received = [],
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'FR',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'Provocative Attire',
@@ -772,7 +776,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'FR',
         date = '2021-10-20',
         domain = 'www.chantelle.com',
         is_control = False,
@@ -787,7 +790,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         received = [],
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'FR',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'Control',
@@ -796,7 +802,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'FR',
         date = '2021-10-20',
         domain = 'a.root-servers.net',
         is_control = True,
@@ -811,7 +816,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         received = [],
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'FR',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'Control',
@@ -820,7 +828,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'a.root-servers.net',
         is_control = True,
@@ -835,7 +842,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'E-commerce',
@@ -844,7 +854,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'alipay.com',
         is_control = False,
@@ -859,7 +868,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'E-commerce',
@@ -868,7 +880,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'alipay.com',
         is_control = False,
@@ -883,7 +894,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'E-commerce',
@@ -892,7 +906,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'alipay.com',
         is_control = False,
@@ -907,7 +920,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'E-commerce',
@@ -916,7 +932,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'alipay.com',
         is_control = False,
@@ -931,7 +946,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     ), SatelliteRow(
         anomaly = False,
         category = 'Control',
@@ -940,7 +958,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
-        country = 'UA',
         date = '2021-10-20',
         domain = 'a.root-servers.net',
         is_control = True,
@@ -955,7 +972,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         start_time = '2021-10-20T14:51:45.952255246-04:00',
         success = False,
         exclude_reason = '',
-        excluded = False
+        excluded = False,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+        ),
     )]
     # yapf: enable
 
@@ -1039,7 +1059,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls=False,
         untagged_response=False,
         controls_failed=False,
-        country='RU',
         date='2022-01-23',
         domain='www.army.mil',
         is_control=False,
@@ -1054,7 +1073,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         received=[],
         success=False,
         exclude_reason='',
-        excluded=False
+        excluded=False,
+        ip_metadata = IpMetadata(
+            country='RU',
+        ),
     ), SatelliteRow(
         anomaly=False,
         category='Government',
@@ -1063,7 +1085,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         untagged_controls=False,
         untagged_response=False,
         controls_failed=False,
-        country='RU',
         date='2022-01-23',
         domain='www.army.mil',
         is_control=False,
@@ -1093,7 +1114,10 @@ class FlattenSatelliteTest(unittest.TestCase):
         )],
         success=True,
         exclude_reason='',
-        excluded=False
+        excluded=False,
+        ip_metadata = IpMetadata(
+            country='RU',
+        ),
     )]
     # yapf: enable
 
@@ -1154,17 +1178,19 @@ class FlattenSatelliteTest(unittest.TestCase):
         success = True,
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = False,
-        received_status = '302 Moved Temporarily',
-        received_body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
-        received_headers = [
-          'Content-Length: 170',
-          'Content-Type: text/html',
-          'Date: Fri, 17 Sep 2021 01:07:56 GMT',
-          'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
-          'Server: nginx/1.10.3 (Ubuntu)'
-        ],
-        blockpage = False,
-        page_signature = 'r_fp_26'
+        received=ReceivedHttps(
+            received_status = '302 Moved Temporarily',
+            received_body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+            received_headers = [
+            'Content-Length: 170',
+            'Content-Type: text/html',
+            'Date: Fri, 17 Sep 2021 01:07:56 GMT',
+            'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
+            'Server: nginx/1.10.3 (Ubuntu)'
+            ],
+            blockpage = False,
+            page_signature = 'r_fp_26'
+        )
       ),
       BlockpageRow(
         domain = 'xvideos.com',
@@ -1175,9 +1201,11 @@ class FlattenSatelliteTest(unittest.TestCase):
         success = True,
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = True,
-        received_status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
-        blockpage = None,
-        page_signature = None
+        received=ReceivedHttps(
+            received_status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
+            blockpage = None,
+            page_signature = None
+        )
       ),
     ]
     # yapf: enable

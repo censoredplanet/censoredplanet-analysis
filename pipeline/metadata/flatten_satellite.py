@@ -333,12 +333,8 @@ class SatelliteFlattener():
         received=[],
         measurement_id=random_measurement_id,
         source=flatten_base.source_from_filename(filepath),
-        ip_metadata = IpMetadata(
-          ip=responses_entry['vp'],
-          date=date,
-          country=responses_entry.get('location', {}).get('country_code'),
-        )
-    )
+        ip_metadata=IpMetadata(
+            country=responses_entry.get('location', {}).get('country_code'),))
 
     if datetime.date.fromisoformat(date) < SATELLITE_V2_2_START_DATE:
       yield from _process_satellite_v2p1(row, responses_entry, filepath)
@@ -516,12 +512,12 @@ class FlattenBlockpages(beam.DoFn):
     http_row.https = False
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('http', ''), True)
-    http_row.received_https = received_fields
+    http_row.received = received_fields
     yield http_row
 
     https_row = deepcopy(row)
     https_row.https = True
     received_fields = flatten_base.parse_received_data(
         self.blockpage_matcher, blockpage_entry.get('https', ''), True)
-    https_row.received_https = received_fields
+    https_row.received = received_fields
     yield https_row

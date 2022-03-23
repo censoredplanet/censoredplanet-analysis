@@ -15,12 +15,11 @@
 
 from __future__ import absolute_import
 
-import dataclasses
 import datetime
 import logging
 import pathlib
 import re
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
@@ -30,7 +29,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, IpMetadata, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
+from pipeline.metadata.schema import BigqueryRow, BlockpageRow, IpMetadataWithKeys, flatten_for_bigquery, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -397,13 +396,13 @@ class ScanDataBeamPipelineRunner():
         deduped_ips_and_dates | 'group by date' >>
         beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
 
-    # PCollection[Tuple[DateIpKey,IpMetadata]]
+    # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
     ips_with_metadata = (
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
             self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
-                                                           IpMetadata]))
+                                                           IpMetadataWithKeys]))
 
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadata]]]]
+    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadataWithKeys]]]]
     grouped_metadata_and_rows = (({
         IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
         ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
@@ -419,7 +418,7 @@ class ScanDataBeamPipelineRunner():
 
   def _add_ip_metadata(
       self, date: str,
-      ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadata]]:
+      ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadataWithKeys]]:
     """Add Autonymous System metadata for ips in the given rows.
 
     Args:
@@ -427,7 +426,7 @@ class ScanDataBeamPipelineRunner():
       ips: a list of ips
 
     Yields:
-      Tuples (DateIpKey, IpMetadata)
+      Tuples (DateIpKey, IpMetadataWithKeys)
     """
     ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(
         datetime.date.fromisoformat(date))
@@ -439,7 +438,8 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[BigqueryRow],
+                         rows: beam.pvalue.PCollection[Union[BigqueryRow,
+                                                             BlockpageRow]],
                          table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
@@ -464,8 +464,8 @@ class ScanDataBeamPipelineRunner():
 
     # Pcollection[Dict[str, Any]]
     dict_rows = (
-        rows | f'dataclass to dicts {scan_type}' >> beam.Map(
-            dataclasses.asdict).with_output_types(Dict[str, Any]))
+        rows | f'dataclass to dicts {scan_type}' >>
+        beam.Map(flatten_for_bigquery).with_output_types(Dict[str, Any]))
 
     (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),

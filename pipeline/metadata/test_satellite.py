@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadataWithKeys, IpMetadata
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
@@ -24,7 +24,7 @@ class SatelliteTest(unittest.TestCase):
   # pylint: disable=protected-access
 
   def test_make_date_ip_key(self) -> None:
-    row = IpMetadata(
+    row = IpMetadataWithKeys(
         date='2020-01-01',
         ip='1.2.3.4',
     )
@@ -48,11 +48,11 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(filenames, lines)
 
-    tag1 = IpMetadata(
+    tag1 = IpMetadataWithKeys(
         ip='1.1.1.1',
         date='2020-12-17',
         country='US')
-    tag2 = IpMetadata(
+    tag2 = IpMetadataWithKeys(
         ip='1.1.1.3',
         date='2020-12-17',
         country='AU')
@@ -195,8 +195,6 @@ class SatelliteTest(unittest.TestCase):
     expected = [SatelliteRow(
         ip = '1.1.1.3',
         is_control_ip = False,
-        country = 'US',
-        name = 'special',
         domain = 'signal.org',
         is_control = False,
         controls_failed = False,
@@ -236,12 +234,14 @@ class SatelliteTest(unittest.TestCase):
         )],
         date = '2020-09-02',
         source = 'CP_Satellite-2020-09-02-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'special',
+        )
     ), SatelliteRow(
         ip = '1.1.1.3',
         is_control_ip = False,
-        country = 'US',
-        name = 'special',
         domain = 'adl.org',
         is_control = False,
         controls_failed = False,
@@ -256,7 +256,11 @@ class SatelliteTest(unittest.TestCase):
         )],
         date = '2020-09-02',
         source = 'CP_Satellite-2020-09-02-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'special',
+        )
     )]
     # yapf: enable
 
@@ -395,8 +399,6 @@ class SatelliteTest(unittest.TestCase):
     expected = [SatelliteRow(
         ip = '185.228.169.37',
         is_control_ip = False,
-        country = 'IE',
-        name = 'customfilter37-dns2.cleanbrowsing.org.',
         domain = 'ar.m.wikipedia.org',
         is_control = False,
         category = 'Culture',
@@ -410,12 +412,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'IE',
+            name = 'customfilter37-dns2.cleanbrowsing.org.',
+        )
     ), SatelliteRow(
         ip = '185.228.169.37',
         is_control_ip = False,
-        country = 'IE',
-        name = 'customfilter37-dns2.cleanbrowsing.org.',
         domain = 'ar.m.wikipedia.org',
         is_control = False,
         category = 'Culture',
@@ -429,12 +433,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'IE',
+            name = 'customfilter37-dns2.cleanbrowsing.org.',
+        )
     ), SatelliteRow(
         ip = '185.228.169.37',
         is_control_ip = False,
-        country = 'IE',
-        name = 'customfilter37-dns2.cleanbrowsing.org.',
         domain = 'ar.m.wikipedia.org',
         is_control = False,
         category = 'Culture',
@@ -458,12 +464,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'IE',
+            name = 'customfilter37-dns2.cleanbrowsing.org.',
+        )
     ), SatelliteRow(
         ip = '156.154.71.37',
         is_control_ip = False,
-        country = 'US',
-        name = 'rdns37b.ultradns.net.',
         domain = 'www.usacasino.com',
         is_control = False,
         category = 'Gambling',
@@ -477,12 +485,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'rdns37b.ultradns.net.',
+        )
     ), SatelliteRow(
         ip = '156.154.71.37',
         is_control_ip = False,
-        country = 'US',
-        name = 'rdns37b.ultradns.net.',
         domain = 'www.usacasino.com',
         is_control = False,
         category = 'Gambling',
@@ -499,7 +509,11 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'rdns37b.ultradns.net.',
+        )
     )]
     # yapf: enable
 
@@ -657,8 +671,6 @@ class SatelliteTest(unittest.TestCase):
     expected = [SatelliteRow(
         ip = '87.119.233.243',
         is_control_ip = False,
-        country = 'RU',
-        name = '87-119-233-243.saransk.ru.',
         domain = 'feedly.com',
         is_control = False,
         category = 'E-commerce',
@@ -671,12 +683,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:49:01.62448452-04:00',
         end_time = '2021-04-18T14:49:03.624563629-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'RU',
+            name = '87-119-233-243.saransk.ru.',
+        )
     ), SatelliteRow(
         ip = '12.5.76.236',
         is_control_ip = False,
-        country = 'US',
-        name = 'ns1327.ztomy.com.',
         domain = 'ultimate-guitar.com',
         is_control = False,
         category = 'History arts and literature',
@@ -690,11 +704,14 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:49:07.712972288-04:00',
         end_time = '2021-04-18T14:49:07.749265765-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'ns1327.ztomy.com.',
+        )
     ), SatelliteRow(
         ip = '64.6.65.6',
         is_control_ip = True,
-        name = 'rec1pubns2.ultradns.net.',
         domain = 'a.root-servers.net',
         is_control = True,
         category = 'Control',
@@ -711,11 +728,13 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:57.561175746-04:00',
         end_time = '2021-04-18T14:51:57.587097567-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            name = 'rec1pubns2.ultradns.net.',
+        )
     ), SatelliteRow(
         ip = '64.6.65.6',
         is_control_ip = True,
-        name = 'rec1pubns2.ultradns.net.',
         domain = 'ultimate-guitar.com',
         is_control = False,
         category = 'History arts and literature',
@@ -732,11 +751,13 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:57.587109091-04:00',
         end_time = '2021-04-18T14:51:57.61294601-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            name = 'rec1pubns2.ultradns.net.',
+        )
     ), SatelliteRow(
         ip = '64.6.65.6',
         is_control_ip = True,
-        name = 'rec1pubns2.ultradns.net.',
         domain = 'a.root-servers.net',
         is_control = True,
         category = 'Control',
@@ -753,11 +774,13 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:45.836310062-04:00',
         end_time = '2021-04-18T14:51:45.862080031-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            name = 'rec1pubns2.ultradns.net.',
+        )
     ), SatelliteRow(
         ip = '64.6.65.6',
         is_control_ip = True,
-        name = 'rec1pubns2.ultradns.net.',
         domain = 'www.awid.org',
         is_control = False,
         category = 'Human Rights Issues',
@@ -772,11 +795,13 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:45.862091022-04:00',
         end_time = '2021-04-18T14:51:47.862170832-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            name = 'rec1pubns2.ultradns.net.',
+        )
     ), SatelliteRow(
         ip = '64.6.65.6',
         is_control_ip = True,
-        name = 'rec1pubns2.ultradns.net.',
         domain = 'www.awid.org',
         is_control = False,
         category = 'Human Rights Issues',
@@ -793,7 +818,10 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:47.862183185-04:00',
         end_time = '2021-04-18T14:51:48.162724942-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = ''
+        measurement_id = '',
+        ip_metadata = IpMetadata(
+            name = 'rec1pubns2.ultradns.net.',
+        )
     )]
     # yapf: enable
 
@@ -974,9 +1002,7 @@ class SatelliteTest(unittest.TestCase):
         is_control = False,
         category = 'Media sharing',
         ip = '208.67.220.220',
-        name = 'resolver2.opendns.com.',
         is_control_ip = False,
-        country = 'US',
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:41.297636661-04:00',
         end_time = '2021-10-20T14:51:41.348612088-04:00',
@@ -1008,16 +1034,18 @@ class SatelliteTest(unittest.TestCase):
             asname = 'CLOUDFLARENET',
             asnum = 13335,
             matches_control = 'ip http asnum asname'
-        )]
+        )],
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'resolver2.opendns.com.',
+        )
     ), SatelliteRow(
         received = [],
         domain = '1922.gov.tw',
         is_control = False,
         category = None,
         ip = '69.10.61.18',
-        name = 'ns1.chpros.com.',
         is_control_ip = False,
-        country = 'US',
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:41.288634425-04:00',
         end_time = '2021-10-20T14:51:41.506755185-04:00',
@@ -1033,16 +1061,18 @@ class SatelliteTest(unittest.TestCase):
         untagged_response = False,
         excluded = False,
         exclude_reason = '',
-        rcode = 2
+        rcode = 2,
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'ns1.chpros.com.',
+        )
     ), SatelliteRow(
         received = [],
         domain = 'a.root-servers.net',
         is_control =  True,
         category = 'Control',
         ip = '62.80.182.26',
-        name = 'mx4.orlantrans.com.',
         is_control_ip = False,
-        country = 'UA',
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
@@ -1058,16 +1088,18 @@ class SatelliteTest(unittest.TestCase):
         untagged_response = False,
         excluded = False,
         exclude_reason = '',
-        rcode = -1
+        rcode = -1,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+            name = 'mx4.orlantrans.com.',
+        )
     ), SatelliteRow(
         received = [],
         domain = 'alibaba.com',
         is_control = False,
         category = 'E-commerce',
         ip = '62.80.182.26',
-        name = 'mx4.orlantrans.com.',
         is_control_ip = False,
-        country = 'UA',
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
@@ -1083,16 +1115,18 @@ class SatelliteTest(unittest.TestCase):
         untagged_response = False,
         excluded = False,
         exclude_reason = '',
-        rcode = -1
+        rcode = -1,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+            name = 'mx4.orlantrans.com.',
+        )
     ), SatelliteRow(
         received = [],
         domain = 'a.root-servers.net',
         is_control = True,
         category = 'Control',
         ip = '62.80.182.26',
-        name = 'mx4.orlantrans.com.',
         is_control_ip = False,
-        country = 'UA',
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
@@ -1108,7 +1142,11 @@ class SatelliteTest(unittest.TestCase):
         untagged_response = False,
         excluded = False,
         exclude_reason = '',
-        rcode = -1
+        rcode = -1,
+        ip_metadata = IpMetadata(
+            country = 'UA',
+            name = 'mx4.orlantrans.com.',
+        )
     )]
     # yapf: enable
 
@@ -1177,8 +1215,6 @@ class SatelliteTest(unittest.TestCase):
     scans = [
       SatelliteRow(
         ip = '114.114.114.110',
-        country = 'CN',
-        name = 'name',
         domain = 'abs-cbn.com',
         category = 'Culture',
         error = None,
@@ -1188,11 +1224,13 @@ class SatelliteTest(unittest.TestCase):
             ip = '104.20.161.134',
             matches_control = ''
         )],
-        date = '2020-09-02'
+        date = '2020-09-02',
+        ip_metadata = IpMetadata(
+            country = 'CN',
+            name = 'name',
+        )
       ), SatelliteRow(
         ip = '1.1.1.3',
-        country = 'US',
-        name = 'special',
         domain = 'signal.org',
         category = 'Communication Tools',
         error = None,
@@ -1228,11 +1266,13 @@ class SatelliteTest(unittest.TestCase):
                 http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
                 matches_control = 'ip http asnum asname')
         ],
-        date = '2020-09-02'
+        date = '2020-09-02',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'special',
+        )
       ), SatelliteRow(
         ip = '1.1.1.3',
-        country = 'US',
-        name = 'special',
         domain = 'signal.org',
         category = 'Communication Tools',
         error = None,
@@ -1268,7 +1308,11 @@ class SatelliteTest(unittest.TestCase):
                 http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
                 matches_control = 'ip http asnum asname')
         ],
-        date = '2020-09-02'
+        date = '2020-09-02',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'special',
+        )
       )
     ]
 
@@ -1293,8 +1337,6 @@ class SatelliteTest(unittest.TestCase):
     scans = [
       SatelliteRow(
         ip = '114.114.114.110',
-        country = 'CN',
-        name = 'name',
         domain = 'abs-cbn.com',
         category = 'Culture',
         error = None,
@@ -1304,11 +1346,13 @@ class SatelliteTest(unittest.TestCase):
             ip = '104.20.161.134',
             matches_control = ''
         )],
-        date = '2020-09-02'
+        date = '2020-09-02',
+        ip_metadata = IpMetadata(
+            country = 'CN',
+            name = 'name',
+        )
       ), SatelliteRow(
         ip = '1.1.1.3',
-        country = 'US',
-        name = 'special',
         domain = 'signal.org',
         category = 'Communication Tools',
         error = None,
@@ -1330,7 +1374,11 @@ class SatelliteTest(unittest.TestCase):
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
                 matches_control = ''),
         ],
-        date = '2020-09-02'
+        date = '2020-09-02',
+        ip_metadata = IpMetadata(
+            country = 'US',
+            name = 'special',
+        )
       ),
     ]
     # yapf: enable
@@ -1358,7 +1406,6 @@ class SatelliteTest(unittest.TestCase):
             category = "Media sharing",
             ip = "8.8.8.8",
             is_control_ip = True,
-            country = "US",
             date = "2022-01-02",
             start_time = "2022-01-02T14:47:22.608859091-05:00",
             end_time = "2022-01-02T14:47:22.987814778-05:00",
@@ -1393,13 +1440,15 @@ class SatelliteTest(unittest.TestCase):
                     matches_control = "ip http asnum asname"
                 )
             ],
+            ip_metadata = IpMetadata(
+                country = "US",
+            )
         ), SatelliteRow(
             domain = "1337x.to",
             is_control = False,
             category = "Media sharing",
             ip = "8.8.4.4",
             is_control_ip = True,
-            country = "US",
             date = "2022-01-02",
             start_time = "2022-01-02T14:47:22.609624461-05:00",
             end_time = "2022-01-02T14:47:22.98110208-05:00",
@@ -1434,13 +1483,15 @@ class SatelliteTest(unittest.TestCase):
                     matches_control = ""
                 )
             ],
+            ip_metadata = IpMetadata(
+                country = "US",
+            )
         ), SatelliteRow(
             domain = "1337x.to",
             is_control = False,
             category = "Media sharing",
             ip = "64.6.64.6",
             is_control_ip = True,
-            country = "US",
             date = "2022-01-02",
             start_time = "2022-01-02T16:41:54.579216934-05:00",
             end_time = "2022-01-02T16:41:54.617330171-05:00",
@@ -1475,13 +1526,15 @@ class SatelliteTest(unittest.TestCase):
                     matches_control = "ip http asnum asname"
                 )
             ],
+            ip_metadata = IpMetadata(
+                country = "US",
+            )
         ), SatelliteRow(
             domain = "1337x.to",
             is_control = False,
             category = "Media sharing",
             ip = "64.6.65.6",
             is_control_ip = True,
-            country = "US",
             date = "2022-01-02",
             start_time = "2022-01-02T15:08:04.399147076-05:00",
             end_time = "2022-01-02T15:08:04.437950734-05:00",
@@ -1516,13 +1569,15 @@ class SatelliteTest(unittest.TestCase):
                     matches_control = "ip http asnum asname"
                 )
             ],
+            ip_metadata = IpMetadata(
+                country = "US",
+            )
         ), SatelliteRow(
             domain = "1337x.to",
             is_control = False,
             category = "Media sharing",
             ip = "77.247.174.150",
             is_control_ip = False,
-            country = "RU",
             date = "2022-01-02",
             start_time = "2022-01-02T14:47:22.708705995-05:00",
             end_time = "2022-01-02T14:47:22.983863812-05:00",
@@ -1549,6 +1604,9 @@ class SatelliteTest(unittest.TestCase):
                     matches_control = ""
                 )
             ],
+            ip_metadata = IpMetadata(
+                country = "RU",
+            )
         )
     ]
     # yapf: enable

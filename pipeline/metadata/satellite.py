@@ -13,7 +13,7 @@ import uuid
 import apache_beam as beam
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadata, BlockpageRow
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, BlockpageRow, IpMetadataWithKeys
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -135,7 +135,7 @@ def _get_received_ips_with_roundtrip_id_and_date(
 
 
 def _read_satellite_resolver_tags(filepath: str,
-                                  line: str) -> Iterator[IpMetadata]:
+                                  line: str) -> Iterator[IpMetadataWithKeys]:
   """Read data for IP tagging from Satellite.
 
     Args:
@@ -143,7 +143,7 @@ def _read_satellite_resolver_tags(filepath: str,
       line: json str (dictionary containing geo tag data)
 
   Yields:
-      A IpMetadata of the format
+      A IpMetadataWithKeys of the format
         IpMetadata(
           ip='1.1.1.1',
           date='2020-01-01'
@@ -160,7 +160,7 @@ def _read_satellite_resolver_tags(filepath: str,
 
   ip: str = scan.get('resolver') or scan.get('vp')
   date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
-  tags = IpMetadata(ip=ip, date=date)
+  tags = IpMetadataWithKeys(ip=ip, date=date)
 
   if 'name' in scan:
     tags.name = scan['name']
@@ -211,7 +211,7 @@ def _read_satellite_answer_tags(filepath: str,
 
 def _add_vantage_point_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    tags: beam.pvalue.PCollection[IpMetadata]
+    tags: beam.pvalue.PCollection[IpMetadataWithKeys]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for vantage point IPs - resolver name (hostname/control/special) and country
 
@@ -222,12 +222,12 @@ def _add_vantage_point_tags(
     Returns:
       PCollection of measurement rows with tag information added to the ip row
   """
-  # PCollection[Tuple[DateIpKey,IpMetadata]]
+  # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
   ips_with_metadata = (
       tags | 'tags key by ips and dates' >>
       beam.Map(lambda metadata:
                (make_date_ip_key(metadata), metadata)).with_output_types(
-                   Tuple[DateIpKey, IpMetadata]))
+                   Tuple[DateIpKey, IpMetadataWithKeys]))
 
   # PCollection[Tuple[DateIpKey,SatelliteRow]]
   rows_keyed_by_ip_and_date = (
@@ -235,7 +235,7 @@ def _add_vantage_point_tags(
       beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
           Tuple[DateIpKey, SatelliteRow]))
 
-  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[SatelliteRow|IpMetadata]]]]
+  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[SatelliteRow|IpMetadataWithKeys]]]]
   grouped_metadata_and_rows = (({
       IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
       ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
@@ -252,7 +252,7 @@ def _add_vantage_point_tags(
 
 def _add_satellite_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    resolver_tags: beam.pvalue.PCollection[IpMetadata],
+    resolver_tags: beam.pvalue.PCollection[IpMetadataWithKeys],
     answer_tags: beam.pvalue.PCollection[SatelliteAnswerMetadata]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
@@ -533,10 +533,10 @@ def process_satellite_with_tags(
       row_lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(SatelliteRow))
 
-  # PCollection[IpMetadata]
+  # PCollection[IpMetadataWithKeys]
   resolver_tags = (
       resolver_lines | 'resolver tag rows' >> beam.FlatMapTuple(
-          _read_satellite_resolver_tags).with_output_types(IpMetadata))
+          _read_satellite_resolver_tags).with_output_types(IpMetadataWithKeys))
 
   # PCollection[SatelliteAnswerMetadata]
   answer_tags = (
