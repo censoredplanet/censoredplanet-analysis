@@ -15,7 +15,7 @@ from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
 from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
 
-#  UUID used as a namespace for generating further UUIDs
+# UUID used as a namespace for generating further UUIDs
 CENSORED_PLANET_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "censoredplanet.org")
 
 

@@ -57,7 +57,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         end_time='2020-11-14T07:54:49.279150352-05:00',
         ip='146.112.62.39',
         is_control=False,
-        measurement_id='',
+        measurement_id='74897db64fb45a848facb4ee40f7a00e',
         source='CP_Quack-echo-2019-10-16-01-01-17',
         start_time='2020-11-14T07:54:49.246304766-05:00',
         stateful_block=False,
@@ -67,9 +67,6 @@ class FlattenMeasurementTest(unittest.TestCase):
     flattener.setup()
 
     row = list(flattener.process((filename, line)))[0]
-    # Measurement ids are random, so we can't test them.
-    row.measurement_id = ''
-
     self.assertEqual(row, expected_row)
 
   def test_flattenmeasurement_satellite(self) -> None:
@@ -104,14 +101,11 @@ class FlattenMeasurementTest(unittest.TestCase):
                 ip='151.101.1.184', matches_control='ip http cert asnum asname')
         ],
         rcode=0,
-        measurement_id='',
+        measurement_id='87a324f6c03150dda81c93bdeddb4adf',
         source='CP_Satellite-2020-09-02-12-00-01')
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()
 
     row = list(flattener.process((filename, line)))[0]
-    # Measurement ids are random, so we can't test them.
-    row.measurement_id = ''
-
     self.assertEqual(row, expected_row)

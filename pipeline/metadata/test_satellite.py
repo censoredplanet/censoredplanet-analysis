@@ -13,11 +13,6 @@ from pipeline.metadata import satellite
 # pylint: disable=too-many-lines
 
 
-def _unset_measurement_id(row: SatelliteRow) -> SatelliteRow:
-  row.measurement_id = ''
-  return row
-
-
 class SatelliteTest(unittest.TestCase):
   """Unit tests for satellite steps."""
 
@@ -234,7 +229,7 @@ class SatelliteTest(unittest.TestCase):
         )],
         date = '2020-09-02',
         source = 'CP_Satellite-2020-09-02-12-00-01',
-        measurement_id = '',
+        measurement_id = 'baa7c6c8ad7b5774832fb7537943c2b0',
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'special',
@@ -256,7 +251,7 @@ class SatelliteTest(unittest.TestCase):
         )],
         date = '2020-09-02',
         source = 'CP_Satellite-2020-09-02-12-00-01',
-        measurement_id = '',
+        measurement_id = '7a003222d96557a9ad2b658bc025ea79',
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'special',
@@ -270,13 +265,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      tagged = satellite.process_satellite_with_tags(row_lines,
-                                                     answer_tag_lines,
-                                                     resolver_tag_lines)
-      # Measurement ids are random and can't be tested
-      final = tagged | 'unset measurement ids' >> beam.Map(
-          _unset_measurement_id)
-
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p0(self) -> None:  # pylint: disable=no-self-use
@@ -412,7 +402,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = '',
+        measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
             country = 'IE',
             name = 'customfilter37-dns2.cleanbrowsing.org.',
@@ -433,7 +423,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = '',
+        measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
             country = 'IE',
             name = 'customfilter37-dns2.cleanbrowsing.org.',
@@ -464,7 +454,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = '',
+        measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
             country = 'IE',
             name = 'customfilter37-dns2.cleanbrowsing.org.',
@@ -485,7 +475,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = '',
+        measurement_id = '180143e90b5e5082a21f440b4482e78c',
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'rdns37b.ultradns.net.',
@@ -509,7 +499,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
         source = 'CP_Satellite-2021-03-01-12-00-01',
-        measurement_id = '',
+        measurement_id = '180143e90b5e5082a21f440b4482e78c',
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'rdns37b.ultradns.net.',
@@ -523,13 +513,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      tagged = satellite.process_satellite_with_tags(row_lines,
-                                                     answer_tag_lines,
-                                                     resolver_tag_lines)
-      # Measurement ids are random and can't be tested
-      final = tagged | 'unset measurement ids' >> beam.Map(
-          _unset_measurement_id)
-
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p1(self) -> None:  # pylint: disable=no-self-use
@@ -683,7 +668,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:49:01.62448452-04:00',
         end_time = '2021-04-18T14:49:03.624563629-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '0590413e5980581891beec5c6a80425c',
         ip_metadata = IpMetadata(
             country = 'RU',
             name = '87-119-233-243.saransk.ru.',
@@ -704,7 +689,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:49:07.712972288-04:00',
         end_time = '2021-04-18T14:49:07.749265765-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = 'f1c72aa0a7bd5368af0d3f28732da6fe',
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'ns1327.ztomy.com.',
@@ -728,7 +713,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:57.561175746-04:00',
         end_time = '2021-04-18T14:51:57.587097567-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '6df37f5f0e9e58e58d3a6019880efafb',
         ip_metadata = IpMetadata(
             name = 'rec1pubns2.ultradns.net.',
         )
@@ -751,7 +736,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:57.587109091-04:00',
         end_time = '2021-04-18T14:51:57.61294601-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '6df37f5f0e9e58e58d3a6019880efafb',
         ip_metadata = IpMetadata(
             name = 'rec1pubns2.ultradns.net.',
         )
@@ -774,7 +759,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:45.836310062-04:00',
         end_time = '2021-04-18T14:51:45.862080031-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
             name = 'rec1pubns2.ultradns.net.',
         )
@@ -795,7 +780,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:45.862091022-04:00',
         end_time = '2021-04-18T14:51:47.862170832-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
             name = 'rec1pubns2.ultradns.net.',
         )
@@ -818,7 +803,7 @@ class SatelliteTest(unittest.TestCase):
         start_time = '2021-04-18T14:51:47.862183185-04:00',
         end_time = '2021-04-18T14:51:48.162724942-04:00',
         source = 'CP_Satellite-2021-04-18-12-00-01',
-        measurement_id = '',
+        measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
             name = 'rec1pubns2.ultradns.net.',
         )
@@ -831,13 +816,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      tagged = satellite.process_satellite_with_tags(row_lines,
-                                                     answer_tag_lines,
-                                                     resolver_tag_lines)
-      # Measurement ids are random and can't be tested
-      final = tagged | 'unset measurement ids' >> beam.Map(
-          _unset_measurement_id)
-
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
@@ -1009,7 +989,7 @@ class SatelliteTest(unittest.TestCase):
         error = None,
         anomaly = False,
         success = True,
-        measurement_id = '',
+        measurement_id = '6100ab464f425e3c9cdb52db36d45519',
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = False,
         average_confidence = 100,
@@ -1052,7 +1032,7 @@ class SatelliteTest(unittest.TestCase):
         error = None,
         anomaly = True,
         success = False,
-        measurement_id = '',
+        measurement_id = '6d419dab07565bad901aabcc8d2e0cc7',
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = False,
         average_confidence = None,
@@ -1079,7 +1059,7 @@ class SatelliteTest(unittest.TestCase):
         error = 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
-        measurement_id = '',
+        measurement_id = '47de079652ca53f7bdb57ca956e1c70e',
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
@@ -1106,7 +1086,7 @@ class SatelliteTest(unittest.TestCase):
         error = 'read udp 141.212.123.185:23315->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
-        measurement_id = '',
+        measurement_id = '47de079652ca53f7bdb57ca956e1c70e',
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
@@ -1133,7 +1113,7 @@ class SatelliteTest(unittest.TestCase):
         error = 'read udp 141.212.123.185:53501->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
-        measurement_id = '',
+        measurement_id = '47de079652ca53f7bdb57ca956e1c70e',
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
@@ -1156,13 +1136,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      tagged = satellite.process_satellite_with_tags(row_lines,
-                                                     answer_tag_lines,
-                                                     resolver_tag_lines)
-      # Measurement ids are random and can't be tested
-      final = tagged | 'unset measurement ids' >> beam.Map(
-          _unset_measurement_id)
-
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
