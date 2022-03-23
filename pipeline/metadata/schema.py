@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 # pylint: disable=too-many-instance-attributes
 
@@ -169,7 +169,8 @@ class BlockpageRow():
   source: Optional[str] = None
 
 
-def flatten_for_bigquery(row: BigqueryRow) -> Dict[str, Any]:
+def flatten_for_bigquery(
+    row: Union[BigqueryRow, BlockpageRow]) -> Dict[str, Any]:
   if isinstance(row, HyperquackRow):
     return flatten_for_bigquery_hyperquack(row)
   if isinstance(row, SatelliteRow):
