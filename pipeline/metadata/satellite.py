@@ -116,11 +116,11 @@ def _get_received_ips_with_roundtrip_id_and_date(
 
   Yields individual recieved answers that also include the roundtrip and date
     ex:
-      SatelliteAnswerMetadata(
+      SatelliteAnswer(
         'ip': '4.5.6.7',
         'date': '2021-01-01',
         'roundtrip_id: 'abc'
-      ), SatelliteAnswerMetadata(
+      ), SatelliteAnswer(
         'ip': '5.6.7.8',
         'date': '2021-01-01',
         'roundtrip_id: 'abc'
@@ -182,8 +182,8 @@ def _read_satellite_answer_tags(filepath: str,
       line: json str (dictionary containing geo tag data)
 
   Yields:
-      A SatelliteAnswer of the format
-        SatelliteAnswer(
+      A SatelliteAnswerMetadata of the format
+        SatelliteAnswerMetadata(
           ip='1.1.1.1',
           date='2020-01-01'
           http='e3c1d3...' # optional
@@ -420,7 +420,7 @@ def post_processing_satellite(
 
 def add_received_ip_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    tags: beam.pvalue.PCollection[SatelliteAnswer]
+    tags: beam.pvalue.PCollection[SatelliteAnswerMetadata]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add ip metadata info to received ip lists in rows
 
@@ -464,11 +464,11 @@ def add_received_ip_tags(
       ]
     }
   """
-  # PCollection[Tuple[DateIpKey, SatelliteAnswer]]
+  # PCollection[Tuple[DateIpKey, SatelliteAnswerMetadata]]
   tags_keyed_by_ip_and_date = (
       tags | 'tags: key by ips and dates' >>
       beam.Map(lambda tag: (make_date_ip_key(tag), tag)).with_output_types(
-          Tuple[DateIpKey, SatelliteAnswer]))
+          Tuple[DateIpKey, SatelliteAnswerMetadata]))
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
@@ -486,18 +486,18 @@ def add_received_ip_tags(
       RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
-  # PCollection[Tuple[roundtrip_id, SatelliteAnswer]] received ip row with
+  # PCollection[Tuple[roundtrip_id, SatelliteAnswerMetadata]] received ip row with
   received_ips_with_metadata = (
       grouped_metadata_and_received_ips |
       'add received ip tags: merge tags with answers' >>
       beam.FlatMapTuple(merge_satellite_tags_with_answers).with_output_types(
-          Tuple[str, SatelliteAnswer]))
+          Tuple[str, SatelliteAnswerMetadata]))
 
-  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswer]]]] # received ip
+  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerMetadata]]]]
   received_ips_grouped_by_roundtrip_ip = (
       received_ips_with_metadata | 'group received_by roundtrip' >>
       beam.GroupBy(lambda x: x[0]).with_output_types(
-          Tuple[str, Iterable[Tuple[str, SatelliteAnswer]]]))
+          Tuple[str, Iterable[Tuple[str, SatelliteAnswerMetadata]]]))
 
   grouped_rows_and_received_ips = (({
       ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
