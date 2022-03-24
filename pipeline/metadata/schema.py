@@ -11,46 +11,6 @@ from typing import Optional, List, Dict, Any, Union
 
 
 @dataclass
-class SatelliteAnswer():
-  """Class for keeping track of Satellite answer content"""
-  # Keys
-  ip: str
-  # Metadata
-  asnum: Optional[int] = None
-  asname: Optional[str] = None
-  http: Optional[str] = None
-  cert: Optional[str] = None
-  matches_control: Optional[str] = None
-
-
-@dataclass
-class SatelliteAnswerMetadata(SatelliteAnswer):
-  """Satellite Answer Metadata.
-
-  When this metadata is being passed around
-  it needs an additional date field to keep track of when it's valid.
-  In the final SatelliteAnswer object written to bigquery
-  we don't include that field since it's redundant.
-  """
-  date: str = ''
-
-
-def merge_satellite_tags(answer: SatelliteAnswer,
-                         tags: SatelliteAnswerMetadata) -> None:
-  """Add tag information to a Satellite answer"""
-  if tags.asnum is not None:
-    answer.asnum = tags.asnum
-  if tags.asname is not None:
-    answer.asname = tags.asname
-  if tags.http is not None:
-    answer.http = tags.http
-  if tags.cert is not None:
-    answer.cert = tags.cert
-  if tags.matches_control is not None:
-    answer.matches_control = tags.matches_control
-
-
-@dataclass
 class IpMetadata():
   """Class for keeping track of ip metadata"""
   # Metadata
@@ -73,7 +33,7 @@ class IpMetadataWithKeys(IpMetadata):
   date: str = ''
 
 
-def merge_ip_metadata(base: IpMetadata, new: IpMetadataWithKeys) -> None:
+def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
   """Merge metadata info into an existing metadata."""
   if new.netblock is not None:
     base.netblock = new.netblock
@@ -94,6 +54,49 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadataWithKeys) -> None:
 
 
 @dataclass
+class SatelliteTags():
+  """Satellite tags that are not metadata specifically about the answer ip"""
+  http: Optional[str] = None
+  cert: Optional[str] = None
+  matches_control: Optional[str] = None
+
+
+@dataclass
+class SatelliteAnswer():
+  """Class for keeping track of Satellite answer content"""
+  # Keys
+  ip: str
+  tags: SatelliteTags = dataclasses.field(default_factory=SatelliteTags)
+  ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
+
+
+@dataclass
+class SatelliteAnswerWithKeys(SatelliteAnswer):
+  """Satellite Answer Metadata.
+
+  When this metadata is being passed around
+  it needs an additional date field to keep track of when it's valid.
+  """
+  date: str = ''
+
+
+def merge_satellite_tags(base: SatelliteTags, new: SatelliteTags) -> None:
+  if new.http is not None:
+    base.http = new.http
+  if new.cert is not None:
+    base.cert = new.cert
+  if new.matches_control is not None:
+    base.matches_control = new.matches_control
+
+
+def merge_satellite_answers(base: SatelliteAnswer,
+                            new: SatelliteAnswer) -> None:
+  """Add tag information to a Satellite answer"""
+  merge_satellite_tags(base.tags, new.tags)
+  merge_ip_metadata(base.ip_metadata, new.ip_metadata)
+
+
+@dataclass
 class ReceivedHttps:
   """Class for the parsed content of a received HTTP/S request
 
@@ -103,12 +106,12 @@ class ReceivedHttps:
   blockpage: Optional[bool] = None
   page_signature: Optional[str] = None
 
-  received_status: Optional[str] = None
-  received_body: Optional[str] = None
-  received_tls_version: Optional[int] = None
-  received_tls_cipher_suite: Optional[int] = None
-  received_tls_cert: Optional[str] = None
-  received_headers: List[str] = dataclasses.field(default_factory=list)
+  status: Optional[str] = None
+  body: Optional[str] = None
+  tls_version: Optional[int] = None
+  tls_cipher_suite: Optional[int] = None
+  tls_cert: Optional[str] = None
+  headers: List[str] = dataclasses.field(default_factory=list)
 
 
 # All or part of a scan row to be written to bigquery
@@ -129,13 +132,13 @@ class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
   measurement_id: Optional[str] = None
   source: Optional[str] = None
 
-  ip_metadata: Optional[IpMetadata] = None
+  ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
 
 
 @dataclass
 class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
-  received: Optional[ReceivedHttps] = None
+  received: ReceivedHttps = dataclasses.field(default_factory=ReceivedHttps)
   stateful_block: Optional[bool] = None
 
 
@@ -157,7 +160,7 @@ class SatelliteRow(BigqueryRow):
 @dataclass
 class BlockpageRow():
   """Class for blockpage specific fields"""
-  received: Optional[ReceivedHttps] = None
+  received: ReceivedHttps = dataclasses.field(default_factory=ReceivedHttps)
 
   domain: Optional[str] = None
   ip: Optional[str] = None
@@ -182,9 +185,6 @@ def flatten_for_bigquery(
 
 def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
   """Convert a structured hyperquack dataclass into a flat dict."""
-  ip_metadata = row.ip_metadata or IpMetadata()
-  received = row.received or ReceivedHttps()
-
   flat: Dict[str, Any] = {
       'domain': row.domain,
       'category': row.category,
@@ -200,29 +200,27 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'measurement_id': row.measurement_id,
       'source': row.source,
       'stateful_block': row.stateful_block,
-      'netblock': ip_metadata.netblock,
-      'asn': ip_metadata.asn,
-      'as_name': ip_metadata.as_name,
-      'as_full_name': ip_metadata.as_full_name,
-      'as_class': ip_metadata.as_class,
-      'country': ip_metadata.country,
-      'organization': ip_metadata.organization,
-      'blockpage': received.blockpage,
-      'page_signature': received.page_signature,
-      'received_status': received.received_status,
-      'received_body': received.received_body,
-      'received_headers': received.received_headers,
-      'received_tls_version': received.received_tls_version,
-      'received_tls_cipher_suite': received.received_tls_cipher_suite,
-      'received_tls_cert': received.received_tls_cert,
+      'netblock': row.ip_metadata.netblock,
+      'asn': row.ip_metadata.asn,
+      'as_name': row.ip_metadata.as_name,
+      'as_full_name': row.ip_metadata.as_full_name,
+      'as_class': row.ip_metadata.as_class,
+      'country': row.ip_metadata.country,
+      'organization': row.ip_metadata.organization,
+      'blockpage': row.received.blockpage,
+      'page_signature': row.received.page_signature,
+      'received_status': row.received.status,
+      'received_body': row.received.body,
+      'received_headers': row.received.headers,
+      'received_tls_version': row.received.tls_version,
+      'received_tls_cipher_suite': row.received.tls_cipher_suite,
+      'received_tls_cert': row.received.tls_cert,
   }
   return flat
 
 
 def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   """Convert a structured satellite dataclass into a flat dict."""
-  ip_metadata = row.ip_metadata or IpMetadata()
-
   flat: Dict[str, Any] = {
       'domain': row.domain,
       'category': row.category,
@@ -247,24 +245,24 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
       'exclude_reason': row.exclude_reason,
       'has_type_a': row.has_type_a,
       'received': [],
-      'name': ip_metadata.name,
-      'netblock': ip_metadata.netblock,
-      'asn': ip_metadata.asn,
-      'as_name': ip_metadata.as_name,
-      'as_full_name': ip_metadata.as_full_name,
-      'as_class': ip_metadata.as_class,
-      'country': ip_metadata.country,
-      'organization': ip_metadata.organization,
+      'name': row.ip_metadata.name,
+      'netblock': row.ip_metadata.netblock,
+      'asn': row.ip_metadata.asn,
+      'as_name': row.ip_metadata.as_name,
+      'as_full_name': row.ip_metadata.as_full_name,
+      'as_class': row.ip_metadata.as_class,
+      'country': row.ip_metadata.country,
+      'organization': row.ip_metadata.organization,
   }
 
   for received_answer in row.received:
     answer = {
         'ip': received_answer.ip,
-        'asnum': received_answer.asnum,
-        'asname': received_answer.asname,
-        'http': received_answer.http,
-        'cert': received_answer.cert,
-        'matches_control': received_answer.matches_control,
+        'asnum': received_answer.ip_metadata.asn,
+        'asname': received_answer.ip_metadata.as_name,
+        'http': received_answer.tags.http,
+        'cert': received_answer.tags.cert,
+        'matches_control': received_answer.tags.matches_control,
     }
     flat['received'].append(answer)
   return flat
@@ -272,8 +270,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
 
 def flatten_for_bigquery_blockpage(row: BlockpageRow) -> Dict[str, Any]:
   """Convert a structured blockpage dataclass into a flat dict."""
-  received = row.received or ReceivedHttps()
-
   flat: Dict[str, Any] = {
       'domain': row.domain,
       'ip': row.ip,
@@ -283,14 +279,14 @@ def flatten_for_bigquery_blockpage(row: BlockpageRow) -> Dict[str, Any]:
       'success': row.success,
       'source': row.source,
       'https': row.https,
-      'blockpage': received.blockpage,
-      'page_signature': received.page_signature,
-      'received_status': received.received_status,
-      'received_body': received.received_body,
-      'received_headers': received.received_headers,
-      'received_tls_version': received.received_tls_version,
-      'received_tls_cipher_suite': received.received_tls_cipher_suite,
-      'received_tls_cert': received.received_tls_cert,
+      'blockpage': row.received.blockpage,
+      'page_signature': row.received.page_signature,
+      'received_status': row.received.status,
+      'received_body': row.received.body,
+      'received_headers': row.received.headers,
+      'received_tls_version': row.received.tls_version,
+      'received_tls_cipher_suite': row.received.tls_cipher_suite,
+      'received_tls_cert': row.received.tls_cert,
   }
   return flat
 
