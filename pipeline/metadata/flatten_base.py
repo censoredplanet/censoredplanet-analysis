@@ -7,7 +7,7 @@ import os
 from typing import Optional, List, Dict, Any, Union
 
 from pipeline.metadata.blockpage import BlockpageMatcher
-from pipeline.metadata.schema import ReceivedHttps
+from pipeline.metadata.schema import HttpsResponse
 
 # pylint: enable=too-many-instance-attributes
 
@@ -67,7 +67,7 @@ def is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
 
 
-def _reconstruct_http_response(row: ReceivedHttps) -> str:
+def _reconstruct_http_response(row: HttpsResponse) -> str:
   """Rebuild the HTTP response as a string from its pieces
 
     Args:
@@ -83,7 +83,7 @@ def _reconstruct_http_response(row: ReceivedHttps) -> str:
 
 
 def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
-                         anomaly: bool, row: ReceivedHttps) -> None:
+                         anomaly: bool, row: HttpsResponse) -> None:
   """If there's an anomaly check the content for a blockpage match and add to row
 
   Args:
@@ -101,7 +101,7 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
 
 def parse_received_data(blockpage_matcher: BlockpageMatcher,
                         received: Union[str, Dict[str, Any]],
-                        anomaly: bool) -> ReceivedHttps:
+                        anomaly: bool) -> HttpsResponse:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
@@ -112,7 +112,7 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   Returns:
     a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
   """
-  row = ReceivedHttps()
+  row = HttpsResponse()
 
   if isinstance(received, str):
     row.status = received

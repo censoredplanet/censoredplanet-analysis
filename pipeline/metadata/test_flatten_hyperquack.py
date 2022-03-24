@@ -2,7 +2,7 @@
 
 import unittest
 
-from pipeline.metadata.schema import HyperquackRow, ReceivedHttps
+from pipeline.metadata.schema import HyperquackRow, HttpsResponse
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -124,7 +124,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=True,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2020-08-23-06-01-02',
-            received=ReceivedHttps(
+            received=HttpsResponse(
                 is_known_blockpage=False,
                 status='HTTP/1.1 503 Service Unavailable',
                 page_signature='x_generic_503_4',
@@ -145,7 +145,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=True,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2020-08-23-06-01-02',
-            received=ReceivedHttps(
+            received=HttpsResponse(
                 is_known_blockpage=None,
                 status='',
                 page_signature=None,
@@ -182,7 +182,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=True,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2020-08-23-06-01-02',
-            received=ReceivedHttps(
+            received=HttpsResponse(
                 is_known_blockpage=None,
                 status='HTTP/1.1 403 Forbidden',
                 page_signature=None,
@@ -364,7 +364,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-discard-2021-05-31-12-43-21',
-            received=ReceivedHttps(
+            received=HttpsResponse(
                 is_known_blockpage=None,
                 status='',
                 page_signature=None,
@@ -486,7 +486,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         controls_failed=False,
         measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
         source='CP_Quack-http-2020-09-13-01-02-07',
-        received=ReceivedHttps(
+        received=HttpsResponse(
             status='301 Moved Permanently',
             body='test body',
             headers=[
@@ -574,7 +574,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-http-2021-05-30-01-01-01',
-            received=ReceivedHttps(
+            received=HttpsResponse(
                 status='503 Service Unavailable',
                 body='<html>short body for test</html>',
                 headers=[
@@ -660,7 +660,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         controls_failed = False,
         measurement_id = '81e2a76dafe04131bc38fc6ec7bbddca',
         source = 'CP_Quack-https-2020-11-06-15-15-31',
-        received=ReceivedHttps(
+        received=HttpsResponse(
             status = '302 Found',
             body = '<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n<HTML><HEAD>\n<TITLE>302 Found</TITLE>\n</HEAD><BODY>\n<H1>Found</H1>\nThe document has moved <A HREF=\"https://jobs.bankaudi.com.lb/OA_HTML/IrcVisitor.jsp\">here</A>.<P>\n</BODY></HTML>\n',
             tls_version = 771,
@@ -743,7 +743,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         controls_failed = True,
         measurement_id = '81e2a76dafe04131bc38fc6ec7bbddca',
         source = 'CP_Quack-https-2021-04-26-04-21-46',
-        received=ReceivedHttps(
+        received=HttpsResponse(
             status = '200 OK',
             body = '<!DOCTYPE html> replaced long body',
             tls_version = 771,

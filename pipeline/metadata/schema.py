@@ -97,7 +97,7 @@ def merge_satellite_answers(base: SatelliteAnswer,
 
 
 @dataclass
-class ReceivedHttps:
+class HttpsResponse:
   """Class for the parsed content of a received HTTP/S request
 
   These are both passed around independantly, and as part of
@@ -138,7 +138,7 @@ class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
 @dataclass
 class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
-  received: ReceivedHttps = dataclasses.field(default_factory=ReceivedHttps)
+  received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
   stateful_block: Optional[bool] = None
 
 
@@ -160,7 +160,7 @@ class SatelliteRow(BigqueryRow):
 @dataclass
 class BlockpageRow():
   """Class for blockpage specific fields"""
-  received: ReceivedHttps = dataclasses.field(default_factory=ReceivedHttps)
+  received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
 
   domain: Optional[str] = None
   ip: Optional[str] = None

@@ -5,7 +5,7 @@ import unittest
 from pipeline.metadata.blockpage import BlockpageMatcher
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import ReceivedHttps
+from pipeline.metadata.schema import HttpsResponse
 
 
 class FlattenBaseTest(unittest.TestCase):
@@ -48,7 +48,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n'
     }
 
-    expected = ReceivedHttps(
+    expected = HttpsResponse(
         is_known_blockpage = True,
         status = '403 Forbidden',
         body = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
@@ -68,7 +68,7 @@ class FlattenBaseTest(unittest.TestCase):
         # No 'headers' field
     }
 
-    expected = ReceivedHttps(
+    expected = HttpsResponse(
         status='403 Forbidden',
         body='<test-body>',
         headers=[],
@@ -87,7 +87,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head></title></head><body>test/body></html>'
     }
 
-    expected = ReceivedHttps(
+    expected = HttpsResponse(
         is_known_blockpage=False,
         status='521 Origin Down',
         body='<html><head></title></head><body>test/body></html>',
@@ -108,7 +108,7 @@ class FlattenBaseTest(unittest.TestCase):
         'body': '<html><head></title></head><body>test/body></html>'
     }
 
-    expected = ReceivedHttps(
+    expected = HttpsResponse(
         is_known_blockpage=True,
         status='403 Forbidden',
         body='<html><head></title></head><body>test/body></html>',
@@ -143,7 +143,7 @@ class FlattenBaseTest(unittest.TestCase):
         }
     }
 
-    expected = ReceivedHttps(
+    expected = HttpsResponse(
         status = '403 Forbidden',
         body = '<HTML><HEAD>\n<TITLE>Access Denied</TITLE>\n</HEAD><BODY>\n<H1>Access Denied</H1>\n \nYou don\'t have permission to access "discover.com" on this server.<P>\nReference 18b535dd581604694259a71c660\n</BODY>\n</HTML>\n',
         tls_version = 771,
