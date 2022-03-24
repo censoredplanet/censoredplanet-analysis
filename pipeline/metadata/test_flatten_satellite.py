@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow, IpMetadata, ReceivedHttps
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow, IpMetadata, ReceivedHttps, SatelliteTags
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -83,15 +83,19 @@ class FlattenSatelliteTest(unittest.TestCase):
             received=[
                 SatelliteAnswer(
                     ip='151.101.1.184',
-                    matches_control='ip http cert asnum asname'),
+                    tags=SatelliteTags(
+                        matches_control='ip http cert asnum asname')),
                 SatelliteAnswer(
                     ip='151.101.129.184',
-                    matches_control='ip http cert asnum asname'),
+                    tags=SatelliteTags(
+                        matches_control='ip http cert asnum asname')),
                 SatelliteAnswer(
                     ip='151.101.193.184',
-                    matches_control='ip http cert asnum asname'),
+                    tags=SatelliteTags(
+                        matches_control='ip http cert asnum asname')),
                 SatelliteAnswer(
-                    ip='151.101.65.184', matches_control='ip cert asnum asname')
+                    ip='151.101.65.184',
+                    tags=SatelliteTags(matches_control='ip cert asnum asname'))
             ],
             rcode=0,
             measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
@@ -371,13 +375,14 @@ class FlattenSatelliteTest(unittest.TestCase):
             received=[
                 SatelliteAnswer(
                     ip='88.212.202.9',
-                    http=
-                    '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
-                    cert=
-                    '162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49',
-                    asnum=39134,
-                    asname='UNITEDNET',
-                    matches_control='ip http cert asnum asname')
+                    tags=SatelliteTags(
+                        matches_control='ip http cert asnum asname',
+                        http=
+                        '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
+                        cert=
+                        '162be4020c68591192f906bcc7c27cec0ce3eb905531bec517b97e17cc1c1c49',
+                    ),
+                    ip_metadata=IpMetadata(asn=39134, as_name='UNITEDNET'))
             ],
             rcode=0,
             average_confidence=100,
@@ -729,12 +734,16 @@ class FlattenSatelliteTest(unittest.TestCase):
         source = 'CP-Satellite-2021-10-20-12-00-01',
         rcode = 0,
         received = [SatelliteAnswer(
-            asname = 'SKTELECOM-NET-AS SK Telecom',
-            asnum = 9644,
-            cert = '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
-            http = 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
             ip = '113.217.247.90',
-            matches_control = 'ip http cert asnum asname'
+            tags=SatelliteTags(
+                      matches_control = 'ip http cert asnum asname',
+                      cert = '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
+                      http = 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
+                    ),
+            ip_metadata=IpMetadata(
+                      asn=9644,
+                      as_name='SKTELECOM-NET-AS SK Telecom'
+                    )
         )],
         success = True,
         exclude_reason = '',
@@ -1098,19 +1107,27 @@ class FlattenSatelliteTest(unittest.TestCase):
         source='CP_Satellite-2022-01-23-12-00-01',
         rcode=0,
         received=[SatelliteAnswer(
-            asname='AKAMAI-ASN1',
-            asnum=20940,
-            cert='',
-            http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
             ip='92.123.189.40',
-            matches_control='asnum asname'
+            tags=SatelliteTags(
+                      cert='',
+                      http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
+                      matches_control='asnum asname'
+                    ),
+                    ip_metadata=IpMetadata(
+                      asn=20940,
+                      as_name='AKAMAI-ASN1'
+                    )
         ), SatelliteAnswer(
-            asname='AKAMAI-ASN1',
-            asnum=20940,
-            cert='',
-            http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
             ip='92.123.189.41',
-            matches_control='asnum asname'
+            tags=SatelliteTags(
+                      cert='',
+                      http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
+                      matches_control='asnum asname'
+                    ),
+                    ip_metadata=IpMetadata(
+                      asn=20940,
+                      as_name='AKAMAI-ASN1'
+                    )
         )],
         success=True,
         exclude_reason='',
@@ -1179,9 +1196,9 @@ class FlattenSatelliteTest(unittest.TestCase):
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = False,
         received=ReceivedHttps(
-            received_status = '302 Moved Temporarily',
-            received_body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
-            received_headers = [
+            status = '302 Moved Temporarily',
+            body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+            headers = [
             'Content-Length: 170',
             'Content-Type: text/html',
             'Date: Fri, 17 Sep 2021 01:07:56 GMT',
@@ -1202,8 +1219,8 @@ class FlattenSatelliteTest(unittest.TestCase):
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = True,
         received=ReceivedHttps(
-            received_status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
             is_known_blockpage = None,
+            status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
             page_signature = None
         )
       ),

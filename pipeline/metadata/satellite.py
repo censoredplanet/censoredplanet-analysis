@@ -2,18 +2,17 @@
 
 from __future__ import absolute_import
 
-import dataclasses
 import datetime
 import json
 import logging
 import re
-from typing import Union, List, Tuple, Dict, Iterator, Iterable, Any
+from typing import Union, List, Tuple, Dict, Iterator, Iterable
 import uuid
 
 import apache_beam as beam
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, BlockpageRow, IpMetadataWithKeys
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys, SatelliteTags
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -174,7 +173,7 @@ def _read_satellite_resolver_tags(filepath: str,
 
 
 def _read_satellite_answer_tags(filepath: str,
-                                line: str) -> Iterator[SatelliteAnswerMetadata]:
+                                line: str) -> Iterator[SatelliteAnswerWithKeys]:
   """Read data for IP tagging from Satellite.
 
     Args:
@@ -199,14 +198,15 @@ def _read_satellite_answer_tags(filepath: str,
                     line)
     return
 
-  tags = SatelliteAnswerMetadata(
+  answer_with_keys = SatelliteAnswerWithKeys(
       ip=scan['ip'],
-      http=scan['http'],
-      cert=scan['cert'],
-      asname=scan['asname'],
-      asnum=scan['asnum'],
-      date=re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0])
-  yield tags
+      date=re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0],
+      tags=SatelliteTags(http=scan['http'], cert=scan['cert']),
+      ip_metadata=IpMetadata(
+          as_name=scan['asname'],
+          asn=scan['asnum'],
+      ))
+  yield answer_with_keys
 
 
 def _add_vantage_point_tags(
@@ -253,7 +253,7 @@ def _add_vantage_point_tags(
 def _add_satellite_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
     resolver_tags: beam.pvalue.PCollection[IpMetadataWithKeys],
-    answer_tags: beam.pvalue.PCollection[SatelliteAnswerMetadata]
+    answer_tags: beam.pvalue.PCollection[SatelliteAnswerWithKeys]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
@@ -291,7 +291,10 @@ def _total_tags(key: DateDomainKey,
                 row: SatelliteRow) -> Tuple[DateDomainKey, int]:
   total_tags = 0
   for ans in row.received:
-    tag_values = [ans.http, ans.asnum, ans.asname, ans.cert]
+    tag_values = [
+        ans.tags.http, ans.tags.cert, ans.ip_metadata.asn,
+        ans.ip_metadata.as_name
+    ]
     non_empty_tag_values = [value for value in tag_values if value is not None]
     total_tags = len(list(non_empty_tag_values))
   return (key, total_tags)
@@ -420,7 +423,7 @@ def post_processing_satellite(
 
 def add_received_ip_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    tags: beam.pvalue.PCollection[SatelliteAnswerMetadata]
+    tags: beam.pvalue.PCollection[SatelliteAnswerWithKeys]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add ip metadata info to received ip lists in rows
 
@@ -464,11 +467,11 @@ def add_received_ip_tags(
       ]
     }
   """
-  # PCollection[Tuple[DateIpKey, SatelliteAnswerMetadata]]
+  # PCollection[Tuple[DateIpKey, SatelliteAnswerWithKeys]]
   tags_keyed_by_ip_and_date = (
       tags | 'tags: key by ips and dates' >>
       beam.Map(lambda tag: (make_date_ip_key(tag), tag)).with_output_types(
-          Tuple[DateIpKey, SatelliteAnswerMetadata]))
+          Tuple[DateIpKey, SatelliteAnswerWithKeys]))
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
@@ -486,18 +489,18 @@ def add_received_ip_tags(
       RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
-  # PCollection[Tuple[roundtrip_id, SatelliteAnswerMetadata]] received ip row with
+  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithKeys]] received ip row with
   received_ips_with_metadata = (
       grouped_metadata_and_received_ips |
       'add received ip tags: merge tags with answers' >>
       beam.FlatMapTuple(merge_satellite_tags_with_answers).with_output_types(
-          Tuple[str, SatelliteAnswerMetadata]))
+          Tuple[str, SatelliteAnswerWithKeys]))
 
-  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerMetadata]]]]
+  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]]]
   received_ips_grouped_by_roundtrip_ip = (
       received_ips_with_metadata | 'group received_by roundtrip' >>
       beam.GroupBy(lambda x: x[0]).with_output_types(
-          Tuple[str, Iterable[Tuple[str, SatelliteAnswerMetadata]]]))
+          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithKeys]]]))
 
   grouped_rows_and_received_ips = (({
       ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
@@ -538,11 +541,11 @@ def process_satellite_with_tags(
       resolver_lines | 'resolver tag rows' >> beam.FlatMapTuple(
           _read_satellite_resolver_tags).with_output_types(IpMetadataWithKeys))
 
-  # PCollection[SatelliteAnswerMetadata]
+  # PCollection[SatelliteAnswerWithKeys]
   answer_tags = (
       answer_lines |
       'answer tag rows' >> beam.FlatMapTuple(_read_satellite_answer_tags).
-      with_output_types(SatelliteAnswerMetadata))
+      with_output_types(SatelliteAnswerWithKeys))
 
   rows_with_metadata = _add_satellite_tags(rows, resolver_tags, answer_tags)
 
@@ -626,25 +629,29 @@ def _calculate_confidence(scan: SatelliteRow,
   scan.untagged_controls = num_control_tags == 0
   scan.untagged_response = True
 
-  for answer in scan.received or []:
+  for answer in scan.received:
     # check tags for each answer IP
-    matches_control = (answer.matches_control or '').split()
+    matches_control = (answer.tags.matches_control or '').split()
     total_tags = 0
     matching_tags = 0
 
-    answer_kvs: List[Tuple[str, Any]] = list(dataclasses.asdict(answer).items())
+    answer_kvs = {
+        'http': answer.tags.http,
+        'cert': answer.tags.cert,
+        'asnum': answer.ip_metadata.asn,
+        'asname': answer.ip_metadata.as_name
+    }
     non_empty_answer_keys = [
-        answer_kv[0] for answer_kv in answer_kvs if answer_kv[1] is not None
+        key for (key, value) in answer_kvs.items() if value is not None
     ]
 
     # calculate number of tags IP has and how many match controls
-    for tag in flatten_satellite.SATELLITE_TAGS:
-      if tag != 'ip' and tag in non_empty_answer_keys:
-        total_tags += 1
-        if tag in matches_control:
-          matching_tags += 1
+    for tag in non_empty_answer_keys:
+      total_tags += 1
+      if tag in matches_control:
+        matching_tags += 1
 
-    if scan.untagged_response and total_tags > 0:
+    if total_tags > 0:
       # at least one answer IP has tags
       scan.untagged_response = False
 
@@ -687,7 +694,7 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
     reasons = []
     # Check received IPs for false positive reasons
     for received in scan.received:
-      asname = received.asname
+      asname = received.ip_metadata.as_name
       if asname and CDN_REGEX.match(asname):
         # CDN IPs
         scan.excluded = True

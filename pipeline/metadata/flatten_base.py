@@ -75,10 +75,10 @@ def _reconstruct_http_response(row: ReceivedHttps) -> str:
 
     Returns: a string imitating the original http response
     """
-  full_response = (row.received_status or '') + '\r\n'
-  for header in row.received_headers:
+  full_response = (row.status or '') + '\r\n'
+  for header in row.headers:
     full_response += header + '\r\n'
-  full_response += '\r\n' + (row.received_body or '')
+  full_response += '\r\n' + (row.body or '')
   return full_response
 
 
@@ -115,13 +115,13 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   row = ReceivedHttps()
 
   if isinstance(received, str):
-    row.received_status = received
+    row.status = received
     _add_blockpage_match(blockpage_matcher, received, anomaly, row)
     return row
 
-  row.received_status = received['status_line']
-  row.received_body = received['body']
-  row.received_headers = parse_received_headers(received.get('headers', {}))
+  row.status = received['status_line']
+  row.body = received['body']
+  row.headers = parse_received_headers(received.get('headers', {}))
 
   full_http_response = _reconstruct_http_response(row)
   _add_blockpage_match(blockpage_matcher, full_http_response, anomaly, row)
@@ -129,14 +129,14 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   # hyperquack v1 TLS format
   tls = received.get('tls', None)
   if tls:
-    row.received_tls_version = tls['version']
-    row.received_tls_cipher_suite = tls['cipher_suite']
-    row.received_tls_cert = tls['cert']
+    row.tls_version = tls['version']
+    row.tls_cipher_suite = tls['cipher_suite']
+    row.tls_cert = tls['cert']
 
   # hyperquack v2 TLS format
   if 'TlsVersion' in received:
-    row.received_tls_version = received['TlsVersion']
-    row.received_tls_cipher_suite = received['CipherSuite']
-    row.received_tls_cert = received['Certificate']
+    row.tls_version = received['TlsVersion']
+    row.tls_cipher_suite = received['CipherSuite']
+    row.tls_cert = received['Certificate']
 
   return row
