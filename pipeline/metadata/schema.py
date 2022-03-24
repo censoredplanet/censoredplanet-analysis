@@ -100,7 +100,7 @@ class ReceivedHttps:
   These are both passed around independantly, and as part of
   HyperquackRow/BlockpageRow objects
   """
-  blockpage: Optional[bool] = None
+  is_known_blockpage: Optional[bool] = None
   page_signature: Optional[str] = None
 
   received_status: Optional[str] = None
@@ -207,7 +207,7 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'as_class': ip_metadata.as_class,
       'country': ip_metadata.country,
       'organization': ip_metadata.organization,
-      'blockpage': received.blockpage,
+      'blockpage': received.is_known_blockpage,
       'page_signature': received.page_signature,
       'received_status': received.received_status,
       'received_body': received.received_body,
@@ -283,7 +283,7 @@ def flatten_for_bigquery_blockpage(row: BlockpageRow) -> Dict[str, Any]:
       'success': row.success,
       'source': row.source,
       'https': row.https,
-      'blockpage': received.blockpage,
+      'blockpage': received.is_known_blockpage,
       'page_signature': received.page_signature,
       'received_status': received.received_status,
       'received_body': received.received_body,

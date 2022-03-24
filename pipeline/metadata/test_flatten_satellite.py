@@ -1188,7 +1188,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
             'Server: nginx/1.10.3 (Ubuntu)'
             ],
-            blockpage = False,
+            is_known_blockpage = False,
             page_signature = 'r_fp_26'
         )
       ),
@@ -1203,7 +1203,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         https = True,
         received=ReceivedHttps(
             received_status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
-            blockpage = None,
+            is_known_blockpage = None,
             page_signature = None
         )
       ),
