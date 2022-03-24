@@ -59,9 +59,13 @@ SATELLITE_FILES = (
     SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
     SATELLITE_OBSERVATION_FILES)
 
-# A key containing a date and Domain
-# ex: ("2020-01-01", 'example.com')
+# A key containing a date and domain
+# ex: ('2020-01-01', 'example.com')
 DateDomainKey = Tuple[str, str]
+
+# A key containing a domain, date and ip
+# ex: ('example.com', '2020-01-01', '1.2.3.4')
+DomainDateIpKey = Tuple[str, str, str]
 
 SCAN_TYPE_SATELLITE = 'satellite'
 SCAN_TYPE_BLOCKPAGE = 'blockpage'
@@ -552,6 +556,38 @@ def process_satellite_with_tags(
   return rows_with_metadata
 
 
+def add_blockpages_to_answers(
+  rows: beam.pvalue.PCollection[SatelliteRow],
+  blockpages: beam.pvalue.PCollection[BlockpageRow]
+) -> beam.pvalue.PCollection[SatelliteRow]:
+  """Add blockpage rows onto Satellite Answers
+  
+  Args:
+    rows: Satellite Rows
+    blockpages: 
+  """
+  # PCollection[Tuple[roundtrip_id, SatelliteRow]]
+  rows_with_roundtrip_id = (
+      rows | 'add roundtrip_ids' >> beam.Map(
+          _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
+
+  # PCollection[Tuple[DomainDateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
+  received_ips_keyed_by_ip_domain_and_date = (
+      rows_with_roundtrip_id | 'get received ips' >> beam.FlatMap(
+          _get_received_ips_with_roundtrip_id_and_date).with_output_types(
+              Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]))
+
+  # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
+  blockpages_keyed = ()
+
+  # cogroup
+
+  # add tags back onto satellite rows
+
+  return
+
+
+
 def process_satellite_blockpages(
     blockpages: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[BlockpageRow]:
@@ -705,8 +741,7 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
 
 def process_satellite_lines(
     lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> Tuple[beam.pvalue.PCollection[SatelliteRow],
-           beam.pvalue.PCollection[BlockpageRow]]:
+) -> beam.pvalue.PCollection[SatelliteRow]:
   """Process both satellite and blockpage data files.
 
   Args:
@@ -724,10 +759,13 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
-  # PCollection[SatelliteRow]
-  post_processed_satellite = post_processing_satellite(tagged_satellite)
-
   # PCollection[BlockpageRow]
-  blockpage_rows = process_satellite_blockpages(blockpage_lines)
+  blockpage_rows = process_satellite_blockpages(blockpage_lines)                                               
 
-  return post_processed_satellite, blockpage_rows
+  # PCollection[SatelliteRow]
+  satellite_with_blockpages = add_blockpages_to_answers(tagged_satellite, blockpage_rows)
+
+  # PCollection[SatelliteRow]
+  post_processed_satellite = post_processing_satellite(satellite_with_blockpages)
+
+  return post_processed_satellite

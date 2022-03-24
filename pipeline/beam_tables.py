@@ -536,25 +536,18 @@ class ScanDataBeamPipelineRunner():
       lines = _read_scan_text(p, new_filenames)
 
       if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        # PCollection[SatelliteRow], PCollection[BlockpageRow]
-        satellite_rows, blockpage_rows = satellite.process_satellite_lines(
+        # PCollection[SatelliteRow]
+        satellite_rows = satellite.process_satellite_lines(
             lines)
 
-        # PCollection[SatelliteRow]
-        rows_with_metadata = self._add_metadata(satellite_rows)
-
-        self._write_to_bigquery(
-            satellite.SCAN_TYPE_BLOCKPAGE, blockpage_rows,
-            satellite.get_blockpage_table_name(table_name, scan_type),
-            incremental_load)
       else:  # Hyperquack scans
         # PCollection[HyperquackRow]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
                 flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
 
-        # PCollection[HyperquackRow]
-        rows_with_metadata = self._add_metadata(rows)
+      # PCollection[BlockpageRow]
+      rows_with_metadata = self._add_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)
 
