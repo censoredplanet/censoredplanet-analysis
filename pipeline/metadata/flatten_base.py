@@ -94,8 +94,8 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
     row: existing row to add blockpage info to.
   """
   if anomaly:
-    blockpage, signature = blockpage_matcher.match_page(content)
-    row.blockpage = blockpage
+    is_known_blockpage, signature = blockpage_matcher.match_page(content)
+    row.is_known_blockpage = is_known_blockpage
     row.page_signature = signature
 
 

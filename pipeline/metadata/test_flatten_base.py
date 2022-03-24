@@ -52,7 +52,7 @@ class FlattenBaseTest(unittest.TestCase):
         received_status = '403 Forbidden',
         received_body = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1256"><title>MNN3-1(1)</title></head><body><iframe src="http://10.10.34.35:80" style="width: 100%; height: 100%" scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0"></iframe></body></html>\r\n\r\n',
         received_headers = [],
-        blockpage = True,
+        is_known_blockpage = True,
         page_signature = 'b_nat_ir_national_1',
     )
     # yapf: enable
@@ -72,7 +72,7 @@ class FlattenBaseTest(unittest.TestCase):
         received_status='403 Forbidden',
         received_body='<test-body>',
         received_headers=[],
-        blockpage=None,
+        is_known_blockpage=None,
         page_signature=None,
     )
     blockpage_matcher = BlockpageMatcher()
@@ -91,7 +91,7 @@ class FlattenBaseTest(unittest.TestCase):
         received_status='521 Origin Down',
         received_body='<html><head></title></head><body>test/body></html>',
         received_headers=[],
-        blockpage=False,
+        is_known_blockpage=False,
         page_signature='x_521',
     )
     blockpage_matcher = BlockpageMatcher()
@@ -112,7 +112,7 @@ class FlattenBaseTest(unittest.TestCase):
         received_status='403 Forbidden',
         received_body='<html><head></title></head><body>test/body></html>',
         received_headers=['Server: Barracuda/NGFirewall'],
-        blockpage=True,
+        is_known_blockpage=True,
         page_signature='a_prod_barracuda_2',
     )
     blockpage_matcher = BlockpageMatcher()
@@ -158,7 +158,7 @@ class FlattenBaseTest(unittest.TestCase):
             'Server: AkamaiGHost',
             'Set-Cookie: bm_sz=6A1BDB4DFCA371F55C598A6D50C7DC3F~YAAQtTXdWKzJ+ZR1AQAA6zY7nwmc3d1xb2D5pqi3WHoMGfNsB8zB22LP5Kz/15sxdI3d3qznv4NzhGdb6CjijzFezAd18NREhybEvZMSZe2JHkjBjli/y1ZRMgC512ln7CCHURjS03UWDIzVrpwPV3Z/h/mq00NF2+LgHsDPelEZoArYVmEwH7OtE4zHAePErKw=; Domain=.discover.com; Path=/; Expires=Sat, 07 Nov 2020 00:24:19 GMT; Max-Age=14400; HttpOnly_abck=7A29878FA7120EC680C6E591A8FF3F5A~-1~YAAQtTXdWK3J+ZR1AQAA6zY7nwR93cThkIxWHn0icKtS6Wgb6NVHSQ80nZ6I2DzczA+1qn/0rXSGZUcFvW/+7tmDF0lHsieeRwnmIydhPELwAsNLjfBMF1lJm9Y7u4ppUpD4WtbRJ1g+Qhd9CLcelH3fQ8AVmJn/jRNN8WrisA8GKuUhpfjv9Gp1aGGqzv12H8u3Ogt/9oOv4Y8nKuS7CWipsFuPftCMeTBVbPn/JsV/NzttmkuFikLj8PwmpNecqlhaH1Ra32XDl/hVsCFWaPm4wdWO3d2WDK8Em0sHzklyTV4iFo6itVlCEHQ=~-1~-1~-1; Domain=.discover.com; Path=/; Expires=Sat, 06 Nov 2021 20:24:19 GMT; Max-Age=31536000; Secure'
         ],
-        blockpage = False,
+        is_known_blockpage = False,
         page_signature = 'x_on_this_server',
     )
     # yapf: enable

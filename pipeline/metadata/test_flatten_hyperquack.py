@@ -126,7 +126,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             source='CP_Quack-echo-2020-08-23-06-01-02',
             received=ReceivedHttps(
                 received_status='HTTP/1.1 503 Service Unavailable',
-                blockpage=False,
+                is_known_blockpage=False,
                 page_signature='x_generic_503_4',
             )),
         HyperquackRow(
@@ -147,7 +147,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             source='CP_Quack-echo-2020-08-23-06-01-02',
             received=ReceivedHttps(
                 received_status='',
-                blockpage=None,
+                is_known_blockpage=None,
                 page_signature=None,
             )),
         HyperquackRow(
@@ -184,7 +184,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             source='CP_Quack-echo-2020-08-23-06-01-02',
             received=ReceivedHttps(
                 received_status='HTTP/1.1 403 Forbidden',
-                blockpage=None,
+                is_known_blockpage=None,
                 page_signature=None,
             )),
     ]
@@ -366,7 +366,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             source='CP_Quack-discard-2021-05-31-12-43-21',
             received=ReceivedHttps(
                 received_status='',
-                blockpage=None,
+                is_known_blockpage=None,
                 page_signature=None,
             )),
         HyperquackRow(
@@ -495,7 +495,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 'Location: https://www.csmonitor.com/',
                 'Server: HTTP Proxy/1.0',
             ],
-            blockpage=False,
+            is_known_blockpage=False,
             page_signature='p_fp_33',
         ))
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
@@ -583,7 +583,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                     'Expires: Thu, 01 Jan 1970 00:00:00 GMT',
                     'P3p: CP=\"CAO PSA OUR\"', 'Pragma: no-cache'
                 ],
-                blockpage=False,
+                is_known_blockpage=False,
                 page_signature='x_generic_503_4',
             ))
     ]
