@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Iterator, List, Tuple
 import apache_beam as beam
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer, IpMetadata, SatelliteTags
+from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer, IpMetadata
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -101,7 +101,7 @@ def _annotate_received_ips_v1(
   for (ip, tags) in received_ips.items():
     received_answer = SatelliteAnswer(ip)
     if tags and len(tags) != 0:
-      received_answer.tags.matches_control = _append_tags(tags)
+      received_answer.matches_control = _append_tags(tags)
     all_received.append(received_answer)
   base_response.received = all_received
 
@@ -194,7 +194,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     for (ip, tags) in input_response_data.items():
       received = SatelliteAnswer(ip)
       if tags:
-        received.tags.matches_control = _append_tags(tags)
+        received.matches_control = _append_tags(tags)
       all_received.append(received)
 
     success_observation = deepcopy(base_response)
@@ -397,17 +397,16 @@ class SatelliteFlattener():
       for (ip, answer) in answers.items():
         received = SatelliteAnswer(
             ip=ip,
-            tags=SatelliteTags(
-                http=answer.get('http'),
-                cert=answer.get('cert'),
-                matches_control=''),
+            http=answer.get('http'),
+            cert=answer.get('cert'),
+            matches_control='',
             ip_metadata=IpMetadata(
                 as_name=answer.get('asname'),
                 asn=answer.get('asnum'),
             ))
         matched = answer.get('matched', [])
         if matched:
-          received.tags.matches_control = _append_tags(matched)
+          received.matches_control = _append_tags(matched)
         all_received.append(received)
       roundtrip_row.received = all_received
       yield roundtrip_row

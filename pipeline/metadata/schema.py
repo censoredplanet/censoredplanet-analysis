@@ -54,19 +54,13 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
 
 
 @dataclass
-class SatelliteTags():
-  """Satellite tags that are not metadata specifically about the answer ip"""
-  http: Optional[str] = None
-  cert: Optional[str] = None
-  matches_control: Optional[str] = None
-
-
-@dataclass
 class SatelliteAnswer():
   """Class for keeping track of Satellite answer content"""
   # Keys
   ip: str
-  tags: SatelliteTags = dataclasses.field(default_factory=SatelliteTags)
+  http: Optional[str] = None
+  cert: Optional[str] = None
+  matches_control: Optional[str] = None
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
 
 
@@ -80,19 +74,15 @@ class SatelliteAnswerWithKeys(SatelliteAnswer):
   date: str = ''
 
 
-def merge_satellite_tags(base: SatelliteTags, new: SatelliteTags) -> None:
+def merge_satellite_answers(base: SatelliteAnswer,
+                            new: SatelliteAnswer) -> None:
+  """Add tag information to a Satellite answer"""
   if new.http is not None:
     base.http = new.http
   if new.cert is not None:
     base.cert = new.cert
   if new.matches_control is not None:
     base.matches_control = new.matches_control
-
-
-def merge_satellite_answers(base: SatelliteAnswer,
-                            new: SatelliteAnswer) -> None:
-  """Add tag information to a Satellite answer"""
-  merge_satellite_tags(base.tags, new.tags)
   merge_ip_metadata(base.ip_metadata, new.ip_metadata)
 
 
@@ -260,9 +250,9 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'ip': received_answer.ip,
         'asnum': received_answer.ip_metadata.asn,
         'asname': received_answer.ip_metadata.as_name,
-        'http': received_answer.tags.http,
-        'cert': received_answer.tags.cert,
-        'matches_control': received_answer.tags.matches_control,
+        'http': received_answer.http,
+        'cert': received_answer.cert,
+        'matches_control': received_answer.matches_control,
     }
     flat['received'].append(answer)
   return flat

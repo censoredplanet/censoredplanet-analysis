@@ -3,7 +3,7 @@
 import unittest
 
 from pipeline.metadata import flatten
-from pipeline.metadata.schema import HyperquackRow, SatelliteRow, SatelliteAnswer, SatelliteTags
+from pipeline.metadata.schema import HyperquackRow, SatelliteRow, SatelliteAnswer
 
 
 class FlattenMeasurementTest(unittest.TestCase):
@@ -98,8 +98,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         success=True,
         received=[
             SatelliteAnswer(
-                ip='151.101.1.184',
-                tags=SatelliteTags(matches_control='ip http cert asnum asname'))
+                ip='151.101.1.184', matches_control='ip http cert asnum asname')
         ],
         rcode=0,
         measurement_id='87a324f6c03150dda81c93bdeddb4adf',

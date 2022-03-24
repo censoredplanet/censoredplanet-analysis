@@ -12,7 +12,7 @@ import uuid
 import apache_beam as beam
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys, SatelliteTags
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -201,7 +201,8 @@ def _read_satellite_answer_tags(filepath: str,
   answer_with_keys = SatelliteAnswerWithKeys(
       ip=scan['ip'],
       date=re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0],
-      tags=SatelliteTags(http=scan['http'], cert=scan['cert']),
+      http=scan['http'],
+      cert=scan['cert'],
       ip_metadata=IpMetadata(
           as_name=scan['asname'],
           asn=scan['asnum'],
@@ -292,8 +293,7 @@ def _total_tags(key: DateDomainKey,
   total_tags = 0
   for ans in row.received:
     tag_values = [
-        ans.tags.http, ans.tags.cert, ans.ip_metadata.asn,
-        ans.ip_metadata.as_name
+        ans.http, ans.cert, ans.ip_metadata.asn, ans.ip_metadata.as_name
     ]
     non_empty_tag_values = [value for value in tag_values if value is not None]
     total_tags = len(list(non_empty_tag_values))
@@ -631,13 +631,13 @@ def _calculate_confidence(scan: SatelliteRow,
 
   for answer in scan.received:
     # check tags for each answer IP
-    matches_control = (answer.tags.matches_control or '').split()
+    matches_control = (answer.matches_control or '').split()
     total_tags = 0
     matching_tags = 0
 
     answer_kvs = {
-        'http': answer.tags.http,
-        'cert': answer.tags.cert,
+        'http': answer.http,
+        'cert': answer.cert,
         'asnum': answer.ip_metadata.asn,
         'asname': answer.ip_metadata.as_name
     }
