@@ -5,16 +5,21 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, BlockpageRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
 
 # A key containing a date and IP
-# ex: ("2020-01-01", '1.2.3.4')
+# ex: ('2020-01-01', '1.2.3.4')
 DateIpKey = Tuple[str, str]
+
+# A key containing a domain, date and ip
+# ex: ('example.com', '2020-01-01', '1.2.3.4')
+DomainDateIpKey = Tuple[str, str, str]
 
 # PCollection key names used internally by the beam pipeline
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
 ROWS_PCOLLECION_NAME = 'rows'
 RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
+BLOCKPAGE_PCOLLECTION_NAME = 'blockpage'
 
 
 def make_date_ip_key(
@@ -22,6 +27,10 @@ def make_date_ip_key(
 ) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
+
+
+def make_domain_date_ip_key(row: BlockpageRow) -> DomainDateIpKey:
+  return (row.domain or '', row.date or '', row.ip or '')
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
@@ -87,7 +96,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
 
 def merge_tagged_answers_with_rows(
-    key: str,  # pylint: disable=unused-argument
+    key: DateIpKey,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[SatelliteRow],
                            List[List[Tuple[str, SatelliteAnswerWithKeys]]]]]
 ) -> SatelliteRow:
@@ -153,3 +162,27 @@ def merge_tagged_answers_with_rows(
       if tags.ip == untagged_answer.ip:
         merge_satellite_answers(untagged_answer, tags)
   return row
+
+
+def merge_blockpages_with_answers(
+    key: DomainDateIpKey,  # pylint: disable=unused-argument
+    value: Dict[str, Union[List[SatelliteAnswer],
+                           List[Tuple[str, SatelliteAnswerWithKeys]]]]
+) -> Iterator[Tuple[str, SatelliteAnswer]]:
+  """Add blockpage info to answers."""
+  answers: List[Tuple[str, SatelliteAnswer]] = value[
+      RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
+  blockpages: List[BlockpageRow] = value[
+      BLOCKPAGE_PCOLLECTION_NAME]  # type: ignore
+
+  if not blockpages:
+    for (roundtrip_id, answer) in answers:
+      yield (roundtrip_id, answer)
+
+  for (roundtrip_id, answer) in answers:
+    for blockpage in blockpages:  # should only be two but we'll see
+      if blockpage.https is True:
+        answer.https_response = blockpage.received
+      if blockpage.https is False:
+        answer.http_response = blockpage.received
+    yield (roundtrip_id, answer)

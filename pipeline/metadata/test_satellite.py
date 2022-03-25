@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, BlockpageRow, HttpsResponse, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
@@ -1410,6 +1410,148 @@ class SatelliteTest(unittest.TestCase):
       result.append((scan.excluded, scan.exclude_reason))
 
     self.assertListEqual(result, expected)
+
+  def test_add_blockpages_to_answers(self) -> None:  # pylint: disable=no-self-use
+    """Test adding blockpage info to Satellite Rows."""
+    row_data = [
+        SatelliteRow(
+            domain="1337x.to",
+            is_control=False,
+            category="Media sharing",
+            ip="8.8.8.8",
+            is_control_ip=True,
+            date="2022-01-02",
+            start_time="2022-01-02T14:47:22.608859091-05:00",
+            end_time="2022-01-02T14:47:22.987814778-05:00",
+            error=None,
+            anomaly=False,
+            success=True,
+            source="CP_Satellite-2022-01-02-12-00-01",
+            controls_failed=False,
+            rcode=0,
+            average_confidence=100,
+            matches_confidence=[100, 100],
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason="",
+            has_type_a=True,
+            received=[
+                SatelliteAnswer(
+                    ip="104.31.16.11",
+                    http=
+                    "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert="",
+                    ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET")),
+                SatelliteAnswer(
+                    ip="104.31.16.118",
+                    http=
+                    "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert="",
+                    ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"))
+            ],
+            ip_metadata=IpMetadata(country="US",))
+    ]
+
+    blockpage_data = [
+        BlockpageRow(
+            domain='1337x.to',
+            ip='104.31.16.11',
+            date='2022-01-02',
+            start_time='2022-01-02T21:07:55.814062725-04:00',
+            end_time='2022-01-02T21:07:56.317107472-04:00',
+            success=True,
+            source='CP_Satellite-2022-01-02-12-00-01',
+            https=False,
+            received=HttpsResponse(
+                status='302 Moved Temporarily',
+                body=
+                '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+                headers=[
+                    'Content-Length: 170', 'Content-Type: text/html',
+                    'Date: Fri, 17 Sep 2021 01:07:56 GMT',
+                    'Server: nginx/1.10.3 (Ubuntu)'
+                ],
+                is_known_blockpage=False,
+                page_signature='r_fp_26')),
+        BlockpageRow(
+            domain='1337x.to',
+            ip='104.31.16.11',
+            date='2022-01-02',
+            start_time='2022-01-02T21:07:55.814062725-04:00',
+            end_time='2022-01-02T21:07:56.317107472-04:00',
+            success=True,
+            source='CP_Satellite-2022-01-02-12-00-01',
+            https=True,
+            received=HttpsResponse(
+                is_known_blockpage=None,
+                status=
+                'Get \"https://104.31.16.11:443/\": tls: oversized record received with length 20527',
+                page_signature=None)),
+    ]
+
+    expected_rows = [
+        SatelliteRow(
+            domain="1337x.to",
+            is_control=False,
+            category="Media sharing",
+            ip="8.8.8.8",
+            is_control_ip=True,
+            date="2022-01-02",
+            start_time="2022-01-02T14:47:22.608859091-05:00",
+            end_time="2022-01-02T14:47:22.987814778-05:00",
+            error=None,
+            anomaly=False,
+            success=True,
+            source="CP_Satellite-2022-01-02-12-00-01",
+            controls_failed=False,
+            rcode=0,
+            average_confidence=100,
+            matches_confidence=[100, 100],
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason="",
+            has_type_a=True,
+            received=[
+                SatelliteAnswer(
+                    ip="104.31.16.11",
+                    http=
+                    "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
+                    cert="",
+                    ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"),
+                    http_response=HttpsResponse(
+                        status='302 Moved Temporarily',
+                        body=
+                        '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+                        headers=[
+                            'Content-Length: 170', 'Content-Type: text/html',
+                            'Date: Fri, 17 Sep 2021 01:07:56 GMT',
+                            'Server: nginx/1.10.3 (Ubuntu)'
+                        ],
+                        is_known_blockpage=False,
+                        page_signature='r_fp_26'),
+                    https_response=HttpsResponse(
+                        is_known_blockpage=None,
+                        status=
+                        'Get \"https://104.31.16.11:443/\": tls: oversized record received with length 20527',
+                        page_signature=None)),
+                SatelliteAnswer(
+                    ip="104.31.16.118",
+                    http=
+                    "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
+                    cert="",
+                    ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"))
+            ],
+            ip_metadata=IpMetadata(country="US",))
+    ]
+
+    with TestPipeline() as p:
+      rows = p | 'create data' >> beam.Create(row_data)
+      blockpages = p | 'create blockpages' >> beam.Create(blockpage_data)
+
+      final = satellite.add_blockpages_to_answers(rows, blockpages)
+      beam_test_util.assert_that(final, beam_test_util.equal_to(expected_rows))
 
   def test_postprocessing_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
     """Test postprocessing on Satellite v2.2 data."""

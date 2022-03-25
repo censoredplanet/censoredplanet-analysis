@@ -7,7 +7,30 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
 
+from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
+
 # pylint: disable=too-many-instance-attributes
+
+SCAN_TYPE_SATELLITE = 'satellite'
+SCAN_TYPE_BLOCKPAGE = 'blockpage'
+
+
+@dataclass
+class HttpsResponse:
+  """Class for the parsed content of a received HTTP/S request
+
+  These are both passed around independantly, and as part of
+  HyperquackRow/BlockpageRow objects
+  """
+  is_known_blockpage: Optional[bool] = None
+  page_signature: Optional[str] = None
+
+  status: Optional[str] = None
+  body: Optional[str] = None
+  tls_version: Optional[int] = None
+  tls_cipher_suite: Optional[int] = None
+  tls_cert: Optional[str] = None
+  headers: List[str] = dataclasses.field(default_factory=list)
 
 
 @dataclass
@@ -61,7 +84,10 @@ class SatelliteAnswer():
   http: Optional[str] = None
   cert: Optional[str] = None
   matches_control: Optional[str] = None
+
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
+  http_response: Optional[HttpsResponse] = None
+  https_response: Optional[HttpsResponse] = None
 
 
 @dataclass
@@ -83,25 +109,13 @@ def merge_satellite_answers(base: SatelliteAnswer,
     base.cert = new.cert
   if new.matches_control is not None:
     base.matches_control = new.matches_control
+
+  if new.http_response is not None:
+    base.http_response = new.http_response
+  if new.https_response is not None:
+    base.https_response = new.https_response
+
   merge_ip_metadata(base.ip_metadata, new.ip_metadata)
-
-
-@dataclass
-class HttpsResponse:
-  """Class for the parsed content of a received HTTP/S request
-
-  These are both passed around independantly, and as part of
-  HyperquackRow/BlockpageRow objects
-  """
-  is_known_blockpage: Optional[bool] = None
-  page_signature: Optional[str] = None
-
-  status: Optional[str] = None
-  body: Optional[str] = None
-  tls_version: Optional[int] = None
-  tls_cipher_suite: Optional[int] = None
-  tls_cert: Optional[str] = None
-  headers: List[str] = dataclasses.field(default_factory=list)
 
 
 # All or part of a scan row to be written to bigquery
@@ -246,13 +260,32 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   }
 
   for received_answer in row.received:
-    answer = {
+    http_response = received_answer.http_response or HttpsResponse()
+    https_response = received_answer.https_response or HttpsResponse()
+
+    answer: Dict[str, Any] = {
         'ip': received_answer.ip,
-        'asnum': received_answer.ip_metadata.asn,
-        'asname': received_answer.ip_metadata.as_name,
         'http': received_answer.http,
         'cert': received_answer.cert,
         'matches_control': received_answer.matches_control,
+        # Ip Metadata
+        'asnum': received_answer.ip_metadata.asn,
+        'asname': received_answer.ip_metadata.as_name,
+        # HTTP
+        'http_response_is_known_blockpage': http_response.is_known_blockpage,
+        'http_response_page_signature': http_response.page_signature,
+        'http_response_status': http_response.status,
+        'http_response_body': http_response.body,
+        'http_response_headers': http_response.headers,
+        # HTTPS
+        'https_response_is_known_blockpage': https_response.is_known_blockpage,
+        'https_response_page_signature': https_response.page_signature,
+        'https_response_status': https_response.status,
+        'https_response_body': https_response.body,
+        'https_response_headers': https_response.headers,
+        'https_response_tls_version': https_response.tls_version,
+        'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
+        'https_response_tls_cert': https_response.tls_cert,
     }
     flat['received'].append(answer)
   return flat
@@ -342,17 +375,36 @@ HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
     })
 
 SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA, {
+    BASE_BIGQUERY_SCHEMA,
+    {
         'name': ('string', 'nullable'),
         'is_control_ip': ('boolean', 'nullable'),
-        'received': ('record', 'repeated', {
-            'ip': ('string', 'nullable'),
-            'asnum': ('integer', 'nullable'),
-            'asname': ('string', 'nullable'),
-            'http': ('string', 'nullable'),
-            'cert': ('string', 'nullable'),
-            'matches_control': ('string', 'nullable')
-        }),
+        'received': (
+            'record',
+            'repeated',
+            {
+                'ip': ('string', 'nullable'),
+                'asnum': ('integer', 'nullable'),
+                'asname': ('string', 'nullable'),
+                'http': ('string', 'nullable'),
+                'cert': ('string', 'nullable'),
+                'matches_control': ('string', 'nullable'),
+                # HTTP
+                'http_response_is_known_blockpage': ('string', 'nullable'),
+                'http_response_page_signature': ('string', 'nullable'),
+                'http_response_status': ('string', 'nullable'),
+                'http_response_body': ('string', 'nullable'),
+                'http_response_headers': ('string', 'repeated'),
+                # HTTPS
+                'https_response_is_known_blockpage': ('string', 'nullable'),
+                'https_response_page_signature': ('string', 'nullable'),
+                'https_response_status': ('string', 'nullable'),
+                'https_response_body': ('string', 'nullable'),
+                'https_response_headers': ('string', 'repeated'),
+                'https_response_tls_version': ('integer', 'nullable'),
+                'https_response_tls_cipher_suite': ('integer', 'nullable'),
+                'https_response_tls_cert': ('string', 'nullable'),
+            }),
         'rcode': ('integer', 'nullable'),
         'average_confidence': ('float', 'nullable'),
         'matches_confidence': ('float', 'repeated'),
@@ -386,3 +438,52 @@ BLOCKPAGE_BIGQUERY_SCHEMA = {
     'received_tls_cipher_suite': ('integer', 'nullable'),
     'received_tls_cert': ('string', 'nullable'),
 }
+
+
+def get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
+  """Get the appropriate schema for the given scan type.
+
+  Args:
+    scan_type: str, one of 'echo', 'discard', 'http', 'https',
+      'satellite' or 'blockpage'
+
+  Returns:
+    A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
+  """
+  if scan_type == SCAN_TYPE_BLOCKPAGE:
+    return BLOCKPAGE_BIGQUERY_SCHEMA
+  if scan_type == SCAN_TYPE_SATELLITE:
+    return SATELLITE_BIGQUERY_SCHEMA
+  # Otherwise Hyperquack
+  return HYPERQUACK_BIGQUERY_SCHEMA
+
+
+def get_beam_bigquery_schema(
+    fields: Dict[str, Any]) -> beam_bigquery.TableSchema:
+  """Return a beam bigquery schema for the output table.
+
+  Args:
+    fields: dict of {'field_name': ['column_type', 'column_mode']}
+
+  Returns:
+    A bigquery table schema
+  """
+  table_schema = beam_bigquery.TableSchema()
+
+  for (name, attributes) in fields.items():
+    field_type = attributes[0]
+    mode = attributes[1]
+    field_schema = beam_bigquery.TableFieldSchema()
+    field_schema.name = name
+    field_schema.type = field_type
+    field_schema.mode = mode
+    if len(attributes) > 2:
+      field_schema.fields = []
+      for (subname, (subtype, submode)) in attributes[2].items():
+        subfield_schema = beam_bigquery.TableFieldSchema()
+        subfield_schema.name = subname
+        subfield_schema.type = subtype
+        subfield_schema.mode = submode
+        field_schema.fields.append(subfield_schema)
+    table_schema.fields.append(field_schema)
+  return table_schema

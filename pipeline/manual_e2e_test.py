@@ -429,9 +429,11 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 18)
+      self.assertEqual(len(written_rows), 19)
 
-      expected_single_domains = ['1688.com', '1337x.to', '104.com.tw']
+      expected_single_domains = [
+          '1688.com', '1337x.to', '104.com.tw', '9gag.com'
+      ]
       expected_double_domains = ['a.root-servers.net', '1922.gov.tw']
       expected_triple_domains = ['11st.co.kr']
       expected_quad_domains = ['ajax.aspnetcdn.com', 'alipay.com']
@@ -445,25 +447,9 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
-      written_blockpage_rows = get_bq_rows(
-          client, [get_bq_blockpage_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_blockpage_rows), 20)
-
-      all_expected_blockpage_domains = [
-          'plan-uk.org', 'secure.flickr.com', 'uniswap.org', 'reddit.com',
-          'bbc.com', 'plan-uk.org', 'tx.me', 'www.pinterest.com', 'weather.com',
-          'www.hrcr.org'
-      ]
-
-      written_blockpage_domains = [row[0] for row in written_blockpage_rows]
-      self.assertListEqual(
-          sorted(written_blockpage_domains),
-          sorted(all_expected_blockpage_domains * 2))
-
     finally:
       clean_up_bq_tables(client, [
           get_bq_base_table_name(SATELLITE_SCAN_TYPE),
-          get_bq_blockpage_table_name(SATELLITE_SCAN_TYPE)
       ])
 
   def test_invalid_pipeline(self) -> None:

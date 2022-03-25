@@ -11,8 +11,8 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys
+from pipeline.metadata.beam_metadata import DateIpKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_blockpages_with_answers
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys, SCAN_TYPE_BLOCKPAGE
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -59,12 +59,9 @@ SATELLITE_FILES = (
     SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
     SATELLITE_OBSERVATION_FILES)
 
-# A key containing a date and Domain
-# ex: ("2020-01-01", 'example.com')
+# A key containing a date and domain
+# ex: ('2020-01-01', 'example.com')
 DateDomainKey = Tuple[str, str]
-
-SCAN_TYPE_SATELLITE = 'satellite'
-SCAN_TYPE_BLOCKPAGE = 'blockpage'
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 NUM_SATELLITE_INPUT_PARTITIONS = 4
@@ -115,21 +112,48 @@ def _get_received_ips_with_roundtrip_id_and_date(
 
   Yields individual recieved answers that also include the roundtrip and date
     ex:
-      SatelliteAnswer(
-        'ip': '4.5.6.7',
-        'date': '2021-01-01',
-        'roundtrip_id: 'abc'
-      ), SatelliteAnswer(
-        'ip': '5.6.7.8',
-        'date': '2021-01-01',
-        'roundtrip_id: 'abc'
-      )
+      Tuple(
+        Tuple('2021-01-01', '1.2.3.4')
+        Tuple('abc' # roundtrip id
+              SatelliteAnswer(ip: '1.2.3.4')))
+      Tuple(
+        Tuple('2021-01-01', '4.5.6.7')
+        Tuple('abc' # roundtrip id
+              SatelliteAnswer(ip: '4.5.6.7')))
   """
   (roundtrip_id, row) = row_with_id
   date = row.date or ''
 
   for answer in row.received:
     key: DateIpKey = (date, answer.ip)
+    yield (key, (roundtrip_id, answer))
+
+
+def _get_received_ips_with_roundtrip_id_and_date_domain(
+    row_with_id: Tuple[str, SatelliteRow]
+) -> Iterable[Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]]:
+  """Get all the individual received ips answers from a row.
+
+  Args:
+    row_with_id Tuple[roundtrip_id, SatelliteRow]
+
+  Yields individual recieved answers that also include the roundtrip and date
+    ex:
+      Tuple(
+        Tuple('2021-01-01', '1.2.3.4')
+        Tuple('abc' # roundtrip id
+              SatelliteAnswer(ip: '1.2.3.4')))
+      Tuple(
+        Tuple('2021-01-01', '4.5.6.7')
+        Tuple('abc' # roundtrip id
+              SatelliteAnswer(ip: '4.5.6.7')))
+  """
+  (roundtrip_id, row) = row_with_id
+  date = row.date or ''
+  domain = row.domain or ''
+
+  for answer in row.received:
+    key: DomainDateIpKey = (domain, date, answer.ip)
     yield (key, (roundtrip_id, answer))
 
 
@@ -552,6 +576,72 @@ def process_satellite_with_tags(
   return rows_with_metadata
 
 
+def add_blockpages_to_answers(
+    rows: beam.pvalue.PCollection[SatelliteRow],
+    blockpages: beam.pvalue.PCollection[BlockpageRow]
+) -> beam.pvalue.PCollection[SatelliteRow]:
+  """Add blockpage rows onto Satellite Answers
+
+  Args:
+    rows: Satellite Rows
+    blockpages:
+
+  Returns:
+    SatelliteRows with blockpage info added to the received answers
+  """
+  # TODO partition into only 2.2 data?
+
+  # PCollection[Tuple[roundtrip_id, SatelliteRow]]
+  rows_with_roundtrip_id = (
+      rows | 'add roundtrip_ids: adding blockpages' >> beam.Map(
+          _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
+
+  # PCollection[Tuple[DomainDateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
+  received_ips_keyed_by_ip_domain_and_date = (
+      rows_with_roundtrip_id | 'get received ips: adding blockpages' >>
+      beam.FlatMap(_get_received_ips_with_roundtrip_id_and_date_domain).
+      with_output_types(Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]))
+
+  # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
+  blockpages_keyed = (
+      blockpages | 'key blockpage by domain/date/ip' >> beam.Map(
+          lambda row: (make_domain_date_ip_key(row), row)).with_output_types(
+              Tuple[DomainDateIpKey, BlockpageRow]))
+
+  # cogroup
+  grouped_blockpages_and_answers = (({
+      BLOCKPAGE_PCOLLECTION_NAME: blockpages_keyed,
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_domain_and_date
+  }) | 'cogroup answers and blockpages' >> beam.CoGroupByKey())
+
+  # add blockpages into satellite answers
+  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]
+  received_ips_with_blockpages = (
+      grouped_blockpages_and_answers |
+      'add blockpages : merge blockpages with answers' >>
+      beam.FlatMapTuple(merge_blockpages_with_answers).with_output_types(
+          Tuple[str, SatelliteAnswerWithKeys]))
+
+  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]]]
+  received_ips_grouped_by_roundtrip_ip = (
+      received_ips_with_blockpages | 'group answers by roundtrip' >>
+      beam.GroupBy(lambda x: x[0]).with_output_types(
+          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithKeys]]]))
+
+  grouped_rows_and_received_ips = (({
+      ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_grouped_by_roundtrip_ip
+  }) | 'cogroup by roundtrip id' >> beam.CoGroupByKey())
+
+  # PCollection[SatelliteRow]
+  rows_with_blockpages = (
+      grouped_rows_and_received_ips |
+      'add blockpages: add tagged answers back' >> beam.MapTuple(
+          merge_tagged_answers_with_rows).with_output_types(SatelliteRow))
+
+  return rows_with_blockpages
+
+
 def process_satellite_blockpages(
     blockpages: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[BlockpageRow]:
@@ -705,8 +795,7 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
 
 def process_satellite_lines(
     lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> Tuple[beam.pvalue.PCollection[SatelliteRow],
-           beam.pvalue.PCollection[BlockpageRow]]:
+) -> beam.pvalue.PCollection[SatelliteRow]:
   """Process both satellite and blockpage data files.
 
   Args:
@@ -714,7 +803,6 @@ def process_satellite_lines(
 
   Returns:
     post_processed_satellite: rows of satellite scan data
-    blockpage_rows: rows of blockpage data
   """
   # PCollection[Tuple[filename,line]] x4
   answer_lines, resolver_lines, blockpage_lines, row_lines = lines | beam.Partition(
@@ -724,10 +812,15 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
-  # PCollection[SatelliteRow]
-  post_processed_satellite = post_processing_satellite(tagged_satellite)
-
   # PCollection[BlockpageRow]
   blockpage_rows = process_satellite_blockpages(blockpage_lines)
 
-  return post_processed_satellite, blockpage_rows
+  # PCollection[SatelliteRow]
+  satellite_with_blockpages = add_blockpages_to_answers(tagged_satellite,
+                                                        blockpage_rows)
+
+  # PCollection[SatelliteRow]
+  post_processed_satellite = post_processing_satellite(
+      satellite_with_blockpages)
+
+  return post_processed_satellite
