@@ -7,7 +7,7 @@ import os
 from typing import Optional, List, Dict, Any, Union
 
 from pipeline.metadata.blockpage import BlockpageMatcher
-from pipeline.metadata.schema import ReceivedHttps
+from pipeline.metadata.schema import HttpsResponse
 
 # pylint: enable=too-many-instance-attributes
 
@@ -67,7 +67,7 @@ def is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
 
 
-def _reconstruct_http_response(row: ReceivedHttps) -> str:
+def _reconstruct_http_response(row: HttpsResponse) -> str:
   """Rebuild the HTTP response as a string from its pieces
 
     Args:
@@ -75,15 +75,15 @@ def _reconstruct_http_response(row: ReceivedHttps) -> str:
 
     Returns: a string imitating the original http response
     """
-  full_response = (row.received_status or '') + '\r\n'
-  for header in row.received_headers:
+  full_response = (row.status or '') + '\r\n'
+  for header in row.headers:
     full_response += header + '\r\n'
-  full_response += '\r\n' + (row.received_body or '')
+  full_response += '\r\n' + (row.body or '')
   return full_response
 
 
 def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
-                         anomaly: bool, row: ReceivedHttps) -> None:
+                         anomaly: bool, row: HttpsResponse) -> None:
   """If there's an anomaly check the content for a blockpage match and add to row
 
   Args:
@@ -101,7 +101,7 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
 
 def parse_received_data(blockpage_matcher: BlockpageMatcher,
                         received: Union[str, Dict[str, Any]],
-                        anomaly: bool) -> ReceivedHttps:
+                        anomaly: bool) -> HttpsResponse:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
@@ -112,16 +112,16 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   Returns:
     a dict containing the 'received_' keys/values in SCAN_BIGQUERY_SCHEMA
   """
-  row = ReceivedHttps()
+  row = HttpsResponse()
 
   if isinstance(received, str):
-    row.received_status = received
+    row.status = received
     _add_blockpage_match(blockpage_matcher, received, anomaly, row)
     return row
 
-  row.received_status = received['status_line']
-  row.received_body = received['body']
-  row.received_headers = parse_received_headers(received.get('headers', {}))
+  row.status = received['status_line']
+  row.body = received['body']
+  row.headers = parse_received_headers(received.get('headers', {}))
 
   full_http_response = _reconstruct_http_response(row)
   _add_blockpage_match(blockpage_matcher, full_http_response, anomaly, row)
@@ -129,14 +129,14 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   # hyperquack v1 TLS format
   tls = received.get('tls', None)
   if tls:
-    row.received_tls_version = tls['version']
-    row.received_tls_cipher_suite = tls['cipher_suite']
-    row.received_tls_cert = tls['cert']
+    row.tls_version = tls['version']
+    row.tls_cipher_suite = tls['cipher_suite']
+    row.tls_cert = tls['cert']
 
   # hyperquack v2 TLS format
   if 'TlsVersion' in received:
-    row.received_tls_version = received['TlsVersion']
-    row.received_tls_cipher_suite = received['CipherSuite']
-    row.received_tls_cert = received['Certificate']
+    row.tls_version = received['TlsVersion']
+    row.tls_cipher_suite = received['CipherSuite']
+    row.tls_cert = received['Certificate']
 
   return row

@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerMetadata, IpMetadataWithKeys, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
@@ -46,11 +46,13 @@ class SatelliteTest(unittest.TestCase):
     tag1 = IpMetadataWithKeys(
         ip='1.1.1.1',
         date='2020-12-17',
-        country='US')
+        country='US'
+    )
     tag2 = IpMetadataWithKeys(
         ip='1.1.1.3',
         date='2020-12-17',
-        country='AU')
+        country='AU'
+    )
     # yapf: enable
 
     expected_resolver_tags = [tag1, tag2]
@@ -85,13 +87,15 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(filenames, lines)
 
-    tag1 = SatelliteAnswerMetadata(
-      ip='60.210.17.137',
-      date='2020-12-17',
-      asname='CHINA169-BACKBONE CHINA UNICOM China169 Backbone',
-      asnum=4837,
-      cert='a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
-      http='e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5'
+    tag1 = SatelliteAnswerWithKeys(
+        ip='60.210.17.137',
+        date='2020-12-17',
+        cert='a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
+        http='e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5',
+        ip_metadata=IpMetadata(
+            asn=4837,
+            as_name='CHINA169-BACKBONE CHINA UNICOM China169 Backbone'
+        )
     )
     # yapf: enable
     expected_answer_tags = [tag1]
@@ -200,32 +204,40 @@ class SatelliteTest(unittest.TestCase):
         rcode = 0,
         received = [SatelliteAnswer(
             ip = '13.249.134.38',
-            asname = 'AMAZON-02',
-            asnum = 16509,
             cert = None,
             http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=16509,
+                as_name='AMAZON-02'
+            )
         ), SatelliteAnswer(
             ip = '13.249.134.44',
-            asname = 'AMAZON-02',
-            asnum = 16509,
             cert = None,
             http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=16509,
+                as_name='AMAZON-02'
+            )
         ), SatelliteAnswer(
             ip = '13.249.134.74',
-            asname = 'AMAZON-02',
-            asnum = 16509,
             cert = None,
             http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=16509,
+                as_name='AMAZON-02'
+            )
         ), SatelliteAnswer(
             ip = '13.249.134.89',
-            asname = 'AMAZON-02',
-            asnum = 16509,
             cert = None,
             http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=16509,
+                as_name='AMAZON-02'
+            )
         )],
         date = '2020-09-02',
         source = 'CP_Satellite-2020-09-02-12-00-01',
@@ -440,11 +452,13 @@ class SatelliteTest(unittest.TestCase):
         controls_failed = False,
         received = [SatelliteAnswer(
             ip = '198.35.26.96',
-            asname = 'WIKIMEDIA',
-            asnum = 14907,
             cert = '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
             http = '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
-            matches_control = 'cert asnum asname'
+            matches_control = 'cert asnum asname',
+            ip_metadata=IpMetadata(
+                asn=14907,
+                as_name='WIKIMEDIA'
+            )
         ), SatelliteAnswer(
             ip = '198.35.26.86',
             matches_control = 'cert asnum asname'
@@ -1004,16 +1018,20 @@ class SatelliteTest(unittest.TestCase):
             ip = '104.31.16.11',
             http = '0728405c8a7cfa601fc6e8a0dff71038624dd672fbbfc91605905a536ff9e1a8',
             cert = '',
-            asname = 'CLOUDFLARENET',
-            asnum = 13335,
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=13335,
+                as_name='CLOUDFLARENET'
+            )
         ), SatelliteAnswer(
             ip = '104.31.16.118',
             http = '2022c19b47cac1c5746f9d2efa5b7383f78c4bd1b4443f96e28f3a3019cc8ba0',
             cert = '',
-            asname = 'CLOUDFLARENET',
-            asnum = 13335,
-            matches_control = 'ip http asnum asname'
+            matches_control = 'ip http asnum asname',
+            ip_metadata=IpMetadata(
+                asn=13335,
+                as_name='CLOUDFLARENET'
+            )
         )],
         ip_metadata = IpMetadata(
             country = 'US',
@@ -1214,32 +1232,40 @@ class SatelliteTest(unittest.TestCase):
         received = [
             SatelliteAnswer(
                 ip = '13.249.134.38',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-                matches_control = 'ip http asnum asname'),
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                )),
             SatelliteAnswer(
                 ip = '13.249.134.44',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-                matches_control = 'ip http asnum asname'),
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                )),
             SatelliteAnswer(
                 ip = '13.249.134.74',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-                matches_control = 'ip http asnum asname'),
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                )),
             SatelliteAnswer(
                 ip = '13.249.134.89',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-                matches_control = 'ip http asnum asname')
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                ))
         ],
         date = '2020-09-02',
         ip_metadata = IpMetadata(
@@ -1256,32 +1282,41 @@ class SatelliteTest(unittest.TestCase):
         received = [
             SatelliteAnswer(
                 ip = '13.249.134.38',
-                asname = 'AS1',
-                asnum = 11111,
                 cert = None,
                 http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-                matches_control = ''),
-            SatelliteAnswer(
+                matches_control = '',
+                ip_metadata=IpMetadata(
+                    asn=11111,
+                    as_name='AS1'
+                )
+            ), SatelliteAnswer(
                 ip = '13.249.134.44',
-                asname = 'AS2',
-                asnum = 22222,
                 cert = 'cert',
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-                matches_control = 'asnum asname'),
-            SatelliteAnswer(
+                matches_control = 'asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=22222,
+                    as_name='AS2'
+                )
+            ), SatelliteAnswer(
                 ip = '13.249.134.74',
-                asname = 'AS2',
-                asnum = 22222,
                 cert = None,
                 http = '2054d0fd3887e0ded023879770d6cde57633b7881f609f1042d90fedf41685fe',
-                matches_control = 'ip http asnum asname'),
-            SatelliteAnswer(
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=22222,
+                    as_name='AS2'
+                )
+            ), SatelliteAnswer(
                 ip = '13.249.134.89',
-                asname = 'AS2',
-                asnum = 22222,
                 cert = None,
                 http = '0509322329cdae79475531a019a3628aa52598caa0135c5534905f0c4b4f1bac',
-                matches_control = 'ip http asnum asname')
+                matches_control = 'ip http asnum asname',
+                ip_metadata=IpMetadata(
+                    asn=22222,
+                    as_name='AS2'
+                )
+            )
         ],
         date = '2020-09-02',
         ip_metadata = IpMetadata(
@@ -1336,18 +1371,23 @@ class SatelliteTest(unittest.TestCase):
         received = [
             SatelliteAnswer(
                 ip = '13.249.134.38',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-                matches_control = ''),
-            SatelliteAnswer(
+                matches_control = '',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                )
+            ), SatelliteAnswer(
                 ip = '13.249.134.44',
-                asname = 'AMAZON-02',
-                asnum = 16509,
                 cert = None,
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-                matches_control = ''),
+                matches_control = '',
+                ip_metadata=IpMetadata(
+                    asn=16509,
+                    as_name='AMAZON-02'
+                )
+            ),
         ],
         date = '2020-09-02',
         ip_metadata = IpMetadata(
@@ -1402,17 +1442,21 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.11",
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 ),
                 SatelliteAnswer(
                     ip = "104.31.16.118",
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 )
             ],
             ip_metadata = IpMetadata(
@@ -1445,17 +1489,21 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.11",
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = ""
+                    matches_control = "",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 ),
                 SatelliteAnswer(
                     ip = "104.31.16.118",
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = ""
+                    matches_control = "",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 )
             ],
             ip_metadata = IpMetadata(
@@ -1488,17 +1536,21 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.11",
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 ),
                 SatelliteAnswer(
                     ip = "104.31.16.118",
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 )
             ],
             ip_metadata = IpMetadata(
@@ -1531,17 +1583,21 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.11",
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 ),
                 SatelliteAnswer(
                     ip = "104.31.16.118",
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
-                    asname = "CLOUDFLARENET",
-                    asnum = 13335,
-                    matches_control = "ip http asnum asname"
+                    matches_control = "ip http asnum asname",
+                    ip_metadata=IpMetadata(
+                        asn=13335,
+                        as_name="CLOUDFLARENET"
+                    )
                 )
             ],
             ip_metadata = IpMetadata(
@@ -1574,9 +1630,11 @@ class SatelliteTest(unittest.TestCase):
                     ip = "188.186.157.49",
                     http = "177a8341782a57778766a7334d3e99ecb61ce54bbcc48838ddda846ea076726d",
                     cert = "",
-                    asname = "ERTELECOM-DC-AS",
-                    asnum = 31483,
-                    matches_control = ""
+                    matches_control = "",
+                    ip_metadata=IpMetadata(
+                        asn=31483,
+                        as_name="ERTELECOM-DC-AS"
+                    )
                 )
             ],
             ip_metadata = IpMetadata(

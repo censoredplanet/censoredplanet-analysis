@@ -399,9 +399,11 @@ class SatelliteFlattener():
             ip=ip,
             http=answer.get('http'),
             cert=answer.get('cert'),
-            asname=answer.get('asname'),
-            asnum=answer.get('asnum'),
-            matches_control='')
+            matches_control='',
+            ip_metadata=IpMetadata(
+                as_name=answer.get('asname'),
+                asn=answer.get('asnum'),
+            ))
         matched = answer.get('matched', [])
         if matched:
           received.matches_control = _append_tags(matched)

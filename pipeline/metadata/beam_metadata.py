@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadata, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerMetadata, merge_ip_metadata, merge_satellite_tags
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
 
 # A key containing a date and IP
 # ex: ("2020-01-01", '1.2.3.4')
@@ -18,7 +18,7 @@ RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 
 
 def make_date_ip_key(
-    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerMetadata]
+    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerWithKeys]
 ) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
@@ -53,8 +53,6 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   for row in rows:
     new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      if new_row.ip_metadata is None:
-        new_row.ip_metadata = IpMetadata()
       merge_ip_metadata(new_row.ip_metadata, ip_metadata)
     yield new_row
 
@@ -62,7 +60,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
 def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
     key: DateIpKey,
     value: Dict[str, Union[List[SatelliteAnswer],
-                           List[Tuple[str, SatelliteAnswerMetadata]]]]
+                           List[Tuple[str, SatelliteAnswerWithKeys]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
   """
   Args:
@@ -79,19 +77,19 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
   """
   received_ips: List[Tuple[str, SatelliteAnswer]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
-  tags: List[SatelliteAnswerMetadata] = value[
+  tags: List[SatelliteAnswerWithKeys] = value[
       IP_METADATA_PCOLLECTION_NAME]  # type: ignore
 
   for (roundtrip_id, answer) in received_ips:
     for tag in tags:
-      merge_satellite_tags(answer, tag)
+      merge_satellite_answers(answer, tag)
     yield (roundtrip_id, answer)
 
 
 def merge_tagged_answers_with_rows(
     key: str,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[SatelliteRow],
-                           List[List[Tuple[str, SatelliteAnswerMetadata]]]]]
+                           List[List[Tuple[str, SatelliteAnswerWithKeys]]]]]
 ) -> SatelliteRow:
   """
   Args:
@@ -145,13 +143,13 @@ def merge_tagged_answers_with_rows(
 
   if len(value[RECEIVED_IPS_PCOLLECTION_NAME]) == 0:  # No tags
     return row
-  tagged_answers_with_ids: List[Tuple[str, SatelliteAnswerMetadata]] = value[
+  tagged_answers_with_ids: List[Tuple[str, SatelliteAnswerWithKeys]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME][0]  # type: ignore
-  tagged_answers: Iterable[SatelliteAnswerMetadata] = list(
+  tagged_answers: Iterable[SatelliteAnswerWithKeys] = list(
       map(lambda x: x[1], tagged_answers_with_ids))
 
   for untagged_answer in row.received:
     for tags in tagged_answers:
       if tags.ip == untagged_answer.ip:
-        merge_satellite_tags(untagged_answer, tags)
+        merge_satellite_answers(untagged_answer, tags)
   return row
