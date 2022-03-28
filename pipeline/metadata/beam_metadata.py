@@ -179,10 +179,20 @@ def merge_blockpages_with_answers(
     for (roundtrip_id, answer) in answers:
       yield (roundtrip_id, answer)
 
+  https_blockpages = [
+      blockpage for blockpage in blockpages if blockpage.https is True
+  ]
+  http_blockpages = [
+      blockpage for blockpage in blockpages if blockpage.https is False
+  ]
+
+  if len(https_blockpages) > 1 or len(http_blockpages) > 1:
+    raise Exception(
+        f"Unexpected blockpages. Expected <= 1 HTTPS and HTTP: {blockpages}")
+
   for (roundtrip_id, answer) in answers:
-    for blockpage in blockpages:  # should only be two but we'll see
-      if blockpage.https is True:
-        answer.https_response = blockpage.received
-      if blockpage.https is False:
-        answer.http_response = blockpage.received
+    if https_blockpages:
+      answer.https_response = https_blockpages[0].received
+    if http_blockpages:
+      answer.http_response = http_blockpages[0].received
     yield (roundtrip_id, answer)
