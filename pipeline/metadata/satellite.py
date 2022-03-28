@@ -811,7 +811,7 @@ def process_satellite_lines(
                                                         blockpage_rows)
 
   # PCollection[SatelliteRow]
-  post_processed_satellite = post_processing_satellite(
-      satellite_with_blockpages)
+  #post_processed_satellite = post_processing_satellite(
+  #    satellite_with_blockpages)
 
-  return post_processed_satellite
+  return satellite_with_blockpages  # post_processed_satellite
