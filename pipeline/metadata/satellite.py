@@ -6,7 +6,7 @@ import datetime
 import json
 import logging
 import re
-from typing import Union, List, Tuple, Dict, Iterator, Iterable
+from typing import List, Tuple, Dict, Iterator, Iterable
 import uuid
 
 import apache_beam as beam
@@ -61,9 +61,6 @@ SATELLITE_FILES = (
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 NUM_SATELLITE_INPUT_PARTITIONS = 4
-
-# PCollection key name used internally by the beam pipeline
-CONTROLS_PCOLLECTION_NAME = 'controls'
 
 
 def _get_satellite_date_partition(row: SatelliteRow, _: int) -> int:
@@ -320,35 +317,6 @@ def _total_tags(key: DateDomainKey,
   return (key, total_tags)
 
 
-def _flat_rows_controls(  # pylint: disable=unused-argument
-    key: DateDomainKey,
-    value: Dict[str, Union[List[SatelliteRow],
-                           List[int]]]) -> Iterator[Tuple[SatelliteRow, int]]:
-  """Flatten out controls vs rows.
-
-  Args:
-    key, a date/domain key the data is joined on, unused
-    value: a dict
-      {
-        ROWS_PCOLLECION_NAME: List[Rows]
-        CONTROLS_PCOLLECTION_NAME: List[int]
-          single element list with the # of control tags for these rows
-      }
-
-  Yields:
-    Tuple[Row, num_control_tags]
-  """
-  rows: List[SatelliteRow] = value[ROWS_PCOLLECION_NAME]  # type: ignore
-  num_control_tags_list: List[int] = value[
-      CONTROLS_PCOLLECTION_NAME]  # type: ignore
-
-  num_control_tags = 0
-  if len(num_control_tags_list) > 0:
-    num_control_tags = num_control_tags_list[0]
-  for row in rows:
-    yield (row, num_control_tags)
-
-
 def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
                                  _: int) -> int:
   """Partition tests from domain and ip controls
@@ -365,6 +333,23 @@ def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
   if row.is_control_ip or row.anomaly is None:
     return 1
   return 2
+
+
+def _take_max_ctag(
+    ctag: Tuple[DateDomainKey, List[int]]) -> Tuple[DateDomainKey, int]:
+  (key, ctags) = ctag
+  max_ctag = max(ctags)
+  return (key, max_ctag)
+
+
+def _append_num_controls(
+    key_value: Tuple[DateDomainKey, SatelliteRow],
+    max_num_ctags: Dict[DateDomainKey, int]) -> Tuple[SatelliteRow, int]:
+  key, row = key_value
+  if key in max_num_ctags:
+    num_ctags = max_num_ctags[key]
+    return (row, num_ctags)
+  return (row, 0)
 
 
 def post_processing_satellite(
@@ -395,16 +380,25 @@ def post_processing_satellite(
       ip_controls | 'calculate # control tags' >>
       beam.MapTuple(_total_tags).with_output_types(Tuple[DateDomainKey, int]))
 
-  grouped_rows_num_controls = ({
-      ROWS_PCOLLECION_NAME: tests,
-      CONTROLS_PCOLLECTION_NAME: num_ctags
-  } | 'group rows and # control tags by keys' >> beam.CoGroupByKey())
+  # PCollection[Tuple[DateDomainKey, List[int]]]
+  grouped_num_ctags = (
+      num_ctags | 'group_ctags' >> beam.GroupByKey().with_output_types(
+          Tuple[DateDomainKey, List]))
+
+  # PCollection[Tuple[DateDomainKey, int]]
+  max_num_ctags = (
+      grouped_num_ctags | 'take max ctag' >>
+      beam.Map(_take_max_ctag).with_output_types(Tuple[DateDomainKey, int]))
+
+  # SideInputData[PCollection[Tuple[DateDomainKey, int]]
+  max_num_ctags_dict = beam.pvalue.AsDict(max_num_ctags)
 
   # PCollection[Tuple[SatelliteRow, num_controls]]
   rows_with_num_controls = (
-      grouped_rows_num_controls | 'flatmap to (row, # control tags)' >>
-      beam.FlatMapTuple(_flat_rows_controls).with_output_types(
-          Tuple[SatelliteRow, int]))
+      tests | 'append num controls' >> beam.Map(
+          _append_num_controls,
+          max_num_ctags=max_num_ctags_dict).with_output_types(
+              Tuple[SatelliteRow, int]))
 
   # PCollection[SatelliteRow]
   confidence = (
@@ -811,7 +805,7 @@ def process_satellite_lines(
                                                         blockpage_rows)
 
   # PCollection[SatelliteRow]
-  #post_processed_satellite = post_processing_satellite(
-  #    satellite_with_blockpages)
+  post_processed_satellite = post_processing_satellite(
+      satellite_with_blockpages)
 
-  return satellite_with_blockpages  # post_processed_satellite
+  return post_processed_satellite
