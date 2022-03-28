@@ -11,7 +11,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_blockpages_with_answers
+from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_blockpages_with_answers
 from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys, SCAN_TYPE_BLOCKPAGE
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
@@ -58,10 +58,6 @@ SATELLITE_OBSERVATION_FILES = [
 SATELLITE_FILES = (
     SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
     SATELLITE_OBSERVATION_FILES)
-
-# A key containing a date and domain
-# ex: ('2020-01-01', 'example.com')
-DateDomainKey = Tuple[str, str]
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 NUM_SATELLITE_INPUT_PARTITIONS = 4
@@ -140,11 +136,11 @@ def _get_received_ips_with_roundtrip_id_and_date_domain(
   Yields individual recieved answers that also include the roundtrip and date
     ex:
       Tuple(
-        Tuple('2021-01-01', '1.2.3.4')
+        Tuple('2021-01-01', 'example.com', '1.2.3.4')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '1.2.3.4')))
       Tuple(
-        Tuple('2021-01-01', '4.5.6.7')
+        Tuple('2021-01-01', 'example.com', '4.5.6.7')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '4.5.6.7')))
   """
@@ -353,11 +349,6 @@ def _flat_rows_controls(  # pylint: disable=unused-argument
     yield (row, num_control_tags)
 
 
-def _key_by_date_domain(
-    row: SatelliteRow) -> Tuple[DateDomainKey, SatelliteRow]:
-  return ((row.date or '', row.domain or ''), row)
-
-
 def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
                                  _: int) -> int:
   """Partition tests from domain and ip controls
@@ -390,8 +381,8 @@ def post_processing_satellite(
   # PCollection[Tuple[DateDomainKey, SatelliteRow]]
   rows_keyed_by_date_domains = (
       rows | 'key by dates and domains' >>
-      beam.Map(_key_by_date_domain).with_output_types(Tuple[DateDomainKey,
-                                                            SatelliteRow]))
+      beam.Map(lambda row: (make_date_domain_key(row), row)).with_output_types(
+          Tuple[DateDomainKey, SatelliteRow]))
 
   # PCollection[Tuple[DateDomainKey, SatelliteRow]] x3
   domain_controls, ip_controls, tests = (
@@ -591,6 +582,12 @@ def add_blockpages_to_answers(
   """
   # TODO partition into only 2.2 data?
 
+  # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
+  blockpages_keyed = (
+      blockpages | 'key blockpage by domain/date/ip' >> beam.Map(
+          lambda row: (make_domain_date_ip_key(row), row)).with_output_types(
+              Tuple[DomainDateIpKey, BlockpageRow]))
+
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
       rows | 'add roundtrip_ids: adding blockpages' >> beam.Map(
@@ -601,12 +598,6 @@ def add_blockpages_to_answers(
       rows_with_roundtrip_id | 'get received ips: adding blockpages' >>
       beam.FlatMap(_get_received_ips_with_roundtrip_id_and_date_domain).
       with_output_types(Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]))
-
-  # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
-  blockpages_keyed = (
-      blockpages | 'key blockpage by domain/date/ip' >> beam.Map(
-          lambda row: (make_domain_date_ip_key(row), row)).with_output_types(
-              Tuple[DomainDateIpKey, BlockpageRow]))
 
   # cogroup
   grouped_blockpages_and_answers = (({

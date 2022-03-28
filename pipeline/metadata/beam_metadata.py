@@ -11,6 +11,10 @@ from pipeline.metadata.schema import BigqueryRow, SatelliteRow, BlockpageRow, Ip
 # ex: ('2020-01-01', '1.2.3.4')
 DateIpKey = Tuple[str, str]
 
+# A key containing a date and domain
+# ex: ('2020-01-01', 'example.com')
+DateDomainKey = Tuple[str, str]
+
 # A key containing a domain, date and ip
 # ex: ('example.com', '2020-01-01', '1.2.3.4')
 DomainDateIpKey = Tuple[str, str, str]
@@ -31,6 +35,10 @@ def make_date_ip_key(
 
 def make_domain_date_ip_key(row: BlockpageRow) -> DomainDateIpKey:
   return (row.domain or '', row.date or '', row.ip or '')
+
+
+def make_date_domain_key(row: SatelliteRow) -> DateDomainKey:
+  return (row.date or '', row.domain or '')
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument

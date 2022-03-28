@@ -497,7 +497,7 @@ class ScanDataBeamPipelineRunner():
             lines | 'flatten json' >> beam.ParDo(
                 flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
 
-      # PCollection[BlockpageRow]
+      # PCollection[HyperquackRow|SatelliteRow]
       rows_with_metadata = self._add_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)
