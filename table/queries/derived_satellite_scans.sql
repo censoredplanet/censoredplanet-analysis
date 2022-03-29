@@ -113,7 +113,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
 );
 
 
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.satellite_scan_left_joined_inline_blockpages`
 PARTITION BY date
 CLUSTER BY country, asn
 AS (
@@ -123,8 +123,21 @@ AS (
          r.asname as received_asname,
          r.http as received_http,
          r.cert as received_cert,
-         r.matches_control as received_matches_control
-  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan` as a
+         r.matches_control as received_matches_control,
+         r.http_response_is_known_blockpage as received_http_response_is_known_blockpage,
+         r.http_response_page_signature as received_http_response_page_signature,
+         r.http_response_status as received_http_response_status,
+         r.http_response_body as received_http_response_body,
+         r.http_response_headers as received_http_response_headers,
+         r.https_response_is_known_blockpage as received_https_response_is_known_blockpage,
+         r.https_response_page_signature as received_https_response_page_signature,
+         r.https_response_status as received_https_response_status,
+         r.https_response_body as received_https_response_body,
+         r.https_response_headers	as received_https_response_headers,
+         r.https_response_tls_version as received_https_response_tls_version,
+         r.https_response_tls_cipher_suite as received_https_response_tls_cipher_suite,
+         r.https_response_tls_cert as received_https_response_tls_cert,
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan_inline_blockpages` as a
        LEFT JOIN UNNEST(received) as r
 );
 
@@ -140,7 +153,7 @@ AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_inline_blockpages`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -166,7 +179,7 @@ WITH Grouped AS (
         SatelliteOutcome(received, rcode, error, controls_failed, anomaly) as outcome,
         
         COUNT(1) AS count
-    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
+    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan_inline_blockpages`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE controls_failed = FALSE
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
@@ -199,12 +212,3 @@ DROP FUNCTION ClassifySatelliteErrorNegRCode;
 DROP FUNCTION SatelliteOutcome;
 DROP FUNCTION InvalidIp;
 DROP FUNCTION InvalidIpType;
-
-# This view is the stable name for the table above.
-# Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
-# if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans`
-AS (
-  SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
-)
