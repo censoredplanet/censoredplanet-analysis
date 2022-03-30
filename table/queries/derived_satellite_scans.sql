@@ -107,6 +107,8 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
           THEN InvalidIpType(received[OFFSET(0)])
         WHEN received[OFFSET(0)].https_response_tls_cert IS NOT NULL
           THEN TlsCertMatchOutcome(domain, received[OFFSET(0)].https_response_tls_cert)
+        WHEN received[OFFSET(0)].https_response_is_known_blockpage = "true"
+          THEN CONCAT("http_blockpage:", received[OFFSET(0)].https_response_page_signature)
         WHEN anomaly
           THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
         ELSE "expected/match"
