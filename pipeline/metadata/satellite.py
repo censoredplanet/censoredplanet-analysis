@@ -63,8 +63,28 @@ CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
 NUM_SATELLITE_INPUT_PARTITIONS = 4
 
 
-def _get_satellite_date_partition(row: SatelliteRow, _: int) -> int:
-  """Partition Satellite data by date, corresponding to v2.2 format change."""
+def _get_satellite_v2_date_partition(row: SatelliteRow, _: int) -> int:
+  """Partition Satellite data by date, corresponding to v2 format change.
+
+  0 = v1 partition
+  1 = v2.1 and v2.2 partition
+  """
+  date = row.date
+  if date is None:
+    raise Exception(f"Satellite row with unfilled date field: %{row}")
+
+  if datetime.date.fromisoformat(
+      date) < flatten_satellite.SATELLITE_V2_1_START_DATE:
+    return 0
+  return 1
+
+
+def _get_satellite_v2p2_date_partition(row: SatelliteRow, _: int) -> int:
+  """Partition Satellite data by date, corresponding to v2.2 format change.
+
+  0 = v1 to v2.1 partition
+  1 = v2.2 partition
+  """
   date = row.date
   if date is None:
     raise Exception(f"Satellite row with unfilled date field: %{row}")
@@ -291,15 +311,15 @@ def _add_satellite_tags(
 
   # PCollection[SatelliteRow] x2
   rows_pre_v2_2, rows_v2_2 = (
-      rows_with_metadata |
-      'partition by date' >> beam.Partition(_get_satellite_date_partition, 2))
+      rows_with_metadata | 'partition by date v2.2' >> beam.Partition(
+          _get_satellite_v2p2_date_partition, 2))
 
   # PCollection[SatelliteRow]
   rows_pre_v2_2_with_tags = add_received_ip_tags(rows_pre_v2_2, answer_tags)
 
   # PCollection[SatelliteRow]
   rows_with_tags = ((rows_pre_v2_2_with_tags, rows_v2_2) |
-                    'combine date partitions' >> beam.Flatten())
+                    'combine date partitions v2.2' >> beam.Flatten())
 
   # PCollection[SatelliteRow]
   return rows_with_tags
@@ -569,12 +589,16 @@ def add_blockpages_to_answers(
 
   Args:
     rows: Satellite Rows
-    blockpages:
+    blockpages: Blockpage Rows
 
   Returns:
     SatelliteRows with blockpage info added to the received answers
   """
-  # TODO partition into only 2.2 data?
+  # Blockpages only exist for v2 data
+  # PCollection[SatelliteRow] x2
+  rows_v1, rows_v2 = (
+      rows | 'partition by date v2' >> beam.Partition(
+          _get_satellite_v2_date_partition, 2))
 
   # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
   blockpages_keyed = (
@@ -584,7 +608,7 @@ def add_blockpages_to_answers(
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
-      rows | 'add roundtrip_ids: adding blockpages' >> beam.Map(
+      rows_v2 | 'add roundtrip_ids: adding blockpages' >> beam.Map(
           _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
 
   # PCollection[Tuple[DomainDateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
@@ -624,7 +648,11 @@ def add_blockpages_to_answers(
       'add blockpages: add tagged answers back' >> beam.MapTuple(
           merge_tagged_answers_with_rows).with_output_types(SatelliteRow))
 
-  return rows_with_blockpages
+  # PCollection[SatelliteRow]
+  all_rows = ((rows_v1, rows_with_blockpages) |
+              'combine date partitions v2' >> beam.Flatten())
+
+  return all_rows
 
 
 def process_satellite_blockpages(
