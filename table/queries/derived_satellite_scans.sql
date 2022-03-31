@@ -79,14 +79,19 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
   END
 );
 
-CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING, cert STRING) AS (
-  IF(
-    (STRPOS(FROM_BASE64(cert), CAST(domain as bytes)) > 0
+CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
+                                         cert STRING,
+                                         https_is_known_blockpage STRING,
+                                         https_page_signature STRING) AS (
+  CASE
+    WHEN (STRPOS(FROM_BASE64(cert), CAST(domain as bytes)) > 0
           OR STRPOS(FROM_BASE64(cert), 
-             CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0),
-    "expected/cert_match",
-    "cert_mismatch"
-  )
+             CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0)
+      THEN "expected/cert_match"
+    WHEN https_is_known_blockpage = 'true' # TODO change once types are fixed
+      THEN CONCAT("https_blockpage:", https_page_signature)                                      
+    ELSE "cert_mismatch"
+  END
 );
 
 # Input: array of received IP information, array of rcodes, error,
@@ -109,8 +114,11 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
         WHEN InvalidIp(received[OFFSET(0)])
           THEN InvalidIpType(received[OFFSET(0)])
         WHEN received[OFFSET(0)].https_response_tls_cert IS NOT NULL
-          THEN TlsCertMatchOutcome(domain, received[OFFSET(0)].https_response_tls_cert)
-        WHEN received[OFFSET(0)].http_response_is_known_blockpage = 'true'
+          THEN TlsCertMatchOutcome(domain,
+                                   received[OFFSET(0)].https_response_tls_cert,
+                                   received[OFFSET(0)].https_response_is_known_blockpage,
+                                   received[OFFSET(0)].https_response_page_signature)
+        WHEN received[OFFSET(0)].http_response_is_known_blockpage = 'true' # TODO change once types are fixed
           THEN CONCAT("http_blockpage:", received[OFFSET(0)].http_response_page_signature)
         WHEN anomaly
           THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
