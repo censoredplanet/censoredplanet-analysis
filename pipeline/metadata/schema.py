@@ -272,11 +272,11 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'asnum': received_answer.ip_metadata.asn,
         'asname': received_answer.ip_metadata.as_name,
         # HTTP
-        'http_response_is_known_blockpage': http_response.is_known_blockpage,
-        'http_response_page_signature': http_response.page_signature,
         'http_response_status': http_response.status,
-        'http_response_body': http_response.body,
         'http_response_headers': http_response.headers,
+        'http_response_body': http_response.body,
+        'http_response_page_signature': http_response.page_signature,
+        'http_response_is_known_blockpage': http_response.is_known_blockpage,
         # HTTPS
         'https_response_is_known_blockpage': https_response.is_known_blockpage,
         'https_response_page_signature': https_response.page_signature,
