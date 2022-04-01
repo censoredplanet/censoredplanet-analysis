@@ -278,14 +278,14 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'http_response_page_signature': http_response.page_signature,
         'http_response_is_known_blockpage': http_response.is_known_blockpage,
         # HTTPS
-        'https_response_is_known_blockpage': https_response.is_known_blockpage,
-        'https_response_page_signature': https_response.page_signature,
-        'https_response_status': https_response.status,
-        'https_response_body': https_response.body,
-        'https_response_headers': https_response.headers,
         'https_response_tls_version': https_response.tls_version,
         'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
         'https_response_tls_cert': https_response.tls_cert,
+        'https_response_status': https_response.status,
+        'https_response_headers': https_response.headers,
+        'https_response_body': https_response.body,
+        'https_response_page_signature': https_response.page_signature,
+        'https_response_is_known_blockpage': https_response.is_known_blockpage,
     }
     flat['received'].append(answer)
   return flat
