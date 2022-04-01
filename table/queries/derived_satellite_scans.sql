@@ -81,14 +81,14 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
 
 CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
                                          cert STRING,
-                                         https_is_known_blockpage STRING,
+                                         https_is_known_blockpage BOOLEAN,
                                          https_page_signature STRING) AS (
   CASE
     WHEN (STRPOS(FROM_BASE64(cert), CAST(domain as bytes)) > 0
           OR STRPOS(FROM_BASE64(cert), 
              CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0)
       THEN "expected/cert_match"
-    WHEN https_is_known_blockpage = 'true' # TODO change once types are fixed
+    WHEN https_is_known_blockpage
       THEN CONCAT("https_blockpage:", https_page_signature)                                      
     ELSE "cert_mismatch"
   END
@@ -118,7 +118,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
                                    received[OFFSET(0)].https_response_tls_cert,
                                    received[OFFSET(0)].https_response_is_known_blockpage,
                                    received[OFFSET(0)].https_response_page_signature)
-        WHEN received[OFFSET(0)].http_response_is_known_blockpage = 'true' # TODO change once types are fixed
+        WHEN received[OFFSET(0)].http_response_is_known_blockpage
           THEN CONCAT("http_blockpage:", received[OFFSET(0)].http_response_page_signature)
         WHEN anomaly
           THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
