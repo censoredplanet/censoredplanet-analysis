@@ -200,7 +200,9 @@ def merge_page_fetches_with_answers(
 
   for (roundtrip_id, answer) in answers:
     if https_page_fetches:
+      answer.https_error = https_page_fetches[0].error
       answer.https_response = https_page_fetches[0].received
     if http_page_fetches:
+      answer.http_error = http_page_fetches[0].error
       answer.http_response = http_page_fetches[0].received
     yield (roundtrip_id, answer)

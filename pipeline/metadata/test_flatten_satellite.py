@@ -1183,7 +1183,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         success = True,
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = False,
-        received=HttpsResponse(
+        received = HttpsResponse(
             status = '302 Moved Temporarily',
             body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
             headers = [
@@ -1206,11 +1206,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         success = True,
         source = 'CP-Satellite-2021-09-16-12-00-01',
         https = True,
-        received=HttpsResponse(
-            is_known_blockpage = None,
-            status = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
-            page_signature = None
-        )
+        error = 'Get \"https://93.158.134.250:443/\": tls: oversized record received with length 20527',
       ),
     ]
     # yapf: enable
