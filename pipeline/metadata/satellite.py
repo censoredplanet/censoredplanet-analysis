@@ -11,8 +11,8 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_blockpages_with_answers
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, BlockpageRow, IpMetadata, IpMetadataWithKeys, SCAN_TYPE_BLOCKPAGE
+from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, SCAN_TYPE_PAGE_FETCH
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -112,7 +112,7 @@ def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
     name like 'base.satellite_blockpage_scan'
   """
   return table_name.replace(f'.{scan_type}',
-                            f'.{scan_type}_{SCAN_TYPE_BLOCKPAGE}')
+                            f'.{scan_type}_{SCAN_TYPE_PAGE_FETCH}')
 
 
 def _get_received_ips_with_roundtrip_id_and_date(
@@ -581,59 +581,59 @@ def process_satellite_with_tags(
   return rows_with_metadata
 
 
-def add_blockpages_to_answers(
+def add_page_fetch_to_answers(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    blockpages: beam.pvalue.PCollection[BlockpageRow]
+    page_fetches: beam.pvalue.PCollection[PageFetchRow]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
-  """Add blockpage rows onto Satellite Answers
+  """Add page fetch rows onto Satellite Answers
 
   Args:
     rows: Satellite Rows
-    blockpages: Blockpage Rows
+    page_fetches: PageFetch Rows
 
   Returns:
-    SatelliteRows with blockpage info added to the received answers
+    SatelliteRows with page fetch info added to the received answers
   """
-  # Blockpages only exist for v2 data
+  # Page fetches only exist for v2 data
   # PCollection[SatelliteRow] x2
   rows_v1, rows_v2 = (
       rows | 'partition by date v2' >> beam.Partition(
           _get_satellite_v2_date_partition, 2))
 
-  # PCollection[Tuple[DomainDateIpKey, BlockpageRow]
-  blockpages_keyed = (
-      blockpages | 'key blockpage by domain/date/ip' >> beam.Map(
+  # PCollection[Tuple[DomainDateIpKey, PageFetchRow]
+  page_fetches_keyed = (
+      page_fetches | 'key page fetch by domain/date/ip' >> beam.Map(
           lambda row: (make_domain_date_ip_key(row), row)).with_output_types(
-              Tuple[DomainDateIpKey, BlockpageRow]))
+              Tuple[DomainDateIpKey, PageFetchRow]))
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
-      rows_v2 | 'add roundtrip_ids: adding blockpages' >> beam.Map(
+      rows_v2 | 'add roundtrip_ids: adding page fetch' >> beam.Map(
           _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
 
   # PCollection[Tuple[DomainDateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
   received_ips_keyed_by_ip_domain_and_date = (
-      rows_with_roundtrip_id | 'get received ips: adding blockpages' >>
+      rows_with_roundtrip_id | 'get received ips: adding page fetch' >>
       beam.FlatMap(_get_received_ips_with_roundtrip_id_and_date_domain).
       with_output_types(Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]))
 
   # cogroup
-  grouped_blockpages_and_answers = (({
-      BLOCKPAGE_PCOLLECTION_NAME: blockpages_keyed,
+  grouped_page_fetches_and_answers = (({
+      BLOCKPAGE_PCOLLECTION_NAME: page_fetches_keyed,
       RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_domain_and_date
-  }) | 'cogroup answers and blockpages' >> beam.CoGroupByKey())
+  }) | 'cogroup answers and page fetches' >> beam.CoGroupByKey())
 
-  # add blockpages into satellite answers
+  # add page fetches into satellite answers
   # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]
-  received_ips_with_blockpages = (
-      grouped_blockpages_and_answers |
-      'add blockpages : merge blockpages with answers' >>
-      beam.FlatMapTuple(merge_blockpages_with_answers).with_output_types(
+  received_ips_with_page_fetches = (
+      grouped_page_fetches_and_answers |
+      'add page fetches : merge page fetches with answers' >>
+      beam.FlatMapTuple(merge_page_fetches_with_answers).with_output_types(
           Tuple[str, SatelliteAnswerWithKeys]))
 
   # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]]]
   received_ips_grouped_by_roundtrip_ip = (
-      received_ips_with_blockpages | 'group answers by roundtrip' >>
+      received_ips_with_page_fetches | 'group answers by roundtrip' >>
       beam.GroupBy(lambda x: x[0]).with_output_types(
           Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithKeys]]]))
 
@@ -643,32 +643,32 @@ def add_blockpages_to_answers(
   }) | 'cogroup by roundtrip id' >> beam.CoGroupByKey())
 
   # PCollection[SatelliteRow]
-  rows_with_blockpages = (
+  rows_with_page_fetches = (
       grouped_rows_and_received_ips |
       'add blockpages: add tagged answers back' >> beam.MapTuple(
           merge_tagged_answers_with_rows).with_output_types(SatelliteRow))
 
   # PCollection[SatelliteRow]
-  all_rows = ((rows_v1, rows_with_blockpages) |
+  all_rows = ((rows_v1, rows_with_page_fetches) |
               'combine date partitions v2' >> beam.Flatten())
 
   return all_rows
 
 
-def process_satellite_blockpages(
-    blockpages: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[BlockpageRow]:
+def process_satellite_page_fetches(
+    page_fetches: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[PageFetchRow]:
   """Process Satellite measurements and tags.
 
   Args:
-    blockpages: (filepath, Row) objects
+    page_fetches: (filepath, Row) objects
 
   Returns:
-    PCollection[BlockpageRow] of blockpage rows in bigquery format
+    PCollection[PageFetchRow] of page fetch rows in bigquery format
   """
   rows = (
-      blockpages | 'flatten blockpages' >> beam.ParDo(
-          flatten_satellite.FlattenBlockpages()).with_output_types(BlockpageRow)
+      page_fetches | 'flatten page fetches' >> beam.ParDo(
+          flatten_satellite.FlattenBlockpages()).with_output_types(PageFetchRow)
   )
   return rows
 
@@ -676,7 +676,7 @@ def process_satellite_blockpages(
 def partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
-  """Partitions Satellite input into answer/resolver_tags, blockpages and rows.
+  """Partitions Satellite input into answer/resolver_tags, page fetches and rows.
 
   Args:
     line: an input line Tuple[filepath, line_content]
@@ -687,7 +687,7 @@ def partition_satellite_input(
     int,
       0 - line is an answer tag file
       1 - line is a resolver tag file
-      2 - line is a blockpage
+      2 - line is a page fetch
       3 - line is a dns measurement or control
 
   Raises:
@@ -809,7 +809,7 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
 def process_satellite_lines(
     lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
-  """Process both satellite and blockpage data files.
+  """Process both satellite and page fetch data files.
 
   Args:
     lines: input lines from all satellite files. Tuple[filename, line]
@@ -818,7 +818,7 @@ def process_satellite_lines(
     post_processed_satellite: rows of satellite scan data
   """
   # PCollection[Tuple[filename,line]] x4
-  answer_lines, resolver_lines, blockpage_lines, row_lines = lines | beam.Partition(
+  answer_lines, resolver_lines, page_fetch_lines, row_lines = lines | beam.Partition(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # PCollection[SatelliteRow]
@@ -826,14 +826,14 @@ def process_satellite_lines(
                                                  resolver_lines)
 
   # PCollection[BlockpageRow]
-  blockpage_rows = process_satellite_blockpages(blockpage_lines)
+  page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
 
   # PCollection[SatelliteRow]
-  satellite_with_blockpages = add_blockpages_to_answers(tagged_satellite,
-                                                        blockpage_rows)
+  satellite_with_page_fetches = add_page_fetch_to_answers(
+      tagged_satellite, page_fetch_rows)
 
   # PCollection[SatelliteRow]
   post_processed_satellite = post_processing_satellite(
-      satellite_with_blockpages)
+      satellite_with_page_fetches)
 
   return post_processed_satellite

@@ -25,10 +25,6 @@ class PipelineMainTest(unittest.TestCase):
     self.assertListEqual(
         list(satellite_schema.keys()), all_satellite_top_level_columns)
 
-  def test_get_bigquery_schema_blockpage(self) -> None:
-    blockpage_schema = schema.get_bigquery_schema('blockpage')
-    self.assertEqual(blockpage_schema, schema.BLOCKPAGE_BIGQUERY_SCHEMA)
-
   def test_get_beam_bigquery_schema(self) -> None:
     """Test making a bigquery schema for beam's table writing."""
     test_field = {

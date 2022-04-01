@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, BlockpageRow, IpMetadata, HttpsResponse
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, PageFetchRow, IpMetadata, HttpsResponse
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -1174,7 +1174,7 @@ class FlattenSatelliteTest(unittest.TestCase):
 
     # yapf: disable
     expected_rows = [
-      BlockpageRow(
+      PageFetchRow(
         domain = 'xvideos.com',
         ip = '93.158.134.250',
         date = '2021-09-16',
@@ -1197,7 +1197,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             page_signature = 'r_fp_26'
         )
       ),
-      BlockpageRow(
+      PageFetchRow(
         domain = 'xvideos.com',
         ip = '93.158.134.250',
         date = '2021-09-16',

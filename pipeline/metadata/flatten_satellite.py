@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Iterator, List, Tuple
 import apache_beam as beam
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import SatelliteRow, BlockpageRow, SatelliteAnswer, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, PageFetchRow, SatelliteAnswer, IpMetadata
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -477,7 +477,7 @@ class FlattenBlockpages(beam.DoFn):
     self.blockpage_matcher = BlockpageMatcher()
     #pylint: enable=attribute-defined-outside-init
 
-  def process(self, element: Tuple[str, str]) -> Iterator[BlockpageRow]:
+  def process(self, element: Tuple[str, str]) -> Iterator[PageFetchRow]:
     (filename, line) = element
 
     try:
@@ -490,7 +490,7 @@ class FlattenBlockpages(beam.DoFn):
     yield from self._process_satellite_blockpages(scan, filename)
 
   def _process_satellite_blockpages(self, blockpage_entry: BlockpageEntry,
-                                    filepath: str) -> Iterator[BlockpageRow]:
+                                    filepath: str) -> Iterator[PageFetchRow]:
     """Process a line of Satellite blockpage data.
 
     Args:
@@ -498,9 +498,9 @@ class FlattenBlockpages(beam.DoFn):
       filepath: a filepath string like "<path>/blockpages.json.gz"
 
     Yields:
-      BlockpageRows, usually 2 corresponding to the fetched http and https data
+      PageFetchRow, usually 2 corresponding to the fetched http and https data
     """
-    row = BlockpageRow(
+    row = PageFetchRow(
         domain=blockpage_entry['keyword'],
         ip=blockpage_entry['ip'],
         date=blockpage_entry['start_time'][:10],

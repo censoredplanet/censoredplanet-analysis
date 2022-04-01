@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import SatelliteRow, BlockpageRow, HttpsResponse, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, PageFetchRow, HttpsResponse, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
@@ -1453,8 +1453,8 @@ class SatelliteTest(unittest.TestCase):
             ip_metadata=IpMetadata(country="US",))
     ]
 
-    blockpage_data = [
-        BlockpageRow(
+    page_fetch_data = [
+        PageFetchRow(
             domain='1337x.to',
             ip='104.31.16.11',
             date='2022-01-02',
@@ -1474,7 +1474,7 @@ class SatelliteTest(unittest.TestCase):
                 ],
                 is_known_blockpage=False,
                 page_signature='r_fp_26')),
-        BlockpageRow(
+        PageFetchRow(
             domain='1337x.to',
             ip='104.31.16.11',
             date='2022-01-02',
@@ -1548,9 +1548,9 @@ class SatelliteTest(unittest.TestCase):
 
     with TestPipeline() as p:
       rows = p | 'create data' >> beam.Create(row_data)
-      blockpages = p | 'create blockpages' >> beam.Create(blockpage_data)
+      page_fetches = p | 'create blockpages' >> beam.Create(page_fetch_data)
 
-      final = satellite.add_blockpages_to_answers(rows, blockpages)
+      final = satellite.add_page_fetch_to_answers(rows, page_fetches)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected_rows))
 
   def test_postprocessing_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use

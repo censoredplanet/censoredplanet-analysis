@@ -28,7 +28,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, BlockpageRow, IpMetadataWithKeys
+from pipeline.metadata.schema import BigqueryRow, PageFetchRow, IpMetadataWithKeys
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
@@ -158,12 +158,12 @@ def _filename_matches(filepath: str, allowed_filenames: List[str]) -> bool:
   return filename in allowed_filenames
 
 
-def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
+def _get_partition_params() -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Args:
     scan_type: data type, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'blockpage'
+      'satellite' or 'page_fetch'
 
   Returns: A dict of query params, See:
   https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
@@ -178,8 +178,6 @@ def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
           'fields': ['country', 'asn']
       }
   }
-  if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-    partition_params.pop('clustering')
   return partition_params
 
 
@@ -390,13 +388,13 @@ class ScanDataBeamPipelineRunner():
 
   def _write_to_bigquery(self, scan_type: str,
                          rows: beam.pvalue.PCollection[Union[BigqueryRow,
-                                                             BlockpageRow]],
+                                                             PageFetchRow]],
                          table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
-        'satellite' or 'blockpage'
+        'satellite' or 'page_fetch'
       rows: PCollection[BigqueryRow] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
@@ -424,7 +422,7 @@ class ScanDataBeamPipelineRunner():
         schema=bq_schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params(scan_type)))
+        additional_bq_parameters=_get_partition_params()))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:

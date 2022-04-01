@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, BlockpageRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
 
 # A key containing a date and IP
 # ex: ('2020-01-01', '1.2.3.4')
@@ -33,7 +33,7 @@ def make_date_ip_key(
   return (tag.date or '', tag.ip or '')
 
 
-def make_domain_date_ip_key(row: BlockpageRow) -> DomainDateIpKey:
+def make_domain_date_ip_key(row: PageFetchRow) -> DomainDateIpKey:
   return (row.domain or '', row.date or '', row.ip or '')
 
 
@@ -172,35 +172,35 @@ def merge_tagged_answers_with_rows(
   return row
 
 
-def merge_blockpages_with_answers(
+def merge_page_fetches_with_answers(
     key: DomainDateIpKey,  # pylint: disable=unused-argument
-    value: Dict[str, Union[List[SatelliteAnswer],
+    value: Dict[str, Union[List[PageFetchRow],
                            List[Tuple[str, SatelliteAnswerWithKeys]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
-  """Add blockpage info to answers."""
+  """Add fetched page info to answers."""
   answers: List[Tuple[str, SatelliteAnswer]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
-  blockpages: List[BlockpageRow] = value[
+  page_fetches: List[PageFetchRow] = value[
       BLOCKPAGE_PCOLLECTION_NAME]  # type: ignore
 
-  if not blockpages:
+  if not page_fetches:
     for (roundtrip_id, answer) in answers:
       yield (roundtrip_id, answer)
 
-  https_blockpages = [
-      blockpage for blockpage in blockpages if blockpage.https is True
+  https_page_fetches = [
+      page_fetch for page_fetch in page_fetches if page_fetch.https is True
   ]
-  http_blockpages = [
-      blockpage for blockpage in blockpages if blockpage.https is False
+  http_page_fetches = [
+      page_fetch for page_fetch in page_fetches if page_fetch.https is False
   ]
 
-  if len(https_blockpages) > 1 or len(http_blockpages) > 1:
+  if len(https_page_fetches) > 1 or len(http_page_fetches) > 1:
     raise Exception(
-        f"Unexpected blockpages. Expected <= 1 HTTPS and HTTP: {blockpages}")
+        f"Unexpected blockpages. Expected <= 1 HTTPS and HTTP: {page_fetches}")
 
   for (roundtrip_id, answer) in answers:
-    if https_blockpages:
-      answer.https_response = https_blockpages[0].received
-    if http_blockpages:
-      answer.http_response = http_blockpages[0].received
+    if https_page_fetches:
+      answer.https_response = https_page_fetches[0].received
+    if http_page_fetches:
+      answer.http_response = http_page_fetches[0].received
     yield (roundtrip_id, answer)

@@ -12,7 +12,7 @@ from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 # pylint: disable=too-many-instance-attributes
 
 SCAN_TYPE_SATELLITE = 'satellite'
-SCAN_TYPE_BLOCKPAGE = 'blockpage'
+SCAN_TYPE_PAGE_FETCH = 'page_fetch'
 
 
 @dataclass
@@ -20,7 +20,7 @@ class HttpsResponse:
   """Class for the parsed content of a received HTTP/S request
 
   These are both passed around independantly, and as part of
-  HyperquackRow/BlockpageRow objects
+  HyperquackRow/PageFetchRow objects
   """
   is_known_blockpage: Optional[bool] = None
   page_signature: Optional[str] = None
@@ -162,8 +162,8 @@ class SatelliteRow(BigqueryRow):
 
 
 @dataclass
-class BlockpageRow():
-  """Class for blockpage specific fields"""
+class PageFetchRow():
+  """Class for fetched page specific fields"""
   received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
 
   domain: Optional[str] = None
@@ -177,13 +177,13 @@ class BlockpageRow():
 
 
 def flatten_for_bigquery(
-    row: Union[BigqueryRow, BlockpageRow]) -> Dict[str, Any]:
+    row: Union[BigqueryRow, PageFetchRow]) -> Dict[str, Any]:
   if isinstance(row, HyperquackRow):
     return flatten_for_bigquery_hyperquack(row)
   if isinstance(row, SatelliteRow):
     return flatten_for_bigquery_satellite(row)
-  if isinstance(row, BlockpageRow):
-    return flatten_for_bigquery_blockpage(row)
+  if isinstance(row, PageFetchRow):
+    return flatten_for_bigquery_page_fetch(row)
   raise Exception(f'Unknown row type: {type(row)}')
 
 
@@ -291,7 +291,7 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   return flat
 
 
-def flatten_for_bigquery_blockpage(row: BlockpageRow) -> Dict[str, Any]:
+def flatten_for_bigquery_page_fetch(row: PageFetchRow) -> Dict[str, Any]:
   """Convert a structured blockpage dataclass into a flat dict."""
   flat: Dict[str, Any] = {
       'domain': row.domain,
@@ -390,14 +390,14 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'cert': ('string', 'nullable'),
                 'matches_control': ('string', 'nullable'),
                 # HTTP
-                'http_response_is_known_blockpage': ('boolean', 'nullable'),
-                'http_response_page_signature': ('string', 'nullable'),
+                'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
+                'http_analysis_page_signature': ('string', 'nullable'),
                 'http_response_status': ('string', 'nullable'),
                 'http_response_body': ('string', 'nullable'),
                 'http_response_headers': ('string', 'repeated'),
                 # HTTPS
-                'https_response_is_known_blockpage': ('boolean', 'nullable'),
-                'https_response_page_signature': ('string', 'nullable'),
+                'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
+                'https_analysis_page_signature': ('string', 'nullable'),
                 'https_response_status': ('string', 'nullable'),
                 'https_response_body': ('string', 'nullable'),
                 'https_response_headers': ('string', 'repeated'),
@@ -445,12 +445,12 @@ def get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
 
   Args:
     scan_type: str, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'blockpage'
+      'satellite' or 'page_fetch'
 
   Returns:
     A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
   """
-  if scan_type == SCAN_TYPE_BLOCKPAGE:
+  if scan_type == SCAN_TYPE_PAGE_FETCH:
     return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == SCAN_TYPE_SATELLITE:
     return SATELLITE_BIGQUERY_SCHEMA
