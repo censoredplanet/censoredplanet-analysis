@@ -87,7 +87,9 @@ class SatelliteAnswer():
 
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
   http_response: Optional[HttpsResponse] = None
+  http_error: Optional[str] = None
   https_response: Optional[HttpsResponse] = None
+  https_error: Optional[str] = None
 
 
 @dataclass
@@ -174,6 +176,7 @@ class PageFetchRow():
   success: Optional[bool] = None
   https: Optional[bool] = None
   source: Optional[str] = None
+  error: Optional[str] = None
 
 
 def flatten_for_bigquery(
@@ -272,12 +275,14 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'asnum': received_answer.ip_metadata.asn,
         'asname': received_answer.ip_metadata.as_name,
         # HTTP
+        'http_error': received_answer.http_error,
         'http_response_status': http_response.status,
         'http_response_headers': http_response.headers,
         'http_response_body': http_response.body,
         'http_analysis_page_signature': http_response.page_signature,
         'http_analysis_is_known_blockpage': http_response.is_known_blockpage,
         # HTTPS
+        'https_error': received_answer.https_error,
         'https_response_tls_version': https_response.tls_version,
         'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
         'https_response_tls_cert': https_response.tls_cert,
