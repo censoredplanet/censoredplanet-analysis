@@ -395,12 +395,14 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'cert': ('string', 'nullable'),
                 'matches_control': ('string', 'nullable'),
                 # HTTP
+                'http_error': ('string', 'nullable'),
                 'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
                 'http_analysis_page_signature': ('string', 'nullable'),
                 'http_response_status': ('string', 'nullable'),
                 'http_response_body': ('string', 'nullable'),
                 'http_response_headers': ('string', 'repeated'),
                 # HTTPS
+                'https_error': ('string', 'nullable'),
                 'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
                 'https_analysis_page_signature': ('string', 'nullable'),
                 'https_response_status': ('string', 'nullable'),
