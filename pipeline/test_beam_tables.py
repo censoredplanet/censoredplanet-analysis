@@ -17,7 +17,7 @@ import datetime
 import unittest
 
 import apache_beam as beam
-from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
+
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
@@ -34,50 +34,6 @@ class PipelineMainTest(unittest.TestCase):
     self.maxDiff = None  # pylint: disable=invalid-name
 
   # pylint: disable=protected-access
-
-  def test_get_bigquery_schema_hyperquack(self) -> None:
-    """Test getting the right bigquery schema for data types."""
-    echo_schema = beam_tables._get_bigquery_schema('echo')
-    all_hyperquack_top_level_columns = list(
-        beam_tables.HYPERQUACK_BIGQUERY_SCHEMA.keys())
-    self.assertListEqual(
-        list(echo_schema.keys()), all_hyperquack_top_level_columns)
-
-  def test_get_bigquery_schema_satellite(self) -> None:
-    satellite_schema = beam_tables._get_bigquery_schema('satellite')
-    all_satellite_top_level_columns = list(
-        beam_tables.SATELLITE_BIGQUERY_SCHEMA.keys())
-    self.assertListEqual(
-        list(satellite_schema.keys()), all_satellite_top_level_columns)
-
-  def test_get_bigquery_schema_blockpage(self) -> None:
-    blockpage_schema = beam_tables._get_bigquery_schema('blockpage')
-    self.assertEqual(blockpage_schema, beam_tables.BLOCKPAGE_BIGQUERY_SCHEMA)
-
-  def test_get_beam_bigquery_schema(self) -> None:
-    """Test making a bigquery schema for beam's table writing."""
-    test_field = {
-        'string_field': ('string', 'nullable'),
-        'int_field': ('integer', 'repeated'),
-    }
-
-    table_schema = beam_tables._get_beam_bigquery_schema(test_field)
-
-    expected_field_schema_1 = beam_bigquery.TableFieldSchema()
-    expected_field_schema_1.name = 'string_field'
-    expected_field_schema_1.type = 'string'
-    expected_field_schema_1.mode = 'nullable'
-
-    expected_field_schema_2 = beam_bigquery.TableFieldSchema()
-    expected_field_schema_2.name = 'int_field'
-    expected_field_schema_2.type = 'integer'
-    expected_field_schema_2.mode = 'repeated'
-
-    expected_table_schema = beam_bigquery.TableSchema()
-    expected_table_schema.fields.append(expected_field_schema_1)
-    expected_table_schema.fields.append(expected_field_schema_2)
-
-    self.assertEqual(table_schema, expected_table_schema)
 
   def test_get_table_name(self) -> None:
     """Test creating a table name given params."""

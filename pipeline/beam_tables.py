@@ -22,14 +22,14 @@ import re
 from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
 
 import apache_beam as beam
-from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, BlockpageRow, IpMetadataWithKeys, flatten_for_bigquery, HYPERQUACK_BIGQUERY_SCHEMA, SATELLITE_BIGQUERY_SCHEMA, BLOCKPAGE_BIGQUERY_SCHEMA
+from pipeline.metadata.schema import BigqueryRow, PageFetchRow, IpMetadataWithKeys
+from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
@@ -57,55 +57,6 @@ SCAN_FILES = ['results.json']
 
 # An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
 EMPTY_GZIPPED_FILE_SIZE = 33
-
-
-def _get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
-  """Get the appropriate schema for the given scan type.
-
-  Args:
-    scan_type: str, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'blockpage'
-
-  Returns:
-    A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
-  """
-  if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-    return BLOCKPAGE_BIGQUERY_SCHEMA
-  if scan_type == satellite.SCAN_TYPE_SATELLITE:
-    return SATELLITE_BIGQUERY_SCHEMA
-  # Otherwise Hyperquack
-  return HYPERQUACK_BIGQUERY_SCHEMA
-
-
-def _get_beam_bigquery_schema(
-    fields: Dict[str, Any]) -> beam_bigquery.TableSchema:
-  """Return a beam bigquery schema for the output table.
-
-  Args:
-    fields: dict of {'field_name': ['column_type', 'column_mode']}
-
-  Returns:
-    A bigquery table schema
-  """
-  table_schema = beam_bigquery.TableSchema()
-
-  for (name, attributes) in fields.items():
-    field_type = attributes[0]
-    mode = attributes[1]
-    field_schema = beam_bigquery.TableFieldSchema()
-    field_schema.name = name
-    field_schema.type = field_type
-    field_schema.mode = mode
-    if len(attributes) > 2:
-      field_schema.fields = []
-      for (subname, (subtype, submode)) in attributes[2].items():
-        subfield_schema = beam_bigquery.TableFieldSchema()
-        subfield_schema.name = subname
-        subfield_schema.type = subtype
-        subfield_schema.mode = submode
-        field_schema.fields.append(subfield_schema)
-    table_schema.fields.append(field_schema)
-  return table_schema
 
 
 def _get_existing_datasources(table_name: str) -> List[str]:
@@ -207,12 +158,12 @@ def _filename_matches(filepath: str, allowed_filenames: List[str]) -> bool:
   return filename in allowed_filenames
 
 
-def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
+def _get_partition_params() -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Args:
     scan_type: data type, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'blockpage'
+      'satellite' or 'page_fetch'
 
   Returns: A dict of query params, See:
   https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
@@ -227,8 +178,6 @@ def _get_partition_params(scan_type: str = None) -> Dict[str, Any]:
           'fields': ['country', 'asn']
       }
   }
-  if scan_type == satellite.SCAN_TYPE_BLOCKPAGE:
-    partition_params.pop('clustering')
   return partition_params
 
 
@@ -339,7 +288,7 @@ class ScanDataBeamPipelineRunner():
     else:
       existing_sources = []
 
-    if scan_type == satellite.SCAN_TYPE_SATELLITE:
+    if scan_type == schema.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES
     else:
       files_to_load = SCAN_FILES
@@ -439,13 +388,13 @@ class ScanDataBeamPipelineRunner():
 
   def _write_to_bigquery(self, scan_type: str,
                          rows: beam.pvalue.PCollection[Union[BigqueryRow,
-                                                             BlockpageRow]],
+                                                             PageFetchRow]],
                          table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
-        'satellite' or 'blockpage'
+        'satellite' or 'page_fetch'
       rows: PCollection[BigqueryRow] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
@@ -455,7 +404,8 @@ class ScanDataBeamPipelineRunner():
     Raises:
       Exception: if any arguments are invalid.
     """
-    schema = _get_beam_bigquery_schema(_get_bigquery_schema(scan_type))
+    bq_schema = schema.get_beam_bigquery_schema(
+        schema.get_bigquery_schema(scan_type))
 
     if incremental_load:
       write_mode = beam.io.BigQueryDisposition.WRITE_APPEND
@@ -464,15 +414,15 @@ class ScanDataBeamPipelineRunner():
 
     # Pcollection[Dict[str, Any]]
     dict_rows = (
-        rows | f'dataclass to dicts {scan_type}' >>
-        beam.Map(flatten_for_bigquery).with_output_types(Dict[str, Any]))
+        rows | f'dataclass to dicts {scan_type}' >> beam.Map(
+            schema.flatten_for_bigquery).with_output_types(Dict[str, Any]))
 
     (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
-        schema=schema,
+        schema=bq_schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params(scan_type)))
+        additional_bq_parameters=_get_partition_params()))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
@@ -535,26 +485,18 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      if scan_type == satellite.SCAN_TYPE_SATELLITE:
-        # PCollection[SatelliteRow], PCollection[BlockpageRow]
-        satellite_rows, blockpage_rows = satellite.process_satellite_lines(
-            lines)
-
+      if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
-        rows_with_metadata = self._add_metadata(satellite_rows)
+        rows = satellite.process_satellite_lines(lines)
 
-        self._write_to_bigquery(
-            satellite.SCAN_TYPE_BLOCKPAGE, blockpage_rows,
-            satellite.get_blockpage_table_name(table_name, scan_type),
-            incremental_load)
       else:  # Hyperquack scans
         # PCollection[HyperquackRow]
         rows = (
             lines | 'flatten json' >> beam.ParDo(
                 flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
 
-        # PCollection[HyperquackRow]
-        rows_with_metadata = self._add_metadata(rows)
+      # PCollection[HyperquackRow|SatelliteRow]
+      rows_with_metadata = self._add_metadata(rows)
 
       _raise_error_if_collection_empty(rows_with_metadata)
 
