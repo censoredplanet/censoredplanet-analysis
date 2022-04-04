@@ -372,6 +372,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 SatelliteAnswer(
                     ip='88.212.202.9',
                     matches_control='ip http cert asnum asname',
+                    match_confidence=100,
                     http=
                     '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
                     cert=
@@ -380,7 +381,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             ],
             rcode=0,
             average_confidence=100,
-            matches_confidence=[100],
             untagged_controls=False,
             untagged_response=False,
             excluded=False,
@@ -711,7 +711,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = 100,
-        matches_confidence = [100],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = False,
@@ -730,6 +729,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         received = [SatelliteAnswer(
             ip = '113.217.247.90',
             matches_control = 'ip http cert asnum asname',
+            match_confidence=100,
             cert = '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
             http = 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
             ip_metadata=IpMetadata(
@@ -747,7 +747,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -773,7 +772,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Provocative Attire',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -799,7 +797,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -825,7 +822,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -851,7 +847,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -877,7 +872,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -903,7 +897,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -929,7 +922,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -955,7 +947,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -1082,7 +1073,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly=False,
         category='Government',
         average_confidence=66.66666666666667,
-        matches_confidence=[66.66666666666667, 66.66666666666667],
         untagged_controls=False,
         untagged_response=False,
         controls_failed=False,
@@ -1103,6 +1093,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
             matches_control='asnum asname',
+            match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
                 as_name='AKAMAI-ASN1'
@@ -1112,6 +1103,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
             matches_control='asnum asname',
+            match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
                 as_name='AKAMAI-ASN1'

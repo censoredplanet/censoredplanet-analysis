@@ -723,12 +723,13 @@ def _calculate_confidence(scan: SatelliteRow,
       scan SatelliteRow with new records:
         'average_confidence':
           average percentage of tags that match control queries
-        'matches_confidence': array of percentage match per answer IP
         'untagged_controls': True if all control IPs have no tags
         'untagged_response': True if all answer IPs have no tags
+
+        'match_confidence' in answer records, percentage match per answer IP
   """
   scan.average_confidence = 0
-  scan.matches_confidence = []
+  matches_confidence = []
   scan.untagged_controls = num_control_tags == 0
   scan.untagged_response = True
 
@@ -767,11 +768,11 @@ def _calculate_confidence(scan: SatelliteRow,
         ip_match = 0.0
       else:
         ip_match = matching_tags * 100 / total_tags
-    scan.matches_confidence.append(ip_match)
+    answer.match_confidence = ip_match
+    matches_confidence.append(ip_match)
 
-  if len(scan.matches_confidence) > 0:
-    scan.average_confidence = sum(scan.matches_confidence) / len(
-        scan.matches_confidence)
+  if len(matches_confidence) > 0:
+    scan.average_confidence = sum(matches_confidence) / len(matches_confidence)
   # Sanity check for untagged responses: do not claim interference
   if scan.untagged_response:
     scan.anomaly = False

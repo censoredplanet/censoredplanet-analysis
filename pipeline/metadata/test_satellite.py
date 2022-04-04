@@ -1007,7 +1007,6 @@ class SatelliteTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = False,
         average_confidence = 100,
-        matches_confidence = [100, 100],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -1019,6 +1018,7 @@ class SatelliteTest(unittest.TestCase):
             http = '0728405c8a7cfa601fc6e8a0dff71038624dd672fbbfc91605905a536ff9e1a8',
             cert = '',
             matches_control = 'ip http asnum asname',
+            match_confidence = 100,
             ip_metadata=IpMetadata(
                 asn=13335,
                 as_name='CLOUDFLARENET'
@@ -1028,6 +1028,7 @@ class SatelliteTest(unittest.TestCase):
             http = '2022c19b47cac1c5746f9d2efa5b7383f78c4bd1b4443f96e28f3a3019cc8ba0',
             cert = '',
             matches_control = 'ip http asnum asname',
+            match_confidence = 100,
             ip_metadata=IpMetadata(
                 asn=13335,
                 as_name='CLOUDFLARENET'
@@ -1054,7 +1055,6 @@ class SatelliteTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = False,
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -1081,7 +1081,6 @@ class SatelliteTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -1108,7 +1107,6 @@ class SatelliteTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -1135,7 +1133,6 @@ class SatelliteTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -1327,19 +1324,30 @@ class SatelliteTest(unittest.TestCase):
     ]
 
     expected = [
-      (0, [0], False, True),
-      (100, [100, 100, 100, 100], False, False),
-      (62.5, [0, 50, 100, 100], False, False)
+      (0, False, True),
+      (100, False, False),
+      (62.5, False, False)
+    ]
+    expected_matches_confidence = [
+      [0],
+      [100, 100, 100, 100],
+      [0, 50, 100, 100],
     ]
     # yapf: enable
 
     result = []
+    all_matches_confidence = []
     for scan in scans:
       scan = satellite._calculate_confidence(scan, 1)
-      result.append((scan.average_confidence, scan.matches_confidence,
-                     scan.untagged_controls, scan.untagged_response))
+      result.append((scan.average_confidence, scan.untagged_controls,
+                     scan.untagged_response))
+      matches_confidence = []
+      for answer in scan.received:
+        matches_confidence.append(answer.match_confidence)
+      all_matches_confidence.append(matches_confidence)
 
     self.assertListEqual(result, expected)
+    self.assertListEqual(all_matches_confidence, expected_matches_confidence)
 
   def test_verify(self) -> None:
     """Test verification of Satellite v1 data."""
@@ -1430,7 +1438,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed=False,
             rcode=0,
             average_confidence=100,
-            matches_confidence=[100, 100],
             untagged_controls=False,
             untagged_response=False,
             excluded=False,
@@ -1442,12 +1449,14 @@ class SatelliteTest(unittest.TestCase):
                     http=
                     "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert="",
+                    match_confidence=100,
                     ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET")),
                 SatelliteAnswer(
                     ip="104.31.16.118",
                     http=
                     "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert="",
+                    match_confidence=100,
                     ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"))
             ],
             ip_metadata=IpMetadata(country="US",))
@@ -1507,7 +1516,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed=False,
             rcode=0,
             average_confidence=100,
-            matches_confidence=[100, 100],
             untagged_controls=False,
             untagged_response=False,
             excluded=False,
@@ -1520,6 +1528,7 @@ class SatelliteTest(unittest.TestCase):
                     "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert="",
                     ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"),
+                    match_confidence=100,
                     http_response=HttpsResponse(
                         status='302 Moved Temporarily',
                         body=
@@ -1541,6 +1550,7 @@ class SatelliteTest(unittest.TestCase):
                     http=
                     "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert="",
+                    match_confidence=100,
                     ip_metadata=IpMetadata(asn=13335, as_name="CLOUDFLARENET"))
             ],
             ip_metadata=IpMetadata(country="US",))
@@ -1573,7 +1583,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed = False,
             rcode = 0,
             average_confidence = 100,
-            matches_confidence = [100,100],
             untagged_controls = False,
             untagged_response = False,
             excluded = False,
@@ -1585,6 +1594,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1595,6 +1605,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1620,7 +1631,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed = True,
             rcode = 0,
             average_confidence = 0,
-            matches_confidence = [],
             untagged_controls = False,
             untagged_response = False,
             excluded = False,
@@ -1667,7 +1677,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed = False,
             rcode = 0,
             average_confidence = 100,
-            matches_confidence = [100,100],
             untagged_controls = False,
             untagged_response = False,
             excluded = False,
@@ -1679,6 +1688,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1689,6 +1699,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1714,7 +1725,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed = False,
             rcode = 0,
             average_confidence = 100,
-            matches_confidence = [100,100],
             untagged_controls = False,
             untagged_response = False,
             excluded = False,
@@ -1726,6 +1736,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1736,6 +1747,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
                     matches_control = "ip http asnum asname",
+                    match_confidence = 100,
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1761,7 +1773,6 @@ class SatelliteTest(unittest.TestCase):
             controls_failed = False,
             rcode = 0,
             average_confidence = 0,
-            matches_confidence = [0],
             untagged_controls = False,
             untagged_response = False,
             excluded = False,
@@ -1773,6 +1784,7 @@ class SatelliteTest(unittest.TestCase):
                     http = "177a8341782a57778766a7334d3e99ecb61ce54bbcc48838ddda846ea076726d",
                     cert = "",
                     matches_control = "",
+                    match_confidence = 0,
                     ip_metadata=IpMetadata(
                         asn=31483,
                         as_name="ERTELECOM-DC-AS"
