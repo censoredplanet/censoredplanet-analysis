@@ -181,14 +181,14 @@ class SchemaTest(unittest.TestCase):
           )
         ]
     )
-    # yapf: disable
+    # yapf: enable
     flat_row = schema.flatten_for_bigquery(row)
 
     self.assert_flat_row_matches_bq_schema(flat_row, bq_table_schema)
 
-
-  def assert_flat_row_matches_bq_schema(self, flat_row: Dict[str, Any],
-           bq_schema: beam_bigquery.TableSchema) -> None:
+  def assert_flat_row_matches_bq_schema(
+      self, flat_row: Dict[str,
+                           Any], bq_schema: beam_bigquery.TableSchema) -> None:
     """Helper for testing schema matches
 
     Raises:
@@ -205,7 +205,9 @@ class SchemaTest(unittest.TestCase):
   # pylint: disable=multiple-statements
   # pylint: disable=too-many-return-statements
   # pylint: disable=too-many-branches
-  def assert_compatible_bq_field_type(self, field: beam_bigquery.TableFieldSchema, value: Any, field_name: str) -> None:
+  def assert_compatible_bq_field_type(self,
+                                      field: beam_bigquery.TableFieldSchema,
+                                      value: Any, field_name: str) -> None:
     """Helper for testing bq row type matches.
 
     Some kinds of type coercion are allowed in bq writes.
@@ -219,25 +221,40 @@ class SchemaTest(unittest.TestCase):
     field_type = field.type
 
     if value is None:
-      raise Exception(f'Please enumerate all row fields in the test. Missing field: {field_name}')
+      raise Exception(
+          f'Please enumerate all row fields in the test. Missing field: {field_name}'
+      )
     if isinstance(value, str):
-      if field_type == 'string': return None
-      if field_type == 'date': return None
-      if field_type == 'timestamp': return None
-      raise Exception(f'Row value type {value_type} doesn\'t match {field_type}')
+      if field_type == 'string':
+        return None
+      if field_type == 'date':
+        return None
+      if field_type == 'timestamp':
+        return None
+      raise Exception(
+          f'Row value type {value_type} doesn\'t match {field_type}')
     if isinstance(value, bool):
-      if field_type == 'boolean': return None
-      raise Exception(f'Row value type {value_type} doesn\'t match {field_type}')
+      if field_type == 'boolean':
+        return None
+      raise Exception(
+          f'Row value type {value_type} doesn\'t match {field_type}')
     if isinstance(value, float):
-      if field_type == 'float': return None
-      raise Exception(f'Row value type {value_type} doesn\'t match {field_type}')
+      if field_type == 'float':
+        return None
+      raise Exception(
+          f'Row value type {value_type} doesn\'t match {field_type}')
     if isinstance(value, int):
-      if field_type == 'integer': return None
-      if field_type == 'float': return None
-      raise Exception(f'Row value type {value_type} doesn\'t match {field_type}')
+      if field_type == 'integer':
+        return None
+      if field_type == 'float':
+        return None
+      raise Exception(
+          f'Row value type {value_type} doesn\'t match {field_type}')
     if isinstance(value, list):
       if len(value) == 0:
-        raise Exception(f'Please add content to lists in the test. Empty list: {field_name}')
+        raise Exception(
+            f'Please add content to lists in the test. Empty list: {field_name}'
+        )
       if not field.mode == 'repeated':
         raise Exception(f'List {value} in non repeated field: {field_name}')
       return self.assert_compatible_bq_field_type(field, value[0], field_name)
