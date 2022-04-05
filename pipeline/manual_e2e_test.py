@@ -429,12 +429,12 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 19)
+      self.assertEqual(len(written_rows), 20)
 
-      expected_single_domains = [
-          '1688.com', '1337x.to', '104.com.tw', '9gag.com'
+      expected_single_domains = ['1688.com', '1337x.to', '104.com.tw']
+      expected_double_domains = [
+          'a.root-servers.net', '1922.gov.tw', '9gag.com'
       ]
-      expected_double_domains = ['a.root-servers.net', '1922.gov.tw']
       expected_triple_domains = ['11st.co.kr']
       expected_quad_domains = ['ajax.aspnetcdn.com', 'alipay.com']
 
