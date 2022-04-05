@@ -185,8 +185,6 @@ def flatten_for_bigquery(
     return flatten_for_bigquery_hyperquack(row)
   if isinstance(row, SatelliteRow):
     return flatten_for_bigquery_satellite(row)
-  if isinstance(row, PageFetchRow):
-    return flatten_for_bigquery_page_fetch(row)
   raise Exception(f'Unknown row type: {type(row)}')
 
 
@@ -296,29 +294,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   return flat
 
 
-def flatten_for_bigquery_page_fetch(row: PageFetchRow) -> Dict[str, Any]:
-  """Convert a structured blockpage dataclass into a flat dict."""
-  flat: Dict[str, Any] = {
-      'domain': row.domain,
-      'ip': row.ip,
-      'date': row.date,
-      'start_time': row.start_time,
-      'end_time': row.end_time,
-      'success': row.success,
-      'source': row.source,
-      'https': row.https,
-      'blockpage': row.received.is_known_blockpage,
-      'page_signature': row.received.page_signature,
-      'received_status': row.received.status,
-      'received_body': row.received.body,
-      'received_headers': row.received.headers,
-      'received_tls_version': row.received.tls_version,
-      'received_tls_cipher_suite': row.received.tls_cipher_suite,
-      'received_tls_cert': row.received.tls_cert,
-  }
-  return flat
-
-
 # key: (type, mode)
 BASE_BIGQUERY_SCHEMA = {
     # Columns from Censored Planet data
@@ -422,43 +397,17 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
         'has_type_a': ('boolean', 'nullable')
     })
 
-BLOCKPAGE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
-    'domain': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
-    'date': ('date', 'nullable'),
-    'start_time': ('timestamp', 'nullable'),
-    'end_time': ('timestamp', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'https': ('boolean', 'nullable'),
-    'source': ('string', 'nullable'),
-    'blockpage': ('boolean', 'nullable'),
-    'page_signature': ('string', 'nullable'),
-
-    # Column filled in all tables
-    'received_status': ('string', 'nullable'),
-    # Columns filled only in HTTP/HTTPS tables
-    'received_body': ('string', 'nullable'),
-    'received_headers': ('string', 'repeated'),
-    # Columns filled only in HTTPS tables
-    'received_tls_version': ('integer', 'nullable'),
-    'received_tls_cipher_suite': ('integer', 'nullable'),
-    'received_tls_cert': ('string', 'nullable'),
-}
-
 
 def get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
   """Get the appropriate schema for the given scan type.
 
   Args:
     scan_type: str, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'page_fetch'
+      or 'satellite'
 
   Returns:
     A nested Dict with bigquery fields like BASE_BIGQUERY_SCHEMA.
   """
-  if scan_type == SCAN_TYPE_PAGE_FETCH:
-    return BLOCKPAGE_BIGQUERY_SCHEMA
   if scan_type == SCAN_TYPE_SATELLITE:
     return SATELLITE_BIGQUERY_SCHEMA
   # Otherwise Hyperquack

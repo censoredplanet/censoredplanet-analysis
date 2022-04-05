@@ -19,7 +19,7 @@ import datetime
 import logging
 import pathlib
 import re
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable, Union
+from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
@@ -28,7 +28,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, PageFetchRow, IpMetadataWithKeys
+from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
@@ -387,14 +387,13 @@ class ScanDataBeamPipelineRunner():
       yield (metadata_key, metadata_values)
 
   def _write_to_bigquery(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[Union[BigqueryRow,
-                                                             PageFetchRow]],
+                         rows: beam.pvalue.PCollection[BigqueryRow],
                          table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
-        'satellite' or 'page_fetch'
+        or 'satellite'
       rows: PCollection[BigqueryRow] of data to write.
       table_name: dataset.table name like 'base.echo_scan' Determines which
         tables to write to.
