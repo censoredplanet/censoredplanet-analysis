@@ -116,10 +116,10 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
         WHEN received[OFFSET(0)].https_response_tls_cert IS NOT NULL
           THEN TlsCertMatchOutcome(domain,
                                    received[OFFSET(0)].https_response_tls_cert,
-                                   received[OFFSET(0)].https_response_is_known_blockpage,
-                                   received[OFFSET(0)].https_response_page_signature)
-        WHEN received[OFFSET(0)].http_response_is_known_blockpage
-          THEN CONCAT("http_blockpage:", received[OFFSET(0)].http_response_page_signature)
+                                   received[OFFSET(0)].https_analysis_is_known_blockpage,
+                                   received[OFFSET(0)].https_analysis_page_signature)
+        WHEN received[OFFSET(0)].http_analysis_is_known_blockpage
+          THEN CONCAT("http_blockpage:", received[OFFSET(0)].http_analysis_page_signature)
         WHEN anomaly
           THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
         ELSE "expected/match"
@@ -136,7 +136,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_inline_blockpages`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -162,7 +162,7 @@ WITH Grouped AS (
         SatelliteOutcome(received, rcode, error, controls_failed, anomaly, domain) as outcome,
         
         COUNT(1) AS count
-    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan_inline_blockpages`
+    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE controls_failed = FALSE
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
