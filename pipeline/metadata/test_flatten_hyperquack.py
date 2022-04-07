@@ -671,7 +671,6 @@ class FlattenHyperquackTest(unittest.TestCase):
             tls_cert_start_date = '2020-05-12T11:23:03',
             tls_cert_end_date = '2021-05-12T11:53:02',
             tls_cert_alternative_names = ['jobs.bankaudi.com.lb', 'www.jobs.bankaudi.com.lb'],
-            matched_cert = None,
             headers = [
                 'Content-Language: en',
                 'Content-Type: text/html; charset=iso-8859-1',
@@ -760,7 +759,6 @@ class FlattenHyperquackTest(unittest.TestCase):
             tls_cert_start_date = '2021-03-01T08:52:17',
             tls_cert_end_date = '2022-03-03T08:52:16',
             tls_cert_alternative_names = ['www.signinghub.co.za', 'signinghub.co.za'],
-            matched_cert = None,
             headers = [
                 'Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
                 'Charset: utf-8'

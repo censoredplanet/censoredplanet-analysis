@@ -36,7 +36,6 @@ class HttpsResponse:
   tls_cert_end_date: Optional[str] = None
   tls_cert_alternative_names: List[str] = dataclasses.field(
       default_factory=list)
-  matched_cert: Optional[bool] = None
   headers: List[str] = dataclasses.field(default_factory=list)
 
 
@@ -326,8 +325,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
             https_response.tls_cert_end_date,
         'https_response_tls_cert_alternative_names':
             https_response.tls_cert_alternative_names,
-        'https_response_matched_cert':
-            https_response.matched_cert,
         'https_response_status':
             https_response.status,
         'https_response_headers':
@@ -442,7 +439,6 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
                 'https_response_tls_cert_alternative_names':
                     ('string', 'repeated'),
-                'https_response_matched_cert': ('boolean', 'nullable'),
             }),
         'rcode': ('integer', 'nullable'),
         'average_confidence': ('float', 'nullable'),

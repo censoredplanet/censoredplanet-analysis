@@ -164,7 +164,6 @@ class SchemaTest(unittest.TestCase):
               tls_cert_start_date = None,
               tls_cert_end_date = None,
               tls_cert_alternative_names = [],
-              matched_cert = None,
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
@@ -184,7 +183,6 @@ class SchemaTest(unittest.TestCase):
               tls_cert_start_date = '2018-04-06T12:00:00',
               tls_cert_end_date = '2012-04-06T12:00:00',
               tls_cert_alternative_names = ['Common Name', 'Alt Name'],
-              matched_cert = True,
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',

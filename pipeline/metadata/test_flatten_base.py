@@ -155,7 +155,6 @@ class FlattenBaseTest(unittest.TestCase):
         tls_cert_start_date = '2020-10-05T00:00:00',
         tls_cert_end_date = '2021-10-06T12:00:00',
         tls_cert_alternative_names = ['tabikore.jp', 'www.tabikore.jp'],
-        matched_cert = None,
         headers = [
             'Content-Length: 278',
             'Content-Type: text/html',
