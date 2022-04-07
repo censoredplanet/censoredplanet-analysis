@@ -1128,6 +1128,156 @@ class FlattenSatelliteTest(unittest.TestCase):
 
     self.assertListEqual(results, expected)
 
+  def test_flattenmeasurement_satellite_v2p2_no_match_confidence(self) -> None:
+    """Test flattening of Satellite v2.2 measurements that fail but eventually succeed."""
+    filenames = [
+        'gs://firehook-scans/satellite/CP_Satellite-2021-08-22-12-00-01/results.json',
+    ]
+
+    # yapf: disable
+    interference = [{
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "passed_liveness": False,
+        "connect_error": False,
+        "in_control_group":  True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "8.8.8.8",
+        "test_url": "zhibo8.cc",
+        "start_time": "2021-08-22 14:51:20.888764605 -0400 EDT",
+        "end_time": "2021-08-22 14:51:20.959570192 -0400 EDT",
+        "exclude_reason": [],
+        "location": {
+            "country_name": "United States",
+            "country_code": "US"
+        },
+        "response": [{
+            "url": "a.root-servers.net",
+            "has_type_a": False,
+            "response": {},
+            "error": "null",
+            "rcode": -1
+        }, {
+            "url": "zhibo8.cc",
+            "has_type_a": True,
+            "response": {
+                "101.37.178.168": {
+                    "http": "7bb5038f4572646cb72ef3ac67762b6545b421df215b7b6b2e1b29597ba5302b",
+                    "cert": "df49f4736dcaac175f585e97605e6179e188d73d85c2f1becf48e223921c19b1",
+                    "asnum": 37963,
+                    "asname": "CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd.",
+                    "matched": None
+                }
+            },
+            "error": "null",
+            "rcode": 0
+        }, {
+            "url": "a.root-servers.net",
+            "has_type_a": False,
+            "response": {},
+            "error": "null",
+            "rcode": -1
+        }]
+    }]
+    # yapf: enable
+
+    expected = [
+        SatelliteRow(
+            domain='a.root-servers.net',
+            category='Control',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=False,
+            is_control=True,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US'),
+            rcode=-1,
+            is_control_ip=True,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            received=[]),
+        SatelliteRow(
+            domain='zhibo8.cc',
+            category='Media sharing',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=True,
+            is_control=False,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US',),
+            rcode=0,
+            is_control_ip=True,
+            average_confidence=0,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            has_type_a=True,
+            received=[
+                SatelliteAnswer(
+                    ip='101.37.178.168',
+                    http=
+                    '7bb5038f4572646cb72ef3ac67762b6545b421df215b7b6b2e1b29597ba5302b',
+                    cert=
+                    'df49f4736dcaac175f585e97605e6179e188d73d85c2f1becf48e223921c19b1',
+                    matches_control='',
+                    ip_metadata=IpMetadata(
+                        asn=37963,
+                        as_name=
+                        'CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd.'
+                    ),
+                )
+            ]),
+        SatelliteRow(
+            domain='a.root-servers.net',
+            category='Control',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=False,
+            is_control=True,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US'),
+            rcode=-1,
+            is_control_ip=True,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            received=[])
+    ]
+
+    flattener = get_satellite_flattener()
+    results = []
+
+    for filename, line in zip(filenames, interference):
+      rows = flattener.process_satellite(filename, line,
+                                         'ab3b0ed527334c6ba988362e6a2c98fc')
+      results.extend(list(rows))
+
+    self.assertListEqual(results, expected)
+
   def test_flattenmeasurement_blockpage(self) -> None:
     """Test parsing a blockpage measurement."""
     # yapf: disable
