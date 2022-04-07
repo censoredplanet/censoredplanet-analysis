@@ -192,12 +192,7 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: disable
     cert_str = "MIICxjCCAa6gAwIBAgIUbwuTH716p+5ULWPvIU6RP1QIIiwwDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMB4XDTIyMDQwNjAwMjAxNloXDTIyMDUwNzAwMjAxNlowHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4H6+8AY3CuT/fjcxqJmFocYwqPUdaWc1o0X/YJmqde2dNuvkoVfvJfhWhjfbex0B42ha5Qy+qiV1WwApmtGNk0VdGTPvHgeFrrRKS8fv6tt4AqYUkF49UCyTfao+iVlZUKVu1IPdd5eOZ8AKqfBUbDjMVArEOG4G4OMqaNHtP+FoXvTyEGinu5S4wnx4ioQgmfMzU+/HdRvxI8UftDKggyyvLLhEIJaduY+y6Au+2Dtnx1+AShCVWUAx6cbCqC6HZ36tZBFJsDdENXQ9yGOzdmEIcvGbPIKdU1HYBUcd4opO+lqHs1NTk6lMpvtzj/F2rXkz1fjLjEfQy8cMaDuufQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAumw/AvuONpiUY9RlakrUkpb05wwRZUyHlVSLAkuYE6WXfSjg5VlRtwb8C7U5KCz9p5oFVK0FgGFYgBTqGYqbMEBDJELPBvFaQ5zg21/Uhwb0KEYqLvDNqlltaW2EoJwof+KntTj8OVaWqFMX1JvgPkswwNWs605opX+8z3W3pDh1YK8HyENlHig/jGVIJrXRRCFo8tbGTAJvgPEnW9s+xDCkql8tuXojiaCf56B3XHrus0E7NZLNzXI2qSoJxIrAedSbtfnD3Mw6bjoDG8sW+Y743TeIx/dFWxlX8uY4G+pg8Cyg1BiGLkNWWFGStK9JpyekN7khsuEdGgzj9YQep"
     # yapf: enable
-    with self.assertLogs(level='WARNING') as cm:
-      parsed = flatten_base.parse_cert(cert_str)
-      self.assertEqual(
-          cm.output[0],
-          'WARNING:root:x509.extensions.ExtensionNotFound: Subject Alternative Name\n'
-      )
+    parsed = flatten_base.parse_cert(cert_str)
     expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
                     List[str]] = (
                         'censoredplanet.org',
@@ -218,4 +213,15 @@ class FlattenBaseTest(unittest.TestCase):
                     List[str]] = ('www.tiktok.com', 'SkyDNS Server CA',
                                   '2021-06-27T01:13:52', '2021-06-29T01:13:52',
                                   ['www.tiktok.com'])
+    self.assertEqual(parsed, expected)
+
+  def test_parse_cert_missing_fields(self) -> None:
+    """Test parsing a certificate with missing fields."""
+    # yapf: disable
+    cert_str = "MIIC7TCCAdWgAwIBAgIJAKnnHjNBTIeNMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNVBAYTAlJVMB4XDTIyMDEyMDA3MDIzN1oXDTQ5MDYwNjA3MDIzN1owDTELMAkGA1UEBhMCUlUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDPRtBvMF9d+GnHYzdn2wMgTmyKip8z1cyyoEriPZtM7KCu3TAHXJclz7H9Zt5jpzwSxUXpFcvLGxfEUo/tHxJw5CoHJYQGKxDvlQcn2FV3MrVmrFUd9Pg2BXgwAEdIMSZjDjLkBvvHBWxdz6uUI/r9YGjalawvvYelhrZGK+5h7w1Vx4cew3sOxuuOcnY+9SG8FbLYtEj2/Ase9Nwu+fBIXNS2nSZYtZta2sQVtcJEg24Ppqg2Ak1gHMPtDqJpD27OVuRiJXLlhwl4LD4gamH9nhaQM558W/D2h4ubMOA9mx8RmyEZVEKB7Mb0PGo45vcDQMQu5azXiqofuahOEjjRAgMBAAGjUDBOMB0GA1UdDgQWBBTLPcKME7F77rRYROBi7VJJW1Y7hzAfBgNVHSMEGDAWgBTLPcKME7F77rRYROBi7VJJW1Y7hzAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBvRkE4QZ8d4096lRqP6GP50366cSbe4Sw6tB8yDZ+qNNRhHmLA6XpwSf2W2WG703DfCAFsKPR2hAAZKgl7LeEhM0MjElHikBpIqSE3VX7CxyAj3FBpD5i9oR9ztvtYkk/LSdXES4cXYR+gHP2FFKT2yVQc5b7ZDN2OQuuXJP6mCLWaDGH4Zz0IOQnTmtx6ZF6DGSOcNx0u4dS/Ki+DYAy0gXYsAzdi8QIPCBUyxNSn78PY4ayZfyUq86hPGwiSHn1AJvsf+4wn6X781aFNr5ReouModCB+kX5CrCOFJqIlo9KOhpPf8v7ZfsSWpEGSSENkcArkXpZHHtbKyQmPUvhU"
+    # yapf: enable
+    parsed = flatten_base.parse_cert(cert_str)
+    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+                    List[str]] = (None, None, '2022-01-20T07:02:37',
+                                  '2049-06-06T07:02:37', [])
     self.assertEqual(parsed, expected)

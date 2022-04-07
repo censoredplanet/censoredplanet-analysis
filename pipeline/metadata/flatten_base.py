@@ -57,8 +57,6 @@ def get_alternative_names(cert: x509.Certificate) -> List[str]:
     san_ext = cast(x509.SubjectAlternativeName, ext.value)
     return san_ext.get_values_for_type(x509.DNSName)
   except x509.extensions.ExtensionNotFound:
-    logging.warning(
-        'x509.extensions.ExtensionNotFound: Subject Alternative Name\n')
     return []
 
 
