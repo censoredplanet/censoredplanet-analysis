@@ -386,12 +386,20 @@ class SatelliteFlattener():
           roundtrip['rcode'] == 0 and roundtrip['has_type_a']):
         roundtrip_row.has_type_a = True
 
-      answers = roundtrip['response']
-      if answers:  # confidence only corresponds to fields with received ips
+      answers: Dict[str, Dict[str, Any]] = roundtrip['response']
+      # confidence only corresponds to fields with received ips
+      if len(answers) == 0:
+        yield roundtrip_row
+      else:
         roundtrip_row.average_confidence = responses_entry.get(
             'confidence')['average']
-        matches_confidence = responses_entry.get('confidence')['matches']
+        matches_confidence: Optional[List[
+            Optional[float]]] = responses_entry.get('confidence')['matches']
         all_received = []
+
+        # Sometimes matches_confidence field is not present
+        if matches_confidence is None:
+          matches_confidence = [None] * len(answers.keys())
 
         for ((ip, answer), match_confidence) in zip(answers.items(),
                                                     matches_confidence):
@@ -410,7 +418,7 @@ class SatelliteFlattener():
             received.matches_control = _append_tags(matched)
           all_received.append(received)
         roundtrip_row.received = all_received
-      yield roundtrip_row
+        yield roundtrip_row
 
   def _process_satellite_v2_control(
       self, responses_entry: ResponsesEntry, filepath: str,
