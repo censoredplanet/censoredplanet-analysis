@@ -1,7 +1,7 @@
 """Unit tests for common flattening functions"""
 
 import unittest
-from typing import Dict, Any
+from typing import Tuple, List, Optional
 
 from pipeline.metadata.blockpage import BlockpageMatcher
 
@@ -175,14 +175,16 @@ class FlattenBaseTest(unittest.TestCase):
   def test_parse_cert_invalid(self) -> None:
     """Test parsing an invalid certificate."""
     cert_str = "invalid certificate text"
-    parsed = flatten_base.parse_cert(cert_str)
-    expected: Dict[str, Any] = {
-        'cert_common_name': None,
-        'cert_issuer': None,
-        'cert_start_date': None,
-        'cert_end_date': None,
-        'cert_alternative_names': [],
-    }
+    with self.assertLogs(level='WARNING') as cm:
+      parsed = flatten_base.parse_cert(cert_str)
+      self.assertEqual(
+          cm.output[0], 'WARNING:root:ValueError: '
+          'Unable to load PEM file. '
+          'See https://cryptography.io/en/latest/faq.html#why-can-t-i-import-my-pem-file '
+          'for more details. InvalidData(InvalidByte(7, 32))\n'
+          'Cert: invalid certificate text\n')
+    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+                    List[str]] = (None, None, None, None, [])
     self.assertEqual(parsed, expected)
 
   def test_parse_cert_no_subject_alternative_names(self) -> None:
@@ -190,12 +192,30 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: disable
     cert_str = "MIICxjCCAa6gAwIBAgIUbwuTH716p+5ULWPvIU6RP1QIIiwwDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMB4XDTIyMDQwNjAwMjAxNloXDTIyMDUwNzAwMjAxNlowHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4H6+8AY3CuT/fjcxqJmFocYwqPUdaWc1o0X/YJmqde2dNuvkoVfvJfhWhjfbex0B42ha5Qy+qiV1WwApmtGNk0VdGTPvHgeFrrRKS8fv6tt4AqYUkF49UCyTfao+iVlZUKVu1IPdd5eOZ8AKqfBUbDjMVArEOG4G4OMqaNHtP+FoXvTyEGinu5S4wnx4ioQgmfMzU+/HdRvxI8UftDKggyyvLLhEIJaduY+y6Au+2Dtnx1+AShCVWUAx6cbCqC6HZ36tZBFJsDdENXQ9yGOzdmEIcvGbPIKdU1HYBUcd4opO+lqHs1NTk6lMpvtzj/F2rXkz1fjLjEfQy8cMaDuufQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAumw/AvuONpiUY9RlakrUkpb05wwRZUyHlVSLAkuYE6WXfSjg5VlRtwb8C7U5KCz9p5oFVK0FgGFYgBTqGYqbMEBDJELPBvFaQ5zg21/Uhwb0KEYqLvDNqlltaW2EoJwof+KntTj8OVaWqFMX1JvgPkswwNWs605opX+8z3W3pDh1YK8HyENlHig/jGVIJrXRRCFo8tbGTAJvgPEnW9s+xDCkql8tuXojiaCf56B3XHrus0E7NZLNzXI2qSoJxIrAedSbtfnD3Mw6bjoDG8sW+Y743TeIx/dFWxlX8uY4G+pg8Cyg1BiGLkNWWFGStK9JpyekN7khsuEdGgzj9YQep"
     # yapf: enable
+    with self.assertLogs(level='WARNING') as cm:
+      parsed = flatten_base.parse_cert(cert_str)
+      self.assertEqual(
+          cm.output[0],
+          'WARNING:root:x509.extensions.ExtensionNotFound: Subject Alternative Name\n'
+      )
+    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+                    List[str]] = (
+                        'censoredplanet.org',
+                        'censoredplanet.org',
+                        '2022-04-06T00:20:16',
+                        '2022-05-07T00:20:16',
+                        [],
+                    )
+    self.assertEqual(parsed, expected)
+
+  def test_parse_cert_self_signed(self) -> None:
+    """Test parsing a self signed certificate."""
+    # yapf: disable
+    cert_str = "MIIBeTCCAR+gAwIBAgIIFj3y08kD21kwCgYIKoZIzj0EAwIwLDEPMA0GA1UECgwGU2t5RE5TMRkwFwYDVQQDDBBTa3lETlMgU2VydmVyIENBMB4XDTIxMDYyNzAxMTM1MloXDTIxMDYyOTAxMTM1MlowGTEXMBUGA1UEAxMOd3d3LnRpa3Rvay5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATq1oeKtxjrDQ0JccJGzr8oQ3O4o048yFtA4DUFp93Ssk/3TAcwLzaRRHqXsuvUQeXtCQWeIJi06jlUOQtfkVi2oz4wPDAfBgNVHSMEGDAWgBSVpcfn4Rsi7YJxAk4dWHT+QcjokTAZBgNVHREEEjAQgg53d3cudGlrdG9rLmNvbTAKBggqhkjOPQQDAgNIADBFAiEA7cSgmPKszqefVPK5oNiK8SuiyJzggF75M9tQbMePOhMCID+sPNOYgJEgoLd3YVnNuh5VDW0AWvmmzfoNBCKlLOzW"
+    # yapf: enable
     parsed = flatten_base.parse_cert(cert_str)
-    expected = {
-        'cert_common_name': 'censoredplanet.org',
-        'cert_issuer': 'censoredplanet.org',
-        'cert_start_date': '2022-04-06T00:20:16',
-        'cert_end_date': '2022-05-07T00:20:16',
-        'cert_alternative_names': [],
-    }
+    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+                    List[str]] = ('www.tiktok.com', 'SkyDNS Server CA',
+                                  '2021-06-27T01:13:52', '2021-06-29T01:13:52',
+                                  ['www.tiktok.com'])
     self.assertEqual(parsed, expected)

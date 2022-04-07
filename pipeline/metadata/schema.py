@@ -272,13 +272,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
     https_response = received_answer.https_response or HttpsResponse()
 
     answer: Dict[str, Any] = {
-<<<<<<< HEAD
-        'ip': received_answer.ip,
-        'http': received_answer.http,
-        'cert': received_answer.cert,
-        'matches_control': received_answer.matches_control,
-        'match_confidence': received_answer.match_confidence,
-=======
         'ip':
             received_answer.ip,
         'http':
@@ -287,7 +280,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
             received_answer.cert,
         'matches_control':
             received_answer.matches_control,
->>>>>>> Parse tls certs
         # Ip Metadata
         'asnum':
             received_answer.ip_metadata.asn,

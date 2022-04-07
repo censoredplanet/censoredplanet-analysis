@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import os
 import logging
-from typing import Optional, List, Dict, Any, Union, cast
+from typing import Optional, List, Dict, Any, Union, Tuple, cast
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -23,7 +23,7 @@ CONTROL_URLS = [
 ]
 
 
-def get_common_name(cert_name: x509.Name) -> Union[None, str]:
+def get_common_name(cert_name: x509.Name) -> Optional[str]:
   """Get the Common Name of a certificate subject or issuer.
 
   Args:
@@ -57,6 +57,8 @@ def get_alternative_names(cert: x509.Certificate) -> List[str]:
     san_ext = cast(x509.SubjectAlternativeName, ext.value)
     return san_ext.get_values_for_type(x509.DNSName)
   except x509.extensions.ExtensionNotFound:
+    logging.warning(
+        'x509.extensions.ExtensionNotFound: Subject Alternative Name\n')
     return []
 
 
@@ -76,32 +78,35 @@ def load_cert_from_str(cert_str: str) -> x509.Certificate:
   return x509.load_pem_x509_certificate(cert_pem, default_backend())
 
 
-def parse_cert(cert_str: str) -> Dict[str, Any]:
+def parse_cert(
+    cert_str: str
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+           List[str]]:
   """Parse certificate fields from base64 certificate string.
 
   Args:
     cert_str: base64 encoded certificate string
 
   Returns:
-    dict containing parsed certificate fields
+    tuple containing parsed certificate fields
+    (cert_common_name, cert_issuer, cert_start_date, cert_end_date, cert_alternative_names)
   """
-  cert_fields: Dict[str, Any] = {
-      'cert_common_name': None,
-      'cert_issuer': None,
-      'cert_start_date': None,
-      'cert_end_date': None,
-      'cert_alternative_names': [],
-  }
+  cert_common_name = None
+  cert_issuer = None
+  cert_start_date = None
+  cert_end_date = None
+  cert_alternative_names = []
   try:
     cert = load_cert_from_str(cert_str)
-    cert_fields['cert_common_name'] = get_common_name(cert.subject)
-    cert_fields['cert_issuer'] = get_common_name(cert.issuer)
-    cert_fields['cert_start_date'] = cert.not_valid_before.isoformat()
-    cert_fields['cert_end_date'] = cert.not_valid_after.isoformat()
-    cert_fields['cert_alternative_names'] = get_alternative_names(cert)
+    cert_common_name = get_common_name(cert.subject)
+    cert_issuer = get_common_name(cert.issuer)
+    cert_start_date = cert.not_valid_before.isoformat()
+    cert_end_date = cert.not_valid_after.isoformat()
+    cert_alternative_names = get_alternative_names(cert)
   except ValueError as e:
     logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
-  return cert_fields
+  return (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
+          cert_alternative_names)
 
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -225,11 +230,12 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
 
   # Parse certificate fields
   if row.tls_cert:
-    cert_fields = parse_cert(row.tls_cert)
-    row.tls_cert_common_name = cert_fields['cert_common_name']
-    row.tls_cert_issuer = cert_fields['cert_issuer']
-    row.tls_cert_start_date = cert_fields['cert_start_date']
-    row.tls_cert_end_date = cert_fields['cert_end_date']
-    row.tls_cert_alternative_names = cert_fields['cert_alternative_names']
+    (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
+     cert_alternative_names) = parse_cert(row.tls_cert)
+    row.tls_cert_common_name = cert_common_name
+    row.tls_cert_issuer = cert_issuer
+    row.tls_cert_start_date = cert_start_date
+    row.tls_cert_end_date = cert_end_date
+    row.tls_cert_alternative_names = cert_alternative_names
 
   return row
