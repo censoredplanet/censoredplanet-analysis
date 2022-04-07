@@ -1,6 +1,7 @@
 """Unit tests for common flattening functions"""
 
 import unittest
+from typing import Dict, Any
 
 from pipeline.metadata.blockpage import BlockpageMatcher
 
@@ -170,4 +171,32 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    self.assertEqual(parsed, expected)
+
+  def test_parse_cert_invalid(self) -> None:
+    """Test parsing an invalid certificate."""
+    cert_str = "invalid certificate text"
+    parsed = flatten_base.parse_cert(cert_str)
+    expected: Dict[str, Any] = {
+        'cert_common_name': None,
+        'cert_issuer': None,
+        'cert_start_date': None,
+        'cert_end_date': None,
+        'cert_alternative_names': [],
+    }
+    self.assertEqual(parsed, expected)
+
+  def test_parse_cert_no_subject_alternative_names(self) -> None:
+    """Test parsing a certificate with no subject alternative names."""
+    # yapf: disable
+    cert_str = "MIICxjCCAa6gAwIBAgIUbwuTH716p+5ULWPvIU6RP1QIIiwwDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMB4XDTIyMDQwNjAwMjAxNloXDTIyMDUwNzAwMjAxNlowHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4H6+8AY3CuT/fjcxqJmFocYwqPUdaWc1o0X/YJmqde2dNuvkoVfvJfhWhjfbex0B42ha5Qy+qiV1WwApmtGNk0VdGTPvHgeFrrRKS8fv6tt4AqYUkF49UCyTfao+iVlZUKVu1IPdd5eOZ8AKqfBUbDjMVArEOG4G4OMqaNHtP+FoXvTyEGinu5S4wnx4ioQgmfMzU+/HdRvxI8UftDKggyyvLLhEIJaduY+y6Au+2Dtnx1+AShCVWUAx6cbCqC6HZ36tZBFJsDdENXQ9yGOzdmEIcvGbPIKdU1HYBUcd4opO+lqHs1NTk6lMpvtzj/F2rXkz1fjLjEfQy8cMaDuufQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAumw/AvuONpiUY9RlakrUkpb05wwRZUyHlVSLAkuYE6WXfSjg5VlRtwb8C7U5KCz9p5oFVK0FgGFYgBTqGYqbMEBDJELPBvFaQ5zg21/Uhwb0KEYqLvDNqlltaW2EoJwof+KntTj8OVaWqFMX1JvgPkswwNWs605opX+8z3W3pDh1YK8HyENlHig/jGVIJrXRRCFo8tbGTAJvgPEnW9s+xDCkql8tuXojiaCf56B3XHrus0E7NZLNzXI2qSoJxIrAedSbtfnD3Mw6bjoDG8sW+Y743TeIx/dFWxlX8uY4G+pg8Cyg1BiGLkNWWFGStK9JpyekN7khsuEdGgzj9YQep"
+    # yapf: enable
+    parsed = flatten_base.parse_cert(cert_str)
+    expected = {
+        'cert_common_name': 'censoredplanet.org',
+        'cert_issuer': 'censoredplanet.org',
+        'cert_start_date': '2022-04-06T00:20:16',
+        'cert_end_date': '2022-05-07T00:20:16',
+        'cert_alternative_names': [],
+    }
     self.assertEqual(parsed, expected)

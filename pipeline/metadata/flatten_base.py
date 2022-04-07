@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import annotations  # required to use class as a type inside the class
 
 import os
+import logging
 from typing import Optional, List, Dict, Any, Union, cast
 
 from cryptography import x509
@@ -31,9 +32,12 @@ def get_common_name(cert_name: x509.Name) -> Union[None, str]:
   Returns:
     Common Name as a string
   """
-  attributes = cert_name.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
-  if attributes:
-    return attributes[0].value
+  try:
+    attributes = cert_name.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
+    if attributes:
+      return attributes[0].value
+  except x509.AttributeNotFound:
+    logging.warning('x509.AttributeNotFound: Common Name\n')
   return None
 
 
@@ -46,11 +50,14 @@ def get_alternative_names(cert: x509.Certificate) -> List[str]:
   Returns:
     list of alternative names
   """
-  ext = cert.extensions.get_extension_for_oid(
-      x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-  # Cast to x509.SubjectAlternativeName to avoid mypy error.
-  san_ext = cast(x509.SubjectAlternativeName, ext.value)
-  return san_ext.get_values_for_type(x509.DNSName)
+  try:
+    ext = cert.extensions.get_extension_for_oid(
+        x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+    # Cast to x509.SubjectAlternativeName to avoid mypy error.
+    san_ext = cast(x509.SubjectAlternativeName, ext.value)
+    return san_ext.get_values_for_type(x509.DNSName)
+  except x509.extensions.ExtensionNotFound:
+    return []
 
 
 def load_cert_from_str(cert_str: str) -> x509.Certificate:
@@ -78,14 +85,22 @@ def parse_cert(cert_str: str) -> Dict[str, Any]:
   Returns:
     dict containing parsed certificate fields
   """
-  cert = load_cert_from_str(cert_str)
-  cert_fields = {
-      'cert_common_name': get_common_name(cert.subject),
-      'cert_issuer': get_common_name(cert.issuer),
-      'cert_start_date': cert.not_valid_before.isoformat(),
-      'cert_end_date': cert.not_valid_after.isoformat(),
-      'cert_alternative_names': get_alternative_names(cert),
+  cert_fields: Dict[str, Any] = {
+      'cert_common_name': None,
+      'cert_issuer': None,
+      'cert_start_date': None,
+      'cert_end_date': None,
+      'cert_alternative_names': [],
   }
+  try:
+    cert = load_cert_from_str(cert_str)
+    cert_fields['cert_common_name'] = get_common_name(cert.subject)
+    cert_fields['cert_issuer'] = get_common_name(cert.issuer)
+    cert_fields['cert_start_date'] = cert.not_valid_before.isoformat()
+    cert_fields['cert_end_date'] = cert.not_valid_after.isoformat()
+    cert_fields['cert_alternative_names'] = get_alternative_names(cert)
+  except ValueError as e:
+    logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
   return cert_fields
 
 
