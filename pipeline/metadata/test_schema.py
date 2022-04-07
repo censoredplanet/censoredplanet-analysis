@@ -121,7 +121,6 @@ class SchemaTest(unittest.TestCase):
         source = 'CP_Satellite-2021-10-20-12-00-01',
         controls_failed = True,
         average_confidence = 100,
-        matches_confidence = [100],
         untagged_controls = False,
         untagged_response = False,
         excluded = False,
@@ -144,6 +143,7 @@ class SchemaTest(unittest.TestCase):
             cert = 'MII...',
             http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
             matches_control = 'ip http asnum asname',
+            match_confidence = 100,
             ip_metadata = schema.IpMetadata(
                 asn=16509,
                 as_name='AMAZON-02',

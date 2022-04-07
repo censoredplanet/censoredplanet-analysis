@@ -372,6 +372,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 SatelliteAnswer(
                     ip='88.212.202.9',
                     matches_control='ip http cert asnum asname',
+                    match_confidence=100,
                     http=
                     '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
                     cert=
@@ -380,7 +381,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             ],
             rcode=0,
             average_confidence=100,
-            matches_confidence=[100],
             untagged_controls=False,
             untagged_response=False,
             excluded=False,
@@ -711,7 +711,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = 100,
-        matches_confidence = [100],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = False,
@@ -730,6 +729,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         received = [SatelliteAnswer(
             ip = '113.217.247.90',
             matches_control = 'ip http cert asnum asname',
+            match_confidence=100,
             cert = '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
             http = 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
             ip_metadata=IpMetadata(
@@ -747,7 +747,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -773,7 +772,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Provocative Attire',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -799,7 +797,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -825,7 +822,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -851,7 +847,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -877,7 +872,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -903,7 +897,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -929,7 +922,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'E-commerce',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -955,7 +947,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly = False,
         category = 'Control',
         average_confidence = None,
-        matches_confidence = [],
         untagged_controls = False,
         untagged_response = False,
         controls_failed = True,
@@ -1082,7 +1073,6 @@ class FlattenSatelliteTest(unittest.TestCase):
         anomaly=False,
         category='Government',
         average_confidence=66.66666666666667,
-        matches_confidence=[66.66666666666667, 66.66666666666667],
         untagged_controls=False,
         untagged_response=False,
         controls_failed=False,
@@ -1103,6 +1093,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
             matches_control='asnum asname',
+            match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
                 as_name='AKAMAI-ASN1'
@@ -1112,6 +1103,7 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
             matches_control='asnum asname',
+            match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
                 as_name='AKAMAI-ASN1'
@@ -1125,6 +1117,156 @@ class FlattenSatelliteTest(unittest.TestCase):
         ),
     )]
     # yapf: enable
+
+    flattener = get_satellite_flattener()
+    results = []
+
+    for filename, line in zip(filenames, interference):
+      rows = flattener.process_satellite(filename, line,
+                                         'ab3b0ed527334c6ba988362e6a2c98fc')
+      results.extend(list(rows))
+
+    self.assertListEqual(results, expected)
+
+  def test_flattenmeasurement_satellite_v2p2_no_match_confidence(self) -> None:
+    """Test flattening of Satellite v2.2 measurements that fail but eventually succeed."""
+    filenames = [
+        'gs://firehook-scans/satellite/CP_Satellite-2021-08-22-12-00-01/results.json',
+    ]
+
+    # yapf: disable
+    interference = [{
+        "confidence": {
+            "average": 0,
+            "matches": None,
+            "untagged_controls": False,
+            "untagged_response": False
+        },
+        "passed_liveness": False,
+        "connect_error": False,
+        "in_control_group":  True,
+        "anomaly": False,
+        "excluded": False,
+        "vp": "8.8.8.8",
+        "test_url": "zhibo8.cc",
+        "start_time": "2021-08-22 14:51:20.888764605 -0400 EDT",
+        "end_time": "2021-08-22 14:51:20.959570192 -0400 EDT",
+        "exclude_reason": [],
+        "location": {
+            "country_name": "United States",
+            "country_code": "US"
+        },
+        "response": [{
+            "url": "a.root-servers.net",
+            "has_type_a": False,
+            "response": {},
+            "error": "null",
+            "rcode": -1
+        }, {
+            "url": "zhibo8.cc",
+            "has_type_a": True,
+            "response": {
+                "101.37.178.168": {
+                    "http": "7bb5038f4572646cb72ef3ac67762b6545b421df215b7b6b2e1b29597ba5302b",
+                    "cert": "df49f4736dcaac175f585e97605e6179e188d73d85c2f1becf48e223921c19b1",
+                    "asnum": 37963,
+                    "asname": "CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd.",
+                    "matched": None
+                }
+            },
+            "error": "null",
+            "rcode": 0
+        }, {
+            "url": "a.root-servers.net",
+            "has_type_a": False,
+            "response": {},
+            "error": "null",
+            "rcode": -1
+        }]
+    }]
+    # yapf: enable
+
+    expected = [
+        SatelliteRow(
+            domain='a.root-servers.net',
+            category='Control',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=False,
+            is_control=True,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US'),
+            rcode=-1,
+            is_control_ip=True,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            received=[]),
+        SatelliteRow(
+            domain='zhibo8.cc',
+            category='Media sharing',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=True,
+            is_control=False,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US',),
+            rcode=0,
+            is_control_ip=True,
+            average_confidence=0,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            has_type_a=True,
+            received=[
+                SatelliteAnswer(
+                    ip='101.37.178.168',
+                    http=
+                    '7bb5038f4572646cb72ef3ac67762b6545b421df215b7b6b2e1b29597ba5302b',
+                    cert=
+                    'df49f4736dcaac175f585e97605e6179e188d73d85c2f1becf48e223921c19b1',
+                    matches_control='',
+                    ip_metadata=IpMetadata(
+                        asn=37963,
+                        as_name=
+                        'CNNIC-ALIBABA-CN-NET-AP Hangzhou Alibaba Advertising Co.,Ltd.'
+                    ),
+                )
+            ]),
+        SatelliteRow(
+            domain='a.root-servers.net',
+            category='Control',
+            ip='8.8.8.8',
+            date='2021-08-22',
+            start_time='2021-08-22T14:51:20.888764605-04:00',
+            end_time='2021-08-22T14:51:20.959570192-04:00',
+            anomaly=False,
+            success=False,
+            is_control=True,
+            controls_failed=True,
+            measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
+            source='CP_Satellite-2021-08-22-12-00-01',
+            ip_metadata=IpMetadata(country='US'),
+            rcode=-1,
+            is_control_ip=True,
+            untagged_controls=False,
+            untagged_response=False,
+            excluded=False,
+            exclude_reason='',
+            received=[])
+    ]
 
     flattener = get_satellite_flattener()
     results = []

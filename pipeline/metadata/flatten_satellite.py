@@ -386,30 +386,39 @@ class SatelliteFlattener():
           roundtrip['rcode'] == 0 and roundtrip['has_type_a']):
         roundtrip_row.has_type_a = True
 
-      answers = roundtrip['response']
-      if answers:  # confidence only corresponds to fields with received ips
+      answers: Dict[str, Dict[str, Any]] = roundtrip['response']
+      # confidence only corresponds to fields with received ips
+      if len(answers) == 0:
+        yield roundtrip_row
+      else:
         roundtrip_row.average_confidence = responses_entry.get(
             'confidence')['average']
-        roundtrip_row.matches_confidence = responses_entry.get(
-            'confidence')['matches']
+        matches_confidence: Optional[List[
+            Optional[float]]] = responses_entry.get('confidence')['matches']
+        all_received = []
 
-      all_received = []
-      for (ip, answer) in answers.items():
-        received = SatelliteAnswer(
-            ip=ip,
-            http=answer.get('http'),
-            cert=answer.get('cert'),
-            matches_control='',
-            ip_metadata=IpMetadata(
-                as_name=answer.get('asname'),
-                asn=answer.get('asnum'),
-            ))
-        matched = answer.get('matched', [])
-        if matched:
-          received.matches_control = _append_tags(matched)
-        all_received.append(received)
-      roundtrip_row.received = all_received
-      yield roundtrip_row
+        # Sometimes matches_confidence field is not present
+        if matches_confidence is None:
+          matches_confidence = [None] * len(answers.keys())
+
+        for ((ip, answer), match_confidence) in zip(answers.items(),
+                                                    matches_confidence):
+          received = SatelliteAnswer(
+              ip=ip,
+              http=answer.get('http'),
+              cert=answer.get('cert'),
+              matches_control='',
+              match_confidence=match_confidence,
+              ip_metadata=IpMetadata(
+                  as_name=answer.get('asname'),
+                  asn=answer.get('asnum'),
+              ))
+          matched = answer.get('matched', [])
+          if matched:
+            received.matches_control = _append_tags(matched)
+          all_received.append(received)
+        roundtrip_row.received = all_received
+        yield roundtrip_row
 
   def _process_satellite_v2_control(
       self, responses_entry: ResponsesEntry, filepath: str,

@@ -84,6 +84,7 @@ class SatelliteAnswer():
   http: Optional[str] = None
   cert: Optional[str] = None
   matches_control: Optional[str] = None
+  match_confidence: Optional[float] = None
 
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
   http_response: Optional[HttpsResponse] = None
@@ -111,6 +112,8 @@ def merge_satellite_answers(base: SatelliteAnswer,
     base.cert = new.cert
   if new.matches_control is not None:
     base.matches_control = new.matches_control
+  if new.match_confidence is not None:
+    base.match_confidence = new.match_confidence
 
   if new.http_response is not None:
     base.http_response = new.http_response
@@ -160,7 +163,6 @@ class SatelliteRow(BigqueryRow):
   exclude_reason: Optional[str] = None
   has_type_a: Optional[bool] = None
   received: List[SatelliteAnswer] = dataclasses.field(default_factory=list)
-  matches_confidence: List[float] = dataclasses.field(default_factory=list)
 
 
 @dataclass
@@ -243,7 +245,6 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
       'is_control_ip': row.is_control_ip,
       'rcode': row.rcode,
       'average_confidence': row.average_confidence,
-      'matches_confidence': row.matches_confidence,
       'untagged_controls': row.untagged_controls,
       'untagged_response': row.untagged_response,
       'excluded': row.excluded,
@@ -269,6 +270,7 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'http': received_answer.http,
         'cert': received_answer.cert,
         'matches_control': received_answer.matches_control,
+        'match_confidence': received_answer.match_confidence,
         # Ip Metadata
         'asnum': received_answer.ip_metadata.asn,
         'asname': received_answer.ip_metadata.as_name,
@@ -369,6 +371,7 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'http': ('string', 'nullable'),
                 'cert': ('string', 'nullable'),
                 'matches_control': ('string', 'nullable'),
+                'match_confidence': ('float', 'nullable'),
                 # HTTP
                 'http_error': ('string', 'nullable'),
                 'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
@@ -389,7 +392,6 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
             }),
         'rcode': ('integer', 'nullable'),
         'average_confidence': ('float', 'nullable'),
-        'matches_confidence': ('float', 'repeated'),
         'untagged_controls': ('boolean', 'nullable'),
         'untagged_response': ('boolean', 'nullable'),
         'excluded': ('boolean', 'nullable'),
