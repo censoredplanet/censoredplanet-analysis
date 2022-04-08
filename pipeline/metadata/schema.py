@@ -30,6 +30,12 @@ class HttpsResponse:
   tls_version: Optional[int] = None
   tls_cipher_suite: Optional[int] = None
   tls_cert: Optional[str] = None
+  tls_cert_common_name: Optional[str] = None
+  tls_cert_issuer: Optional[str] = None
+  tls_cert_start_date: Optional[str] = None
+  tls_cert_end_date: Optional[str] = None
+  tls_cert_alternative_names: List[str] = dataclasses.field(
+      default_factory=list)
   headers: List[str] = dataclasses.field(default_factory=list)
 
 
@@ -266,31 +272,61 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
     https_response = received_answer.https_response or HttpsResponse()
 
     answer: Dict[str, Any] = {
-        'ip': received_answer.ip,
-        'http': received_answer.http,
-        'cert': received_answer.cert,
-        'matches_control': received_answer.matches_control,
-        'match_confidence': received_answer.match_confidence,
+        'ip':
+            received_answer.ip,
+        'http':
+            received_answer.http,
+        'cert':
+            received_answer.cert,
+        'matches_control':
+            received_answer.matches_control,
         # Ip Metadata
-        'asnum': received_answer.ip_metadata.asn,
-        'asname': received_answer.ip_metadata.as_name,
+        'asnum':
+            received_answer.ip_metadata.asn,
+        'asname':
+            received_answer.ip_metadata.as_name,
         # HTTP
-        'http_error': received_answer.http_error,
-        'http_response_status': http_response.status,
-        'http_response_headers': http_response.headers,
-        'http_response_body': http_response.body,
-        'http_analysis_page_signature': http_response.page_signature,
-        'http_analysis_is_known_blockpage': http_response.is_known_blockpage,
+        'http_error':
+            received_answer.http_error,
+        'http_response_status':
+            http_response.status,
+        'http_response_headers':
+            http_response.headers,
+        'http_response_body':
+            http_response.body,
+        'http_analysis_page_signature':
+            http_response.page_signature,
+        'http_analysis_is_known_blockpage':
+            http_response.is_known_blockpage,
         # HTTPS
-        'https_error': received_answer.https_error,
-        'https_response_tls_version': https_response.tls_version,
-        'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
-        'https_response_tls_cert': https_response.tls_cert,
-        'https_response_status': https_response.status,
-        'https_response_headers': https_response.headers,
-        'https_response_body': https_response.body,
-        'https_analysis_page_signature': https_response.page_signature,
-        'https_analysis_is_known_blockpage': https_response.is_known_blockpage,
+        'https_error':
+            received_answer.https_error,
+        'https_response_tls_version':
+            https_response.tls_version,
+        'https_response_tls_cipher_suite':
+            https_response.tls_cipher_suite,
+        'https_response_tls_cert':
+            https_response.tls_cert,
+        'https_response_tls_cert_common_name':
+            https_response.tls_cert_common_name,
+        'https_response_tls_cert_issuer':
+            https_response.tls_cert_issuer,
+        'https_response_tls_cert_start_date':
+            https_response.tls_cert_start_date,
+        'https_response_tls_cert_end_date':
+            https_response.tls_cert_end_date,
+        'https_response_tls_cert_alternative_names':
+            https_response.tls_cert_alternative_names,
+        'https_response_status':
+            https_response.status,
+        'https_response_headers':
+            https_response.headers,
+        'https_response_body':
+            https_response.body,
+        'https_analysis_page_signature':
+            https_response.page_signature,
+        'https_analysis_is_known_blockpage':
+            https_response.is_known_blockpage,
     }
     flat['received'].append(answer)
   return flat
@@ -389,6 +425,12 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'https_response_tls_version': ('integer', 'nullable'),
                 'https_response_tls_cipher_suite': ('integer', 'nullable'),
                 'https_response_tls_cert': ('string', 'nullable'),
+                'https_response_tls_cert_common_name': ('string', 'nullable'),
+                'https_response_tls_cert_issuer': ('string', 'nullable'),
+                'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
+                'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
+                'https_response_tls_cert_alternative_names':
+                    ('string', 'repeated'),
             }),
         'rcode': ('integer', 'nullable'),
         'average_confidence': ('float', 'nullable'),

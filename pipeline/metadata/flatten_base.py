@@ -4,8 +4,11 @@ from __future__ import absolute_import
 from __future__ import annotations  # required to use class as a type inside the class
 
 import os
-from typing import Optional, List, Dict, Any, Union
+import logging
+from typing import Optional, List, Dict, Any, Union, Tuple
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.schema import HttpsResponse
 
@@ -18,6 +21,90 @@ CONTROL_URLS = [
     'a.root-servers.net',  # Satellite
     'www.example.com'  # Satellite
 ]
+
+
+def get_common_name(cert_name: x509.Name) -> Optional[str]:
+  """Get the Common Name of a certificate subject or issuer.
+
+  Args:
+    cert_name: x509.Name representing a certificate subject or issuer
+
+  Returns:
+    Common Name as a string
+  """
+  try:
+    attributes = cert_name.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
+    if attributes:
+      return attributes[0].value
+  except x509.AttributeNotFound:
+    logging.warning('x509.AttributeNotFound: Common Name\n')
+  return None
+
+
+def get_alternative_names(cert: x509.Certificate) -> List[str]:
+  """Get the Subject Alternative Names of a certificate.
+
+  Args:
+    cert: x509.Certificate containing parsed certificate fields
+
+  Returns:
+    list of alternative names
+  """
+  try:
+    ext = cert.extensions.get_extension_for_oid(
+        x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+    # Cast to x509.SubjectAlternativeName to avoid mypy error.
+    san_ext: x509.SubjectAlternativeName = ext.value  # type: ignore
+    return san_ext.get_values_for_type(x509.DNSName)
+  except x509.extensions.ExtensionNotFound:
+    return []
+
+
+def load_cert_from_str(cert_str: str) -> x509.Certificate:
+  """Load certificate from the certificate text base64 string.
+
+  Args:
+    cert_str: base64 encoded certificate string
+
+  Returns:
+    x509.Certificate containing parsed certificate fields (e.g., Common Name)
+  """
+  begin = "-----BEGIN CERTIFICATE-----\n"
+  end = "\n-----END CERTIFICATE----- "
+  # cryptography.x509 requires the PEM headers and footers to parse the certificate.
+  cert_pem = bytes(begin + cert_str + end, encoding='utf-8')
+  return x509.load_pem_x509_certificate(cert_pem, default_backend())
+
+
+def parse_cert(
+    cert_str: str
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+           List[str]]:
+  """Parse certificate fields from base64 certificate string.
+
+  Args:
+    cert_str: base64 encoded certificate string
+
+  Returns:
+    tuple containing parsed certificate fields
+    (cert_common_name, cert_issuer, cert_start_date, cert_end_date, cert_alternative_names)
+  """
+  cert_common_name = None
+  cert_issuer = None
+  cert_start_date = None
+  cert_end_date = None
+  cert_alternative_names = []
+  try:
+    cert = load_cert_from_str(cert_str)
+    cert_common_name = get_common_name(cert.subject)
+    cert_issuer = get_common_name(cert.issuer)
+    cert_start_date = cert.not_valid_before.isoformat()
+    cert_end_date = cert.not_valid_after.isoformat()
+    cert_alternative_names = get_alternative_names(cert)
+  except ValueError as e:
+    logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
+  return (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
+          cert_alternative_names)
 
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -138,5 +225,15 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
     row.tls_version = received['TlsVersion']
     row.tls_cipher_suite = received['CipherSuite']
     row.tls_cert = received['Certificate']
+
+  # Parse certificate fields
+  if row.tls_cert:
+    (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
+     cert_alternative_names) = parse_cert(row.tls_cert)
+    row.tls_cert_common_name = cert_common_name
+    row.tls_cert_issuer = cert_issuer
+    row.tls_cert_start_date = cert_start_date
+    row.tls_cert_end_date = cert_end_date
+    row.tls_cert_alternative_names = cert_alternative_names
 
   return row

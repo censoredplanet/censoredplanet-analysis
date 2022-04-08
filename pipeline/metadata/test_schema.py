@@ -159,6 +159,11 @@ class SchemaTest(unittest.TestCase):
               tls_version = 123,
               tls_cipher_suite = 3,
               tls_cert = 'MII...',
+              tls_cert_common_name = None,
+              tls_cert_issuer = None,
+              tls_cert_start_date = None,
+              tls_cert_end_date = None,
+              tls_cert_alternative_names = [],
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
@@ -173,6 +178,11 @@ class SchemaTest(unittest.TestCase):
               tls_version = 123,
               tls_cipher_suite = 3,
               tls_cert = 'MII...',
+              tls_cert_common_name = 'Common Name',
+              tls_cert_issuer = 'Issuer',
+              tls_cert_start_date = '2018-04-06T12:00:00',
+              tls_cert_end_date = '2012-04-06T12:00:00',
+              tls_cert_alternative_names = ['Common Name', 'Alt Name'],
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
