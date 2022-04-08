@@ -5,7 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import os
 import logging
-from typing import Optional, List, Dict, Any, Union, Tuple, cast
+from typing import Optional, List, Dict, Any, Union, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -54,7 +54,7 @@ def get_alternative_names(cert: x509.Certificate) -> List[str]:
     ext = cert.extensions.get_extension_for_oid(
         x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
     # Cast to x509.SubjectAlternativeName to avoid mypy error.
-    san_ext = cast(x509.SubjectAlternativeName, ext.value)
+    san_ext: x509.SubjectAlternativeName = ext.value  # type: ignore
     return san_ext.get_values_for_type(x509.DNSName)
   except x509.extensions.ExtensionNotFound:
     return []
