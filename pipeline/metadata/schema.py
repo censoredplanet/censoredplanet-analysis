@@ -83,13 +83,23 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
 
 
 @dataclass
+class MatchesControl():
+  """Class to keep track of which answer fields matched the control."""
+  ip: bool = False
+  http: bool = False
+  cert: bool = False
+  asnum: bool = False
+  asname: bool = False
+
+
+@dataclass
 class SatelliteAnswer():
   """Class for keeping track of Satellite answer content"""
   # Keys
   ip: str
   http: Optional[str] = None
   cert: Optional[str] = None
-  matches_control: Optional[str] = None
+  matches_control: Optional[MatchesControl] = None
   match_confidence: Optional[float] = None
 
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
@@ -275,63 +285,45 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
     http_response = received_answer.http_response or HttpsResponse()
     https_response = received_answer.https_response or HttpsResponse()
 
+    # yapf: disable
     answer: Dict[str, Any] = {
-        'ip':
-            received_answer.ip,
-        'http':
-            received_answer.http,
-        'cert':
-            received_answer.cert,
-        'matches_control':
-            received_answer.matches_control,
+        'ip': received_answer.ip,
+        'http': received_answer.http,
+        'cert': received_answer.cert,
+        'matches_control': {
+          'ip': received_answer.matches_control.ip,
+          'http': received_answer.matches_control.http,
+          'cert': received_answer.matches_control.cert,
+          'asnum': received_answer.matches_control.asnum,
+          'asname': received_answer.matches_control.asname,
+        },
         # Ip Metadata
-        'asnum':
-            received_answer.ip_metadata.asn,
-        'asname':
-            received_answer.ip_metadata.as_name,
+        'asnum': received_answer.ip_metadata.asn,
+        'asname': received_answer.ip_metadata.as_name,
         # HTTP
-        'http_error':
-            received_answer.http_error,
-        'http_response_status':
-            http_response.status,
-        'http_response_headers':
-            http_response.headers,
-        'http_response_body':
-            http_response.body,
-        'http_analysis_page_signature':
-            http_response.page_signature,
-        'http_analysis_is_known_blockpage':
-            http_response.is_known_blockpage,
+        'http_error': received_answer.http_error,
+        'http_response_status': http_response.status,
+        'http_response_headers': http_response.headers,
+        'http_response_body': http_response.body,
+        'http_analysis_page_signature': http_response.page_signature,
+        'http_analysis_is_known_blockpage': http_response.is_known_blockpage,
         # HTTPS
-        'https_error':
-            received_answer.https_error,
-        'https_response_tls_version':
-            https_response.tls_version,
-        'https_response_tls_cipher_suite':
-            https_response.tls_cipher_suite,
-        'https_response_tls_cert':
-            https_response.tls_cert,
-        'https_response_tls_cert_common_name':
-            https_response.tls_cert_common_name,
-        'https_response_tls_cert_issuer':
-            https_response.tls_cert_issuer,
-        'https_response_tls_cert_start_date':
-            https_response.tls_cert_start_date,
-        'https_response_tls_cert_end_date':
-            https_response.tls_cert_end_date,
-        'https_response_tls_cert_alternative_names':
-            https_response.tls_cert_alternative_names,
-        'https_response_status':
-            https_response.status,
-        'https_response_headers':
-            https_response.headers,
-        'https_response_body':
-            https_response.body,
-        'https_analysis_page_signature':
-            https_response.page_signature,
-        'https_analysis_is_known_blockpage':
-            https_response.is_known_blockpage,
+        'https_error': received_answer.https_error,
+        'https_response_tls_version': https_response.tls_version,
+        'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
+        'https_response_tls_cert': https_response.tls_cert,
+        'https_response_tls_cert_common_name': https_response.tls_cert_common_name,
+        'https_response_tls_cert_issuer': https_response.tls_cert_issuer,
+        'https_response_tls_cert_start_date': https_response.tls_cert_start_date,
+        'https_response_tls_cert_end_date': https_response.tls_cert_end_date,
+        'https_response_tls_cert_alternative_names': https_response.tls_cert_alternative_names,
+        'https_response_status': https_response.status,
+        'https_response_headers': https_response.headers,
+        'https_response_body': https_response.body,
+        'https_analysis_page_signature': https_response.page_signature,
+        'https_analysis_is_known_blockpage': https_response.is_known_blockpage,
     }
+    # yapf: enable
     flat['received'].append(answer)
   return flat
 
@@ -410,7 +402,17 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'asname': ('string', 'nullable'),
                 'http': ('string', 'nullable'),
                 'cert': ('string', 'nullable'),
-                'matches_control': ('string', 'nullable'),
+                'matches_control': (
+                  'record',
+                  'repeated',
+                  {
+                    'ip': ('boolean', 'nullable'),
+                    'http': ('boolean', 'nullable'),
+                    'cert': ('boolean', 'nullable'),
+                    'asnum': ('boolean', 'nullable'),
+                    'asname': ('boolean', 'nullable'),
+                  }
+                ),
                 'match_confidence': ('float', 'nullable'),
                 # HTTP
                 'http_error': ('string', 'nullable'),
