@@ -123,8 +123,12 @@ def merge_satellite_answers(base: SatelliteAnswer,
 
   if new.http_response is not None:
     base.http_response = new.http_response
+  if new.http_error is not None:
+    base.http_error = new.http_error
   if new.https_response is not None:
     base.https_response = new.https_response
+  if new.https_error is not None:
+    base.https_error = new.https_error
 
   merge_ip_metadata(base.ip_metadata, new.ip_metadata)
 
