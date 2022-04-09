@@ -25,10 +25,11 @@ from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.io.filesystem import CompressionTypes
-from apache_beam.io.fileio import WriteToFiles
+from apache_beam.io.fileio import WriteToFiles, FileMetadata, FileSink
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.transforms.window import GlobalWindow
+from apache_beam.coders import coders
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
@@ -61,6 +62,35 @@ SCAN_FILES = ['results.json']
 
 # An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
 EMPTY_GZIPPED_FILE_SIZE = 33
+
+
+class JsonGzSink(FileSink):
+  """A sink to a GCS or local .json.gz file."""
+
+  def __init__(self):
+    """Initialize a JsonGzSink."""
+    self.coder = coders.ToBytesCoder()
+    self.file_handle = None
+
+  def create_metadata(
+      self, destination: str, full_file_name: str) -> FileMetadata:
+    """Returns the file metadata as tuple (mime_type, compression_type)."""
+    return FileMetadata(
+        mime_type="application/json",
+        compression_type=CompressionTypes.GZIP)
+
+  def open(self, file_handle):
+    """Prepares the sink file for writing."""
+    self.file_handle = file_handle
+    # self.file_handle.write(b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x01\x03' + b'\n')
+
+  def write(self, value):
+    """Writes a single record."""
+    self.file_handle.write(self.coder.encode(value) + b'\n')
+
+  def flush(self):
+    """Flushes the sink file."""
+    self.file_handle.flush()
 
 
 def _get_existing_datasources(table_name: str) -> List[str]:
@@ -441,7 +471,7 @@ class ScanDataBeamPipelineRunner():
     """
     def get_destination(record: str):
       record_dict = json.loads(record)
-      return f'scan_type={scan_type}/date={record_dict["date"]}/country={record_dict["country"]}/results.json.gz'
+      return f'scan_type={scan_type}/date={record_dict["date"]}/country={record_dict["country"]}/results'
     
     # Modified this function to get rid of the default shard naming.
     # TODO: clean up
@@ -498,18 +528,12 @@ class ScanDataBeamPipelineRunner():
     )
 
     path = 'gs://firehook-test/test/'
-    sink = beam.io.textio._TextSink(path,
-            file_name_suffix='.json.gz',
-            compression_type=CompressionTypes.GZIP,
-            num_shards=1)
-    sink.mime_type = 'application/json'
-
     (json_rows | 'Write to GCS files' >> WriteToFiles(
           path=path,
           destination=lambda record: get_destination(record),
-          sink=sink,
+          sink=lambda dest: JsonGzSink(),
           shards=1,
-          file_naming=custom_file_naming()
+          file_naming=custom_file_naming(suffix='.json.gz')
     ))
 
   def _get_pipeline_options(self, scan_type: str,
