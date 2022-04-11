@@ -85,11 +85,11 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
 @dataclass
 class MatchesControl():
   """Class to keep track of which answer fields matched the control."""
-  ip: bool = False
-  http: bool = False
-  cert: bool = False
-  asnum: bool = False
-  asname: bool = False
+  ip: Optional[bool] = None
+  http: Optional[bool] = None
+  cert: Optional[bool] = None
+  asnum: Optional[bool] = None
+  asname: Optional[bool] = None
 
 
 @dataclass

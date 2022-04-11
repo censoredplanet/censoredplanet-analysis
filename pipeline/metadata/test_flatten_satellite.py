@@ -112,7 +112,6 @@ class FlattenSatelliteTest(unittest.TestCase):
                     ip='151.101.65.184',
                     matches_control=MatchesControl(
                         ip=True,
-                        http=False,
                         cert=True,
                         asnum=True,
                         asname=True,
@@ -1130,9 +1129,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
             matches_control=MatchesControl(
-                ip=False,
-                http=False,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -1146,9 +1142,6 @@ class FlattenSatelliteTest(unittest.TestCase):
             cert='',
             http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
             matches_control=MatchesControl(
-                ip=False,
-                http=False,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),

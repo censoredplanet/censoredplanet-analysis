@@ -116,12 +116,17 @@ def _make_matches_control(tags: List[str]) -> MatchesControl:
   Returns:
     string like "ip http cert"
   """
-  matches_control = MatchesControl(
-      ip='ip' in tags,
-      http='http' in tags,
-      cert='cert' in tags,
-      asnum='asnum' in tags,
-      asname='asname' in tags)
+  matches_control = MatchesControl()
+  if 'ip' in tags:
+    matches_control.ip = True
+  if 'http' in tags:
+    matches_control.http = True
+  if 'cert' in tags:
+    matches_control.cert = True
+  if 'asnum' in tags:
+    matches_control.asnum = True
+  if 'asname' in tags:
+    matches_control.asname = True
   return matches_control
 
 

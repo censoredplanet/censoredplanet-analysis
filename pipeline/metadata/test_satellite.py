@@ -209,7 +209,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -224,7 +223,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -239,7 +237,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -254,7 +251,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -285,10 +281,6 @@ class SatelliteTest(unittest.TestCase):
             ip = '192.124.249.107',
             matches_control=MatchesControl(
                 ip=True,
-                http=False,
-                cert=False,
-                asnum=False,
-                asname=False,
             ),
         )],
         date = '2020-09-02',
@@ -485,8 +477,6 @@ class SatelliteTest(unittest.TestCase):
             cert = '9eb21a74a3cf1ecaaf6b19253025b4ca38f182e9f1f3e7355ba3c3004d4b7a10',
             http = '7b4b4d1bfb0a645c990f55557202f88be48e1eee0c10bdcc621c7b682bf7d2ca',
             matches_control=MatchesControl(
-                ip=False,
-                http=False,
                 cert=True,
                 asnum=True,
                 asname=True,
@@ -498,8 +488,6 @@ class SatelliteTest(unittest.TestCase):
         ), SatelliteAnswer(
             ip = '198.35.26.86',
             matches_control=MatchesControl(
-                ip=False,
-                http=False,
                 cert=True,
                 asnum=True,
                 asname=True,
@@ -548,13 +536,7 @@ class SatelliteTest(unittest.TestCase):
         controls_failed = False,
         received = [SatelliteAnswer(
             ip = '15.126.193.233',
-            matches_control=MatchesControl(
-                ip=False,
-                http=False,
-                cert=False,
-                asnum=False,
-                asname=False,
-            )
+            matches_control=MatchesControl()
         )],
         rcode = 0,
         date = '2021-03-01',
@@ -1068,7 +1050,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -1084,7 +1065,6 @@ class SatelliteTest(unittest.TestCase):
             matches_control=MatchesControl(
                 ip=True,
                 http=True,
-                cert=False,
                 asnum=True,
                 asname=True,
             ),
@@ -1272,13 +1252,7 @@ class SatelliteTest(unittest.TestCase):
         success = True,
         received = [SatelliteAnswer(
             ip = '104.20.161.134',
-            matches_control=MatchesControl(
-                ip=False,
-                http=False,
-                cert=False,
-                asnum=False,
-                asname=False,
-            ),
+            matches_control=MatchesControl(),
         )],
         date = '2020-09-02',
         ip_metadata = IpMetadata(
@@ -1300,7 +1274,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1315,7 +1288,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1330,7 +1302,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1345,7 +1316,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1371,13 +1341,7 @@ class SatelliteTest(unittest.TestCase):
                 ip = '13.249.134.38',
                 cert = None,
                 http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-                matches_control=MatchesControl(
-                    ip=False,
-                    http=False,
-                    cert=False,
-                    asnum=False,
-                    asname=False,
-                ),
+                matches_control=MatchesControl(),
                 ip_metadata=IpMetadata(
                     asn=11111,
                     as_name='AS1'
@@ -1387,9 +1351,6 @@ class SatelliteTest(unittest.TestCase):
                 cert = 'cert',
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
                 matches_control=MatchesControl(
-                    ip=False,
-                    http=False,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1404,7 +1365,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1419,7 +1379,6 @@ class SatelliteTest(unittest.TestCase):
                 matches_control=MatchesControl(
                     ip=True,
                     http=True,
-                    cert=False,
                     asnum=True,
                     asname=True,
                 ),
@@ -1476,13 +1435,7 @@ class SatelliteTest(unittest.TestCase):
         success = True,
         received = [SatelliteAnswer(
             ip = '104.20.161.134',
-            matches_control=MatchesControl(
-                ip=False,
-                http=False,
-                cert=False,
-                asnum=False,
-                asname=False,
-            ),
+            matches_control=MatchesControl(),
         )],
         date = '2020-09-02',
         ip_metadata = IpMetadata(
@@ -1501,13 +1454,7 @@ class SatelliteTest(unittest.TestCase):
                 ip = '13.249.134.38',
                 cert = None,
                 http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-                matches_control=MatchesControl(
-                    ip=False,
-                    http=False,
-                    cert=False,
-                    asnum=False,
-                    asname=False,
-                ),
+                matches_control=MatchesControl(),
                 ip_metadata=IpMetadata(
                     asn=16509,
                     as_name='AMAZON-02'
@@ -1516,13 +1463,7 @@ class SatelliteTest(unittest.TestCase):
                 ip = '13.249.134.44',
                 cert = None,
                 http = '256e35b8bace0e9fe95f308deb35f82117cd7317f90a08f181516c31abe95b71',
-                matches_control=MatchesControl(
-                    ip=False,
-                    http=False,
-                    cert=False,
-                    asnum=False,
-                    asname=False,
-                ),
+                matches_control=MatchesControl(),
                 ip_metadata=IpMetadata(
                     asn=16509,
                     as_name='AMAZON-02'
@@ -1728,7 +1669,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1745,7 +1685,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1785,13 +1724,7 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.11",
                     http = "ecd1a8f3bd8db93d2d69e957cd3a114b43e8ba452d5cb2239f8eb6f6b92574ab",
                     cert = "",
-                    matches_control=MatchesControl(
-                        ip=False,
-                        http=False,
-                        cert=False,
-                        asnum=False,
-                        asname=False,
-                    ),
+                    matches_control=MatchesControl(),
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1801,13 +1734,7 @@ class SatelliteTest(unittest.TestCase):
                     ip = "104.31.16.118",
                     http = "7255d6747fcfdc1c16a30c0da7f039571d8a1bdefe2f56fa0ca243fc684fbbb8",
                     cert = "",
-                    matches_control=MatchesControl(
-                        ip=False,
-                        http=False,
-                        cert=False,
-                        asnum=False,
-                        asname=False,
-                    ),
+                    matches_control=MatchesControl(),
                     ip_metadata=IpMetadata(
                         asn=13335,
                         as_name="CLOUDFLARENET"
@@ -1846,7 +1773,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1863,7 +1789,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1906,7 +1831,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1923,7 +1847,6 @@ class SatelliteTest(unittest.TestCase):
                     matches_control=MatchesControl(
                         ip=True,
                         http=True,
-                        cert=False,
                         asnum=True,
                         asname=True,
                     ),
@@ -1963,13 +1886,7 @@ class SatelliteTest(unittest.TestCase):
                     ip = "188.186.157.49",
                     http = "177a8341782a57778766a7334d3e99ecb61ce54bbcc48838ddda846ea076726d",
                     cert = "",
-                    matches_control=MatchesControl(
-                        ip=False,
-                        http=False,
-                        cert=False,
-                        asnum=False,
-                        asname=False,
-                    ),
+                    matches_control=MatchesControl(),
                     match_confidence = 0,
                     ip_metadata=IpMetadata(
                         asn=31483,
