@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, Iterator, List, Tuple
 import apache_beam as beam
 
 from pipeline.metadata import flatten_base
-from pipeline.metadata.schema import SatelliteRow, PageFetchRow, SatelliteAnswer, IpMetadata
+from pipeline.metadata.schema import SatelliteRow, PageFetchRow, SatelliteAnswer, IpMetadata, MatchesControl
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -23,7 +23,6 @@ ResponsesEntry = Any
 # https://docs.censoredplanet.org/dns.html#id1
 BlockpageEntry = Any
 
-SATELLITE_TAGS = {'ip', 'http', 'asnum', 'asname', 'cert'}
 SATELLITE_V2_1_START_DATE = datetime.date(2021, 3, 1)
 SATELLITE_V2_2_START_DATE = datetime.date(2021, 6, 24)
 
@@ -101,14 +100,14 @@ def _annotate_received_ips_v1(
   for (ip, tags) in received_ips.items():
     received_answer = SatelliteAnswer(ip)
     if tags and len(tags) != 0:
-      received_answer.matches_control = _append_tags(tags)
+      received_answer.matches_control = _make_matches_control(tags)
     all_received.append(received_answer)
   base_response.received = all_received
 
   yield base_response
 
 
-def _append_tags(tags: List[str]) -> str:
+def _make_matches_control(tags: List[str]) -> MatchesControl:
   """Return valid received ip tags as a string
 
   Args:
@@ -117,7 +116,18 @@ def _append_tags(tags: List[str]) -> str:
   Returns:
     string like "ip http cert"
   """
-  return ' '.join([tag for tag in tags if tag in SATELLITE_TAGS])
+  matches_control = MatchesControl()
+  if 'ip' in tags:
+    matches_control.ip = True
+  if 'http' in tags:
+    matches_control.http = True
+  if 'cert' in tags:
+    matches_control.cert = True
+  if 'asnum' in tags:
+    matches_control.asnum = True
+  if 'asname' in tags:
+    matches_control.asname = True
+  return matches_control
 
 
 def split_rcodes(rcodes: List[str]) -> Tuple[List[int], List[int]]:
@@ -194,7 +204,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     for (ip, tags) in input_response_data.items():
       received = SatelliteAnswer(ip)
       if tags:
-        received.matches_control = _append_tags(tags)
+        received.matches_control = _make_matches_control(tags)
       all_received.append(received)
 
     success_observation = deepcopy(base_response)
@@ -407,7 +417,6 @@ class SatelliteFlattener():
               ip=ip,
               http=answer.get('http'),
               cert=answer.get('cert'),
-              matches_control='',
               match_confidence=match_confidence,
               ip_metadata=IpMetadata(
                   as_name=answer.get('asname'),
@@ -415,7 +424,7 @@ class SatelliteFlattener():
               ))
           matched = answer.get('matched', [])
           if matched:
-            received.matches_control = _append_tags(matched)
+            received.matches_control = _make_matches_control(matched)
           all_received.append(received)
         roundtrip_row.received = all_received
         yield roundtrip_row
