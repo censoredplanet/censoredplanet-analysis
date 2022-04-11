@@ -329,9 +329,7 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   return flat
 
 
-# key: (type, mode)
-BASE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
+HYPERQUACK_BIGQUERY_SCHEMA = {
     'domain': ('string', 'nullable'),
     'category': ('string', 'nullable'),
     'ip': ('string', 'nullable'),
@@ -355,94 +353,99 @@ BASE_BIGQUERY_SCHEMA = {
     'country': ('string', 'nullable'),
     # Columns from DBIP
     'organization': ('string', 'nullable'),
+
+    # Hyperquack specific fields
+    'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
 }
-# Future fields
-"""
-    'as_traffic': ('integer', 'nullable'),
-"""
 
+SATELLITE_BIGQUERY_SCHEMA = {
+    'domain': ('string', 'nullable'),
+    'category': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'error': ('string', 'nullable'),
+    'anomaly': ('boolean', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'is_control': ('boolean', 'nullable'),
+    'controls_failed': ('boolean', 'nullable'),
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable'),
 
-def _add_schemas(schema_a: Dict[str, Any],
-                 schema_b: Dict[str, Any]) -> Dict[str, Any]:
-  """Add two bigquery schemas together."""
-  full_schema: Dict[str, Any] = {}
-  full_schema.update(schema_a)
-  full_schema.update(schema_b)
-  return full_schema
+    # Columns added from CAIDA data
+    'netblock': ('string', 'nullable'),
+    'asn': ('integer', 'nullable'),
+    'as_name': ('string', 'nullable'),
+    'as_full_name': ('string', 'nullable'),
+    'as_class': ('string', 'nullable'),
+    'country': ('string', 'nullable'),
+    # Columns from DBIP
+    'organization': ('string', 'nullable'),
 
-
-HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'blockpage': ('boolean', 'nullable'),
-        'page_signature': ('string', 'nullable'),
-        'stateful_block': ('boolean', 'nullable'),
-
-        # Column filled in all tables
-        'received_status': ('string', 'nullable'),
-        # Columns filled only in HTTP/HTTPS tables
-        'received_body': ('string', 'nullable'),
-        'received_headers': ('string', 'repeated'),
-        # Columns filled only in HTTPS tables
-        'received_tls_version': ('integer', 'nullable'),
-        'received_tls_cipher_suite': ('integer', 'nullable'),
-        'received_tls_cert': ('string', 'nullable'),
-    })
-
-SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'name': ('string', 'nullable'),
-        'is_control_ip': ('boolean', 'nullable'),
-        'received': (
-            'record',
-            'repeated',
-            {
-                'ip': ('string', 'nullable'),
-                'asnum': ('integer', 'nullable'),
-                'asname': ('string', 'nullable'),
-                'http': ('string', 'nullable'),
-                'cert': ('string', 'nullable'),
-                'matches_control': ('record', 'nullable', {
-                    'ip': ('boolean', 'nullable'),
-                    'http': ('boolean', 'nullable'),
-                    'cert': ('boolean', 'nullable'),
-                    'asnum': ('boolean', 'nullable'),
-                    'asname': ('boolean', 'nullable'),
-                }),
-                'match_confidence': ('float', 'nullable'),
-                # HTTP
-                'http_error': ('string', 'nullable'),
-                'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
-                'http_analysis_page_signature': ('string', 'nullable'),
-                'http_response_status': ('string', 'nullable'),
-                'http_response_body': ('string', 'nullable'),
-                'http_response_headers': ('string', 'repeated'),
-                # HTTPS
-                'https_error': ('string', 'nullable'),
-                'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
-                'https_analysis_page_signature': ('string', 'nullable'),
-                'https_response_status': ('string', 'nullable'),
-                'https_response_body': ('string', 'nullable'),
-                'https_response_headers': ('string', 'repeated'),
-                'https_response_tls_version': ('integer', 'nullable'),
-                'https_response_tls_cipher_suite': ('integer', 'nullable'),
-                'https_response_tls_cert': ('string', 'nullable'),
-                'https_response_tls_cert_common_name': ('string', 'nullable'),
-                'https_response_tls_cert_issuer': ('string', 'nullable'),
-                'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
-                'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
-                'https_response_tls_cert_alternative_names':
-                    ('string', 'repeated'),
+    # Satellite specific fields
+    'name': ('string', 'nullable'),
+    'is_control_ip': ('boolean', 'nullable'),
+    'received': (
+        'record',
+        'repeated',
+        {
+            'ip': ('string', 'nullable'),
+            'asnum': ('integer', 'nullable'),
+            'asname': ('string', 'nullable'),
+            'http': ('string', 'nullable'),
+            'cert': ('string', 'nullable'),
+            'matches_control': ('record', 'nullable', {
+                'ip': ('boolean', 'nullable'),
+                'http': ('boolean', 'nullable'),
+                'cert': ('boolean', 'nullable'),
+                'asnum': ('boolean', 'nullable'),
+                'asname': ('boolean', 'nullable'),
             }),
-        'rcode': ('integer', 'nullable'),
-        'average_confidence': ('float', 'nullable'),
-        'untagged_controls': ('boolean', 'nullable'),
-        'untagged_response': ('boolean', 'nullable'),
-        'excluded': ('boolean', 'nullable'),
-        'exclude_reason': ('string', 'nullable'),
-        'has_type_a': ('boolean', 'nullable')
-    })
+            'match_confidence': ('float', 'nullable'),
+            # HTTP
+            'http_error': ('string', 'nullable'),
+            'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
+            'http_analysis_page_signature': ('string', 'nullable'),
+            'http_response_status': ('string', 'nullable'),
+            'http_response_body': ('string', 'nullable'),
+            'http_response_headers': ('string', 'repeated'),
+            # HTTPS
+            'https_error': ('string', 'nullable'),
+            'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
+            'https_analysis_page_signature': ('string', 'nullable'),
+            'https_response_status': ('string', 'nullable'),
+            'https_response_body': ('string', 'nullable'),
+            'https_response_headers': ('string', 'repeated'),
+            'https_response_tls_version': ('integer', 'nullable'),
+            'https_response_tls_cipher_suite': ('integer', 'nullable'),
+            'https_response_tls_cert': ('string', 'nullable'),
+            'https_response_tls_cert_common_name': ('string', 'nullable'),
+            'https_response_tls_cert_issuer': ('string', 'nullable'),
+            'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
+            'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
+            'https_response_tls_cert_alternative_names': ('string', 'repeated'),
+        }),
+    'rcode': ('integer', 'nullable'),
+    'average_confidence': ('float', 'nullable'),
+    'untagged_controls': ('boolean', 'nullable'),
+    'untagged_response': ('boolean', 'nullable'),
+    'excluded': ('boolean', 'nullable'),
+    'exclude_reason': ('string', 'nullable'),
+    'has_type_a': ('boolean', 'nullable')
+}
 
 
 def get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
