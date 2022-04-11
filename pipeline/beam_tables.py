@@ -59,12 +59,13 @@ SCAN_FILES = ['results.json']
 EMPTY_GZIPPED_FILE_SIZE = 33
 
 
-def _get_existing_datasources(table_name: str) -> List[str]:
+def _get_existing_datasources(table_name: str, project: str) -> List[str]:
   """Given a table return all sources that contributed to the table.
 
   Args:
     table_name: name of a bigquery table like
       'firehook-censoredplanet:echo_results.scan_test'
+    project: project to use for query like 'firehook-censoredplanet'
 
   Returns:
     List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
@@ -73,7 +74,7 @@ def _get_existing_datasources(table_name: str) -> List[str]:
   # because bigquery client objects are unpickleable.
   # So passing in a client to the class breaks the pickling beam uses
   # to send state to remote machines.
-  client = cloud_bigquery.Client()
+  client = cloud_bigquery.Client(project=project)
 
   # Bigquery table names are of the format project:dataset.table
   # but this library wants the format project.dataset.table
@@ -284,7 +285,8 @@ class ScanDataBeamPipelineRunner():
     """
     if incremental_load:
       full_table_name = self._get_full_table_name(table_name)
-      existing_sources = _get_existing_datasources(full_table_name)
+      existing_sources = _get_existing_datasources(full_table_name,
+                                                   self.project)
     else:
       existing_sources = []
 
