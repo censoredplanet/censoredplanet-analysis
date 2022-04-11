@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, PageFetchRow, IpMetadata, HttpsResponse
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, PageFetchRow, IpMetadata, HttpsResponse, MatchesControl
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 
@@ -83,15 +83,40 @@ class FlattenSatelliteTest(unittest.TestCase):
             received=[
                 SatelliteAnswer(
                     ip='151.101.1.184',
-                    matches_control='ip http cert asnum asname'),
+                    matches_control=MatchesControl(
+                        ip=True,
+                        http=True,
+                        cert=True,
+                        asnum=True,
+                        asname=True,
+                    )),
                 SatelliteAnswer(
                     ip='151.101.129.184',
-                    matches_control='ip http cert asnum asname'),
+                    matches_control=MatchesControl(
+                        ip=True,
+                        http=True,
+                        cert=True,
+                        asnum=True,
+                        asname=True,
+                    )),
                 SatelliteAnswer(
                     ip='151.101.193.184',
-                    matches_control='ip http cert asnum asname'),
+                    matches_control=MatchesControl(
+                        ip=True,
+                        http=True,
+                        cert=True,
+                        asnum=True,
+                        asname=True,
+                    )),
                 SatelliteAnswer(
-                    ip='151.101.65.184', matches_control='ip cert asnum asname')
+                    ip='151.101.65.184',
+                    matches_control=MatchesControl(
+                        ip=True,
+                        http=False,
+                        cert=True,
+                        asnum=True,
+                        asname=True,
+                    ))
             ],
             rcode=0,
             measurement_id='ab3b0ed527334c6ba988362e6a2c98fc',
@@ -371,7 +396,13 @@ class FlattenSatelliteTest(unittest.TestCase):
             received=[
                 SatelliteAnswer(
                     ip='88.212.202.9',
-                    matches_control='ip http cert asnum asname',
+                    matches_control=MatchesControl(
+                        ip=True,
+                        http=True,
+                        cert=True,
+                        asnum=True,
+                        asname=True,
+                    ),
                     match_confidence=100,
                     http=
                     '8351c0267c2cd7866ff04c04261f06cd75af9a7130aac848ca43fd047404e229',
@@ -728,7 +759,13 @@ class FlattenSatelliteTest(unittest.TestCase):
         rcode = 0,
         received = [SatelliteAnswer(
             ip = '113.217.247.90',
-            matches_control = 'ip http cert asnum asname',
+            matches_control=MatchesControl(
+                ip=True,
+                http=True,
+                cert=True,
+                asnum=True,
+                asname=True,
+            ),
             match_confidence=100,
             cert = '6908c7e0f2cc9a700ddd05efc41836da3057842a6c070cdc41251504df3735f4',
             http = 'db2f9ca747f3e2e0896a1b783b27738fddfb4ba8f0500c0bfc0ad75e8f082090',
@@ -1092,7 +1129,13 @@ class FlattenSatelliteTest(unittest.TestCase):
             ip='92.123.189.40',
             cert='',
             http='b7e803c4b738908b8c525dd7d96a49ea96c4e532ad91a027b65ba9b520a653fb',
-            matches_control='asnum asname',
+            matches_control=MatchesControl(
+                ip=False,
+                http=False,
+                cert=False,
+                asnum=True,
+                asname=True,
+            ),
             match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
@@ -1102,7 +1145,13 @@ class FlattenSatelliteTest(unittest.TestCase):
             ip='92.123.189.41',
             cert='',
             http='65a6a40c1b153b87b20b789f0dc93442e3ed172774c5dfa77c07b5146333802e',
-            matches_control='asnum asname',
+            matches_control=MatchesControl(
+                ip=False,
+                http=False,
+                cert=False,
+                asnum=True,
+                asname=True,
+            ),
             match_confidence=66.66666666666667,
             ip_metadata=IpMetadata(
                 asn=20940,
@@ -1237,7 +1286,6 @@ class FlattenSatelliteTest(unittest.TestCase):
                     '7bb5038f4572646cb72ef3ac67762b6545b421df215b7b6b2e1b29597ba5302b',
                     cert=
                     'df49f4736dcaac175f585e97605e6179e188d73d85c2f1becf48e223921c19b1',
-                    matches_control='',
                     ip_metadata=IpMetadata(
                         asn=37963,
                         as_name=

@@ -403,17 +403,13 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'asname': ('string', 'nullable'),
                 'http': ('string', 'nullable'),
                 'cert': ('string', 'nullable'),
-                'matches_control': (
-                  'record',
-                  'nullable',
-                  {
+                'matches_control': ('record', 'nullable', {
                     'ip': ('boolean', 'nullable'),
                     'http': ('boolean', 'nullable'),
                     'cert': ('boolean', 'nullable'),
                     'asnum': ('boolean', 'nullable'),
                     'asname': ('boolean', 'nullable'),
-                  }
-                ),
+                }),
                 'match_confidence': ('float', 'nullable'),
                 # HTTP
                 'http_error': ('string', 'nullable'),
@@ -480,8 +476,9 @@ def get_beam_bigquery_schema(
   table_schema.fields = table_fields
   return table_schema
 
-  
-def _get_beam_bigquery_schema_list(fields: Dict[str, Any]) -> List[beam_bigquery.TableFieldSchema]:
+
+def _get_beam_bigquery_schema_list(
+    fields: Dict[str, Any]) -> List[beam_bigquery.TableFieldSchema]:
   """A helper method for get_beam_bigquery_schema which returns a list of fields."""
   field_list: List[beam_bigquery.TableFieldSchema] = []
 
@@ -496,8 +493,10 @@ def _get_beam_bigquery_schema_list(fields: Dict[str, Any]) -> List[beam_bigquery
 
     if field_type == 'record':
       substruct: Dict[str, Any] = attributes[2]
-      subfields: List[beam_bigquery.TableFieldSchema] = _get_beam_bigquery_schema_list(substruct)
+      subfields: List[
+          beam_bigquery.TableFieldSchema] = _get_beam_bigquery_schema_list(
+              substruct)
       field_schema.fields = subfields
-    
+
     field_list.append(field_schema)
   return field_list

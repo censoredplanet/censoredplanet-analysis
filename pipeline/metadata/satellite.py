@@ -12,7 +12,7 @@ import uuid
 import apache_beam as beam
 
 from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, SCAN_TYPE_PAGE_FETCH
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, MatchesControl, SCAN_TYPE_PAGE_FETCH
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -735,7 +735,7 @@ def _calculate_confidence(scan: SatelliteRow,
 
   for answer in scan.received:
     # check tags for each answer IP
-    matches_control = (answer.matches_control or '').split()
+    matches_control = answer.matches_control or MatchesControl()
     total_tags = 0
     matching_tags = 0
 
@@ -748,19 +748,23 @@ def _calculate_confidence(scan: SatelliteRow,
     non_empty_answer_keys = [
         key for (key, value) in answer_kvs.items() if value is not None
     ]
-
     # calculate number of tags IP has and how many match controls
     for tag in non_empty_answer_keys:
       total_tags += 1
-      if tag in matches_control:
-        matching_tags += 1
+
+    matches_control_values = [
+        matches_control.http, matches_control.cert, matches_control.asnum,
+        matches_control.asname
+    ]
+    matching_tags = len(
+        [value for value in matches_control_values if value is True])
 
     if total_tags > 0:
       # at least one answer IP has tags
       scan.untagged_response = False
 
     # calculate percentage of matching tags
-    if 'ip' in matches_control:
+    if matches_control.ip:
       # ip is in control response
       ip_match = 100.0
     else:
