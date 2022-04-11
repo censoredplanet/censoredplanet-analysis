@@ -214,36 +214,72 @@ def flatten_for_bigquery(
 def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
   """Convert a structured hyperquack dataclass into a flat dict."""
   flat: Dict[str, Any] = {
-      'domain': row.domain,
-      'category': row.category,
-      'ip': row.ip,
-      'date': row.date,
-      'start_time': row.start_time,
-      'end_time': row.end_time,
-      'error': row.error,
-      'anomaly': row.anomaly,
-      'success': row.success,
-      'is_control': row.is_control,
-      'controls_failed': row.controls_failed,
-      'measurement_id': row.measurement_id,
-      'source': row.source,
-      'stateful_block': row.stateful_block,
-      'outcome': row.outcome,
-      'netblock': row.ip_metadata.netblock,
-      'asn': row.ip_metadata.asn,
-      'as_name': row.ip_metadata.as_name,
-      'as_full_name': row.ip_metadata.as_full_name,
-      'as_class': row.ip_metadata.as_class,
-      'country': row.ip_metadata.country,
-      'organization': row.ip_metadata.organization,
-      'blockpage': row.received.is_known_blockpage,
-      'page_signature': row.received.page_signature,
-      'received_status': row.received.status,
-      'received_body': row.received.body,
-      'received_headers': row.received.headers,
-      'received_tls_version': row.received.tls_version,
-      'received_tls_cipher_suite': row.received.tls_cipher_suite,
-      'received_tls_cert': row.received.tls_cert,
+      'domain':
+          row.domain,
+      'domain_category':
+          row.category,
+      'is_control_domain':
+          row.is_control,
+      'date':
+          row.date,
+      'start_time':
+          row.start_time,
+      'end_time':
+          row.end_time,
+      'server_ip':
+          row.ip,
+      'server_netblock':
+          row.ip_metadata.netblock,
+      'server_asn':
+          row.ip_metadata.asn,
+      'server_as_name':
+          row.ip_metadata.as_name,
+      'server_as_full_name':
+          row.ip_metadata.as_full_name,
+      'server_as_class':
+          row.ip_metadata.as_class,
+      'server_country':
+          row.ip_metadata.country,
+      'server_organization':
+          row.ip_metadata.organization,
+      'received_error':
+          row.error,
+      'received_tls_version':
+          row.received.tls_version,
+      'received_tls_cipher_suite':
+          row.received.tls_cipher_suite,
+      'received_tls_cert':
+          row.received.tls_cert,
+      'received_tls_cert_common_name':
+          row.received.tls_cert_common_name,
+      'received_tls_cert_issuer':
+          row.received.tls_cert_issuer,
+      'received_tls_cert_alternative_names':
+          row.received.tls_cert_alternative_names,
+      'received_status':
+          row.received.status,
+      'received_headers':
+          row.received.headers,
+      'received_body':
+          row.received.body,
+      'is_known_blockpage':
+          row.received.is_known_blockpage,
+      'page_signature':
+          row.received.page_signature,
+      'outcome':
+          row.outcome,
+      'matches_template':
+          row.success,
+      'anomaly':
+          row.anomaly,
+      'controls_failed':
+          row.controls_failed,
+      'stateful_block':
+          row.stateful_block,
+      'measurement_id':
+          row.measurement_id,
+      'source':
+          row.source,
   }
   return flat
 
@@ -252,35 +288,35 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   """Convert a structured satellite dataclass into a flat dict."""
   flat: Dict[str, Any] = {
       'domain': row.domain,
-      'category': row.category,
-      'ip': row.ip,
+      'domain_category': row.category,
+      'is_control_domain': row.is_control,
       'date': row.date,
       'start_time': row.start_time,
       'end_time': row.end_time,
-      'error': row.error,
-      'anomaly': row.anomaly,
+      'resolver_ip': row.ip,
+      'resolver_name': row.ip_metadata.name,
+      'is_control_resolver': row.is_control_ip,
+      'resolver_netblock': row.ip_metadata.netblock,
+      'resolver_asn': row.ip_metadata.asn,
+      'resolver_as_name': row.ip_metadata.as_name,
+      'resolver_as_full_name': row.ip_metadata.as_full_name,
+      'resolver_as_class': row.ip_metadata.as_class,
+      'resolver_country': row.ip_metadata.country,
+      'resolver_organization': row.ip_metadata.organization,
+      'received_error': row.error,
+      'received_rcode': row.rcode,
+      'answers': [],
       'success': row.success,
-      'is_control': row.is_control,
-      'controls_failed': row.controls_failed,
-      'measurement_id': row.measurement_id,
-      'source': row.source,
-      'is_control_ip': row.is_control_ip,
-      'rcode': row.rcode,
+      'anomaly': row.anomaly,
+      'domain_controls_failed': row.controls_failed,
       'average_confidence': row.average_confidence,
       'untagged_controls': row.untagged_controls,
       'untagged_response': row.untagged_response,
       'excluded': row.excluded,
       'exclude_reason': row.exclude_reason,
       'has_type_a': row.has_type_a,
-      'received': [],
-      'name': row.ip_metadata.name,
-      'netblock': row.ip_metadata.netblock,
-      'asn': row.ip_metadata.asn,
-      'as_name': row.ip_metadata.as_name,
-      'as_full_name': row.ip_metadata.as_full_name,
-      'as_class': row.ip_metadata.as_class,
-      'country': row.ip_metadata.country,
-      'organization': row.ip_metadata.organization,
+      'measurement_id': row.measurement_id,
+      'source': row.source,
   }
 
   for received_answer in row.received:
@@ -291,163 +327,183 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
     # yapf: disable
     answer: Dict[str, Any] = {
         'ip': received_answer.ip,
-        'http': received_answer.http,
-        'cert': received_answer.cert,
+        # Ip Metadata
+        'asn': received_answer.ip_metadata.asn,
+        'as_name': received_answer.ip_metadata.as_name,
+        'censys_http_body_hash': received_answer.http,
+        'censys_ip_cert': received_answer.cert,
         'matches_control': {
           'ip': matches_control.ip,
-          'http': matches_control.http,
-          'cert': matches_control.cert,
-          'asnum': matches_control.asnum,
-          'asname': matches_control.asname,
+          'censys_http_body_hash': matches_control.http,
+          'censys_ip_cert': matches_control.cert,
+          'asn': matches_control.asnum,
+          'as_name': matches_control.asname,
         },
-        # Ip Metadata
-        'asnum': received_answer.ip_metadata.asn,
-        'asname': received_answer.ip_metadata.as_name,
         # HTTP
         'http_error': received_answer.http_error,
         'http_response_status': http_response.status,
         'http_response_headers': http_response.headers,
         'http_response_body': http_response.body,
-        'http_analysis_page_signature': http_response.page_signature,
         'http_analysis_is_known_blockpage': http_response.is_known_blockpage,
+        'http_analysis_page_signature': http_response.page_signature,
         # HTTPS
         'https_error': received_answer.https_error,
-        'https_response_tls_version': https_response.tls_version,
-        'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
-        'https_response_tls_cert': https_response.tls_cert,
-        'https_response_tls_cert_common_name': https_response.tls_cert_common_name,
-        'https_response_tls_cert_issuer': https_response.tls_cert_issuer,
-        'https_response_tls_cert_start_date': https_response.tls_cert_start_date,
-        'https_response_tls_cert_end_date': https_response.tls_cert_end_date,
-        'https_response_tls_cert_alternative_names': https_response.tls_cert_alternative_names,
+        'https_tls_version': https_response.tls_version,
+        'https_tls_cipher_suite': https_response.tls_cipher_suite,
+        'https_tls_cert': https_response.tls_cert,
+        'https_tls_cert_common_name': https_response.tls_cert_common_name,
+        'https_tls_cert_issuer': https_response.tls_cert_issuer,
+        'https_tls_cert_start_date': https_response.tls_cert_start_date,
+        'https_tls_cert_end_date': https_response.tls_cert_end_date,
+        'https_tls_cert_alternative_names': https_response.tls_cert_alternative_names,
         'https_response_status': https_response.status,
         'https_response_headers': https_response.headers,
         'https_response_body': https_response.body,
-        'https_analysis_page_signature': https_response.page_signature,
         'https_analysis_is_known_blockpage': https_response.is_known_blockpage,
+        'https_analysis_page_signature': https_response.page_signature,
     }
     # yapf: enable
-    flat['received'].append(answer)
+    flat['answers'].append(answer)
   return flat
 
 
 HYPERQUACK_BIGQUERY_SCHEMA = {
+    #Domain
     'domain': ('string', 'nullable'),
-    'category': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
+    'domain_category': ('string', 'nullable'),
+    'is_control_domain': ('boolean', 'nullable'),
+
+    # Time
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
-    'error': ('string', 'nullable'),
-    'anomaly': ('boolean', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'is_control': ('boolean', 'nullable'),
-    'controls_failed': ('boolean', 'nullable'),
-    'measurement_id': ('string', 'nullable'),
-    'source': ('string', 'nullable'),
 
+    # Resolver fields
+    'server_ip': ('string', 'nullable'),
     # Columns added from CAIDA data
-    'netblock': ('string', 'nullable'),
-    'asn': ('integer', 'nullable'),
-    'as_name': ('string', 'nullable'),
-    'as_full_name': ('string', 'nullable'),
-    'as_class': ('string', 'nullable'),
-    'country': ('string', 'nullable'),
+    'server_netblock': ('string', 'nullable'),
+    'server_asn': ('integer', 'nullable'),
+    'server_as_name': ('string', 'nullable'),
+    'server_as_full_name': ('string', 'nullable'),
+    'server_as_class': ('string', 'nullable'),
+    'server_country': ('string', 'nullable'),
     # Columns from DBIP
-    'organization': ('string', 'nullable'),
+    'server_organization': ('string', 'nullable'),
 
-    # Hyperquack specific fields
-    'blockpage': ('boolean', 'nullable'),
-    'page_signature': ('string', 'nullable'),
-    'stateful_block': ('boolean', 'nullable'),
-    'outcome': ('string', 'nullable'),
-
-    # Column filled in all tables
-    'received_status': ('string', 'nullable'),
-    # Columns filled only in HTTP/HTTPS tables
-    'received_body': ('string', 'nullable'),
-    'received_headers': ('string', 'repeated'),
+    # Received data
+    'received_error': ('string', 'nullable'),
     # Columns filled only in HTTPS tables
     'received_tls_version': ('integer', 'nullable'),
     'received_tls_cipher_suite': ('integer', 'nullable'),
-    'received_tls_cert': ('string', 'nullable'),
+    'received_tls_cert': ('bytes', 'nullable'),
+    'received_tls_cert_common_name': ('string', 'nullable'),
+    'received_tls_cert_issuer': ('string', 'nullable'),
+    'received_tls_cert_alternative_names': ('string', 'repeated'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    'received_body': ('string', 'nullable'),
+
+    # Blockpages
+    'is_known_blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+
+    # Analysis
+    'outcome': ('string', 'nullable'),
+    'matches_template': ('boolean', 'nullable'),
+    'anomaly': ('boolean', 'nullable'),
+    'controls_failed': ('boolean', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+
+    # Internal
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable'),
 }
 
 SATELLITE_BIGQUERY_SCHEMA = {
+    # Domain fields
     'domain': ('string', 'nullable'),
-    'category': ('string', 'nullable'),
-    'ip': ('string', 'nullable'),
+    'domain_category': ('string', 'nullable'),
+    'is_control_domain': ('boolean', 'nullable'),
+
+    # Time
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
-    'error': ('string', 'nullable'),
-    'anomaly': ('boolean', 'nullable'),
-    'success': ('boolean', 'nullable'),
-    'is_control': ('boolean', 'nullable'),
-    'controls_failed': ('boolean', 'nullable'),
-    'measurement_id': ('string', 'nullable'),
-    'source': ('string', 'nullable'),
 
+    # Resolver fields
+    'resolver_ip': ('string', 'nullable'),
+    'resolver_name': ('string', 'nullable'),
+    'is_control_resolver': ('boolean', 'nullable'),
     # Columns added from CAIDA data
-    'netblock': ('string', 'nullable'),
-    'asn': ('integer', 'nullable'),
-    'as_name': ('string', 'nullable'),
-    'as_full_name': ('string', 'nullable'),
-    'as_class': ('string', 'nullable'),
-    'country': ('string', 'nullable'),
+    'resolver_netblock': ('string', 'nullable'),
+    'resolver_asn': ('integer', 'nullable'),
+    'resolver_as_name': ('string', 'nullable'),
+    'resolver_as_full_name': ('string', 'nullable'),
+    'resolver_as_class': ('string', 'nullable'),
+    'resolver_country': ('string', 'nullable'),
     # Columns from DBIP
-    'organization': ('string', 'nullable'),
+    'resolver_organization': ('string', 'nullable'),
 
-    # Satellite specific fields
-    'name': ('string', 'nullable'),
-    'is_control_ip': ('boolean', 'nullable'),
-    'received': (
+    # Observation
+    'received_error': ('string', 'nullable'),
+    'received_rcode': ('integer', 'nullable'),
+    'answers': (
         'record',
         'repeated',
         {
             'ip': ('string', 'nullable'),
-            'asnum': ('integer', 'nullable'),
-            'asname': ('string', 'nullable'),
-            'http': ('string', 'nullable'),
-            'cert': ('string', 'nullable'),
+            'asn': ('integer', 'nullable'),
+            'as_name': ('string', 'nullable'),
+            'censys_http_body_hash': ('string', 'nullable'),
+            'censys_ip_cert': ('bytes', 'nullable'),
             'matches_control': ('record', 'nullable', {
                 'ip': ('boolean', 'nullable'),
-                'http': ('boolean', 'nullable'),
-                'cert': ('boolean', 'nullable'),
-                'asnum': ('boolean', 'nullable'),
-                'asname': ('boolean', 'nullable'),
+                'censys_http_body_hash': ('boolean', 'nullable'),
+                'censys_ip_cert': ('boolean', 'nullable'),
+                'asn': ('boolean', 'nullable'),
+                'as_name': ('boolean', 'nullable'),
             }),
             'match_confidence': ('float', 'nullable'),
             # HTTP
             'http_error': ('string', 'nullable'),
+            'http_response_status': ('string', 'nullable'),
+            'http_response_headers': ('string', 'repeated'),
+            'http_response_body': ('string', 'nullable'),
             'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
             'http_analysis_page_signature': ('string', 'nullable'),
-            'http_response_status': ('string', 'nullable'),
-            'http_response_body': ('string', 'nullable'),
-            'http_response_headers': ('string', 'repeated'),
             # HTTPS
             'https_error': ('string', 'nullable'),
+            'https_tls_version': ('integer', 'nullable'),
+            'https_tls_cipher_suite': ('integer', 'nullable'),
+            'https_tls_cert': ('bytes', 'nullable'),
+            'https_tls_cert_common_name': ('string', 'nullable'),
+            'https_tls_cert_issuer': ('string', 'nullable'),
+            'https_tls_cert_start_date': ('timestamp', 'nullable'),
+            'https_tls_cert_end_date': ('timestamp', 'nullable'),
+            'https_tls_cert_alternative_names': ('string', 'repeated'),
+            'https_response_status': ('string', 'nullable'),
+            'https_response_headers': ('string', 'repeated'),
+            'https_response_body': ('string', 'nullable'),
             'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
             'https_analysis_page_signature': ('string', 'nullable'),
-            'https_response_status': ('string', 'nullable'),
-            'https_response_body': ('string', 'nullable'),
-            'https_response_headers': ('string', 'repeated'),
-            'https_response_tls_version': ('integer', 'nullable'),
-            'https_response_tls_cipher_suite': ('integer', 'nullable'),
-            'https_response_tls_cert': ('string', 'nullable'),
-            'https_response_tls_cert_common_name': ('string', 'nullable'),
-            'https_response_tls_cert_issuer': ('string', 'nullable'),
-            'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
-            'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
-            'https_response_tls_cert_alternative_names': ('string', 'repeated'),
         }),
-    'rcode': ('integer', 'nullable'),
+
+    # Analysis
+    'success': ('boolean', 'nullable'),
+    'anomaly': ('boolean', 'nullable'),
+    'domain_controls_failed': ('boolean', 'nullable'),
     'average_confidence': ('float', 'nullable'),
     'untagged_controls': ('boolean', 'nullable'),
     'untagged_response': ('boolean', 'nullable'),
     'excluded': ('boolean', 'nullable'),
     'exclude_reason': ('string', 'nullable'),
-    'has_type_a': ('boolean', 'nullable')
+    'has_type_a': ('boolean', 'nullable'),
+
+    # Internal
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable')
 }
 
 

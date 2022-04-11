@@ -159,26 +159,31 @@ def _filename_matches(filepath: str, allowed_filenames: List[str]) -> bool:
   return filename in allowed_filenames
 
 
-def _get_partition_params() -> Dict[str, Any]:
+def _get_partition_params(scan_type: str) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Args:
     scan_type: data type, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'page_fetch'
+      or 'satellite'
 
   Returns: A dict of query params, See:
   https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
   https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table
   """
-  partition_params = {
+  partition_params: Dict[str, Any] = {
       'timePartitioning': {
           'type': 'DAY',
           'field': 'date'
       },
-      'clustering': {
-          'fields': ['country', 'asn']
-      }
   }
+  if scan_type == 'satellite':
+    partition_params['clustering'] = {
+        'fields': ['resolver_country', 'resolver_asn']
+    }
+  else:
+    partition_params['clustering'] = {
+        'fields': ['server_country', 'server_asn']
+    }
   return partition_params
 
 
@@ -347,7 +352,7 @@ class ScanDataBeamPipelineRunner():
         schema=bq_schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params()))
+        additional_bq_parameters=_get_partition_params(scan_type)))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
