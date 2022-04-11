@@ -20,7 +20,7 @@ import logging
 import pathlib
 import re
 import json
-from typing import Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import BinaryIO, Callable, Optional, Tuple, Dict, List, Any, Iterator, Iterable
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
@@ -28,7 +28,6 @@ from apache_beam.io.filesystem import CompressionTypes
 from apache_beam.io.fileio import WriteToFiles, FileMetadata, FileSink
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from apache_beam.transforms.window import GlobalWindow
 from apache_beam.coders import coders
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
@@ -67,30 +66,30 @@ EMPTY_GZIPPED_FILE_SIZE = 33
 class JsonGzSink(FileSink):
   """A sink to a GCS or local .json.gz file."""
 
-  def __init__(self):
+  def __init__(self) -> None:
     """Initialize a JsonGzSink."""
     self.coder = coders.ToBytesCoder()
-    self.file_handle = None
+    self.file_handle: BinaryIO
 
-  def create_metadata(
-      self, destination: str, full_file_name: str) -> FileMetadata:
+  def create_metadata(self, destination: str,
+                      full_file_name: str) -> FileMetadata:
     """Returns the file metadata as tuple (mime_type, compression_type)."""
     return FileMetadata(
-        mime_type="application/json",
-        compression_type=CompressionTypes.GZIP)
+        mime_type="application/json", compression_type=CompressionTypes.GZIP)
 
-  def open(self, file_handle):
+  def open(self, fh: BinaryIO) -> None:
     """Prepares the sink file for writing."""
-    self.file_handle = file_handle
-    # self.file_handle.write(b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x01\x03' + b'\n')
+    self.file_handle = fh
 
-  def write(self, value):
+  def write(self, record: str) -> None:
     """Writes a single record."""
-    self.file_handle.write(self.coder.encode(value) + b'\n')
+    self.file_handle.write(self.coder.encode(record) + b'\n')
 
-  def flush(self):
+  def flush(self) -> None:
     """Flushes the sink file."""
-    self.file_handle.flush()
+    # This method must be implemented for FileSink subclasses,
+    # but calling self.file_handle.flush() here triggers a zlib error.
+    pass  # pylint: disable=unnecessary-pass
 
 
 def _get_existing_datasources(table_name: str) -> List[str]:
@@ -103,6 +102,7 @@ def _get_existing_datasources(table_name: str) -> List[str]:
   Returns:
     List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
   """
+  # TODO: implement this for GCS jobs
   # This needs to be created locally
   # because bigquery client objects are unpickleable.
   # So passing in a client to the class breaks the pickling beam uses
@@ -229,6 +229,7 @@ def get_job_name(table_name: str, incremental_load: bool) -> str:
   """
   # no underscores or periods are allowed in beam job names
   fixed_table_name = table_name.replace('_', '-').replace('.', '-')
+  fixed_table_name = fixed_table_name.replace('/', '-')
   if incremental_load:
     return 'append-' + fixed_table_name
   return 'write-' + fixed_table_name
@@ -247,6 +248,19 @@ def get_table_name(dataset_name: str, scan_type: str,
     a dataset.table name like 'base.echo_scan'
   """
   return f'{dataset_name}.{scan_type}_{base_table_name}'
+
+
+def get_gcs_folder(dataset_name: str, bucket_name: str) -> str:
+  """Construct a gcs folder name.
+
+  Args:
+    dataset_name: dataset name like 'base' or 'laplante'
+    bucket_name: bucket name like 'firehook-test'
+
+  Returns:
+    a GCS folder like 'gs://firehook-test/avirkud'
+  """
+  return f'gs://{bucket_name}/{dataset_name}'
 
 
 def _raise_exception_if_zero(num: int) -> None:
@@ -457,66 +471,51 @@ class ScanDataBeamPipelineRunner():
         write_disposition=write_mode,
         additional_bq_parameters=_get_partition_params()))
 
-  def _write_to_gcs(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[BigqueryRow]) -> None:
-    """Write out rows to hive-partitioned GCS folder.
+  def _write_to_gcs(  # pylint: disable=no-self-use
+      self, scan_type: str, rows: beam.pvalue.PCollection[BigqueryRow],
+      gcs_folder: str) -> None:
+    """Write out rows to GCS folder with hive-partioned format.
+
+    Rows are written to .json.gz files organized by scan_type, date, and country:
+    '{gcs_folder}/scan_type={scan_type}/date={date}/country={country}/results.json.gz'
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
         or 'satellite'
       rows: PCollection[BigqueryRow] of data to write.
+      gcs_folder: GCS folder gs://bucket/folder/... like
+        'gs://firehook-test/scans' to write output files to.
 
     Raises:
       Exception: if any arguments are invalid.
     """
-    def get_destination(record: str):
+
+    def get_destination(record: str) -> str:
+      """Returns the hive-format dest folder for a measurement record str."""
       record_dict = json.loads(record)
       return f'scan_type={scan_type}/date={record_dict["date"]}/country={record_dict["country"]}/results'
-    
-    # Modified this function to get rid of the default shard naming.
-    # TODO: clean up
-    def custom_file_naming(suffix=None):
-      def _inner(window, pane, shard_index, total_shards, compression, destination):
-        prefix = str(destination)
-        DEFAULT = '{prefix}-{start}-{end}-{pane}-{shard:05d}-of-{total_shards:05d}{suffix}{compression}'
-        kwargs = {
-            'prefix': prefix,
-            'start': '',
-            'end': '',
-            'pane': '',
-            'shard': 0,
-            'total_shards': 0,
-            'suffix': '',
-            'compression': ''
-        }
-        if total_shards is not None and shard_index is not None:
-          kwargs['shard'] = int(shard_index)
-          kwargs['total_shards'] = int(total_shards)
 
-        if window != GlobalWindow():
-          kwargs['start'] = window.start.to_utc_datetime().isoformat()
-          kwargs['end'] = window.end.to_utc_datetime().isoformat()
-        
-        if suffix:
-          kwargs['suffix'] = suffix
+    def custom_file_naming(suffix: str = None) -> Callable:
+      """Returns custom function to name destination files."""
 
-        if compression:
-          kwargs['compression'] = '.%s' % compression
-
-        logging.info(kwargs)
-        # Remove separators for unused template parts.
-        format = DEFAULT
-        if shard_index is None or kwargs['total_shards'] <= 1:
-          format = format.replace('-{shard:05d}', '')
-        if total_shards is None or kwargs['total_shards'] <= 1:
-          format = format.replace('-of-{total_shards:05d}', '')
-        for name, value in kwargs.items():
-          if value in (None, ''):
-            format = format.replace('-{%s}' % name, '')
-
-        return format.format(**kwargs)
+      # Beam requires the returned function to have the following arguments,
+      # see beam.io.filename.destination_prefix_naming.
+      def _inner(window: Any, pane: Any, shard_index: Optional[int],
+                 total_shards: Optional[int], compression: Optional[str],
+                 destination: Optional[str]) -> str:
+        # Get the filename with the destination_prefix_naming format:
+        # '{prefix}-{start}-{end}-{pane}-{shard:05d}-of-{total_shards:05d}{suffix}{compression}'
+        # where prefix = destination.
+        filename = beam.io.fileio.destination_prefix_naming(suffix)(
+            window, pane, shard_index, total_shards, compression, destination)
+        # Remove shard component from filename if there is only one shard.
+        filename = filename.replace('-00000-of-00001', '')
+        logging.info('%s %s %s %s', destination, shard_index, total_shards,
+                     filename)
+        return filename
 
       return _inner
+
     # Pcollection[Dict[str, Any]]
     dict_rows = (
         rows | f'dataclass to dicts {scan_type}' >> beam.Map(
@@ -524,17 +523,17 @@ class ScanDataBeamPipelineRunner():
 
     # PCollection[str]
     json_rows = (
-        dict_rows | 'dicts to json' >> beam.Map(json.dumps).with_output_types(str)
-    )
+        dict_rows |
+        'dicts to json' >> beam.Map(json.dumps).with_output_types(str))
 
-    path = 'gs://firehook-test/test/'
-    (json_rows | 'Write to GCS files' >> WriteToFiles(
-          path=path,
-          destination=lambda record: get_destination(record),
-          sink=lambda dest: JsonGzSink(),
-          shards=1,
-          file_naming=custom_file_naming(suffix='.json.gz')
-    ))
+    # Set shards=1 and max_writers_per_bundle=0 to avoid sharding output.
+    (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
+        path=gcs_folder,
+        destination=get_destination,
+        sink=lambda dest: JsonGzSink(),
+        shards=1,
+        max_writers_per_bundle=0,
+        file_naming=custom_file_naming(suffix='.json.gz')))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
@@ -564,7 +563,7 @@ class ScanDataBeamPipelineRunner():
     return pipeline_options
 
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
-                        job_name: str, table_name: str,
+                        job_name: str, destination: str,
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date],
                         export_gcs: bool) -> None:
@@ -575,7 +574,9 @@ class ScanDataBeamPipelineRunner():
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
-      table_name: dataset.table name like 'base.scan_echo'
+      destination: either dataset.table name like 'base.scan_echo' if writing to
+        BigQuery, or gs://bucket/folder/... name like 'gs://firehook-test/scans'
+        if writing to Google Cloud Storage.
       start_date: date object, only files after or at this date will be read.
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
@@ -587,11 +588,19 @@ class ScanDataBeamPipelineRunner():
       Exception: if any arguments are invalid or the pipeline fails.
     """
     logging.getLogger().setLevel(logging.INFO)
+
+    is_gcs_destination = destination.startswith('gs://')
+    if export_gcs and not is_gcs_destination:
+      raise Exception('Destination must start with gs:// when writing to GCS.')
+    if not export_gcs and is_gcs_destination:
+      raise Exception(
+          'Destination must be a dataset.table name when writing to BigQuery.')
+
     pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
     new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
-                                       table_name, start_date, end_date)
+                                       destination, start_date, end_date)
     if not new_filenames:
       logging.info('No new files to load')
       return
@@ -616,7 +625,7 @@ class ScanDataBeamPipelineRunner():
       _raise_error_if_collection_empty(rows_with_metadata)
 
       if export_gcs:
-        self._write_to_gcs(scan_type, rows_with_metadata)
+        self._write_to_gcs(scan_type, rows_with_metadata, destination)
       else:
-        self._write_to_bigquery(scan_type, rows_with_metadata, table_name,
+        self._write_to_bigquery(scan_type, rows_with_metadata, destination,
                                 incremental_load)

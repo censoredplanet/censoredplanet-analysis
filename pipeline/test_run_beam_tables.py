@@ -37,25 +37,27 @@ class RunBeamTablesTest(unittest.TestCase):
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
                                            datetime.date(2020, 1, 1),
-                                           datetime.date(2020, 1, 2))
+                                           datetime.date(2020, 1, 2), False)
 
     mock_runner.run_beam_pipeline.assert_called_with('echo', True,
                                                      'append-base-echo-scan',
                                                      'base.echo_scan',
                                                      datetime.date(2020, 1, 1),
-                                                     datetime.date(2020, 1, 2))
+                                                     datetime.date(2020, 1,
+                                                                   2), False)
 
   def test_run_parallel_pipelines(self) -> None:
     """Test running two pipelines in parallel."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'laplante',
-                                           ['http', 'https'], False, None, None)
+                                           ['http', 'https'], False, None, None,
+                                           False)
 
     call1 = call('http', False, 'write-laplante-http-scan',
-                 'laplante.http_scan', None, None)
+                 'laplante.http_scan', None, None, False)
     call2 = call('https', False, 'write-laplante-https-scan',
-                 'laplante.https_scan', None, None)
+                 'laplante.https_scan', None, None, False)
     mock_runner.run_beam_pipeline.assert_has_calls([call1, call2],
                                                    any_order=True)
 
@@ -70,17 +72,18 @@ class RunBeamTablesTest(unittest.TestCase):
           scan_type='all',
           env='prod',
           start_date=None,
-          end_date=None)
+          end_date=None,
+          export_gcs=False)
       run_beam_tables.main(args)
 
       call1 = call('echo', True, 'append-base-echo-scan', 'base.echo_scan',
-                   None, None)
+                   None, None, False)
       call2 = call('discard', True, 'append-base-discard-scan',
-                   'base.discard_scan', None, None)
+                   'base.discard_scan', None, None, False)
       call3 = call('http', True, 'append-base-http-scan', 'base.http_scan',
-                   None, None)
+                   None, None, False)
       call4 = call('https', True, 'append-base-https-scan', 'base.https_scan',
-                   None, None)
+                   None, None, False)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call1, call2, call3, call4], any_order=True)
       # No extra calls
@@ -98,12 +101,13 @@ class RunBeamTablesTest(unittest.TestCase):
           env='user',
           user_dataset='laplante',
           start_date=datetime.date(2021, 1, 8),
-          end_date=datetime.date(2021, 1, 15))
+          end_date=datetime.date(2021, 1, 15),
+          export_gcs=False)
       run_beam_tables.main(args)
 
       call1 = call('echo', True, 'append-laplante-echo-scan',
                    'laplante.echo_scan', datetime.date(2021, 1, 8),
-                   datetime.date(2021, 1, 15))
+                   datetime.date(2021, 1, 15), False)
       mock_runner.run_beam_pipeline.assert_has_calls([call1])
       self.assertEqual(1, mock_runner.run_beam_pipeline.call_count)
 
