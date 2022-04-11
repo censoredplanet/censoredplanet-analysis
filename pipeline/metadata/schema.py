@@ -284,6 +284,7 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   for received_answer in row.received:
     http_response = received_answer.http_response or HttpsResponse()
     https_response = received_answer.https_response or HttpsResponse()
+    matches_control = received_answer.matches_control or MatchesControl()
 
     # yapf: disable
     answer: Dict[str, Any] = {
@@ -291,11 +292,11 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'http': received_answer.http,
         'cert': received_answer.cert,
         'matches_control': {
-          'ip': received_answer.matches_control.ip,
-          'http': received_answer.matches_control.http,
-          'cert': received_answer.matches_control.cert,
-          'asnum': received_answer.matches_control.asnum,
-          'asname': received_answer.matches_control.asname,
+          'ip': matches_control.ip,
+          'http': matches_control.http,
+          'cert': matches_control.cert,
+          'asnum': matches_control.asnum,
+          'asname': matches_control.asname,
         },
         # Ip Metadata
         'asnum': received_answer.ip_metadata.asn,
@@ -404,7 +405,7 @@ SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
                 'cert': ('string', 'nullable'),
                 'matches_control': (
                   'record',
-                  'repeated',
+                  'nullable',
                   {
                     'ip': ('boolean', 'nullable'),
                     'http': ('boolean', 'nullable'),
@@ -475,21 +476,28 @@ def get_beam_bigquery_schema(
     A bigquery table schema
   """
   table_schema = beam_bigquery.TableSchema()
+  table_fields = _get_beam_bigquery_schema_list(fields)
+  table_schema.fields = table_fields
+  return table_schema
+
+  
+def _get_beam_bigquery_schema_list(fields: Dict[str, Any]) -> List[beam_bigquery.TableFieldSchema]:
+  """A helper method for get_beam_bigquery_schema which returns a list of fields."""
+  field_list: List[beam_bigquery.TableFieldSchema] = []
 
   for (name, attributes) in fields.items():
     field_type = attributes[0]
     mode = attributes[1]
+
     field_schema = beam_bigquery.TableFieldSchema()
     field_schema.name = name
     field_schema.type = field_type
     field_schema.mode = mode
-    if len(attributes) > 2:
-      field_schema.fields = []
-      for (subname, (subtype, submode)) in attributes[2].items():
-        subfield_schema = beam_bigquery.TableFieldSchema()
-        subfield_schema.name = subname
-        subfield_schema.type = subtype
-        subfield_schema.mode = submode
-        field_schema.fields.append(subfield_schema)
-    table_schema.fields.append(field_schema)
-  return table_schema
+
+    if field_type == 'record':
+      substruct: Dict[str, Any] = attributes[2]
+      subfields: List[beam_bigquery.TableFieldSchema] = _get_beam_bigquery_schema_list(substruct)
+      field_schema.fields = subfields
+    
+    field_list.append(field_schema)
+  return field_list
