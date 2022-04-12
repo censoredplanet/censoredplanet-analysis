@@ -64,19 +64,19 @@ JOB_NAME = 'manual-test-job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/http_results_v1.json',
-      'pipeline/e2e_test_data/http_results_v2.json',
-      'pipeline/e2e_test_data/https_results_v1.json',
-      'pipeline/e2e_test_data/https_results_v2.json'
+      'pipeline/e2e_test_data/Quackv1/http_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2/http_results_v2.json',
+      'pipeline/e2e_test_data/Quackv1/https_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/discard_results_v1.json',
-      'pipeline/e2e_test_data/discard_results_v2.json',
-      'pipeline/e2e_test_data/echo_results_v1.json',
-      'pipeline/e2e_test_data/echo_results_v2.json'
+      'pipeline/e2e_test_data/Quackv1/discard_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2/discard_results_v2.json',
+      'pipeline/e2e_test_data/Quackv1/echo_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2/echo_results_v2.json'
   ]
 
 
@@ -124,9 +124,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v1.json'
+    scan_file = f'pipeline/e2e_test_data/Quackv1/{scan_type}_results_v1.json'
   else:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v2.json'
+    scan_file = f'pipeline/e2e_test_data/Quackv2/{scan_type}_results_v2.json'
 
   return lambda *_: [scan_file]
 
@@ -336,16 +336,16 @@ class PipelineManualE2eTest(unittest.TestCase):
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
 
       expected_v1_partitions = [
-          ('scan_type=test_discard', 'date=2020-11-22', 'country=US'),
-          ('scan_type=test_discard', 'date=2020-11-22', 'country=CO'),
-          ('scan_type=test_discard', 'date=2020-11-22', 'country=RU'),
-          ('scan_type=test_echo', 'date=2020-11-14', 'country=US'),
-          ('scan_type=test_echo', 'date=2020-11-14', 'country=TH'),
-          ('scan_type=test_http', 'date=2020-11-09', 'country=US'),
-          ('scan_type=test_http', 'date=2020-11-09', 'country=IQ'),
-          ('scan_type=test_https', 'date=2020-11-06', 'country=CA'),
-          ('scan_type=test_https', 'date=2020-11-06', 'country=LB'),
-          ('scan_type=test_https', 'date=2020-11-06', 'country=US'),
+          ('test_discard', 'source=Quackv1', 'country=US'),
+          ('test_discard', 'source=Quackv1', 'country=CO'),
+          ('test_discard', 'source=Quackv1', 'country=RU'),
+          ('test_echo', 'source=Quackv1', 'country=US'),
+          ('test_echo', 'source=Quackv1', 'country=TH'),
+          ('test_http', 'source=Quackv1', 'country=US'),
+          ('test_http', 'source=Quackv1', 'country=IQ'),
+          ('test_https', 'source=Quackv1', 'country=CA'),
+          ('test_https', 'source=Quackv1', 'country=LB'),
+          ('test_https', 'source=Quackv1', 'country=US'),
       ]
       self.assertEqual(len(partitions), 10)
       self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
@@ -367,18 +367,18 @@ class PipelineManualE2eTest(unittest.TestCase):
       blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
       expected_v2_partitions = [
-          ('scan_type=test_discard', 'date=2021-05-31', 'country=US'),
-          ('scan_type=test_discard', 'date=2021-05-31', 'country=CN'),
-          ('scan_type=test_discard', 'date=2021-05-31', 'country=PK'),
-          ('scan_type=test_echo', 'date=2021-05-30', 'country=US'),
-          ('scan_type=test_echo', 'date=2021-05-30', 'country=CN'),
-          ('scan_type=test_echo', 'date=2021-05-30', 'country=RU'),
-          ('scan_type=test_http', 'date=2021-05-30', 'country=US'),
-          ('scan_type=test_http', 'date=2021-05-30', 'country=CN'),
-          ('scan_type=test_https', 'date=2021-04-26', 'country=US'),
-          ('scan_type=test_https', 'date=2021-04-26', 'country=CN'),
-          ('scan_type=test_https', 'date=2021-04-26', 'country=CA'),
-          ('scan_type=test_https', 'date=2021-04-26', 'country=NO'),
+          ('test_discard', 'source=Quackv2', 'country=US'),
+          ('test_discard', 'source=Quackv2', 'country=CN'),
+          ('test_discard', 'source=Quackv2', 'country=PK'),
+          ('test_echo', 'source=Quackv2', 'country=US'),
+          ('test_echo', 'source=Quackv2', 'country=CN'),
+          ('test_echo', 'source=Quackv2', 'country=RU'),
+          ('test_http', 'source=Quackv2', 'country=US'),
+          ('test_http', 'source=Quackv2', 'country=CN'),
+          ('test_https', 'source=Quackv2', 'country=US'),
+          ('test_https', 'source=Quackv2', 'country=CN'),
+          ('test_https', 'source=Quackv2', 'country=CA'),
+          ('test_https', 'source=Quackv2', 'country=NO'),
       ]
       self.assertEqual(len(partitions), 22)
       self.assertListEqual(

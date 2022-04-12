@@ -476,8 +476,8 @@ class ScanDataBeamPipelineRunner():
       gcs_folder: str) -> None:
     """Write out rows to GCS folder with hive-partioned format.
 
-    Rows are written to .json.gz files organized by scan_type, date, and country:
-    '{gcs_folder}/scan_type={scan_type}/date={date}/country={country}/results.json.gz'
+    Rows are written to .json.gz files organized by scan_type, source, and country:
+    '{gcs_folder}/{scan_type}/source={source}/country={country}/results.json.gz'
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
@@ -493,7 +493,7 @@ class ScanDataBeamPipelineRunner():
     def get_destination(record: str) -> str:
       """Returns the hive-format dest folder for a measurement record str."""
       record_dict = json.loads(record)
-      return f'scan_type={scan_type}/date={record_dict["date"]}/country={record_dict["country"]}/results'
+      return f'{scan_type}/source={record_dict["source"]}/country={record_dict["country"]}/results'
 
     def custom_file_naming(suffix: str = None) -> Callable:
       """Returns custom function to name destination files."""
