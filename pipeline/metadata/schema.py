@@ -83,13 +83,23 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
 
 
 @dataclass
+class MatchesControl():
+  """Class to keep track of which answer fields matched the control."""
+  ip: Optional[bool] = None
+  http: Optional[bool] = None
+  cert: Optional[bool] = None
+  asnum: Optional[bool] = None
+  asname: Optional[bool] = None
+
+
+@dataclass
 class SatelliteAnswer():
   """Class for keeping track of Satellite answer content"""
   # Keys
   ip: str
   http: Optional[str] = None
   cert: Optional[str] = None
-  matches_control: Optional[str] = None
+  matches_control: Optional[MatchesControl] = None
   match_confidence: Optional[float] = None
 
   ip_metadata: IpMetadata = dataclasses.field(default_factory=IpMetadata)
@@ -274,71 +284,52 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   for received_answer in row.received:
     http_response = received_answer.http_response or HttpsResponse()
     https_response = received_answer.https_response or HttpsResponse()
+    matches_control = received_answer.matches_control or MatchesControl()
 
+    # yapf: disable
     answer: Dict[str, Any] = {
-        'ip':
-            received_answer.ip,
-        'http':
-            received_answer.http,
-        'cert':
-            received_answer.cert,
-        'matches_control':
-            received_answer.matches_control,
+        'ip': received_answer.ip,
+        'http': received_answer.http,
+        'cert': received_answer.cert,
+        'matches_control': {
+          'ip': matches_control.ip,
+          'http': matches_control.http,
+          'cert': matches_control.cert,
+          'asnum': matches_control.asnum,
+          'asname': matches_control.asname,
+        },
         # Ip Metadata
-        'asnum':
-            received_answer.ip_metadata.asn,
-        'asname':
-            received_answer.ip_metadata.as_name,
+        'asnum': received_answer.ip_metadata.asn,
+        'asname': received_answer.ip_metadata.as_name,
         # HTTP
-        'http_error':
-            received_answer.http_error,
-        'http_response_status':
-            http_response.status,
-        'http_response_headers':
-            http_response.headers,
-        'http_response_body':
-            http_response.body,
-        'http_analysis_page_signature':
-            http_response.page_signature,
-        'http_analysis_is_known_blockpage':
-            http_response.is_known_blockpage,
+        'http_error': received_answer.http_error,
+        'http_response_status': http_response.status,
+        'http_response_headers': http_response.headers,
+        'http_response_body': http_response.body,
+        'http_analysis_page_signature': http_response.page_signature,
+        'http_analysis_is_known_blockpage': http_response.is_known_blockpage,
         # HTTPS
-        'https_error':
-            received_answer.https_error,
-        'https_response_tls_version':
-            https_response.tls_version,
-        'https_response_tls_cipher_suite':
-            https_response.tls_cipher_suite,
-        'https_response_tls_cert':
-            https_response.tls_cert,
-        'https_response_tls_cert_common_name':
-            https_response.tls_cert_common_name,
-        'https_response_tls_cert_issuer':
-            https_response.tls_cert_issuer,
-        'https_response_tls_cert_start_date':
-            https_response.tls_cert_start_date,
-        'https_response_tls_cert_end_date':
-            https_response.tls_cert_end_date,
-        'https_response_tls_cert_alternative_names':
-            https_response.tls_cert_alternative_names,
-        'https_response_status':
-            https_response.status,
-        'https_response_headers':
-            https_response.headers,
-        'https_response_body':
-            https_response.body,
-        'https_analysis_page_signature':
-            https_response.page_signature,
-        'https_analysis_is_known_blockpage':
-            https_response.is_known_blockpage,
+        'https_error': received_answer.https_error,
+        'https_response_tls_version': https_response.tls_version,
+        'https_response_tls_cipher_suite': https_response.tls_cipher_suite,
+        'https_response_tls_cert': https_response.tls_cert,
+        'https_response_tls_cert_common_name': https_response.tls_cert_common_name,
+        'https_response_tls_cert_issuer': https_response.tls_cert_issuer,
+        'https_response_tls_cert_start_date': https_response.tls_cert_start_date,
+        'https_response_tls_cert_end_date': https_response.tls_cert_end_date,
+        'https_response_tls_cert_alternative_names': https_response.tls_cert_alternative_names,
+        'https_response_status': https_response.status,
+        'https_response_headers': https_response.headers,
+        'https_response_body': https_response.body,
+        'https_analysis_page_signature': https_response.page_signature,
+        'https_analysis_is_known_blockpage': https_response.is_known_blockpage,
     }
+    # yapf: enable
     flat['received'].append(answer)
   return flat
 
 
-# key: (type, mode)
-BASE_BIGQUERY_SCHEMA = {
-    # Columns from Censored Planet data
+HYPERQUACK_BIGQUERY_SCHEMA = {
     'domain': ('string', 'nullable'),
     'category': ('string', 'nullable'),
     'ip': ('string', 'nullable'),
@@ -362,88 +353,99 @@ BASE_BIGQUERY_SCHEMA = {
     'country': ('string', 'nullable'),
     # Columns from DBIP
     'organization': ('string', 'nullable'),
+
+    # Hyperquack specific fields
+    'blockpage': ('boolean', 'nullable'),
+    'page_signature': ('string', 'nullable'),
+    'stateful_block': ('boolean', 'nullable'),
+
+    # Column filled in all tables
+    'received_status': ('string', 'nullable'),
+    # Columns filled only in HTTP/HTTPS tables
+    'received_body': ('string', 'nullable'),
+    'received_headers': ('string', 'repeated'),
+    # Columns filled only in HTTPS tables
+    'received_tls_version': ('integer', 'nullable'),
+    'received_tls_cipher_suite': ('integer', 'nullable'),
+    'received_tls_cert': ('string', 'nullable'),
 }
-# Future fields
-"""
-    'as_traffic': ('integer', 'nullable'),
-"""
 
+SATELLITE_BIGQUERY_SCHEMA = {
+    'domain': ('string', 'nullable'),
+    'category': ('string', 'nullable'),
+    'ip': ('string', 'nullable'),
+    'date': ('date', 'nullable'),
+    'start_time': ('timestamp', 'nullable'),
+    'end_time': ('timestamp', 'nullable'),
+    'error': ('string', 'nullable'),
+    'anomaly': ('boolean', 'nullable'),
+    'success': ('boolean', 'nullable'),
+    'is_control': ('boolean', 'nullable'),
+    'controls_failed': ('boolean', 'nullable'),
+    'measurement_id': ('string', 'nullable'),
+    'source': ('string', 'nullable'),
 
-def _add_schemas(schema_a: Dict[str, Any],
-                 schema_b: Dict[str, Any]) -> Dict[str, Any]:
-  """Add two bigquery schemas together."""
-  full_schema: Dict[str, Any] = {}
-  full_schema.update(schema_a)
-  full_schema.update(schema_b)
-  return full_schema
+    # Columns added from CAIDA data
+    'netblock': ('string', 'nullable'),
+    'asn': ('integer', 'nullable'),
+    'as_name': ('string', 'nullable'),
+    'as_full_name': ('string', 'nullable'),
+    'as_class': ('string', 'nullable'),
+    'country': ('string', 'nullable'),
+    # Columns from DBIP
+    'organization': ('string', 'nullable'),
 
-
-HYPERQUACK_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'blockpage': ('boolean', 'nullable'),
-        'page_signature': ('string', 'nullable'),
-        'stateful_block': ('boolean', 'nullable'),
-
-        # Column filled in all tables
-        'received_status': ('string', 'nullable'),
-        # Columns filled only in HTTP/HTTPS tables
-        'received_body': ('string', 'nullable'),
-        'received_headers': ('string', 'repeated'),
-        # Columns filled only in HTTPS tables
-        'received_tls_version': ('integer', 'nullable'),
-        'received_tls_cipher_suite': ('integer', 'nullable'),
-        'received_tls_cert': ('string', 'nullable'),
-    })
-
-SATELLITE_BIGQUERY_SCHEMA = _add_schemas(
-    BASE_BIGQUERY_SCHEMA,
-    {
-        'name': ('string', 'nullable'),
-        'is_control_ip': ('boolean', 'nullable'),
-        'received': (
-            'record',
-            'repeated',
-            {
-                'ip': ('string', 'nullable'),
-                'asnum': ('integer', 'nullable'),
-                'asname': ('string', 'nullable'),
-                'http': ('string', 'nullable'),
-                'cert': ('string', 'nullable'),
-                'matches_control': ('string', 'nullable'),
-                'match_confidence': ('float', 'nullable'),
-                # HTTP
-                'http_error': ('string', 'nullable'),
-                'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
-                'http_analysis_page_signature': ('string', 'nullable'),
-                'http_response_status': ('string', 'nullable'),
-                'http_response_body': ('string', 'nullable'),
-                'http_response_headers': ('string', 'repeated'),
-                # HTTPS
-                'https_error': ('string', 'nullable'),
-                'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
-                'https_analysis_page_signature': ('string', 'nullable'),
-                'https_response_status': ('string', 'nullable'),
-                'https_response_body': ('string', 'nullable'),
-                'https_response_headers': ('string', 'repeated'),
-                'https_response_tls_version': ('integer', 'nullable'),
-                'https_response_tls_cipher_suite': ('integer', 'nullable'),
-                'https_response_tls_cert': ('string', 'nullable'),
-                'https_response_tls_cert_common_name': ('string', 'nullable'),
-                'https_response_tls_cert_issuer': ('string', 'nullable'),
-                'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
-                'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
-                'https_response_tls_cert_alternative_names':
-                    ('string', 'repeated'),
+    # Satellite specific fields
+    'name': ('string', 'nullable'),
+    'is_control_ip': ('boolean', 'nullable'),
+    'received': (
+        'record',
+        'repeated',
+        {
+            'ip': ('string', 'nullable'),
+            'asnum': ('integer', 'nullable'),
+            'asname': ('string', 'nullable'),
+            'http': ('string', 'nullable'),
+            'cert': ('string', 'nullable'),
+            'matches_control': ('record', 'nullable', {
+                'ip': ('boolean', 'nullable'),
+                'http': ('boolean', 'nullable'),
+                'cert': ('boolean', 'nullable'),
+                'asnum': ('boolean', 'nullable'),
+                'asname': ('boolean', 'nullable'),
             }),
-        'rcode': ('integer', 'nullable'),
-        'average_confidence': ('float', 'nullable'),
-        'untagged_controls': ('boolean', 'nullable'),
-        'untagged_response': ('boolean', 'nullable'),
-        'excluded': ('boolean', 'nullable'),
-        'exclude_reason': ('string', 'nullable'),
-        'has_type_a': ('boolean', 'nullable')
-    })
+            'match_confidence': ('float', 'nullable'),
+            # HTTP
+            'http_error': ('string', 'nullable'),
+            'http_analysis_is_known_blockpage': ('boolean', 'nullable'),
+            'http_analysis_page_signature': ('string', 'nullable'),
+            'http_response_status': ('string', 'nullable'),
+            'http_response_body': ('string', 'nullable'),
+            'http_response_headers': ('string', 'repeated'),
+            # HTTPS
+            'https_error': ('string', 'nullable'),
+            'https_analysis_is_known_blockpage': ('boolean', 'nullable'),
+            'https_analysis_page_signature': ('string', 'nullable'),
+            'https_response_status': ('string', 'nullable'),
+            'https_response_body': ('string', 'nullable'),
+            'https_response_headers': ('string', 'repeated'),
+            'https_response_tls_version': ('integer', 'nullable'),
+            'https_response_tls_cipher_suite': ('integer', 'nullable'),
+            'https_response_tls_cert': ('string', 'nullable'),
+            'https_response_tls_cert_common_name': ('string', 'nullable'),
+            'https_response_tls_cert_issuer': ('string', 'nullable'),
+            'https_response_tls_cert_start_date': ('timestamp', 'nullable'),
+            'https_response_tls_cert_end_date': ('timestamp', 'nullable'),
+            'https_response_tls_cert_alternative_names': ('string', 'repeated'),
+        }),
+    'rcode': ('integer', 'nullable'),
+    'average_confidence': ('float', 'nullable'),
+    'untagged_controls': ('boolean', 'nullable'),
+    'untagged_response': ('boolean', 'nullable'),
+    'excluded': ('boolean', 'nullable'),
+    'exclude_reason': ('string', 'nullable'),
+    'has_type_a': ('boolean', 'nullable')
+}
 
 
 def get_bigquery_schema(scan_type: str) -> Dict[str, Any]:
@@ -473,21 +475,31 @@ def get_beam_bigquery_schema(
     A bigquery table schema
   """
   table_schema = beam_bigquery.TableSchema()
+  table_fields = _get_beam_bigquery_schema_list(fields)
+  table_schema.fields = table_fields
+  return table_schema
+
+
+def _get_beam_bigquery_schema_list(
+    fields: Dict[str, Any]) -> List[beam_bigquery.TableFieldSchema]:
+  """A helper method for get_beam_bigquery_schema which returns a list of fields."""
+  field_list: List[beam_bigquery.TableFieldSchema] = []
 
   for (name, attributes) in fields.items():
     field_type = attributes[0]
     mode = attributes[1]
+
     field_schema = beam_bigquery.TableFieldSchema()
     field_schema.name = name
     field_schema.type = field_type
     field_schema.mode = mode
-    if len(attributes) > 2:
-      field_schema.fields = []
-      for (subname, (subtype, submode)) in attributes[2].items():
-        subfield_schema = beam_bigquery.TableFieldSchema()
-        subfield_schema.name = subname
-        subfield_schema.type = subtype
-        subfield_schema.mode = submode
-        field_schema.fields.append(subfield_schema)
-    table_schema.fields.append(field_schema)
-  return table_schema
+
+    if field_type == 'record':
+      substruct: Dict[str, Any] = attributes[2]
+      subfields: List[
+          beam_bigquery.TableFieldSchema] = _get_beam_bigquery_schema_list(
+              substruct)
+      field_schema.fields = subfields
+
+    field_list.append(field_schema)
+  return field_list

@@ -142,7 +142,13 @@ class SchemaTest(unittest.TestCase):
             ip = '13.249.134.38',
             cert = 'MII...',
             http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
-            matches_control = 'ip http asnum asname',
+            matches_control = schema.MatchesControl(
+              ip=True,
+              http=True,
+              cert=False,
+              asnum=True,
+              asname=True
+            ),
             match_confidence = 100,
             ip_metadata = schema.IpMetadata(
                 asn=16509,
@@ -156,14 +162,6 @@ class SchemaTest(unittest.TestCase):
               page_signature = 'x_example_fp',
               status = '200',
               body = 'example body',
-              tls_version = 123,
-              tls_cipher_suite = 3,
-              tls_cert = 'MII...',
-              tls_cert_common_name = None,
-              tls_cert_issuer = None,
-              tls_cert_start_date = None,
-              tls_cert_end_date = None,
-              tls_cert_alternative_names = [],
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
