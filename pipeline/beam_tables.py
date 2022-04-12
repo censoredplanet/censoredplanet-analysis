@@ -30,6 +30,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.coders import coders
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
+from google.cloud import storage
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys
@@ -92,27 +93,44 @@ class JsonGzSink(FileSink):
     pass  # pylint: disable=unnecessary-pass
 
 
-def _get_existing_datasources(table_name: str, project: str) -> List[str]:
-  """Given a table return all sources that contributed to the table.
+def _get_existing_datasources(destination: str, project: str) -> List[str]:
+  """Given a BigQuery or GCS destination return all contributing sources.
 
   Args:
-    table_name: name of a bigquery table like
+    destination: name of a bigquery table like
       'firehook-censoredplanet:echo_results.scan_test'
+      or a GCS folder like 'gs://firehook-test/avirkud'
     project: project to use for query like 'firehook-censoredplanet'
 
   Returns:
     List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
   """
-  # TODO: implement this for GCS jobs
-  # This needs to be created locally
-  # because bigquery client objects are unpickleable.
+  # The client needs to be created locally
+  # because bigquery and storage client objects are unpickleable.
   # So passing in a client to the class breaks the pickling beam uses
   # to send state to remote machines.
+  if destination.startswith('gs://'):
+    client = storage.Client(project=project)
+
+    # The first path component after gs:// is the bucket, the rest is the subdir.
+    path_split = destination[5:].split('/', maxsplit=1)
+    bucket_name = path_split[0]
+    folder = path_split[1] if len(path_split) > 1 else None
+
+    # We expect filenames in format gs://bucket/.../source={source}/.../file
+    bucket = client.get_bucket(bucket_name)
+    matches = [
+        re.findall(r'source=[^/]*', file.name)
+        for file in client.list_blobs(bucket, prefix=folder)
+    ]
+    sources = [match[0][7:] for match in matches if match]
+    return sources
+
   client = cloud_bigquery.Client(project=project)
 
   # Bigquery table names are of the format project:dataset.table
   # but this library wants the format project.dataset.table
-  fixed_table_name = table_name.replace(':', '.')
+  fixed_table_name = destination.replace(':', '.')
 
   query = f'SELECT DISTINCT(source) AS source FROM `{fixed_table_name}`'
   rows = client.query(query)
@@ -313,7 +331,7 @@ class ScanDataBeamPipelineRunner():
                     gcs: GCSFileSystem,
                     scan_type: str,
                     incremental_load: bool,
-                    table_name: str,
+                    destination: str,
                     start_date: Optional[datetime.date] = None,
                     end_date: Optional[datetime.date] = None) -> List[str]:
     """Select the right files to read.
@@ -332,9 +350,9 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      full_table_name = self._get_full_table_name(table_name)
-      existing_sources = _get_existing_datasources(full_table_name,
-                                                   self.project)
+      if not destination.startswith('gs://'):
+        destination = self._get_full_table_name(destination)
+      existing_sources = _get_existing_datasources(destination, self.project)
     else:
       existing_sources = []
 
