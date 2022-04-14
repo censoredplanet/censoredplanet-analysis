@@ -218,7 +218,7 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
           row.domain,
       'domain_category':
           row.category,
-      'is_control_domain':
+      'domain_is_control':
           row.is_control,
       'date':
           row.date,
@@ -266,8 +266,6 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
           row.received.is_known_blockpage,
       'page_signature':
           row.received.page_signature,
-      'outcome':
-          row.outcome,
       'matches_template':
           row.success,
       'anomaly':
@@ -289,13 +287,13 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
   flat: Dict[str, Any] = {
       'domain': row.domain,
       'domain_category': row.category,
-      'is_control_domain': row.is_control,
+      'domain_is_control': row.is_control,
       'date': row.date,
       'start_time': row.start_time,
       'end_time': row.end_time,
       'resolver_ip': row.ip,
       'resolver_name': row.ip_metadata.name,
-      'is_control_resolver': row.is_control_ip,
+      'resolver_is_trusted': row.is_control_ip,
       'resolver_netblock': row.ip_metadata.netblock,
       'resolver_asn': row.ip_metadata.asn,
       'resolver_as_name': row.ip_metadata.as_name,
@@ -371,7 +369,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     #Domain
     'domain': ('string', 'nullable'),
     'domain_category': ('string', 'nullable'),
-    'is_control_domain': ('boolean', 'nullable'),
+    'domain_is_control': ('boolean', 'nullable'),
 
     # Time
     'date': ('date', 'nullable'),
@@ -425,7 +423,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
     # Domain fields
     'domain': ('string', 'nullable'),
     'domain_category': ('string', 'nullable'),
-    'is_control_domain': ('boolean', 'nullable'),
+    'domain_is_control': ('boolean', 'nullable'),
 
     # Time
     'date': ('date', 'nullable'),
@@ -435,7 +433,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
     # Resolver fields
     'resolver_ip': ('string', 'nullable'),
     'resolver_name': ('string', 'nullable'),
-    'is_control_resolver': ('boolean', 'nullable'),
+    'resolver_is_trusted': ('boolean', 'nullable'),
     # Columns added from CAIDA data
     'resolver_netblock': ('string', 'nullable'),
     'resolver_asn': ('integer', 'nullable'),
