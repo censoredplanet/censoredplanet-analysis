@@ -169,6 +169,7 @@ class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
   received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
   stateful_block: Optional[bool] = None
+  outcome: Optional[str] = None
 
 
 @dataclass

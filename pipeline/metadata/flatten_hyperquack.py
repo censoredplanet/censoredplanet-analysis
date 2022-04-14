@@ -9,6 +9,7 @@ from pipeline.metadata import flatten_base
 from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
+from pipeline.metadata.hyperquack_outcome import classify_hyperquack_outcome
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -51,6 +52,23 @@ def _extract_domain_from_sent_field(sent: str) -> Optional[str]:
     return sent
 
   raise Exception(f"unknown sent field format: {sent}")
+
+
+def _get_scan_type_from_filename(filename: str) -> str:
+  """
+  filename: a filepath string
+
+  scan_type: one of 'echo', 'discard', 'http', 'https'
+  """
+  if 'echo' in filename:
+    return 'echo'
+  if 'discard' in filename:
+    return 'discard'
+  if 'https' in filename:
+    return 'https'
+  if 'http' in filename:
+    return 'http'
+  raise Exception(f"Can't determine scan type for filename {filename}")
 
 
 class HyperquackFlattener():
@@ -135,6 +153,11 @@ class HyperquackFlattener():
       if 'Error' in result:
         row.error = result['Error']
 
+      row.outcome = classify_hyperquack_outcome(
+          row.error, _get_scan_type_from_filename(filename),
+          row.received.status, row.success, row.received.is_known_blockpage,
+          row.received.page_signature, row.received.headers)
+
       yield row
 
   def _process_hyperquack_v2(self, filename: str, scan: Any,
@@ -180,5 +203,10 @@ class HyperquackFlattener():
 
       if 'error' in response:
         row.error = response['error']
+
+      row.outcome = classify_hyperquack_outcome(
+          row.error, _get_scan_type_from_filename(filename),
+          row.received.status, row.success, row.received.is_known_blockpage,
+          row.received.page_signature, row.received.headers)
 
       yield row
