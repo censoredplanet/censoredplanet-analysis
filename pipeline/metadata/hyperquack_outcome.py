@@ -7,8 +7,11 @@ from typing import List, Optional
 
 def _status_mismatch(received_status: Optional[str]) -> str:
   """
+  Args:
+    received_status: status string like "200 OK" or None
 
-  Returns "content/status_mismatch" or ex: "content/status_mismatch:404"
+  Returns:
+    outcome like "content/status_mismatch" or "content/status_mismatch:404"
   """
   if received_status is None or received_status == "":
     return "content/status_mismatch"
@@ -17,9 +20,11 @@ def _status_mismatch(received_status: Optional[str]) -> str:
 
 def _get_first_error(errors: Optional[str]) -> Optional[str]:
   """
-  errors: string like "error a; error b; error c" or just "error a"
+  Args:
+    errors: string like "error a; error b; error c" or just "error a"
 
-  returns: "error a"
+  Feturns
+    "error a"
   """
   if errors is None:
     return None
@@ -31,7 +36,7 @@ def _get_first_error(errors: Optional[str]) -> Optional[str]:
 
 def _has_akamai_server_header(received_headers: List[str]) -> bool:
   for received_header in received_headers:
-    if received_header == "Server: AkamaiGHost" or received_header == "Server: GHost":
+    if received_header in ('Server: AkamaiGHost', 'Server: GHost'):
       return True
   return False
 
@@ -39,13 +44,18 @@ def _has_akamai_server_header(received_headers: List[str]) -> bool:
 def _classify_hyperquack_error(error: Optional[str], scan_type: str,
                                received_status: Optional[str]) -> str:
   """
-  error string
-  scan type: like 'echo, 'discard', etc
+  Args:
+    error string like 'read tcp 141.212.123.235:11397->117.78.42.54:9: read: connection reset by peer'
+    scan type: like 'echo, 'discard', etc
 
-  outcome: string like "<stage>/<result>"
+  Returns:
+    outcome: string like "<stage>/<result>"
   """
   # yapf: disable
-  # pylint: ignore=multiple-statements,too-many-return-statements,too-many-branches,too-many-statements
+  # pylint: disable=multiple-statements
+  # pylint: disable=too-many-return-statements
+  # pylint: disable=too-many-branches
+  # pylint: disable=too-many-statements
 
   # Success
   if error is None or error == "": return "expected/match"
@@ -133,6 +143,17 @@ def classify_hyperquack_outcome(error: Optional[str], scan_type: str,
                                 blockpage_fingerprint: Optional[str],
                                 received_headers: List[str]) -> str:
   """
+  Args:
+    error: string like "Incorrect web response: status lines don't match"
+    received_status: HTTP status like "200 OK"
+    matches_template: did the response match the control template
+    is_known_blockpage: did the page content match a blockpage
+    blockpage_fingerprint: which known blockpage did we match
+    received_headers: HTTP headers
+
+
+  Returns:
+    outcome string like "read/tcp.reset"
   """
   if is_known_blockpage and blockpage_fingerprint:
     return "content/blockpage:" + blockpage_fingerprint
