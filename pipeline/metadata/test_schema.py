@@ -93,7 +93,8 @@ class SchemaTest(unittest.TestCase):
             tls_version = 771,
             tls_cipher_suite = 49199,
             tls_cert = 'MIIH...'
-        )
+        ),
+        outcome='content/status_mismatch:302'
     )
     # yapf: disable
     flat_row = schema.flatten_for_bigquery(row)

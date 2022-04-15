@@ -252,8 +252,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='expected/match'
-        ),
+            outcome='expected/match'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -268,8 +267,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='expected/match'
-        ),
+            outcome='expected/match'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -286,8 +284,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='setup/system_failure'
-        )
+            outcome='setup/system_failure')
     ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2021-05-30-01-01-01/results.json'
@@ -353,8 +350,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-discard-2021-05-31-12-43-21',
-            outcome='expected/match'
-        ),
+            outcome='expected/match'),
         HyperquackRow(
             domain='123rf.com',
             category='E-commerce',
@@ -391,8 +387,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-discard-2021-05-31-12-43-21',
-            outcome='expected/match'
-        )
+            outcome='expected/match')
     ]
 
     filename = 'gs://firehook-scans/discard/CP_Quack-discard-2021-05-31-12-43-21/results.json'
@@ -442,8 +437,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         controls_failed=False,
         measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
         source='CP_Quack-http-2020-11-09-01-02-08',
-        outcome='expected/match'
-    )
+        outcome='expected/match')
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
@@ -570,8 +564,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
             source='CP_Quack-http-2021-05-30-01-01-01',
-            outcome='expected/match'
-        ),
+            outcome='expected/match'),
         HyperquackRow(
             domain='1337x.to',
             category='Media sharing',
