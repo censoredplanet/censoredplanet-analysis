@@ -69,6 +69,18 @@ class PipelineMainTest(unittest.TestCase):
     self.assertEqual(
         beam_tables.get_job_name('laplante.scan_https', True),
         'append-laplante-scan-https')
+    self.assertEqual(
+        beam_tables.get_job_name('gs://firehook-test/scans/echo', False),
+        'write-gs-firehook-test-scans-echo')
+    self.assertEqual(
+        beam_tables.get_job_name('gs://firehook-test/scans/discard', True),
+        'append-gs-firehook-test-scans-discard')
+    self.assertEqual(
+        beam_tables.get_job_name('gs://firehook-test/avirkud/http', False),
+        'write-gs-firehook-test-avirkud-http')
+    self.assertEqual(
+        beam_tables.get_job_name('gs://firehook-test/avirkud/https', True),
+        'append-gs-firehook-test-avirkud-https')
 
   def test_get_full_table_name(self) -> None:
     project = 'firehook-censoredplanet'

@@ -57,17 +57,16 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
   with concurrent.futures.ThreadPoolExecutor() as pool:
     futures = []
     for scan_type in scan_types:
-      table_name = beam_tables.get_table_name(dataset, scan_type,
-                                              beam_tables.BASE_TABLE_NAME)
-      job_name = beam_tables.get_job_name(table_name, incremental_load)
+      destination = beam_tables.get_table_name(dataset, scan_type,
+                                               beam_tables.BASE_TABLE_NAME)
       if export_gcs:
         # TODO: define global for bucket
-        table_name = beam_tables.get_gcs_folder(dataset, 'firehook-test')
-        job_name = beam_tables.get_job_name(table_name[5:], incremental_load)
-        job_name += '-gcs'
+        destination = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                 'firehook-test')
+      job_name = beam_tables.get_job_name(destination, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
-                           incremental_load, job_name, table_name, start_date,
+                           incremental_load, job_name, destination, start_date,
                            end_date, export_gcs)
       futures.append(future)
 

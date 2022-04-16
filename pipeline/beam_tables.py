@@ -20,17 +20,14 @@ import logging
 import pathlib
 import re
 import json
-from typing import BinaryIO, Callable, Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Callable, Optional, Tuple, Dict, List, Any, Iterator, Iterable
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
-from apache_beam.io.filesystem import CompressionTypes
-from apache_beam.io.fileio import WriteToFiles, FileMetadata, FileSink
+from apache_beam.io.fileio import WriteToFiles
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
-from apache_beam.coders import coders
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
-from google.cloud import storage
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
 from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys
@@ -39,6 +36,7 @@ from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
 from pipeline.metadata import satellite
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
+from pipeline.metadata import sink
 
 # Tables have names like 'echo_scan' and 'http_scan
 BASE_TABLE_NAME = 'scan'
@@ -64,35 +62,6 @@ SCAN_FILES = ['results.json']
 EMPTY_GZIPPED_FILE_SIZE = 33
 
 
-class JsonGzSink(FileSink):
-  """A sink to a GCS or local .json.gz file."""
-
-  def __init__(self) -> None:
-    """Initialize a JsonGzSink."""
-    self.coder = coders.ToBytesCoder()
-    self.file_handle: BinaryIO
-
-  def create_metadata(self, destination: str,
-                      full_file_name: str) -> FileMetadata:
-    """Returns the file metadata as tuple (mime_type, compression_type)."""
-    return FileMetadata(
-        mime_type="application/json", compression_type=CompressionTypes.GZIP)
-
-  def open(self, fh: BinaryIO) -> None:
-    """Prepares the sink file for writing."""
-    self.file_handle = fh
-
-  def write(self, record: str) -> None:
-    """Writes a single record."""
-    self.file_handle.write(self.coder.encode(record) + b'\n')
-
-  def flush(self) -> None:
-    """Flushes the sink file."""
-    # This method must be implemented for FileSink subclasses,
-    # but calling self.file_handle.flush() here triggers a zlib error.
-    pass  # pylint: disable=unnecessary-pass
-
-
 def _get_existing_datasources(destination: str, project: str) -> List[str]:
   """Given a BigQuery or GCS destination return all contributing sources.
 
@@ -110,6 +79,8 @@ def _get_existing_datasources(destination: str, project: str) -> List[str]:
   # So passing in a client to the class breaks the pickling beam uses
   # to send state to remote machines.
   if destination.startswith('gs://'):
+    # pylint: disable=import-outside-toplevel
+    from google.cloud import storage  # type: ignore
     client = storage.Client(project=project)
 
     # The first path component after gs:// is the bucket, the rest is the subdir.
@@ -234,24 +205,25 @@ def _get_partition_params() -> Dict[str, Any]:
   return partition_params
 
 
-def get_job_name(table_name: str, incremental_load: bool) -> str:
+def get_job_name(destination: str, incremental_load: bool) -> str:
   """Creates the job name for the beam pipeline.
 
   Pipelines with the same name cannot run simultaneously.
 
   Args:
-    table_name: a dataset.table name like 'base.scan_echo'
+    table_name: a dataset.table name like 'base.scan_echo' or
+        gs://bucket/folder/... name like 'gs://firehook-test/scans/echo'
     incremental_load: boolean. whether the job is incremental.
 
   Returns:
-    A string like 'write-base-scan-echo'
+    A string like 'write-base-scan-echo' or 'write-gs-firehook-test-scans-echo'
   """
-  # no underscores or periods are allowed in beam job names
-  fixed_table_name = table_name.replace('_', '-').replace('.', '-')
-  fixed_table_name = fixed_table_name.replace('/', '-')
+  # no underscores, colons, slashes, or periods are allowed in beam job names
+  fixed_dest_name = destination.replace('_', '-').replace('.', '-')
+  fixed_dest_name = fixed_dest_name.replace('://', '-').replace('/', '-')
   if incremental_load:
-    return 'append-' + fixed_table_name
-  return 'write-' + fixed_table_name
+    return 'append-' + fixed_dest_name
+  return 'write-' + fixed_dest_name
 
 
 def get_table_name(dataset_name: str, scan_type: str,
@@ -269,17 +241,18 @@ def get_table_name(dataset_name: str, scan_type: str,
   return f'{dataset_name}.{scan_type}_{base_table_name}'
 
 
-def get_gcs_folder(dataset_name: str, bucket_name: str) -> str:
+def get_gcs_folder(dataset_name: str, scan_type: str, bucket_name: str) -> str:
   """Construct a gcs folder name.
 
   Args:
     dataset_name: dataset name like 'base' or 'laplante'
+    scan_type: data type, one of 'echo', 'discard', 'http', 'https', 'satellite'
     bucket_name: bucket name like 'firehook-test'
 
   Returns:
-    a GCS folder like 'gs://firehook-test/avirkud'
+    a GCS folder like 'gs://firehook-test/avirkud/echo'
   """
-  return f'gs://{bucket_name}/{dataset_name}'
+  return f'gs://{bucket_name}/{dataset_name}/{scan_type}'
 
 
 def _raise_exception_if_zero(num: int) -> None:
@@ -496,26 +469,26 @@ class ScanDataBeamPipelineRunner():
       gcs_folder: str) -> None:
     """Write out rows to GCS folder with hive-partioned format.
 
-    Rows are written to .json.gz files organized by scan_type, source, and country:
-    '{gcs_folder}/{scan_type}/source={source}/country={country}/results.json.gz'
+    Rows are written to .json.gz files organized by source and country:
+    '{gcs_folder}/source={source}/country={country}/results.json.gz'
 
     Args:
       scan_type: one of 'echo', 'discard', 'http', 'https',
         or 'satellite'
       rows: PCollection[BigqueryRow] of data to write.
       gcs_folder: GCS folder gs://bucket/folder/... like
-        'gs://firehook-test/scans' to write output files to.
+        'gs://firehook-test/scans/echo' to write output files to.
 
     Raises:
       Exception: if any arguments are invalid.
     """
 
-    def get_destination(record: str) -> str:
+    def _get_destination(record: str) -> str:
       """Returns the hive-format dest folder for a measurement record str."""
       record_dict = json.loads(record)
-      return f'{scan_type}/source={record_dict["source"]}/country={record_dict["country"]}/results'
+      return f'source={record_dict["source"]}/country={record_dict["country"]}/results'
 
-    def custom_file_naming(suffix: str = None) -> Callable:
+    def _custom_file_naming(suffix: str = None) -> Callable:
       """Returns custom function to name destination files."""
 
       # Beam requires the returned function to have the following arguments,
@@ -549,11 +522,11 @@ class ScanDataBeamPipelineRunner():
     # Set shards=1 and max_writers_per_bundle=0 to avoid sharding output.
     (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
         path=gcs_folder,
-        destination=get_destination,
-        sink=lambda dest: JsonGzSink(),
+        destination=_get_destination,
+        sink=lambda dest: sink.JsonGzSink(),
         shards=1,
         max_writers_per_bundle=0,
-        file_naming=custom_file_naming(suffix='.json.gz')))
+        file_naming=_custom_file_naming(suffix='.json.gz')))
 
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:

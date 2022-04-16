@@ -169,8 +169,8 @@ def get_bq_derived_table_name() -> str:
   return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME}'
 
 
-def get_gs_formatted_gcs_folder() -> str:
-  return f'gs://{BEAM_TEST_GCS_BUCKET}/{BEAM_TEST_GCS_FOLDER}'
+def get_gs_formatted_gcs_folder(scan_type: str) -> str:
+  return f'gs://{BEAM_TEST_GCS_BUCKET}/{BEAM_TEST_GCS_FOLDER}/{scan_type}'
 
 
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
@@ -229,7 +229,7 @@ def run_local_pipeline_gcs(scan_type: str, incremental: bool) -> None:
       scan_type, incremental)
 
   pipeline_name = f'test_{scan_type}'
-  gcs_folder = get_gs_formatted_gcs_folder()
+  gcs_folder = get_gs_formatted_gcs_folder(scan_type)
   test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
                                 gcs_folder, None, None, True)
 
@@ -336,16 +336,16 @@ class PipelineManualE2eTest(unittest.TestCase):
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
 
       expected_v1_partitions = [
-          ('test_discard', 'source=Quackv1', 'country=US'),
-          ('test_discard', 'source=Quackv1', 'country=CO'),
-          ('test_discard', 'source=Quackv1', 'country=RU'),
-          ('test_echo', 'source=Quackv1', 'country=US'),
-          ('test_echo', 'source=Quackv1', 'country=TH'),
-          ('test_http', 'source=Quackv1', 'country=US'),
-          ('test_http', 'source=Quackv1', 'country=IQ'),
-          ('test_https', 'source=Quackv1', 'country=CA'),
-          ('test_https', 'source=Quackv1', 'country=LB'),
-          ('test_https', 'source=Quackv1', 'country=US'),
+          ('discard', 'source=Quackv1', 'country=US'),
+          ('discard', 'source=Quackv1', 'country=CO'),
+          ('discard', 'source=Quackv1', 'country=RU'),
+          ('echo', 'source=Quackv1', 'country=US'),
+          ('echo', 'source=Quackv1', 'country=TH'),
+          ('http', 'source=Quackv1', 'country=US'),
+          ('http', 'source=Quackv1', 'country=IQ'),
+          ('https', 'source=Quackv1', 'country=CA'),
+          ('https', 'source=Quackv1', 'country=LB'),
+          ('https', 'source=Quackv1', 'country=US'),
       ]
       self.assertEqual(len(partitions), 10)
       self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
@@ -367,18 +367,18 @@ class PipelineManualE2eTest(unittest.TestCase):
       blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
       expected_v2_partitions = [
-          ('test_discard', 'source=Quackv2', 'country=US'),
-          ('test_discard', 'source=Quackv2', 'country=CN'),
-          ('test_discard', 'source=Quackv2', 'country=PK'),
-          ('test_echo', 'source=Quackv2', 'country=US'),
-          ('test_echo', 'source=Quackv2', 'country=CN'),
-          ('test_echo', 'source=Quackv2', 'country=RU'),
-          ('test_http', 'source=Quackv2', 'country=US'),
-          ('test_http', 'source=Quackv2', 'country=CN'),
-          ('test_https', 'source=Quackv2', 'country=US'),
-          ('test_https', 'source=Quackv2', 'country=CN'),
-          ('test_https', 'source=Quackv2', 'country=CA'),
-          ('test_https', 'source=Quackv2', 'country=NO'),
+          ('discard', 'source=Quackv2', 'country=US'),
+          ('discard', 'source=Quackv2', 'country=CN'),
+          ('discard', 'source=Quackv2', 'country=PK'),
+          ('echo', 'source=Quackv2', 'country=US'),
+          ('echo', 'source=Quackv2', 'country=CN'),
+          ('echo', 'source=Quackv2', 'country=RU'),
+          ('http', 'source=Quackv2', 'country=US'),
+          ('http', 'source=Quackv2', 'country=CN'),
+          ('https', 'source=Quackv2', 'country=US'),
+          ('https', 'source=Quackv2', 'country=CN'),
+          ('https', 'source=Quackv2', 'country=CA'),
+          ('https', 'source=Quackv2', 'country=NO'),
       ]
       self.assertEqual(len(partitions), 22)
       self.assertListEqual(
