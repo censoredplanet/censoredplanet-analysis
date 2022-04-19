@@ -11,11 +11,11 @@ def _status_mismatch(received_status: Optional[str]) -> str:
     received_status: status string like "200 OK" or None
 
   Returns:
-    outcome like "content/status_mismatch" or "content/status_mismatch:404"
+    outcome like "status_mismatch" or "status_mismatch:404"
   """
   if received_status is None or received_status == "":
-    return "content/status_mismatch"
-  return "content/status_mismatch:" + received_status[:3]
+    return "status_mismatch"
+  return "status_mismatch:" + received_status[:3]
 
 
 def _get_first_error(errors: Optional[str]) -> Optional[str]:
@@ -41,6 +41,92 @@ def _has_akamai_server_header(received_headers: List[str]) -> bool:
   return False
 
 
+# yapf: disable
+# pylint: disable=multiple-statements
+# pylint: disable=too-many-return-statements
+# pylint: disable=too-many-branches
+
+def _is_system_failure(error: str) -> bool:
+  if error.endswith("address already in use"): return True
+  if error.endswith("protocol error"): return True  # ipv4 vs 6 error
+  if error.endswith("protocol not available"): return True
+  if error.endswith("too many open files"): return True
+  return False
+
+def _get_dial_error(error: str) -> Optional[str]:
+  if error.endswith("network is unreachable"): return "ip.network_unreachable"
+  if error.endswith("no route to host"): return "ip.host_no_route"
+  if error.endswith("connection refused"): return "tcp.refused"
+  if error.endswith("context deadline exceeded"): return "timeout"
+  if error.endswith("connect: connection timed ou"): return "timeout"
+  if error.startswith("connection reset by peer"): return "tcp.reset"  # no read: or write: prefix in error
+  if error.endswith("connect: connection reset by peer"): return "tcp.reset"
+  if error.endswith("getsockopt: connection reset by peer"): return "tcp.reset"
+  return None
+
+
+def _get_tls_failure(error: str) -> Optional[str]:
+  if "tls:" in error: return "tls.failed"
+  if "remote error:" in error: return "tls.failed"
+  if "local error:" in error: return "tls.failed"
+  if error.endswith("readLoopPeekFailLocked: <nil>"): return "tls.failed"
+  if error.endswith("no mutual cipher suite"): return "tls.failed"
+  if error.endswith("missing ServerKeyExchange message"): return "tls.failed"
+  if "TLS handshake timeout" in error: return "timeout"
+  return None
+
+def _get_write_failure(error: str) -> Optional[str]:
+  if error.endswith("write: connection reset by peer"): return "tcp.reset"
+  if error.endswith("write: broken pipe"): return "system"
+  return None
+
+def _get_read_failure(error: str, scan_type: str) -> Optional[str]:
+  if "request canceled" in error: return "timeout"
+  if error.endswith("i/o timeout"): return "timeout"
+  if error.endswith("shutdown: transport endpoint is not connected"): return "system"
+  # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
+  # find a way to diffentiate this case.
+  if "read: connection reset by peer" in error: return "tcp.reset"
+  if scan_type != "echo" and "unexpected EOF" in error: return "http.truncated_response"
+  if scan_type != "echo" and "EOF" in error: return "http.empty"
+  if "http: server closed idle connection" in error: return "http.truncated_response"
+  return None
+
+def _get_http_content_verification_failure(error: str) -> Optional[str]:
+  if error.endswith("trailer header without chunked transfer encoding"): return "http.invalid"
+  if error.endswith("response missing Location header"): return "http.invalid"
+  if "bad Content-Length" in error: return "http.invalid"
+  if "failed to parse Location header" in error: return "http.invalid"
+  if "malformed HTTP" in error: return "http.invalid"
+  if "malformed MIME" in error: return "http.invalid"
+  return None
+
+def _get_content_mismatch(error: str, scan_type: str, received_status: Optional[str]) -> Optional[str]:
+  if scan_type == "echo" and error.endswith("EOF"): return "mismatch" # Echo
+  # Hyperquack v1 errors
+  if error == "Incorrect echo response": return "mismatch" # Echo
+  if error == "Received response": return "mismatch" # Discard
+  if error == "Incorrect web response: status lines don't match": return _status_mismatch(received_status) # HTTP/S
+  if error == "Incorrect web response: bodies don't match": return "body_mismatch" # HTTP/S
+  if error == "Incorrect web response: certificates don't match": return "tls_mismatch" # HTTPS
+  if error == "Incorrect web response: cipher suites don't match": return "tls_mismatch" # HTTPS
+  if error == "Incorrect web response: TLS versions don't match": return "tls_mismatch" # HTTPS
+  # Hyperquack v2 errors
+  if error == "echo response does not match echo request": return "mismatch" # Echo
+  if error == "discard response is not empty": return "mismatch" # Discard
+  if error == "Status lines does not match": return _status_mismatch(received_status) # HTTP/S
+  if error == "Bodies do not match": return "body_mismatch" # HTTPS
+  if error == "Certificates do not match": return "tls_mismatch" # HTTPS
+  if error == "Cipher suites do not match": return "tls_mismatch" # HTTPS
+  if error == "TLS versions do not match": return "tls_mismatch" # HTTPS
+  # Hyperquack v2 multiple errors
+  if error == "Status lines do not match": return _status_mismatch(received_status) # HTTP/S
+  if error == "Bodies do not match": return "body_mismatch" # HTTP/S
+  if "header field missing" in error: return "header_mismatch" # HTTP/S
+  if "header field mismatch" in error: return "header_mismatch" # HTTP/S
+  return None
+
+
 def _classify_hyperquack_error(error: Optional[str], scan_type: str,
                                received_status: Optional[str]) -> str:
   """
@@ -51,89 +137,33 @@ def _classify_hyperquack_error(error: Optional[str], scan_type: str,
   Returns:
     outcome: string like "<stage>/<result>"
   """
-  # yapf: disable
-  # pylint: disable=multiple-statements
-  # pylint: disable=too-many-return-statements
-  # pylint: disable=too-many-branches
-  # pylint: disable=too-many-statements
-
   # Success
   if error is None or error == "": return "expected/match"
 
-  # System failures
-  if error.endswith("address already in use"): return "setup/system_failure"
-  if error.endswith("protocol error"): return "setup/system_failure"  # ipv4 vs 6 error
-  if error.endswith("protocol not available"): return "setup/system_failure"
-  if error.endswith("too many open files"): return "setup/system_failure"
+  if _is_system_failure(error):
+    return "setup/system_failure"
 
-  # Dial failures
-  if error.endswith("network is unreachable"): return "dial/ip.network_unreachable"
-  if error.endswith("no route to host"): return "dial/ip.host_no_route"
-  if error.endswith("connection refused"): return "dial/tcp.refused"
-  if error.endswith("context deadline exceeded"): return "dial/timeout"
-  if error.endswith("connect: connection timed ou"): return "dial/timeout"
-  if error.startswith("connection reset by peer"): return "dial/tcp.reset"  # no read: or write: prefix in error
-  if error.endswith("connect: connection reset by peer"): return "dial/tcp.reset"
-  if error.endswith("getsockopt: connection reset by peer"): return "dial/tcp.reset"
+  dial_error = _get_dial_error(error)
+  if dial_error: return f"dial/{dial_error}"
 
-  # TLS failures
-  if "tls:" in error: return "tls/tls.failed"
-  if "remote error:" in error: return "tls/tls.failed"
-  if "local error:" in error: return "tls/tls.failed"
-  if error.endswith("readLoopPeekFailLocked: <nil>"): return "tls/tls.failed"
-  if error.endswith("no mutual cipher suite"): return "tls/tls.failed"
-  if error.endswith("missing ServerKeyExchange message"): return "tls/tls.failed"
-  if "TLS handshake timeout" in error: return "tls/timeout"
+  tls_failure = _get_tls_failure(error)
+  if tls_failure: return f"tls/{tls_failure}"
 
-  # Write failures
-  if error.endswith("write: connection reset by peer"): return "write/tcp.reset"
-  if error.endswith("write: broken pipe"): return "write/system"
+  write_failure = _get_write_failure(error)
+  if write_failure: return f"write/{write_failure}"
 
-  # Read failures
-  if "request canceled" in error: return "read/timeout"
-  if error.endswith("i/o timeout"): return "read/timeout"
-  if error.endswith("shutdown: transport endpoint is not connected"): return "read/system"
-  # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
-  # find a way to diffentiate this case.
-  if "read: connection reset by peer" in error: return "read/tcp.reset"
+  read_failure = _get_read_failure(error, scan_type)
+  if read_failure: return f"read/{read_failure}"
 
-  # HTTP content verification failures
-  if scan_type != "echo" and "unexpected EOF" in error: return "read/http.truncated_response"
-  if scan_type != "echo" and "EOF" in error: return "read/http.empty"
-  if "http: server closed idle connection" in error: return "read/http.truncated_response"
-  if error.endswith("trailer header without chunked transfer encoding"): return "http/http.invalid"
-  if error.endswith("response missing Location header"): return "http/http.invalid"
-  if "bad Content-Length" in error: return "http/http.invalid"
-  if "failed to parse Location header" in error: return "http/http.invalid"
-  if "malformed HTTP" in error: return "http/http.invalid"
-  if "malformed MIME" in error: return "http/http.invalid"
+  http_failure = _get_http_content_verification_failure(error)
+  if http_failure: return f"http/{http_failure}"
 
-  # Content verification failures
-  if scan_type != "echo" and error.endswith("EOF"): return "content/mismatch" # Echo
-  # Hyperquack v1 errors
-  if error == "Incorrect echo response": return "content/mismatch" # Echo
-  if error == "Received response": return "content/mismatch" # Discard
-  if error == "Incorrect web response: status lines don't match": return _status_mismatch(received_status) # HTTP/S
-  if error == "Incorrect web response: bodies don't match": return "content/body_mismatch" # HTTP/S
-  if error == "Incorrect web response: certificates don't match": return "content/tls_mismatch" # HTTPS
-  if error == "Incorrect web response: cipher suites don't match": return "content/tls_mismatch" # HTTPS
-  if error == "Incorrect web response: TLS versions don't match": return "content/tls_mismatch" # HTTPS
-  # Hyperquack v2 errors
-  if error == "echo response does not match echo request": return "content/mismatch" # Echo
-  if error == "discard response is not empty": return "content/mismatch" # Discard
-  if error == "Status lines does not match": return _status_mismatch(received_status) # HTTP/S
-  if error == "Bodies do not match": return "content/body_mismatch" # HTTPS
-  if error == "Certificates do not match": return "content/tls_mismatch" # HTTPS
-  if error == "Cipher suites do not match": return "content/tls_mismatch" # HTTPS
-  if error == "TLS versions do not match": return "content/tls_mismatch" # HTTPS
-  # Hyperquack v2 multiple errors
-  if error == "Status lines do not match": return _status_mismatch(received_status) # HTTP/S
-  if error == "Bodies do not match": return "content/body_mismatch" # HTTP/S
-  if "header field missing" in error: return "content/header_mismatch" # HTTP/S
-  if "header field mismatch" in error: return "content/header_mismatch" # HTTP/S
+  mismatch_error = _get_content_mismatch(error, scan_type, received_status)
+  if mismatch_error: return f"content/{mismatch_error}"
 
   return "unknown/unknown"
-  # yapf: enable
+
+# yapf: enable
 
 
 def classify_hyperquack_outcome(error: Optional[str], scan_type: str,
