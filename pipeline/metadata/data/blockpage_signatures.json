@@ -630,5 +630,5 @@
 {"fingerprint":"f_gen_site_blocked_satellite","pattern":"<title>Site Blocked</title>"}
 {"fingerprint":"f_gen_th_1_satellite","pattern":"बन्देज लगाएको सामग्रीहरु"}
 {"fingerprint":"f_gen_website_blocked_2_satellite","pattern":"<title>Website Blocked</title>"}
-{"fingerprint":"f_gen_website_blocked_satellite","pattern":"<title>WEBSITE BLOCKED</title>"}
 {"fingerprint":"f_gen_access_denied_satellite","pattern":"<title>ACCESS DENIED</title>*src=\"\\./block\\.png"}
+{"fingerprint":"f_gen_website_blocked_satellite","pattern":"<title>WEBSITE BLOCKED</title>"}

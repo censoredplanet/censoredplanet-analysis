@@ -495,8 +495,8 @@ class FlattenHyperquackTest(unittest.TestCase):
                 'Location: https://www.csmonitor.com/',
                 'Server: HTTP Proxy/1.0',
             ],
-            is_known_blockpage=False,
-            page_signature='p_fp_33',
+            is_known_blockpage=None,
+            page_signature=None,
         ))
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
