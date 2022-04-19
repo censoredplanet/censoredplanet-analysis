@@ -6,7 +6,7 @@ import datetime
 import json
 import logging
 import re
-from typing import List, Tuple, Dict, Iterator, Iterable
+from typing import List, Dict, Tuple, Iterator, Iterable
 import uuid
 
 import apache_beam as beam
@@ -16,6 +16,7 @@ from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAns
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
+from pipeline.metadata.add_metadata import MetadataAdder
 
 # Data files for the Satellite pipeline
 SATELLITE_RESOLVERS_FILE = 'resolvers.json'  #v1, v2.2
@@ -812,8 +813,8 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
 
 
 def process_satellite_lines(
-    lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[SatelliteRow]:
+    lines: beam.pvalue.PCollection[Tuple[str, str]],
+    metadata_adder: MetadataAdder) -> beam.pvalue.PCollection[SatelliteRow]:
   """Process both satellite and page fetch data files.
 
   Args:
@@ -841,4 +842,6 @@ def process_satellite_lines(
   post_processed_satellite = post_processing_satellite(
       satellite_with_page_fetches)
 
-  return post_processed_satellite
+  rows_with_metadata = metadata_adder.add_metadata(post_processed_satellite)
+
+  return rows_with_metadata
