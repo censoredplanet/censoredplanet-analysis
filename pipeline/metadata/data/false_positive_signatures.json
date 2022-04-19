@@ -386,7 +386,7 @@
 {"fingerprint":"satellite_fp_default_site","pattern":"<title>Default Site</title>"}
 {"fingerprint":"satellite_fp_direct_ip1","pattern":"<p>You are seeing this page because you have accessed the server directly via it\\'s IP address or used a domain that is not registered on this server (<b>pacy01\\.pacyworld\\.com</b>)\\.</p>"}
 {"fingerprint":"satellite_fp_elec_embers","pattern":"<head><title>Electric Embers-hosted Web site</title></head>"}
-{"fingerprint":"satellite_fp_fireware","pattern":"<title>Fireware XTM User Authentication</title>\\"}
+{"fingerprint":"satellite_fp_fireware","pattern":"<title>Fireware XTM User Authentication</title>"}
 {"fingerprint":"satellite_fp_400","pattern":"<!-- @codegen-command : phps GenerateErrorPages -->"}
 {"fingerprint":"satellite_fp_401_unauthorized","pattern":"<title>401 Unauthorized</title>"}
 {"fingerprint":"satellite_fp_403","pattern":"<p>You don\\'t have permission to access"}
@@ -428,7 +428,7 @@
 {"fingerprint":"satellite_fp_long_chinese_page_non_censorship","pattern":"<title>M R Y T</title>"}
 {"fingerprint":"satellite_fp_nginx2","pattern":"<p>You've successfully started the Nginx Proxy Manager\\.</p>"}
 {"fingerprint":"satellite_fp_permission1","pattern":"<p>Ensure you have sufficient permissions to access this site\\.</p>"}
-{"fingerprint":"satellite_fp_poland","pattern":"<title>Under construction :-)</title>"}
+{"fingerprint":"satellite_fp_poland","pattern":"<title>Under construction :-\\)</title>"}
 {"fingerprint":"satellite_fp_safenames","pattern":"<title>Domain Registered at Safenames</title>"}
 {"fingerprint":"satellite_fp_synology","pattern":"<title>Hello! Welcome to Synology Web Station!</title>"}
 {"fingerprint":"satellite_fp_tele_global_lg","pattern":"<h1><a id=\"title\" href=\"lg\\.tgg\\.net\\.id\">Tele Globe Global LG</a></h1>"}
