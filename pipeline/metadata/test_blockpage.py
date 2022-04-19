@@ -17,11 +17,11 @@ class BlockpageTest(unittest.TestCase):
 
     blockpage_signatures = list(matcher.blockpages.keys())
     self.assertEqual("a_prod_barracuda_1", blockpage_signatures[0])
-    self.assertEqual("f_gen_pl_access_denied", blockpage_signatures[-1])
+    self.assertEqual("f_gen_access_denied_satellite", blockpage_signatures[-1])
 
     false_positive_signatures = list(matcher.false_positives.keys())
     self.assertEqual("x_fpru_amazon", false_positive_signatures[0])
-    self.assertEqual("x_moved_here", false_positive_signatures[-1])
+    self.assertEqual("satellite_fp_nginx_amazon", false_positive_signatures[-1])
 
   def test_simple_blockpage_matches(self) -> None:
     matcher = blockpage.BlockpageMatcher()
