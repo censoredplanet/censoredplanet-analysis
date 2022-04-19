@@ -185,6 +185,8 @@ def classify_hyperquack_outcome(error: Optional[str], scan_type: str,
   Returns:
     outcome string like "read/tcp.reset"
   """
+  # TODO reorder this to more closely match when we see each signal
+
   if is_known_blockpage and blockpage_fingerprint:
     return "content/blockpage:" + blockpage_fingerprint
 
