@@ -1376,8 +1376,8 @@ class FlattenSatelliteTest(unittest.TestCase):
             'Location: https://yandex.ru/safety/?url=xvideos.com&infectedalert=yes&fromdns=adult',
             'Server: nginx/1.10.3 (Ubuntu)'
             ],
-            is_known_blockpage = False,
-            page_signature = 'r_fp_26'
+            is_known_blockpage = None,
+            page_signature = None
         )
       ),
       PageFetchRow(

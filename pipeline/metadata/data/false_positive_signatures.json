@@ -46,7 +46,6 @@
 {"fingerprint":"x_fpru_500","pattern":"<html><body><h1>500 Server Error</h1>"}
 {"fingerprint":"x_fpru_not_found","pattern":"Not found<img src=\"//traffic-counter\\.tech/api/q\\.php\" style=\"display: none\">"}
 {"fingerprint":"x_fpru_maintanence_2","pattern":"<h1>Сайт не обслуживается</h1"}
-{"fingerprint":"x_fpru_no_domain","pattern":"<html><body></body></html><!-- no domain config -->"}
 {"fingerprint":"x_fpru_works","pattern":"<html><body><h1>It works!</h1></body></html>"}
 {"fingerprint":"x_fpru_nginx_7","pattern":"NGINX default config"}
 {"fingerprint":"x_fpru_serverside","pattern":"<h1>It appears you are accessing our website from a prohibited location\\.</h1>"}
@@ -210,7 +209,6 @@
 {"fingerprint":"p_fp_30","pattern":"very sorry, but the page could not be loaded properly\\. This should be fixed very soon, and we apologize for any inconvenience\\."}
 {"fingerprint":"p_fp_31","pattern":"Anonymous access is forbidden for this operation\\."}
 {"fingerprint":"p_fp_32","pattern":"The specified key does not exist\\."}
-{"fingerprint":"p_fp_33","pattern":"301 Moved Permanently"}
 {"fingerprint":"p_fp_34","pattern":"The specified bucket does not exist\\."}
 {"fingerprint":"p_fp_36","pattern":"The bucket you access does not belong to you\\."}
 {"fingerprint":"p_fp_37","pattern":"The Open Technology Fund supports projects and people that develop open and accessible technologies promoting human rights and open societies, and help advance inclusive and safe access to global communications networks"}
@@ -239,7 +237,6 @@
 {"fingerprint":"r_fp_23","pattern":"16/index\\.html"}
 {"fingerprint":"r_fp_24","pattern":"Set-Cookie: fist_user_zz=1"}
 {"fingerprint":"r_fp_25","pattern":"121\\.201\\.80\\.216:9000"}
-{"fingerprint":"r_fp_26","pattern":"Server: nginx/1"}
 {"fingerprint":"r_fp_27","pattern":"Server: Apache-Coyote"}
 {"fingerprint":"r_fp_28","pattern":"Set-Cookie:.*domain=\\."}
 {"fingerprint":"r_fp_29","pattern":"Welcome to SCB log tracker"}
@@ -361,3 +358,104 @@
 {"fingerprint":"x_provided_not_valid","pattern":"The provided host name is not valid for this server\\."}
 {"fingerprint":"x_document_moved","pattern":"<head><title>Document Moved</title></head>"}
 {"fingerprint":"x_moved_here","pattern":"<p>The document has moved <a href=.*here</a>\\.</p>"}
+{"fingerprint":"x_azurecdn","pattern":"https://df\\.onecloud\\.azure-test\\.net/Error/UE_404"}
+{"fingerprint":"x_scientology","pattern":"<a href=\"https://www\\.scientology\\.org/\">Moved Permanently</a>"}
+{"fingerprint":"x_virtual_host","pattern":"Virtual host not configured"}
+{"fingerprint":"x_greenpeace","pattern":"<html><body>Page moved permanently to (http|https)://www\\.greenpeace\\.org/usa/\\.</body></html>"}
+{"fingerprint":"x_akamai_errorpage","pattern":"<!-- AKAMAI ERROR PAGE -->"}
+{"fingerprint":"x_azurewebapp","pattern":"<title>Microsoft Azure Web App - Error 404</title>"}
+{"fingerprint":"x_yahooredirect","pattern":"<html><body><h1>Moved</h1><p>Please click here <a href=\"https://us\\.yahoo\\.com\">us\\.yahoo\\.com</a>\\.</p></body></html>"}
+{"fingerprint":"x_unknown_ipaddress","pattern":"http://124.40.225.20/"}
+{"fingerprint":"x_dropbox","pattern":"<h1>Error</h1>Something went wrong\\. Don.t worry, your files are still safe and the Dropboxers have been notified\\."} 
+{"fingerprint":"x_tengine","pattern":"<p>The requested resource resides temporarily under a different URI\\.</p>"} 
+{"fingerprint":"x_sstatic","pattern":"<title>about sstatic\\.net</title>"} 
+{"fingerprint":"x_s3amazonaws","pattern":"s3\\.amazonaws\\.com/doc"}
+{"fingerprint":"x_apple","pattern":"Description: The document you requested has moved to a new location\\.  The new location is \"https://www\\.apple\\.com/\"\\."}
+{"fingerprint":"x_403","pattern":"This error message is generated when the web server is trying to access a file that does not exist or has been configured incorrectly"}
+{"fingerprint":"x_display_error","pattern":"<h3>Error! Page cannot be displayed. Please contact service provider for more details.</h3>"}
+{"fingerprint":"x_file_not_found","pattern":"<title>404 - File or directory not found.</title>"}
+{"fingerprint":"x_everbright","pattern":"<title>欢迎光临中国光大银行---网上银行</title>"}
+{"fingerprint":"x_citicbank","pattern":"<title>中信网上银行_理财产品、申请信用卡、个人贷款-中信银行官网</title>"}
+
+{"fingerprint":"satellite_fp_apache_config","pattern":"The configuration layout for an Apache2 web server installation on Debian systems is as follows"}
+{"fingerprint":"satellite_fp_cgi_default","pattern":"CONTENT=\"0;URL=/cgi-sys/defaultwebpage\\.cgi"}
+{"fingerprint":"satellite_fp_config1","pattern":"<p>Upload your website to get started\\.</p>"}
+{"fingerprint":"satellite_fp_config2","pattern":"<h2>If you are the website administrator:</h2>"}
+{"fingerprint":"satellite_fp_config3","pattern":"<title>Welcome to CentOS</title>"}
+{"fingerprint":"satellite_fp_config4","pattern":"<p>Die gewünschte Domain ist auf diesem Server nicht konfiguriert und kann deshalb nicht angezeigt werden\\.</p>"}
+{"fingerprint":"satellite_fp_default_site","pattern":"<title>Default Site</title>"}
+{"fingerprint":"satellite_fp_direct_ip1","pattern":"<p>You are seeing this page because you have accessed the server directly via it\\'s IP address or used a domain that is not registered on this server (<b>pacy01\\.pacyworld\\.com</b>)\\.</p>"}
+{"fingerprint":"satellite_fp_elec_embers","pattern":"<head><title>Electric Embers-hosted Web site</title></head>"}
+{"fingerprint":"satellite_fp_fireware","pattern":"<title>Fireware XTM User Authentication</title>"}
+{"fingerprint":"satellite_fp_400","pattern":"<!-- @codegen-command : phps GenerateErrorPages -->"}
+{"fingerprint":"satellite_fp_401_unauthorized","pattern":"<title>401 Unauthorized</title>"}
+{"fingerprint":"satellite_fp_403","pattern":"<p>You don\\'t have permission to access"}
+{"fingerprint":"satellite_fp_404_1","pattern":"<HTML><HEAD><TITLE>Not Found</TITLE>"}
+{"fingerprint":"satellite_fp_404_2","pattern":"<p>The gods are wise, but do not know of the site which you seek\\.</p>"}
+{"fingerprint":"satellite_fp_502","pattern":"<center><h1>502 Bad Gateway</h1></center>"}
+{"fingerprint":"satellite_fp_503_1","pattern":"<title>503 Backend unavailable"}
+{"fingerprint":"satellite_fp_503_2","pattern":"<title>503 hostname doesn't match against certificate</title>"}
+{"fingerprint":"satellite_fp_503_3","pattern":"<title>503 Backend is unhealthy</title>"}
+{"fingerprint":"satellite_fp_client_address_unknown","pattern":"<p>Your client address is unknown\\.</p>"}
+{"fingerprint":"satellite_fp_config_tmstreet","pattern":"<TITLE>TMStreet - Home of Something Great </TITLE>"}
+{"fingerprint":"satellite_fp_fastly_410","pattern":"<script defer src=\"https://www\\.fastly-insights\\.com/static/scout\\.js?"}
+{"fingerprint":"satellite_fp_fortiadc","pattern":"<iframe src=\"/fortiadc_error_page/index\\.html\""}
+{"fingerprint":"satellite_fp_law_harvard","pattern":"<title>adam\\.law\\.harvard\\.edu</title>"}
+{"fingerprint":"satellite_fp_mimecast","pattern":"Unauthorized access, not a valid customer IP</p>"}
+{"fingerprint":"satellite_fp_nginx_1","pattern":"Thank you for using nginx"}
+{"fingerprint":"satellite_fp_nginx_welcome","pattern":"Welcome to nginx!"}
+{"fingerprint":"satellite_fp_no_page","pattern":"<p><strong>There isn't a GitHub Pages site here\\.</strong></p>"}
+{"fingerprint":"satellite_fp_no_site_found","pattern":"<title>Web Site Not Found</title>"}
+{"fingerprint":"satellite_fp_no_site_found1","pattern":"<title>没有找到站点</title>"}
+{"fingerprint":"satellite_fp_no_site_found2","pattern":"There is no website here!"}
+{"fingerprint":"satellite_fp_no_site_found3","pattern":"<p class=\"t1\">Your request did not find this site in the web server!</p>"}
+{"fingerprint":"satellite_fp_no_site_found4","pattern":"<p>We will be back shortly\\.</p>"}
+{"fingerprint":"satellite_fp_no_site_found5","pattern":"content=\"This web address is available for purchase or lease\\. "}
+{"fingerprint":"satellite_fp_no_site_found6","pattern":"<title>Sitio no disponible en este momento\\. Intente m&aacute;s tarde\\.</title>"}
+{"fingerprint":"satellite_fp_no_site_found7","pattern":"Такого домена не существует\\. <br>Может быть, ошибка в адресе? Проверьте еще раз\\."}
+{"fingerprint":"satellite_fp_plesk_1","pattern":"<div class=\"page-info-heading\">Web Server's Default Page</div>"}
+{"fingerprint":"satellite_fp_plesk_2","pattern":"<title>Default Parallels Plesk Panel Page</title>"}
+{"fingerprint":"satellite_fp_queernet","pattern":"<TITLE>QueerNet: Home Page</TITLE>"}
+{"fingerprint":"satellite_fp_taobao_error","pattern":"Location: http://err\\.taobao\\.com/error1\\.html"}
+{"fingerprint":"satellite_fp_wikimedia","pattern":"<title>Wikimedia Error</title>"}
+{"fingerprint":"satellite_fp_wpx","pattern":"You have reached the default page at WPX Cloud instance chi01 <br />"}
+{"fingerprint":"satellite_general2","pattern":"Your client does not have permission to get"}
+{"fingerprint":"satellite_general2","pattern":"<h2>This is the default index page of your website\\.</h2>"}
+{"fingerprint":"satellite_general3","pattern":"<meta name=\"description\" content=\"The owner of this domain has not yet uploaded their website\\.\" />"}
+{"fingerprint":"satellite_general4","pattern":"<body><!-- default --></body>"}
+{"fingerprint":"satellite_fp_iis_config","pattern":"<title>IIS Windows Server</title>"}
+{"fingerprint":"satellite_jfp_s_support","pattern":"访问本页面，您的浏览器需要支持JavaScript"}
+{"fingerprint":"satellite_fp_long_chinese_page_non_censorship","pattern":"<title>M R Y T</title>"}
+{"fingerprint":"satellite_fp_nginx2","pattern":"<p>You've successfully started the Nginx Proxy Manager\\.</p>"}
+{"fingerprint":"satellite_fp_permission1","pattern":"<p>Ensure you have sufficient permissions to access this site\\.</p>"}
+{"fingerprint":"satellite_fp_poland","pattern":"<title>Under construction :-\\)</title>"}
+{"fingerprint":"satellite_fp_safenames","pattern":"<title>Domain Registered at Safenames</title>"}
+{"fingerprint":"satellite_fp_synology","pattern":"<title>Hello! Welcome to Synology Web Station!</title>"}
+{"fingerprint":"satellite_fp_tele_global_lg","pattern":"<h1><a id=\"title\" href=\"lg\\.tgg\\.net\\.id\">Tele Globe Global LG</a></h1>"}
+{"fingerprint":"satellite_fp_test_page","pattern":"<title>Test Page for the Nginx HTTP Server on Fedora</title>"}
+{"fingerprint":"satellite_fp_website_down1","pattern":"<p>The fact that you are seeing this page indicates that the website you just visited is either experiencing problems, or is undergoing routine maintenance\\.</p>"}
+{"fingerprint":"satellite_fp_welcome2","pattern":"<title>Apache2 Ubuntu Default Page: It works</title>"}
+{"fingerprint":"satellite_fp_welcome3","pattern":"<h1>Welcome to CentOS</h1>"}
+{"fingerprint":"satellite_fp_site_repair","pattern":"Location: https://r\\.orange\\.fr/r/Oerreur_unavailable"}
+{"fingerprint":"satellite_fp_404","pattern":"<title>Error 404 (Not Found)!!1</title>"}
+{"fingerprint":"satellite_fp_no_site_found_espiv","pattern":"<title> Oops! (200) page by espiv\\.net</title>"}
+{"fingerprint":"satellite_fp_site_reserved","pattern":"Dit webadres is gereserveerd door een klant van <a href='https://greenhost\\.nl/' target='_new'>greenhost"}
+{"fingerprint":"satellite_fp_no_site_found_9","pattern":"<title>Coming Soon</title>"}
+{"fingerprint":"satellite_fp_welcome_hawk_host","pattern":"<title>Hawk Host - Welcome To Hawk Host!</title>"}
+{"fingerprint":"satellite_fp_cloud_access_config","pattern":"<title>CloudAccess\\.net Message</title>"}
+{"fingerprint":"satellite_fp_maintenace","pattern":" <title>MAINTENANCE PAGE</title>"}
+{"fingerprint":"satellite_fp_welcome_tor","pattern":"<TITLE>Welcome to web-fsn"}
+{"fingerprint":"satellite_fp_parked_domains","pattern":"a really cool domain parked on Park\\.io</title>"}
+{"fingerprint":"satellite_fp_dynamix_host","pattern":"<title>Dynamix Host</title>"}
+{"fingerprint":"satellite_fp_site_default","pattern":"<title>Web Server's Default Page</title>"}
+{"fingerprint":"satellite_fp_welcome_tor_2","pattern":"<TITLE>Welcome to polyanthum!</TITLE>"}
+{"fingerprint":"satellite_fp_no_site_found","pattern":"<TITLE>ERROR: No web site here</TITLE>"}
+{"fingerprint":"satellite_fp_maintenace_wartaekonomi","pattern":"<title>Wartaekonomi - Maintenance Landing Page</title>"}
+{"fingerprint":"satellite_fp_microsoft_internet_service","pattern":"<title>Microsoft Internet Information Services"}
+{"fingerprint":"satellite_fp_domain_expired","pattern":"<title>Home - domain expired</title>"}
+{"fingerprint":"satellite_fp_back_ve","pattern":"<title>Banco de Venezuela</title>"}
+{"fingerprint":"satellite_fp_502","pattern":"\"status\":502,\"message\":\"No route known for"}
+{"fingerprint":"satellite_fp_vhost_404","pattern":"<title>404 Vhost unknown\\.</title>"}
+{"fingerprint":"satellite_fp_no_such_app","pattern":"<title>No such app</title>"}
+{"fingerprint":"satellite_fp_dummy_uk","pattern":"Location: http://dummy\\.co\\.uk"}
+{"fingerprint":"satellite_fp_nginx_amazon","pattern":"<title>Test Page for the Nginx HTTP Server on the Amazon Linux AMI</title>"}
