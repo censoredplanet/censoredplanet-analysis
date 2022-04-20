@@ -61,8 +61,7 @@ class FlattenMeasurementTest(unittest.TestCase):
         source='CP_Quack-echo-2019-10-16-01-01-17',
         start_time='2020-11-14T07:54:49.246304766-05:00',
         stateful_block=False,
-        success=True,
-        outcome='expected/match')
+        success=True)
 
     flattener = flatten.FlattenMeasurement()
     flattener.setup()

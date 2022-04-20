@@ -128,8 +128,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 is_known_blockpage=False,
                 status='HTTP/1.1 503 Service Unavailable',
                 page_signature='x_generic_503_4',
-            ),
-            outcome='content/mismatch'),
+            )),
         HyperquackRow(
             domain=
             'www.test.com',  # domain is populated even though sent was empty
@@ -150,8 +149,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 is_known_blockpage=None,
                 status='',
                 page_signature=None,
-            ),
-            outcome='read/timeout'),
+            )),
         HyperquackRow(
             domain=
             '',  # missing control domain is not populated when sent is empty
@@ -167,8 +165,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,  # calculated even though sent was empty
             controls_failed=True,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2020-08-23-06-01-02',
-            outcome='read/timeout'),
+            source='CP_Quack-echo-2020-08-23-06-01-02'),
         HyperquackRow(
             domain='example5718349450314.com',
             category='Control',
@@ -188,8 +185,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 is_known_blockpage=None,
                 status='HTTP/1.1 403 Forbidden',
                 page_signature=None,
-            ),
-            outcome='content/mismatch'),
+            )),
     ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
@@ -251,8 +247,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='expected/match'),
+            source='CP_Quack-echo-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -266,8 +261,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=False,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='expected/match'),
+            source='CP_Quack-echo-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -283,8 +277,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=False,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-            outcome='setup/system_failure')
+            source='CP_Quack-echo-2021-05-30-01-01-01')
     ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2021-05-30-01-01-01/results.json'
@@ -349,8 +342,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-discard-2021-05-31-12-43-21',
-            outcome='expected/match'),
+            source='CP_Quack-discard-2021-05-31-12-43-21'),
         HyperquackRow(
             domain='123rf.com',
             category='E-commerce',
@@ -371,8 +363,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 is_known_blockpage=None,
                 status='',
                 page_signature=None,
-            ),
-            outcome='read/tcp.reset'),
+            )),
         HyperquackRow(
             domain='control-be2b77e1cde11c02.com',
             category='Control',
@@ -386,8 +377,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-discard-2021-05-31-12-43-21',
-            outcome='expected/match')
+            source='CP_Quack-discard-2021-05-31-12-43-21')
     ]
 
     filename = 'gs://firehook-scans/discard/CP_Quack-discard-2021-05-31-12-43-21/results.json'
@@ -436,8 +426,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         is_control=False,
         controls_failed=False,
         measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-        source='CP_Quack-http-2020-11-09-01-02-08',
-        outcome='expected/match')
+        source='CP_Quack-http-2020-11-09-01-02-08')
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
@@ -501,8 +490,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             ],
             is_known_blockpage=False,
             page_signature='p_fp_33',
-        ),
-        outcome='content/status_mismatch:301')
+        ))
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
     flattener = get_hyperquack_flattener()
@@ -563,8 +551,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-http-2021-05-30-01-01-01',
-            outcome='expected/match'),
+            source='CP_Quack-http-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='1337x.to',
             category='Media sharing',
@@ -590,8 +577,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 ],
                 is_known_blockpage=False,
                 page_signature='x_generic_503_4',
-            ),
-            outcome='content/mismatch')
+            ))
     ]
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2021-05-30-01-01-01/results.json'
@@ -686,8 +672,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 'Set-Cookie: TS016c74f4=01671efb9a1a400535e215d6f76498a5887425fed793ca942baa75f16076e60e1350988222922fa06fc16f53ef016d9ecd38535fcabf14861525811a7c3459e91086df326f; Path=/',
                 'X-Frame-Options: SAMEORIGIN',
             ],
-        ),
-        outcome='content/status_mismatch:302'
+        )
     )
     # yapf: enable
 
@@ -770,8 +755,7 @@ class FlattenHyperquackTest(unittest.TestCase):
                 'Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
                 'Charset: utf-8'
             ],
-        ),
-        outcome='content/mismatch'
+        )
     )
     # yapf: enable
 
