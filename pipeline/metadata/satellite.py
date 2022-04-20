@@ -842,6 +842,8 @@ def process_satellite_lines(
   post_processed_satellite = post_processing_satellite(
       satellite_with_page_fetches)
 
-  rows_with_metadata = metadata_adder.add_metadata(post_processed_satellite)
+  # PCollection[SatelliteRow]
+  rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
+      post_processed_satellite)
 
-  return rows_with_metadata
+  return rows_with_resolver_ip_annotations

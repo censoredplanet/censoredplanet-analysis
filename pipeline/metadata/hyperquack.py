@@ -20,7 +20,7 @@ def process_hyperquack_lines(
       lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(HyperquackRow))
 
-  # PCollection[HyperquackRow|SatelliteRow]
-  rows_with_metadata = metadata_adder.add_metadata(rows)
+  # PCollection[HyperquackRow]
+  rows_with_ip_annotations = metadata_adder.annotate_row_ip(rows)
 
-  return rows_with_metadata
+  return rows_with_ip_annotations

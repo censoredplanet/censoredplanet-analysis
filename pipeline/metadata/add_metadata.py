@@ -19,7 +19,7 @@ class MetadataAdder():
                metadata_chooser_factory: IpMetadataChooserFactory) -> None:
     self.metadata_chooser_factory = metadata_chooser_factory
 
-  def add_metadata(
+  def annotate_row_ip(
       self, rows: beam.pvalue.PCollection[BigqueryRow]
   ) -> beam.pvalue.PCollection[BigqueryRow]:
     """Add ip metadata to a collection of roundtrip rows.
@@ -57,8 +57,8 @@ class MetadataAdder():
     # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
     ips_with_metadata = (
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
-            self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
-                                                           IpMetadataWithKeys]))
+            self._annotate_ips).with_output_types(Tuple[DateIpKey,
+                                                        IpMetadataWithKeys]))
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadataWithKeys]]]]
     grouped_metadata_and_rows = (({
@@ -74,7 +74,7 @@ class MetadataAdder():
 
     return rows_with_metadata
 
-  def _add_ip_metadata(
+  def _annotate_ips(
       self, date: str,
       ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadataWithKeys]]:
     """Add Autonymous System metadata for ips in the given rows.

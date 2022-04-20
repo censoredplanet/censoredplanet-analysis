@@ -17,7 +17,7 @@ from pipeline.metadata.add_metadata import MetadataAdder
 class MetadataAdderTest(unittest.TestCase):
   """Unit tests for adding ip metadata."""
 
-  def test_add_metadata(self) -> None:  # pylint: disable=no-self-use
+  def test_annotate_row_ip(self) -> None:  # pylint: disable=no-self-use
     """Test adding IP metadata to mesurements."""
     rows = [
         BigqueryRow(
@@ -50,7 +50,7 @@ class MetadataAdderTest(unittest.TestCase):
     rows = (p | beam.Create(rows))
 
     adder = MetadataAdder(FakeIpMetadataChooserFactory())
-    rows_with_metadata = adder.add_metadata(rows)
+    rows_with_metadata = adder.annotate_row_ip(rows)
 
     expected = [
         BigqueryRow(
@@ -112,11 +112,10 @@ class MetadataAdderTest(unittest.TestCase):
 
   # pylint: disable=protected-access
 
-  def test_add_ip_metadata_caida(self) -> None:
+  def test_annotate_ips_caida(self) -> None:
     """Test merging given IP metadata with given measurements."""
     adder = MetadataAdder(FakeIpMetadataChooserFactory())
-    metadatas = list(
-        adder._add_ip_metadata('2020-01-01', ['1.1.1.1', '8.8.8.8']))
+    metadatas = list(adder._annotate_ips('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1: satellite.DateIpKey = ('2020-01-01', '1.1.1.1')
     expected_value_1 = IpMetadataWithKeys(
@@ -147,12 +146,12 @@ class MetadataAdderTest(unittest.TestCase):
     self.assertListEqual(metadatas, [(expected_key_1, expected_value_1),
                                      (expected_key_2, expected_value_2)])
 
-  def disabled_test_add_ip_metadata_maxmind(self) -> None:
+  def disabled_test_annotate_ips_maxmind(self) -> None:
     """Test merging given IP metadata with given measurements."""
     # TODO turn back on once maxmind is reenabled.
 
     adder = MetadataAdder(FakeIpMetadataChooserFactory())
-    metadatas = list(adder._add_ip_metadata('2020-01-01', ['1.1.1.3']))
+    metadatas = list(adder._annotate_ips('2020-01-01', ['1.1.1.3']))
 
     # Test Maxmind lookup when country data is missing
     # Cloudflare IPs return Australia
