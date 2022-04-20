@@ -22,7 +22,8 @@ class BlockpageTest(unittest.TestCase):
 
     false_positive_signatures = list(matcher.false_positives.keys())
     self.assertEqual("x_fpru_amazon", false_positive_signatures[0])
-    self.assertEqual("satellite_fp_nginx_amazon", false_positive_signatures[-1])
+    self.assertEqual("satellite_fp_nginx_amazon", 
+                     false_positive_signatures[-1])
 
   def test_simple_blockpage_matches(self) -> None:
     matcher = blockpage.BlockpageMatcher()
