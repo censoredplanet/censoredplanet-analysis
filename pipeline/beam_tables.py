@@ -62,50 +62,62 @@ SCAN_FILES = ['results.json']
 EMPTY_GZIPPED_FILE_SIZE = 33
 
 
-def _get_existing_datasources(destination: str, project: str) -> List[str]:
-  """Given a BigQuery or GCS destination return all contributing sources.
+def _get_existing_bq_datasources(table_name: str, project: str) -> List[str]:
+  """Given a BigQuery table return all sources that contributed to the table.
+  Args:
+    table_name: name of a bigquery table like
+      'firehook-censoredplanet:echo_results.scan_test'
+    project: project to use for query like 'firehook-censoredplanet'
+  Returns:
+    List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
+  """
+  # This needs to be created locally
+  # because bigquery client objects are unpickleable.
+  # So passing in a client to the class breaks the pickling beam uses
+  # to send state to remote machines.
+  client = cloud_bigquery.Client(project=project)
+
+  # Bigquery table names are of the format project:dataset.table
+  # but this library wants the format project.dataset.table
+  fixed_table_name = table_name.replace(':', '.')
+
+  query = f'SELECT DISTINCT(source) AS source FROM `{fixed_table_name}`'
+  rows = client.query(query)
+  sources = [row.source for row in rows]
+  return sources
+
+
+def _get_existing_gcs_datasources(gcs_folder: str, project: str) -> List[str]:
+  """Given a GCS folder return all contributing sources.
 
   Args:
-    destination: name of a bigquery table like
-      'firehook-censoredplanet:echo_results.scan_test'
-      or a GCS folder like 'gs://firehook-test/avirkud'
+    gcs_folder: name of a GCS folder like 'gs://firehook-test/avirkud'
     project: project to use for query like 'firehook-censoredplanet'
 
   Returns:
     List of data sources. ex ['CP_Quack-echo-2020-08-23-06-01-02']
   """
-  # The client needs to be created locally
-  # because bigquery and storage client objects are unpickleable.
+  # Import storage here to avoid errors on Dataflow workers.
+  # pylint: disable=import-outside-toplevel
+  from google.cloud import storage  # type: ignore
+  # This needs to be created locally
+  # because gcs client objects are unpickleable.
   # So passing in a client to the class breaks the pickling beam uses
   # to send state to remote machines.
-  if destination.startswith('gs://'):
-    # pylint: disable=import-outside-toplevel
-    from google.cloud import storage  # type: ignore
-    client = storage.Client(project=project)
+  client = storage.Client(project=project)
 
-    # The first path component after gs:// is the bucket, the rest is the subdir.
-    path_split = destination[5:].split('/', maxsplit=1)
-    bucket_name = path_split[0]
-    folder = path_split[1] if len(path_split) > 1 else None
+  # The first path component after gs:// is the bucket, the rest is the subdir.
+  path_split = gcs_folder[5:].split('/', maxsplit=1)
+  bucket_name = path_split[0]
+  folder = path_split[1] if len(path_split) > 1 else None
 
-    # We expect filenames in format gs://bucket/.../source={source}/.../file
-    bucket = client.get_bucket(bucket_name)
-    matches = [
-        re.findall(r'source=[^/]*', file.name)
-        for file in client.list_blobs(bucket, prefix=folder)
-    ]
-    sources = [match[0][7:] for match in matches if match]
-    return sources
-
-  client = cloud_bigquery.Client(project=project)
-
-  # Bigquery table names are of the format project:dataset.table
-  # but this library wants the format project.dataset.table
-  fixed_table_name = destination.replace(':', '.')
-
-  query = f'SELECT DISTINCT(source) AS source FROM `{fixed_table_name}`'
-  rows = client.query(query)
-  sources = [row.source for row in rows]
+  # We expect filenames in format gs://bucket/.../source={source}/.../file
+  bucket = client.get_bucket(bucket_name)
+  matches = [
+      re.findall(r'source=[^/]*', file.name)
+      for file in client.list_blobs(bucket, prefix=folder)
+  ]
+  sources = [match[0][7:] for match in matches if match]
   return sources
 
 
@@ -205,25 +217,43 @@ def _get_partition_params() -> Dict[str, Any]:
   return partition_params
 
 
-def get_job_name(destination: str, incremental_load: bool) -> str:
-  """Creates the job name for the beam pipeline.
+def get_bq_job_name(table_name: str, incremental_load: bool) -> str:
+  """Creates the job name for the beam pipeline (output to Bigquery).
 
   Pipelines with the same name cannot run simultaneously.
 
   Args:
-    table_name: a dataset.table name like 'base.scan_echo' or
-        gs://bucket/folder/... name like 'gs://firehook-test/scans/echo'
+    table_name: a dataset.table name like 'base.scan_echo'
     incremental_load: boolean. whether the job is incremental.
 
   Returns:
-    A string like 'write-base-scan-echo' or 'write-gs-firehook-test-scans-echo'
+    A string like 'write-base-scan-echo'
+  """
+  # no underscores or periods are allowed in beam job names
+  fixed_job_name = table_name.replace('_', '-').replace('.', '-')
+  if incremental_load:
+    return 'append-' + fixed_job_name
+  return 'write-' + fixed_job_name
+
+
+def get_gcs_job_name(gcs_folder: str, incremental_load: bool) -> str:
+  """Creates the job name for the beam pipeline (output to GCS).
+
+  Pipelines with the same name cannot run simultaneously.
+
+  Args:
+    gcs_folder: a gs://bucket/folder/... name like 'gs://firehook-test/scans/echo'
+    incremental_load: boolean. whether the job is incremental.
+
+  Returns:
+    A string like 'write-gs-firehook-test-scans-echo'
   """
   # no underscores, colons, slashes, or periods are allowed in beam job names
-  fixed_dest_name = destination.replace('_', '-').replace('.', '-')
-  fixed_dest_name = fixed_dest_name.replace('://', '-').replace('/', '-')
+  fixed_job_name = gcs_folder.replace('_', '-').replace('.', '-')
+  fixed_job_name = fixed_job_name.replace('://', '-').replace('/', '-')
   if incremental_load:
-    return 'append-' + fixed_dest_name
-  return 'write-' + fixed_dest_name
+    return 'append-' + fixed_job_name
+  return 'write-' + fixed_job_name
 
 
 def get_table_name(dataset_name: str, scan_type: str,
@@ -304,7 +334,8 @@ class ScanDataBeamPipelineRunner():
                     gcs: GCSFileSystem,
                     scan_type: str,
                     incremental_load: bool,
-                    destination: str,
+                    table_name: Optional[str] = None,
+                    gcs_folder: Optional[str] = None,
                     start_date: Optional[datetime.date] = None,
                     end_date: Optional[datetime.date] = None) -> List[str]:
     """Select the right files to read.
@@ -314,6 +345,7 @@ class ScanDataBeamPipelineRunner():
       scan_type: one of 'echo', 'discard', 'http', 'https', 'satellite'
       incremental_load: boolean. If true, only read the latest new data
       table_name: dataset.table name like 'base.scan_echo'
+      gcs_folder: GCS folder gs://bucket/folder/... like 'gs://firehook-test/avirkud'
       start_date: date object, only files after or at this date will be read
       end_date: date object, only files at or before this date will be read
 
@@ -323,9 +355,13 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      if not destination.startswith('gs://'):
-        destination = self._get_full_table_name(destination)
-      existing_sources = _get_existing_datasources(destination, self.project)
+      if table_name:
+        full_table_name = self._get_full_table_name(table_name)
+        existing_sources = _get_existing_bq_datasources(full_table_name,
+                                                        self.project)
+      elif gcs_folder:
+        existing_sources = _get_existing_gcs_datasources(
+            gcs_folder, self.project)
     else:
       existing_sources = []
 
@@ -556,7 +592,8 @@ class ScanDataBeamPipelineRunner():
     return pipeline_options
 
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
-                        job_name: str, destination: str,
+                        job_name: str, table_name: Optional[str],
+                        gcs_folder: Optional[str],
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date],
                         export_gcs: bool) -> None:
@@ -567,9 +604,10 @@ class ScanDataBeamPipelineRunner():
       incremental_load: boolean. If true, only load the latest new data, if
         false reload all data.
       job_name: string name for this pipeline job.
-      destination: either dataset.table name like 'base.scan_echo' if writing to
-        BigQuery, or gs://bucket/folder/... name like 'gs://firehook-test/scans'
-        if writing to Google Cloud Storage.
+      table_name: dataset.table name like 'base.scan_echo'
+        if writing to Bigquery.
+      gcs_folder: gs://bucket/folder/... name like 'gs://firehook-test/scans'
+        if writing to GCS.
       start_date: date object, only files after or at this date will be read.
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
@@ -582,18 +620,17 @@ class ScanDataBeamPipelineRunner():
     """
     logging.getLogger().setLevel(logging.INFO)
 
-    is_gcs_destination = destination.startswith('gs://')
-    if export_gcs and not is_gcs_destination:
-      raise Exception('Destination must start with gs:// when writing to GCS.')
-    if not export_gcs and is_gcs_destination:
-      raise Exception(
-          'Destination must be a dataset.table name when writing to BigQuery.')
+    if export_gcs and not gcs_folder:
+      raise Exception('gcs_folder argument required when writing to GCS.')
+    if not export_gcs and not table_name:
+      raise Exception('table_name argument required when writing to BigQuery.')
 
     pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
     new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
-                                       destination, start_date, end_date)
+                                       table_name, gcs_folder, start_date,
+                                       end_date)
     if not new_filenames:
       logging.info('No new files to load')
       return
@@ -617,8 +654,10 @@ class ScanDataBeamPipelineRunner():
 
       _raise_error_if_collection_empty(rows_with_metadata)
 
-      if export_gcs:
-        self._write_to_gcs(scan_type, rows_with_metadata, destination)
-      else:
-        self._write_to_bigquery(scan_type, rows_with_metadata, destination,
+      # TODO: Eventually we want to be able to run both exports simultaneously
+      # so that we can reuse the pipeline output.
+      if export_gcs and gcs_folder is not None:
+        self._write_to_gcs(scan_type, rows_with_metadata, gcs_folder)
+      elif table_name is not None:
+        self._write_to_bigquery(scan_type, rows_with_metadata, table_name,
                                 incremental_load)

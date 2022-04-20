@@ -205,7 +205,7 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
   pipeline_name = f'test_{scan_type}'
   dataset_table_name = get_beam_base_table_name(scan_type)
   test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
-                                dataset_table_name, None, None, False)
+                                dataset_table_name, None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -230,7 +230,7 @@ def run_local_pipeline_gcs(scan_type: str, incremental: bool) -> None:
 
   pipeline_name = f'test_{scan_type}'
   gcs_folder = get_gs_formatted_gcs_folder(scan_type)
-  test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
+  test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME, None,
                                 gcs_folder, None, None, True)
 
 
@@ -243,7 +243,7 @@ def run_local_pipeline_satellite_v1() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None, False)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -256,7 +256,7 @@ def run_local_pipeline_satellite_v2p1() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None, False)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -269,7 +269,7 @@ def run_local_pipeline_satellite_v2p2() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None, False)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -281,7 +281,7 @@ def run_local_pipeline_invalid() -> None:
 
   dataset_table_name = get_beam_base_table_name('invalid')
   test_runner.run_beam_pipeline('invalid', True, JOB_NAME, dataset_table_name,
-                                None, None, False)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 

@@ -25,6 +25,7 @@ from typing import Optional, List
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
+from firehook_resources import OUTPUT_BUCKET
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
@@ -57,17 +58,20 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
   with concurrent.futures.ThreadPoolExecutor() as pool:
     futures = []
     for scan_type in scan_types:
-      destination = beam_tables.get_table_name(dataset, scan_type,
-                                               beam_tables.BASE_TABLE_NAME)
+      table_name = None
+      gcs_folder = None
       if export_gcs:
-        # TODO: define global for bucket
-        destination = beam_tables.get_gcs_folder(dataset, scan_type,
-                                                 'firehook-test')
-      job_name = beam_tables.get_job_name(destination, incremental_load)
+        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                OUTPUT_BUCKET)
+        job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+      else:
+        table_name = beam_tables.get_table_name(dataset, scan_type,
+                                                beam_tables.BASE_TABLE_NAME)
+        job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
-                           incremental_load, job_name, destination, start_date,
-                           end_date, export_gcs)
+                           incremental_load, job_name, table_name, gcs_folder,
+                           start_date, end_date, export_gcs)
       futures.append(future)
 
     finished, pending = concurrent.futures.wait(
