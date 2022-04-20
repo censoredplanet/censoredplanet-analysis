@@ -7,7 +7,7 @@ from typing import Tuple, Optional
 import apache_beam as beam
 
 from pipeline.metadata import flatten
-from pipeline.metadata.schema import HyperquackRow, BigqueryRow
+from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.add_metadata import MetadataAdder
 from pipeline.metadata.hyperquack_outcome import classify_hyperquack_outcome
 
@@ -31,7 +31,7 @@ def _get_scan_type_from_source(source: Optional[str]) -> str:
   raise Exception(f"Can't determine scan type for source {source}")
 
 
-def _add_outcome(row: BigqueryRow) -> HyperquackRow:
+def _add_outcome(row: HyperquackRow) -> HyperquackRow:
   row.outcome = classify_hyperquack_outcome(
       row.error, _get_scan_type_from_source(row.source), row.received.status,
       row.success, row.received.is_known_blockpage, row.received.page_signature,

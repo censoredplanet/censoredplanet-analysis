@@ -14,8 +14,11 @@ from pipeline.metadata.add_metadata import MetadataAdder
 
 
 class HyperquackTest(unittest.TestCase):
+  """unit testing for overall hyperquack pipeline"""
 
   def test_process_hyperquack_lines(self) -> None:  # pylint: disable=no-self-use
+    """Test processing a single hyperquack line fully"""
+
     data_filenames = [
         "CP_Hyperquack-https-2022-03-31-23-40-26/results.json",
     ]
