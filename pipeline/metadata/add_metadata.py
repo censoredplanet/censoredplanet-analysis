@@ -68,9 +68,10 @@ class MetadataAdder():
 
     # PCollection[BigqueryRow]
     rows_with_metadata = (
-        grouped_metadata_and_rows |
-        'merge metadata with rows' >> beam.FlatMapTuple(
-            merge_metadata_with_rows).with_output_types(BigqueryRow))
+        grouped_metadata_and_rows | 'merge metadata with rows' >>
+        beam.FlatMapTuple(merge_metadata_with_rows))
+    # We had to remove the beam type hint here
+    # So subsequent operations can take either HyperquackRow or SatelliteRow
 
     return rows_with_metadata
 

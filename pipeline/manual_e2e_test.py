@@ -58,19 +58,19 @@ JOB_NAME = 'manual-test-job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/http_results_v1.json',
-      'pipeline/e2e_test_data/http_results_v2.json',
-      'pipeline/e2e_test_data/https_results_v1.json',
-      'pipeline/e2e_test_data/https_results_v2.json'
+      'pipeline/e2e_test_data/http/http_results_v1.json',
+      'pipeline/e2e_test_data/http/http_results_v2.json',
+      'pipeline/e2e_test_data/https/https_results_v1.json',
+      'pipeline/e2e_test_data/https/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/discard_results_v1.json',
-      'pipeline/e2e_test_data/discard_results_v2.json',
-      'pipeline/e2e_test_data/echo_results_v1.json',
-      'pipeline/e2e_test_data/echo_results_v2.json'
+      'pipeline/e2e_test_data/discard/discard_results_v1.json',
+      'pipeline/e2e_test_data/discard/discard_results_v2.json',
+      'pipeline/e2e_test_data/echo/echo_results_v1.json',
+      'pipeline/e2e_test_data/echo/echo_results_v2.json'
   ]
 
 
@@ -118,9 +118,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v1.json'
+    scan_file = f'pipeline/e2e_test_data/{scan_type}/{scan_type}_results_v1.json'
   else:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}_results_v2.json'
+    scan_file = f'pipeline/e2e_test_data/{scan_type}/{scan_type}_results_v2.json'
 
   return lambda *_: [scan_file]
 

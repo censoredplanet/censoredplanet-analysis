@@ -169,6 +169,7 @@ class HyperquackRow(BigqueryRow):
   """Class for hyperquack specific fields"""
   received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
   stateful_block: Optional[bool] = None
+  outcome: Optional[str] = None
 
 
 @dataclass
@@ -227,6 +228,7 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'measurement_id': row.measurement_id,
       'source': row.source,
       'stateful_block': row.stateful_block,
+      'outcome': row.outcome,
       'netblock': row.ip_metadata.netblock,
       'asn': row.ip_metadata.asn,
       'as_name': row.ip_metadata.as_name,
@@ -358,6 +360,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     'blockpage': ('boolean', 'nullable'),
     'page_signature': ('string', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
+    'outcome': ('string', 'nullable'),
 
     # Column filled in all tables
     'received_status': ('string', 'nullable'),
