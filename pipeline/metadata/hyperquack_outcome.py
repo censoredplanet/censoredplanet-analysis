@@ -18,7 +18,7 @@ def _status_mismatch(received_status: Optional[str]) -> str:
   return "status_mismatch:" + received_status[:3]
 
 
-def _get_first_error(errors: Optional[str]) -> Optional[str]:
+def _get_first_error(errors: str) -> str:
   """
   Args:
     errors: string like "error a; error b; error c" or just "error a"
@@ -26,9 +26,6 @@ def _get_first_error(errors: Optional[str]) -> Optional[str]:
   Feturns
     "error a"
   """
-  if errors is None:
-    return None
-
   if ';' in errors:
     return errors[:errors.index(';')]
   return errors  # single error
@@ -127,18 +124,40 @@ def _get_content_mismatch(error: str, scan_type: str, received_status: Optional[
   return None
 
 
-def _classify_hyperquack_error(error: Optional[str], scan_type: str,
-                               received_status: Optional[str]) -> str:
+def classify_hyperquack_outcome(error: Optional[str], scan_type: str,
+                                received_status: Optional[str],
+                                matches_template: Optional[bool],
+                                is_known_blockpage: Optional[bool],
+                                blockpage_fingerprint: Optional[str],
+                                received_headers: List[str]) -> str:
   """
   Args:
-    error string like 'read tcp 141.212.123.235:11397->117.78.42.54:9: read: connection reset by peer'
-    scan type: like 'echo, 'discard', etc
+    error: string like "Incorrect web response: status lines don't match"
+    received_status: HTTP status like "200 OK"
+    matches_template: did the response match the control template
+    is_known_blockpage: did the page content match a blockpage
+    blockpage_fingerprint: which known blockpage did we match
+    received_headers: HTTP headers
 
   Returns:
-    outcome: string like "<stage>/<result>"
+    outcome string like "read/tcp.reset"
   """
-  # Success
+  # TODO reorder this to more closely match when we see each signal
+
+  if is_known_blockpage and blockpage_fingerprint:
+    return "content/blockpage:" + blockpage_fingerprint
+
+  if _has_akamai_server_header(received_headers):
+    return "expected/trusted_host:akamai"
+
+  # Content mismatch for hyperquack v2 which didn't write
+  # content verification failures in the error field from 2021-04-26 to 2021-07-21
+  if not matches_template and (error is None or error == ""):
+    return "content/mismatch"
+
   if error is None or error == "": return "expected/match"
+
+  error = _get_first_error(error)
 
   if _is_system_failure(error):
     return "setup/system_failure"
@@ -162,41 +181,3 @@ def _classify_hyperquack_error(error: Optional[str], scan_type: str,
   if mismatch_error: return f"content/{mismatch_error}"
 
   return "unknown/unknown"
-
-# yapf: enable
-
-
-def classify_hyperquack_outcome(error: Optional[str], scan_type: str,
-                                received_status: Optional[str],
-                                matches_template: Optional[bool],
-                                is_known_blockpage: Optional[bool],
-                                blockpage_fingerprint: Optional[str],
-                                received_headers: List[str]) -> str:
-  """
-  Args:
-    error: string like "Incorrect web response: status lines don't match"
-    received_status: HTTP status like "200 OK"
-    matches_template: did the response match the control template
-    is_known_blockpage: did the page content match a blockpage
-    blockpage_fingerprint: which known blockpage did we match
-    received_headers: HTTP headers
-
-
-  Returns:
-    outcome string like "read/tcp.reset"
-  """
-  # TODO reorder this to more closely match when we see each signal
-
-  if is_known_blockpage and blockpage_fingerprint:
-    return "content/blockpage:" + blockpage_fingerprint
-
-  if _has_akamai_server_header(received_headers):
-    return "expected/trusted_host:akamai"
-
-  # Content mismatch for hyperquack v2 which didn't write
-  # content verification failures in the error field from 2021-04-26 to 2021-07-21
-  if not matches_template and (error is None or error == ""):
-    return "content/mismatch"
-
-  return _classify_hyperquack_error(
-      _get_first_error(error), scan_type, received_status)
