@@ -58,7 +58,7 @@ def _get_dial_error(error: str) -> Optional[str]:
   if error.endswith("no route to host"): return "ip.host_no_route"
   if error.endswith("connection refused"): return "tcp.refused"
   if error.endswith("context deadline exceeded"): return "timeout"
-  if error.endswith("connect: connection timed ou"): return "timeout"
+  if error.endswith("connect: connection timed out"): return "timeout"
   if error.startswith("connection reset by peer"): return "tcp.reset"  # no read: or write: prefix in error
   if error.endswith("connect: connection reset by peer"): return "tcp.reset"
   if error.endswith("getsockopt: connection reset by peer"): return "tcp.reset"
