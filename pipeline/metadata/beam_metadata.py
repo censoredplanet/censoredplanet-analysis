@@ -15,6 +15,10 @@ DateIpKey = Tuple[str, str]
 # ex: ('2020-01-01', 'example.com')
 DateDomainKey = Tuple[str, str]
 
+# A key containing a source and domain
+# ex: ('CP_Quack-https-2020-01-01', 'example.com')
+SourceDomainKey = Tuple[str, str]
+
 # A key containing a domain, date and ip
 # ex: ('example.com', '2020-01-01', '1.2.3.4')
 DomainDateIpKey = Tuple[str, str, str]
@@ -39,6 +43,10 @@ def make_domain_date_ip_key(row: PageFetchRow) -> DomainDateIpKey:
 
 def make_date_domain_key(row: SatelliteRow) -> DateDomainKey:
   return (row.date or '', row.domain or '')
+
+
+def make_source_domain_key(row: SatelliteRow) -> SourceDomainKey:
+  return (row.source or '', row.domain or '')
 
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
