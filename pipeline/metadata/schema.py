@@ -243,7 +243,7 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'page_signature': row.received.page_signature,
       'outcome': row.outcome,
       'matches_template': row.success,
-      'overall_measurement_does_not_match_template': row.anomaly,
+      'no_response_in_measurement_matches_template': row.anomaly,
       'controls_failed': row.controls_failed,
       'stateful_block': row.stateful_block,
       'measurement_id': row.measurement_id,
@@ -381,7 +381,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     # Analysis
     'outcome': ('string', 'nullable'),
     'matches_template': ('boolean', 'nullable'),
-    'overall_measurement_does_not_match_template': ('boolean', 'nullable'),
+    'no_response_in_measurement_matches_template': ('boolean', 'nullable'),
     'controls_failed': ('boolean', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
 
