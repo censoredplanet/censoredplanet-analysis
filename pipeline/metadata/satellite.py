@@ -11,7 +11,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, SourceDomainKey, make_date_ip_key, make_date_domain_key, make_source_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
+from pipeline.metadata.beam_metadata import DateIpKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, SourceDomainKey, make_date_ip_key, make_source_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
 from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, MatchesControl, SCAN_TYPE_PAGE_FETCH
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
@@ -387,7 +387,7 @@ def post_processing_satellite(
   # PCollection[Tuple[SourceDomainKey, SatelliteRow]]
   rows_keyed_by_source_domains = (
       rows | 'key by sources and domains' >>
-      beam.Map(lambda row: (make_date_domain_key(row), row)).with_output_types(
+      beam.Map(lambda row: (make_source_domain_key(row), row)).with_output_types(
           Tuple[SourceDomainKey, SatelliteRow]))
 
   # PCollection[Tuple[SourceDomainKey, SatelliteRow]] x3
