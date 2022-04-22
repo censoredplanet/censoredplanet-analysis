@@ -386,9 +386,9 @@ def post_processing_satellite(
   """
   # PCollection[Tuple[SourceDomainKey, SatelliteRow]]
   rows_keyed_by_source_domains = (
-      rows | 'key by sources and domains' >>
-      beam.Map(lambda row: (make_source_domain_key(row), row)).with_output_types(
-          Tuple[SourceDomainKey, SatelliteRow]))
+      rows | 'key by sources and domains' >> beam.Map(
+          lambda row: (make_source_domain_key(row), row)).with_output_types(
+              Tuple[SourceDomainKey, SatelliteRow]))
 
   # PCollection[Tuple[SourceDomainKey, SatelliteRow]] x3
   domain_controls, ip_controls, tests = (
