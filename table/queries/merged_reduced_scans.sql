@@ -46,12 +46,12 @@ WITH AllScans AS (
     SELECT
         date,
         source,
-        country AS country_code,
-        as_full_name AS network,
-        IF(is_control, "CONTROL", domain) AS domain,
+        server_country AS country_code,
+        server_as_full_name AS network,
+        IF(domain_is_control, "CONTROL", domain) AS domain,
         outcome AS outcome,
-        CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
-        IFNULL(category, "Uncategorized") AS category,
+        CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
+        IFNULL(domain_category, "Uncategorized") AS category,
         COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
