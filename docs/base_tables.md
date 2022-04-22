@@ -68,8 +68,9 @@ The json data is processed into a flat table format which looks like this.
 |                           |
 | **Analysis**              |
 |                           |
-| success                   | BOOLEAN      | Did the individual roundtrip measurement succeed? |
-| anomaly                   | BOOLEAN      | Was interference detected in the overall measurement? |
+| outcome                   | STRING       | What was the [outcome](outcome.md) of the individual measurement |
+| matches_template          | BOOLEAN      | Did the individual roundtrip measurement match the control template? |
+| overall_measurement_does_not_match_template | BOOLEAN | Did any of the roundtrips in the overall measurement match the template? |
 | stateful_block            | BOOLEAN      | Was stateful interference detected? |
 | controls_failed           | BOOLEAN      | Did all the control measurements connected to this measurement fail? |
 |                           |

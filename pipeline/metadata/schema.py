@@ -211,75 +211,46 @@ def flatten_for_bigquery(
   raise Exception(f'Unknown row type: {type(row)}')
 
 
+# yapf: disable
 def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
   """Convert a structured hyperquack dataclass into a flat dict."""
   flat: Dict[str, Any] = {
-      'domain':
-          row.domain,
-      'domain_category':
-          row.category,
-      'domain_is_control':
-          row.is_control,
-      'date':
-          row.date,
-      'start_time':
-          row.start_time,
-      'end_time':
-          row.end_time,
-      'server_ip':
-          row.ip,
-      'server_netblock':
-          row.ip_metadata.netblock,
-      'server_asn':
-          row.ip_metadata.asn,
-      'server_as_name':
-          row.ip_metadata.as_name,
-      'server_as_full_name':
-          row.ip_metadata.as_full_name,
-      'server_as_class':
-          row.ip_metadata.as_class,
-      'server_country':
-          row.ip_metadata.country,
-      'server_organization':
-          row.ip_metadata.organization,
-      'received_error':
-          row.error,
-      'received_tls_version':
-          row.received.tls_version,
-      'received_tls_cipher_suite':
-          row.received.tls_cipher_suite,
-      'received_tls_cert':
-          row.received.tls_cert,
-      'received_tls_cert_common_name':
-          row.received.tls_cert_common_name,
-      'received_tls_cert_issuer':
-          row.received.tls_cert_issuer,
-      'received_tls_cert_alternative_names':
-          row.received.tls_cert_alternative_names,
-      'received_status':
-          row.received.status,
-      'received_headers':
-          row.received.headers,
-      'received_body':
-          row.received.body,
-      'is_known_blockpage':
-          row.received.is_known_blockpage,
-      'page_signature':
-          row.received.page_signature,
-      'matches_template':
-          row.success,
-      'anomaly':
-          row.anomaly,
-      'controls_failed':
-          row.controls_failed,
-      'stateful_block':
-          row.stateful_block,
-      'measurement_id':
-          row.measurement_id,
-      'source':
-          row.source,
+      'domain': row.domain,
+      'domain_category': row.category,
+      'domain_is_control': row.is_control,
+      'date': row.date,
+      'start_time': row.start_time,
+      'end_time': row.end_time,
+      'server_ip': row.ip,
+      'server_netblock': row.ip_metadata.netblock,
+      'server_asn': row.ip_metadata.asn,
+      'server_as_name': row.ip_metadata.as_name,
+      'server_as_full_name': row.ip_metadata.as_full_name,
+      'server_as_class': row.ip_metadata.as_class,
+      'server_country': row.ip_metadata.country,
+      'server_organization': row.ip_metadata.organization,
+      'received_error': row.error,
+      'received_tls_version': row.received.tls_version,
+      'received_tls_cipher_suite': row.received.tls_cipher_suite,
+      'received_tls_cert': row.received.tls_cert,
+      'received_tls_cert_common_name': row.received.tls_cert_common_name,
+      'received_tls_cert_issuer': row.received.tls_cert_issuer,
+      'received_tls_cert_alternative_names': row.received.tls_cert_alternative_names,
+      'received_status': row.received.status,
+      'received_headers': row.received.headers,
+      'received_body': row.received.body,
+      'is_known_blockpage': row.received.is_known_blockpage,
+      'page_signature': row.received.page_signature,
+      'outcome': row.outcome,
+      'matches_template': row.success,
+      'overall_measurement_does_not_match_template': row.anomaly,
+      'controls_failed': row.controls_failed,
+      'stateful_block': row.stateful_block,
+      'measurement_id': row.measurement_id,
+      'source': row.source,
   }
   return flat
+# yapf: enable
 
 
 def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
@@ -410,7 +381,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     # Analysis
     'outcome': ('string', 'nullable'),
     'matches_template': ('boolean', 'nullable'),
-    'anomaly': ('boolean', 'nullable'),
+    'overall_measurement_does_not_match_template': ('boolean', 'nullable'),
     'controls_failed': ('boolean', 'nullable'),
     'stateful_block': ('boolean', 'nullable'),
 
