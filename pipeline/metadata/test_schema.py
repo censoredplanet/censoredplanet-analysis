@@ -96,7 +96,7 @@ class SchemaTest(unittest.TestCase):
         )
     )
     # yapf: disable
-    flat_row = schema.flatten_for_bigquery(row)
+    flat_row = schema.flatten_to_dict(row)
 
     self.assert_flat_row_matches_bq_schema(flat_row, bq_table_schema)
 
@@ -190,7 +190,7 @@ class SchemaTest(unittest.TestCase):
         ]
     )
     # yapf: enable
-    flat_row = schema.flatten_for_bigquery(row)
+    flat_row = schema.flatten_to_dict(row)
 
     self.assert_flat_row_matches_bq_schema(flat_row, bq_table_schema)
 

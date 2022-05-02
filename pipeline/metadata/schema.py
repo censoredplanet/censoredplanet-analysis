@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import annotations  # required to use class as a type inside the class
 
 import dataclasses
+import json
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Union
 
@@ -201,16 +202,15 @@ class PageFetchRow():
   error: Optional[str] = None
 
 
-def flatten_for_bigquery(
-    row: Union[BigqueryRow, PageFetchRow]) -> Dict[str, Any]:
+def flatten_to_dict(row: Union[BigqueryRow, PageFetchRow]) -> Dict[str, Any]:
   if isinstance(row, HyperquackRow):
-    return flatten_for_bigquery_hyperquack(row)
+    return flatten_to_dict_hyperquack(row)
   if isinstance(row, SatelliteRow):
-    return flatten_for_bigquery_satellite(row)
+    return flatten_to_dict_satellite(row)
   raise Exception(f'Unknown row type: {type(row)}')
 
 
-def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
+def flatten_to_dict_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
   """Convert a structured hyperquack dataclass into a flat dict."""
   flat: Dict[str, Any] = {
       'domain': row.domain,
@@ -246,7 +246,7 @@ def flatten_for_bigquery_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
   return flat
 
 
-def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
+def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
   """Convert a structured satellite dataclass into a flat dict."""
   flat: Dict[str, Any] = {
       'domain': row.domain,
@@ -327,6 +327,50 @@ def flatten_for_bigquery_satellite(row: SatelliteRow) -> Dict[str, Any]:
     # yapf: enable
     flat['received'].append(answer)
   return flat
+
+
+def dict_to_gcs_json_string(measurement_dict: Dict[str, Any]) -> str:
+  """Convert dict of measurement data to json string with selected GCS fields."""
+  if 'Quack' in measurement_dict['source']:
+    return json.dumps(dict_to_gcs_dict_hyperquack(measurement_dict))
+  if 'Satellite' in measurement_dict['source']:
+    return json.dumps(dict_to_gcs_dict_satellite(measurement_dict))
+  raise Exception(f'Unknown dict source: {measurement_dict["source"]}')
+
+
+def dict_to_gcs_dict_hyperquack(
+    measurement_dict: Dict[str, Any]) -> Dict[str, Any]:
+  """Update dict of Hyperquack data to contain only selected GCS fields."""
+  measurement_dict.pop('category', None)
+  measurement_dict.pop('blockpage', None)
+  measurement_dict.pop('page_signature', None)
+  measurement_dict.pop('anomaly', None)
+  return measurement_dict
+
+
+def dict_to_gcs_dict_satellite(
+    measurement_dict: Dict[str, Any]) -> Dict[str, Any]:
+  """Update dict of Satellite data to contain only selected GCS fields."""
+  measurement_dict.pop('category', None)
+  measurement_dict.pop('success', None)
+  measurement_dict.pop('anomaly', None)
+  measurement_dict.pop('controls_failed', None)
+  measurement_dict.pop('average_confidence', None)
+  measurement_dict.pop('untagged_controls', None)
+  measurement_dict.pop('untagged_response', None)
+  measurement_dict.pop('excluded', None)
+  measurement_dict.pop('exclude_reason', None)
+  measurement_dict.pop('has_type_a', None)
+  for i in range(0, len(measurement_dict['received'])):
+    measurement_dict['received'][i].pop('matches_control', None)
+    measurement_dict['received'][i].pop('match_confidence', None)
+    measurement_dict['received'][i].pop('http_analysis_is_known_blockpage',
+                                        None)
+    measurement_dict['received'][i].pop('http_analysis_page_signature', None)
+    measurement_dict['received'][i].pop('https_analysis_is_known_blockpage',
+                                        None)
+    measurement_dict['received'][i].pop('https_analysis_page_signature', None)
+  return measurement_dict
 
 
 HYPERQUACK_BIGQUERY_SCHEMA = {

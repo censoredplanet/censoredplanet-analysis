@@ -30,7 +30,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys
+from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys, dict_to_gcs_json_string
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
 from pipeline.metadata import flatten
@@ -491,7 +491,7 @@ class ScanDataBeamPipelineRunner():
     # Pcollection[Dict[str, Any]]
     dict_rows = (
         rows | f'dataclass to dicts {scan_type}' >> beam.Map(
-            schema.flatten_for_bigquery).with_output_types(Dict[str, Any]))
+            schema.flatten_to_dict).with_output_types(Dict[str, Any]))
 
     (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
         self._get_full_table_name(table_name),
@@ -548,12 +548,12 @@ class ScanDataBeamPipelineRunner():
     # Pcollection[Dict[str, Any]]
     dict_rows = (
         rows | f'dataclass to dicts {scan_type}' >> beam.Map(
-            schema.flatten_for_bigquery).with_output_types(Dict[str, Any]))
+            schema.flatten_to_dict).with_output_types(Dict[str, Any]))
 
     # PCollection[str]
     json_rows = (
-        dict_rows |
-        'dicts to json' >> beam.Map(json.dumps).with_output_types(str))
+        dict_rows | 'dicts to json' >>
+        beam.Map(dict_to_gcs_json_string).with_output_types(str))
 
     # Set shards=1 and max_writers_per_bundle=0 to avoid sharding output.
     (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
