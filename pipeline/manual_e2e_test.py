@@ -273,6 +273,45 @@ def run_local_pipeline_satellite_v2p2() -> None:
   # pylint: enable=protected-access
 
 
+def run_local_pipeline_satellite_v1_gcs() -> None:
+  # run_local_pipeline for satellite - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v1  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v2p1_gcs() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v2p2_gcs() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p2  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
+  # pylint: enable=protected-access
+
+
 def run_local_pipeline_invalid() -> None:
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
@@ -392,6 +431,70 @@ class PipelineManualE2eTest(unittest.TestCase):
           io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
         written_rows = [line.strip() for line in f]
       self.assertEqual(len(written_rows), 110)
+    finally:
+      clean_up_gcs_folder(client, BEAM_TEST_GCS_BUCKET, BEAM_TEST_GCS_FOLDER)
+
+  def test_satellite_gcs_pipeline_e2e(self) -> None:
+    """Test the full pipeline on local files writing output files to GCS."""
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = storage.Client()
+
+    try:
+      bucket = client.get_bucket(BEAM_TEST_GCS_BUCKET)
+
+      run_local_pipeline_satellite_v1_gcs()
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+
+      expected_v1_partitions = [
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=US'),
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=IE'),
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=FR'),
+      ]
+      self.assertEqual(len(partitions), 3)
+      self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 8)
+      # Remove concatenated file
+      clean_up_gcs_file(bucket, concatenated)
+
+      # Run pipelines for v2 data
+      run_local_pipeline_satellite_v2p1_gcs()
+      run_local_pipeline_satellite_v2p2_gcs()
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+      expected_v2_partitions = [
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=US'),
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=DE'),
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=AF'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=US'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=DE'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=SE'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=UA'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=RU'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=TH'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=CN'),
+      ]
+      self.assertEqual(len(partitions), 13)
+      self.assertListEqual(
+          sorted(partitions),
+          sorted(expected_v1_partitions + expected_v2_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 44)
     finally:
       clean_up_gcs_folder(client, BEAM_TEST_GCS_BUCKET, BEAM_TEST_GCS_FOLDER)
 
