@@ -5,6 +5,7 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import os
 import logging
+import re
 import ssl
 from typing import Optional, List, Dict, Any, Union, Tuple
 
@@ -87,7 +88,20 @@ def load_cert_from_str(cert_str: str) -> x509.Certificate:
 
 def is_cert_valid(cert_str: str, domain: str) -> bool:
   try:
-    validator = certvalidator.CertificateValidator(cert_str.encode())
+    roots_location = certifi.where()
+    with open(roots_location, 'rb') as f:
+      roots = f.read()
+    from pprint import pprint
+    pprint(roots)
+
+
+    all_roots = re.findall(b'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----\n', roots)
+
+    
+    pprint(all_roots)
+
+    context = certvalidator.context.ValidationContext(trust_roots=all_roots)
+    validator = certvalidator.CertificateValidator(cert_str.encode(), validation_context=context)
     validator.validate_tls(domain)
     return True
   except (certvalidator.errors.PathValidationError):
