@@ -470,8 +470,6 @@ class ScanDataBeamPipelineRunner():
             window, pane, shard_index, total_shards, compression, destination)
         # Remove shard component from filename if there is only one shard.
         filename = filename.replace('-00000-of-00001', '')
-        logging.info('%s %s %s %s', destination, shard_index, total_shards,
-                     filename)
         return filename
 
       return _inner

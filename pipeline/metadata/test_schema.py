@@ -198,6 +198,225 @@ class SchemaTest(unittest.TestCase):
 
     self.assert_flat_row_matches_bq_schema(flat_row, bq_table_schema)
 
+  def test_hyperquack_flatten_matches_gcs_dict(self) -> None:
+    """Test that the hyperquack gcs dict matches the expected fields."""
+    bq_table_schema = schema.get_beam_bigquery_schema(
+        schema.get_bigquery_schema('https'))
+
+    # yapf: disable
+    row = schema.HyperquackRow(
+        domain = 'www.arabhra.org',
+        category = 'Intergovernmental Organizations',
+        ip = '213.175.166.157',
+        date = '2020-11-06',
+        start_time = '2020-11-06T15:24:21.124508839-05:00',
+        end_time = '2020-11-06T15:24:21.812075476-05:00',
+        error = 'Incorrect web response: status lines don\'t match',
+        anomaly = False,
+        success = False,
+        is_control = False,
+        controls_failed = False,
+        measurement_id = '81e2a76dafe04131bc38fc6ec7bbddca',
+        source = 'CP_Quack-https-2020-11-06-15-15-31',
+        stateful_block = False,
+        ip_metadata = schema.IpMetadata(
+            netblock = '213.175.166.157/24',
+            asn = 13335,
+            as_name = 'CLOUDFLARENET',
+            as_full_name = 'Cloudflare Inc.',
+            as_class = 'Content',
+            country = 'US',
+            organization = 'Fake Organization'
+        ),
+        received = schema.HttpsResponse(
+            is_known_blockpage = False,
+            page_signature = 'x_example_signature',
+            status = '302 Found',
+            body = 'example body',
+            headers = [
+                'Content-Language: en',
+                'X-Frame-Options: SAMEORIGIN',
+            ],
+            tls_version = 771,
+            tls_cipher_suite = 49199,
+            tls_cert = 'MIIH...',
+            tls_cert_common_name = 'example.com',
+            tls_cert_issuer = 'Verisign',
+            tls_cert_alternative_names = ['www.example.com']
+        ),
+        outcome='content/status_mismatch:302'
+    )
+    expected_dict = {
+      'domain': 'www.arabhra.org',
+      'domain_is_control': False,
+      'date': '2020-11-06',
+      'start_time': '2020-11-06T15:24:21.124508839-05:00',
+      'end_time': '2020-11-06T15:24:21.812075476-05:00',
+      'server_ip': '213.175.166.157',
+      'server_netblock': '213.175.166.157/24',
+      'server_asn': 13335,
+      'server_as_name': 'CLOUDFLARENET',
+      'server_as_full_name': 'Cloudflare Inc.',
+      'server_as_class': 'Content',
+      'server_country': 'US',
+      'server_organization': 'Fake Organization',
+      'received_error': "Incorrect web response: status lines don't match",
+      'received_tls_version': 771,
+      'received_tls_cipher_suite': 49199,
+      'received_tls_cert': 'MIIH...',
+      'received_tls_cert_common_name': 'example.com',
+      'received_tls_cert_issuer': 'Verisign',
+      'received_tls_cert_alternative_names': ['www.example.com'],
+      'received_status': '302 Found',
+      'received_headers': ['Content-Language: en', 'X-Frame-Options: SAMEORIGIN'],
+      'received_body': 'example body',
+      'outcome': 'content/status_mismatch:302',
+      'matches_template': False,
+      'no_response_in_measurement_matches_template': False,
+      'controls_failed': False,
+      'stateful_block': False,
+      'measurement_id': '81e2a76dafe04131bc38fc6ec7bbddca',
+      'source': 'CP_Quack-https-2020-11-06-15-15-31'
+    }
+    # yapf: disable
+    gcs_dict = schema.dict_to_gcs_dict_hyperquack(schema.flatten_to_dict(row))
+    self.assertDictEqual(gcs_dict, expected_dict)
+
+  def test_satellite_flatten_matches_gcs_dict(self) -> None:
+    """Test that the satellite gcs dict matches the expected fields."""
+    # yapf: disable
+    row = schema.SatelliteRow(
+        domain = 'a.root-servers.net',
+        is_control =  True,
+        category = 'Control',
+        ip = '62.80.182.26',
+        is_control_ip = False,
+        date = '2021-10-20',
+        start_time = '2021-10-20T14:51:45.361175691-04:00',
+        end_time = '2021-10-20T14:51:46.261234037-04:00',
+        error = 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
+        anomaly = False,
+        success = False,
+        measurement_id = '47de079652ca53f7bdb57ca956e1c70e',
+        source = 'CP_Satellite-2021-10-20-12-00-01',
+        controls_failed = True,
+        average_confidence = 100,
+        untagged_controls = False,
+        untagged_response = False,
+        excluded = False,
+        exclude_reason = '',
+        rcode = -1,
+        has_type_a = True,
+        ip_metadata = schema.IpMetadata(
+          country = 'UA',
+          name = 'mx4.orlantrans.com.',
+          netblock = '213.175.166.157/24',
+          asn = 13335,
+          as_name = 'CLOUDFLARENET',
+          as_full_name = 'Cloudflare Inc.',
+          as_class = 'Content',
+          organization = 'Fake Organization'
+        ),
+        received = [
+          schema.SatelliteAnswer(
+            ip = '13.249.134.38',
+            cert = 'MII...',
+            http = 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+            matches_control = schema.MatchesControl(
+              ip=True,
+              http=True,
+              cert=False,
+              asnum=True,
+              asname=True
+            ),
+            match_confidence = 100,
+            ip_metadata = schema.IpMetadata(
+                asn=16509,
+                as_name='AMAZON-02',
+                country = 'US',
+                netblock = '213.175.166.157/24',
+            ),
+            http_error = 'Get \"http://31.13.77.33:80/\": dial tcp 31.13.77.33:80: connect: connection refused',
+            http_response = schema.HttpsResponse(
+              is_known_blockpage = False,
+              page_signature = 'x_example_fp',
+              status = '200',
+              body = 'example body',
+              headers = [
+                'Content-Language: en',
+                'X-Frame-Options: SAMEORIGIN',
+              ]
+            ),
+            https_error = 'Get \"https://31.13.77.33:443/\": net/http: request canceled (Client.Timeout exceeded while awaiting headers)',
+            https_response = schema.HttpsResponse(
+              is_known_blockpage = False,
+              page_signature = 'x_example_fp',
+              status = '200',
+              body = 'example body',
+              tls_version = 123,
+              tls_cipher_suite = 3,
+              tls_cert = 'MII...',
+              tls_cert_common_name = 'Common Name',
+              tls_cert_issuer = 'Issuer',
+              tls_cert_start_date = '2018-04-06T12:00:00',
+              tls_cert_end_date = '2012-04-06T12:00:00',
+              tls_cert_alternative_names = ['Common Name', 'Alt Name'],
+              headers = [
+                'Content-Language: en',
+                'X-Frame-Options: SAMEORIGIN',
+              ]
+            )
+          )
+        ]
+    )
+    expected_dict = {
+      'domain': 'a.root-servers.net',
+      'domain_is_control': True,
+      'date': '2021-10-20',
+      'start_time': '2021-10-20T14:51:45.361175691-04:00',
+      'end_time': '2021-10-20T14:51:46.261234037-04:00',
+      'resolver_ip': '62.80.182.26',
+      'resolver_name': 'mx4.orlantrans.com.',
+      'resolver_is_trusted': False,
+      'resolver_netblock': '213.175.166.157/24',
+      'resolver_asn': 13335,
+      'resolver_as_name': 'CLOUDFLARENET',
+      'resolver_as_full_name': 'Cloudflare Inc.',
+      'resolver_as_class': 'Content',
+      'resolver_country': 'UA',
+      'resolver_organization': 'Fake Organization',
+      'received_error': 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
+      'received_rcode': -1,
+      'answers': [{
+        'ip': '13.249.134.38',
+        'asn': 16509,
+        'as_name': 'AMAZON-02',
+        'censys_http_body_hash': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
+        'censys_ip_cert': 'MII...',
+        'http_error': 'Get "http://31.13.77.33:80/": dial tcp 31.13.77.33:80: connect: connection refused',
+        'http_response_status': '200',
+        'http_response_headers': ['Content-Language: en', 'X-Frame-Options: SAMEORIGIN'],
+        'http_response_body': 'example body',
+        'https_error': 'Get "https://31.13.77.33:443/": net/http: request canceled (Client.Timeout exceeded while awaiting headers)',
+        'https_tls_version': 123,
+        'https_tls_cipher_suite': 3,
+        'https_tls_cert': 'MII...',
+        'https_tls_cert_common_name': 'Common Name',
+        'https_tls_cert_issuer': 'Issuer',
+        'https_tls_cert_start_date': '2018-04-06T12:00:00',
+        'https_tls_cert_end_date': '2012-04-06T12:00:00',
+        'https_tls_cert_alternative_names': ['Common Name', 'Alt Name'],
+        'https_response_status': '200',
+        'https_response_headers': ['Content-Language: en', 'X-Frame-Options: SAMEORIGIN'],
+        'https_response_body': 'example body'
+      }],
+      'measurement_id': '47de079652ca53f7bdb57ca956e1c70e',
+      'source': 'CP_Satellite-2021-10-20-12-00-01'
+    }
+    # yapf: enable
+    gcs_dict = schema.dict_to_gcs_dict_satellite(schema.flatten_to_dict(row))
+    self.assertDictEqual(gcs_dict, expected_dict)
+
   def assert_flat_row_matches_bq_schema(
       self, flat_row: Dict[str,
                            Any], bq_schema: beam_bigquery.TableSchema) -> None:
