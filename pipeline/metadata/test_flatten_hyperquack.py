@@ -86,13 +86,13 @@ class FlattenHyperquackTest(unittest.TestCase):
             "Sent": "",
             "Received": "",
             "Success": False,
-            "Error": "timeout",
+            "Error": "i/o timeout",
             "StartTime": "2020-09-20T07:45:12.643770291-04:00",
             "EndTime": "2020-09-20T07:45:13.088851843-04:00"
         }, {
             "Sent": "",
             "Success": False,
-            "Error": "timeout",
+            "Error": "i/o timeout",
             "StartTime": "2020-09-20T07:45:16.170427683-04:00",
             "EndTime": "2020-09-20T07:45:16.662093893-04:00"
         }, {
@@ -137,7 +137,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             date='2020-09-20',
             start_time='2020-09-20T07:45:12.643770291-04:00',
             end_time='2020-09-20T07:45:13.088851843-04:00',
-            error='timeout',
+            error='i/o timeout',
             anomaly=True,
             success=False,
             stateful_block=False,
@@ -158,15 +158,14 @@ class FlattenHyperquackTest(unittest.TestCase):
             date='2020-09-20',
             start_time='2020-09-20T07:45:16.170427683-04:00',
             end_time='2020-09-20T07:45:16.662093893-04:00',
-            error='timeout',
+            error='i/o timeout',
             anomaly=True,
             success=False,
             stateful_block=False,
             is_control=True,  # calculated even though sent was empty
             controls_failed=True,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2020-08-23-06-01-02',
-        ),
+            source='CP_Quack-echo-2020-08-23-06-01-02'),
         HyperquackRow(
             domain='example5718349450314.com',
             category='Control',
@@ -248,8 +247,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-        ),
+            source='CP_Quack-echo-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -263,8 +261,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=False,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-        ),
+            source='CP_Quack-echo-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='104.com.tw',
             category='Social Networking',
@@ -280,8 +277,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=False,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-echo-2021-05-30-01-01-01',
-        )
+            source='CP_Quack-echo-2021-05-30-01-01-01')
     ]
 
     filename = 'gs://firehook-scans/echo/CP_Quack-echo-2021-05-30-01-01-01/results.json'
@@ -346,8 +342,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-discard-2021-05-31-12-43-21',
-        ),
+            source='CP_Quack-discard-2021-05-31-12-43-21'),
         HyperquackRow(
             domain='123rf.com',
             category='E-commerce',
@@ -382,8 +377,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-discard-2021-05-31-12-43-21',
-        )
+            source='CP_Quack-discard-2021-05-31-12-43-21')
     ]
 
     filename = 'gs://firehook-scans/discard/CP_Quack-discard-2021-05-31-12-43-21/results.json'
@@ -432,8 +426,7 @@ class FlattenHyperquackTest(unittest.TestCase):
         is_control=False,
         controls_failed=False,
         measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-        source='CP_Quack-http-2020-11-09-01-02-08',
-    )
+        source='CP_Quack-http-2020-11-09-01-02-08')
 
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-11-09-01-02-08/results.json'
 
@@ -495,8 +488,8 @@ class FlattenHyperquackTest(unittest.TestCase):
                 'Location: https://www.csmonitor.com/',
                 'Server: HTTP Proxy/1.0',
             ],
-            is_known_blockpage=False,
-            page_signature='p_fp_33',
+            is_known_blockpage=None,
+            page_signature=None,
         ))
     filename = 'gs://firehook-scans/http/CP_Quack-http-2020-09-13-01-02-07/results.json'
 
@@ -558,8 +551,7 @@ class FlattenHyperquackTest(unittest.TestCase):
             is_control=True,
             controls_failed=False,
             measurement_id='81e2a76dafe04131bc38fc6ec7bbddca',
-            source='CP_Quack-http-2021-05-30-01-01-01',
-        ),
+            source='CP_Quack-http-2021-05-30-01-01-01'),
         HyperquackRow(
             domain='1337x.to',
             category='Media sharing',

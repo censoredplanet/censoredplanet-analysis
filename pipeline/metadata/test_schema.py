@@ -92,8 +92,12 @@ class SchemaTest(unittest.TestCase):
             ],
             tls_version = 771,
             tls_cipher_suite = 49199,
-            tls_cert = 'MIIH...'
-        )
+            tls_cert = 'MIIH...',
+            tls_cert_common_name = 'example.com',
+            tls_cert_issuer = 'Verisign',
+            tls_cert_alternative_names = ['www.example.com']
+        ),
+        outcome='content/status_mismatch:302'
     )
     # yapf: disable
     flat_row = schema.flatten_to_dict(row)
@@ -238,6 +242,8 @@ class SchemaTest(unittest.TestCase):
       if field_type == 'date':
         return None
       if field_type == 'timestamp':
+        return None
+      if field_type == 'bytes':
         return None
       raise Exception(
           f'Row value type {value_type} doesn\'t match {field_type}')

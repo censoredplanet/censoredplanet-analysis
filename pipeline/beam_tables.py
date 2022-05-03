@@ -20,7 +20,7 @@ import logging
 import pathlib
 import re
 import json
-from typing import Callable, Optional, Tuple, Dict, List, Any, Iterator, Iterable
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
@@ -29,12 +29,12 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, make_date_ip_key, merge_metadata_with_rows
-from pipeline.metadata.schema import BigqueryRow, IpMetadataWithKeys, dict_to_gcs_json_string
+from pipeline.metadata.schema import BigqueryRow, dict_to_gcs_json_string
+from pipeline.metadata import hyperquack
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
-from pipeline.metadata import flatten
 from pipeline.metadata import satellite
+from pipeline.metadata.add_metadata import MetadataAdder
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 from pipeline.metadata import sink
 
@@ -194,26 +194,31 @@ def _filename_matches(filepath: str, allowed_filenames: List[str]) -> bool:
   return filename in allowed_filenames
 
 
-def _get_partition_params() -> Dict[str, Any]:
+def _get_partition_params(scan_type: str) -> Dict[str, Any]:
   """Returns additional partitioning params to pass with the bigquery load.
 
   Args:
     scan_type: data type, one of 'echo', 'discard', 'http', 'https',
-      'satellite' or 'page_fetch'
+      or 'satellite'
 
   Returns: A dict of query params, See:
   https://beam.apache.org/releases/pydoc/2.14.0/apache_beam.io.gcp.bigquery.html#additional-parameters-for-bigquery-tables
   https://cloud.google.com/bigquery/docs/reference/rest/v2/tables#resource:-table
   """
-  partition_params = {
+  partition_params: Dict[str, Any] = {
       'timePartitioning': {
           'type': 'DAY',
           'field': 'date'
       },
-      'clustering': {
-          'fields': ['country', 'asn']
-      }
   }
+  if scan_type == 'satellite':
+    partition_params['clustering'] = {
+        'fields': ['resolver_country', 'resolver_asn']
+    }
+  else:
+    partition_params['clustering'] = {
+        'fields': ['server_country', 'server_asn']
+    }
   return partition_params
 
 
@@ -317,7 +322,7 @@ class ScanDataBeamPipelineRunner():
     self.bucket = bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
-    self.metadata_chooser_factory = metadata_chooser_factory
+    self.metadata_adder = MetadataAdder(metadata_chooser_factory)
 
   def _get_full_table_name(self, table_name: str) -> str:
     """Get a full project:dataset.table name.
@@ -387,82 +392,6 @@ class ScanDataBeamPipelineRunner():
 
     return filtered_filenames
 
-  def _add_metadata(
-      self, rows: beam.pvalue.PCollection[BigqueryRow]
-  ) -> beam.pvalue.PCollection[BigqueryRow]:
-    """Add ip metadata to a collection of roundtrip rows.
-
-    Args:
-      rows: beam.PCollection[BigqueryRow]
-
-    Returns:
-      PCollection[BigqueryRow]
-      The same rows as above with with additional metadata columns added.
-    """
-
-    # PCollection[Tuple[DateIpKey,BigqueryRow]]
-    rows_keyed_by_ip_and_date = (
-        rows | 'key by ips and dates' >>
-        beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-            Tuple[DateIpKey, BigqueryRow]))
-
-    # PCollection[DateIpKey]
-    # pylint: disable=no-value-for-parameter
-    ips_and_dates = (
-        rows_keyed_by_ip_and_date | 'get ip and date keys per row' >>
-        beam.Keys().with_output_types(DateIpKey))
-
-    # PCollection[DateIpKey]
-    deduped_ips_and_dates = (
-        # pylint: disable=no-value-for-parameter
-        ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
-
-    # PCollection[Tuple[date,List[ip]]]
-    grouped_ips_by_dates = (
-        deduped_ips_and_dates | 'group by date' >>
-        beam.GroupByKey().with_output_types(Tuple[str, Iterable[str]]))
-
-    # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
-    ips_with_metadata = (
-        grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
-            self._add_ip_metadata).with_output_types(Tuple[DateIpKey,
-                                                           IpMetadataWithKeys]))
-
-    # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadataWithKeys]]]]
-    grouped_metadata_and_rows = (({
-        IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-        ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
-    }) | 'group by keys' >> beam.CoGroupByKey())
-
-    # PCollection[BigqueryRow]
-    rows_with_metadata = (
-        grouped_metadata_and_rows |
-        'merge metadata with rows' >> beam.FlatMapTuple(
-            merge_metadata_with_rows).with_output_types(BigqueryRow))
-
-    return rows_with_metadata
-
-  def _add_ip_metadata(
-      self, date: str,
-      ips: List[str]) -> Iterator[Tuple[DateIpKey, IpMetadataWithKeys]]:
-    """Add Autonymous System metadata for ips in the given rows.
-
-    Args:
-      date: a 'YYYY-MM-DD' date key
-      ips: a list of ips
-
-    Yields:
-      Tuples (DateIpKey, IpMetadataWithKeys)
-    """
-    ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(
-        datetime.date.fromisoformat(date))
-
-    for ip in ips:
-      metadata_key = (date, ip)
-      metadata_values = ip_metadata_chooser.get_metadata(ip)
-
-      yield (metadata_key, metadata_values)
-
   def _write_to_bigquery(self, scan_type: str,
                          rows: beam.pvalue.PCollection[BigqueryRow],
                          table_name: str, incremental_load: bool) -> None:
@@ -498,7 +427,7 @@ class ScanDataBeamPipelineRunner():
         schema=bq_schema,
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
-        additional_bq_parameters=_get_partition_params()))
+        additional_bq_parameters=_get_partition_params(scan_type)))
 
   def _write_to_gcs(  # pylint: disable=no-self-use
       self, scan_type: str, rows: beam.pvalue.PCollection[BigqueryRow],
@@ -522,7 +451,9 @@ class ScanDataBeamPipelineRunner():
     def _get_destination(record: str) -> str:
       """Returns the hive-format dest folder for a measurement record str."""
       record_dict = json.loads(record)
-      return f'source={record_dict["source"]}/country={record_dict["country"]}/results'
+      if 'server_country' in record_dict:
+        return f'source={record_dict["source"]}/country={record_dict["server_country"]}/results'
+      return f'source={record_dict["source"]}/country={record_dict["resolver_country"]}/results'
 
     def _custom_file_naming(suffix: str = None) -> Callable:
       """Returns custom function to name destination files."""
@@ -641,23 +572,17 @@ class ScanDataBeamPipelineRunner():
 
       if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
-        rows = satellite.process_satellite_lines(lines)
+        rows = satellite.process_satellite_lines(lines, self.metadata_adder)
 
       else:  # Hyperquack scans
         # PCollection[HyperquackRow]
-        rows = (
-            lines | 'flatten json' >> beam.ParDo(
-                flatten.FlattenMeasurement()).with_output_types(BigqueryRow))
+        rows = hyperquack.process_hyperquack_lines(lines, self.metadata_adder)
 
-      # PCollection[HyperquackRow|SatelliteRow]
-      rows_with_metadata = self._add_metadata(rows)
-
-      _raise_error_if_collection_empty(rows_with_metadata)
+      _raise_error_if_collection_empty(rows)
 
       # TODO: Eventually we want to be able to run both exports simultaneously
       # so that we can reuse the pipeline output.
       if export_gcs and gcs_folder is not None:
-        self._write_to_gcs(scan_type, rows_with_metadata, gcs_folder)
+        self._write_to_gcs(scan_type, rows, gcs_folder)
       elif table_name is not None:
-        self._write_to_bigquery(scan_type, rows_with_metadata, table_name,
-                                incremental_load)
+        self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
