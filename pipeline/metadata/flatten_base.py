@@ -12,13 +12,20 @@ from typing import Optional, List, Dict, Any, Union, Tuple
 import certifi
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-import certvalidator
+
+import OpenSSL
+#from OpenSSL.crypto import load_certificate, load_privatekey
+#from OpenSSL.crypto import X509Store, X509StoreContext
 
 
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.schema import HttpsResponse
 
 _SSL_CONTEXT = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=certifi.where())
+
+store = OpenSSL.crypto.X509Store()
+store.load_locations(None, capath=certifi.where())
+
 
 
 # pylint: enable=too-many-instance-attributes
@@ -86,26 +93,24 @@ def load_cert_from_str(cert_str: str) -> x509.Certificate:
 
 
 
-def is_cert_valid(cert_str: str, domain: str) -> bool:
+def is_cert_valid(cert_str: str, domain: str) -> Tuple(bool, str):
+  from pprint import pprint
+
+  pprint(("store", store, dir(store)))
+
+  cert = load_cert_from_str(cert_str)
+  store_ctx = OpenSSL.crypto.X509StoreContext(store, cert)
   try:
-    roots_location = certifi.where()
-    with open(roots_location, 'rb') as f:
-      roots = f.read()
-    from pprint import pprint
-    pprint(roots)
+    return (store_ctx.verify_certificate(), "")
+  except OpenSSL.crypto.X509StoreContextError as ex:
+    return (False, f"parsing problem: {str(ex)}")
+  except ValueError:
+    return (False, "can't parse cert")
 
 
-    all_roots = re.findall(b'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----\n', roots)
 
-    
-    pprint(all_roots)
-
-    context = certvalidator.context.ValidationContext(trust_roots=all_roots)
-    validator = certvalidator.CertificateValidator(cert_str.encode(), validation_context=context)
-    validator.validate_tls(domain)
-    return True
-  except (certvalidator.errors.PathValidationError):
-    return False
+  #newsocket, fromaddr = bindsocket.accept()
+  #connstream = _SSL_CONTEXT.wrap_socket(newsocket, server_side=True)
 
 
 def parse_cert(
