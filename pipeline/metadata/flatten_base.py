@@ -23,8 +23,32 @@ from pipeline.metadata.schema import HttpsResponse
 
 _SSL_CONTEXT = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=certifi.where())
 
+def load_cert_from_bytes(cert: bytes) -> OpenSSL.crypto.X509:
+  return OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
+  #return x509.load_der_x509_certificate(cert, default_backend())
+
+
+
+
+def load_cert_from_string_2(cert_str: str) -> OpenSSL.crypto.X509:
+  begin = "-----BEGIN CERTIFICATE-----\n"
+  end = "\n-----END CERTIFICATE----- "
+  # cryptography.x509 requires the PEM headers and footers to parse the certificate.
+  cert_pem = bytes(begin + cert_str + end, encoding='utf-8')
+  return OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_pem)
+
+
 store = OpenSSL.crypto.X509Store()
 store.load_locations(None, capath=certifi.where())
+
+with open("example-intermediate-cert.crt", "rb") as f:
+  content = f.read()
+  cert = load_cert_from_bytes(content)
+
+  from pprint import pprint
+  pprint(("cert", cert, type(cert)))
+
+  store.add_cert(cert)
 
 
 
@@ -96,6 +120,7 @@ def get_AIA(cert: x509.Certificate) -> str:
 
 
 
+
 def load_cert_from_str(cert_str: str) -> x509.Certificate:
   """Load certificate from the certificate text base64 string.
 
@@ -118,7 +143,7 @@ def is_cert_valid(cert_str: str, domain: str) -> Tuple(bool, str):
 
   #pprint(("store", store, dir(store), store._store))
 
-  cert = load_cert_from_str(cert_str)
+  cert = load_cert_from_string_2(cert_str)
   store_ctx = OpenSSL.crypto.X509StoreContext(store, cert)
   try:
     return (store_ctx.verify_certificate(), "")
