@@ -75,6 +75,26 @@ def get_alternative_names(cert: x509.Certificate) -> List[str]:
   except x509.extensions.ExtensionNotFound:
     return []
 
+def get_AIA(cert: x509.Certificate) -> str:
+  try:
+    ext = cert.extensions.get_extension_for_oid(
+        x509.ExtensionOID.AUTHORITY_INFORMATION_ACCESS)
+    # Cast to x509.AuthorityInformationAccess to avoid mypy error.
+    aia: x509.AuthorityInformationAccess = ext.value  # type: ignore
+    from pprint import pprint
+
+    for description in aia:
+      # x509.AccessDescription
+      pprint(("aia", description))
+      if description.access_method == x509.oid.AuthorityInformationAccessOID.CA_ISSUERS:
+        url = description.access_location.value
+        pprint(("url", url))
+
+    return aia
+  except x509.extensions.ExtensionNotFound:
+    return []
+
+
 
 def load_cert_from_str(cert_str: str) -> x509.Certificate:
   """Load certificate from the certificate text base64 string.
@@ -96,7 +116,7 @@ def load_cert_from_str(cert_str: str) -> x509.Certificate:
 def is_cert_valid(cert_str: str, domain: str) -> Tuple(bool, str):
   from pprint import pprint
 
-  pprint(("store", store, dir(store)))
+  #pprint(("store", store, dir(store), store._store))
 
   cert = load_cert_from_str(cert_str)
   store_ctx = OpenSSL.crypto.X509StoreContext(store, cert)
@@ -134,13 +154,19 @@ def parse_cert(
   cert_end_date = None
   cert_alternative_names = []
   try:
-    valid = is_cert_valid(cert_str, domain)
     cert = load_cert_from_str(cert_str)
     cert_common_name = get_common_name(cert.subject)
     cert_issuer = get_common_name(cert.issuer)
     cert_start_date = cert.not_valid_before.isoformat()
     cert_end_date = cert.not_valid_after.isoformat()
     cert_alternative_names = get_alternative_names(cert)
+
+    from pprint import pprint
+    pprint(("full cert", cert, dir(cert), cert.extensions))
+
+    get_AIA(cert)
+
+    valid = is_cert_valid(cert_str, domain)
   except ValueError as e:
     logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
   return (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
