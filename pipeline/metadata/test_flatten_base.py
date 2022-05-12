@@ -177,12 +177,8 @@ class FlattenBaseTest(unittest.TestCase):
     cert_str = "invalid certificate text"
     with self.assertLogs(level='WARNING') as cm:
       parsed = flatten_base.parse_cert(cert_str)
-      self.assertEqual(
-          cm.output[0], 'WARNING:root:ValueError: '
-          'Unable to load PEM file. '
-          'See https://cryptography.io/en/latest/faq.html#why-can-t-i-import-my-pem-file '
-          'for more details. InvalidData(InvalidByte(7, 32))\n'
-          'Cert: invalid certificate text\n')
+      self.assertIn('Unable to load PEM file.', cm.output[0])
+      self.assertIn('Cert: invalid certificate text', cm.output[0])
     expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
                     List[str]] = (None, None, None, None, [])
     self.assertEqual(parsed, expected)
