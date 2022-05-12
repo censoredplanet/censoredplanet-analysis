@@ -10,7 +10,7 @@ import apache_beam.testing.util as beam_test_util
 
 from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithKeys
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
-from pipeline.metadata import satellite
+from pipeline.metadata import beam_metadata
 from pipeline.metadata.add_metadata import MetadataAdder
 
 
@@ -117,7 +117,7 @@ class MetadataAdderTest(unittest.TestCase):
     adder = MetadataAdder(FakeIpMetadataChooserFactory())
     metadatas = list(adder._annotate_ips('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
-    expected_key_1: satellite.DateIpKey = ('2020-01-01', '1.1.1.1')
+    expected_key_1: beam_metadata.DateIpKey = ('2020-01-01', '1.1.1.1')
     expected_value_1 = IpMetadataWithKeys(
         ip='1.1.1.1',
         date='2020-01-01',
@@ -130,7 +130,7 @@ class MetadataAdderTest(unittest.TestCase):
         organization='Fake Cloudflare Sub-Org',
     )
 
-    expected_key_2: satellite.DateIpKey = ('2020-01-01', '8.8.8.8')
+    expected_key_2: beam_metadata.DateIpKey = ('2020-01-01', '8.8.8.8')
     expected_value_2 = IpMetadataWithKeys(
         ip='8.8.8.8',
         date='2020-01-01',

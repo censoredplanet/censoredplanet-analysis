@@ -18,12 +18,14 @@ class SatelliteTest(unittest.TestCase):
 
   # pylint: disable=protected-access
 
-  def test_make_date_ip_key(self) -> None:
+  def test_make_source_ip_key(self) -> None:
     row = IpMetadataWithKeys(
-        date='2020-01-01',
+        source='CP_Satellite-2020-12-17-12-00-01',
         ip='1.2.3.4',
     )
-    self.assertEqual(satellite.make_date_ip_key(row), ('2020-01-01', '1.2.3.4'))
+    self.assertEqual(
+        satellite.make_source_ip_key(row),
+        ('CP_Satellite-2020-12-17-12-00-01', '1.2.3.4'))
 
   def test_read_satellite_resolver_tags(self) -> None:  # pylint: disable=no-self-use
     """Test reading rows from Satellite resolver tag files."""
@@ -45,12 +47,12 @@ class SatelliteTest(unittest.TestCase):
 
     tag1 = IpMetadataWithKeys(
         ip='1.1.1.1',
-        date='2020-12-17',
+        source='CP_Satellite-2020-12-17-12-00-01',
         country='US'
     )
     tag2 = IpMetadataWithKeys(
         ip='1.1.1.3',
-        date='2020-12-17',
+        source='CP_Satellite-2020-12-17-12-00-01',
         country='AU'
     )
     # yapf: enable
@@ -89,7 +91,7 @@ class SatelliteTest(unittest.TestCase):
 
     tag1 = SatelliteAnswerWithKeys(
         ip='60.210.17.137',
-        date='2020-12-17',
+        source='CP_Satellite-2020-12-17-12-00-01',
         cert='a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
         http='e3c1d34ca489928190b45f0535624b872717d1edd881c8ab4b2c62f898fcd4a5',
         ip_metadata=IpMetadata(

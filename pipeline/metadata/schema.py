@@ -56,10 +56,11 @@ class IpMetadata():
 
 @dataclass
 class IpMetadataWithKeys(IpMetadata):
-  """Extension of IpMetadata with ip and date keys."""
+  """Extension of IpMetadata with ip, date, and source keys."""
   # Keys
   ip: str = ''
   date: str = ''
+  source: str = ''
 
 
 def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
@@ -114,9 +115,9 @@ class SatelliteAnswerWithKeys(SatelliteAnswer):
   """Satellite Answer Metadata.
 
   When this metadata is being passed around
-  it needs an additional date field to keep track of when it's valid.
+  it needs an additional source field to keep track of when it's valid.
   """
-  date: str = ''
+  source: str = ''
 
 
 def merge_satellite_answers(base: SatelliteAnswer,

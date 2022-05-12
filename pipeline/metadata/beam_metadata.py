@@ -11,17 +11,21 @@ from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, Ip
 # ex: ('2020-01-01', '1.2.3.4')
 DateIpKey = Tuple[str, str]
 
+# A key containing a source and IP
+# ex: ('CP_Satellite-2022-01-02-12-00-01', '1.2.3.4')
+SourceIpKey = Tuple[str, str]
+
 # A key containing a date and domain
 # ex: ('2020-01-01', 'example.com')
 DateDomainKey = Tuple[str, str]
 
 # A key containing a source and domain
-# ex: ('CP_Quack-https-2020-01-01', 'example.com')
+# ex: ('CP_Satellite-2022-01-02-12-00-01', 'example.com')
 SourceDomainKey = Tuple[str, str]
 
-# A key containing a domain, date and ip
-# ex: ('example.com', '2020-01-01', '1.2.3.4')
-DomainDateIpKey = Tuple[str, str, str]
+# A key containing a domain, source and ip
+# ex: ('example.com', 'CP_Satellite-2022-01-02-12-00-01', '1.2.3.4')
+DomainSourceIpKey = Tuple[str, str, str]
 
 # PCollection key names used internally by the beam pipeline
 IP_METADATA_PCOLLECTION_NAME = 'metadata'
@@ -30,19 +34,20 @@ RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 BLOCKPAGE_PCOLLECTION_NAME = 'blockpage'
 
 
-def make_date_ip_key(
-    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerWithKeys]
-) -> DateIpKey:
+def make_date_ip_key(tag: Union[IpMetadataWithKeys, BigqueryRow]) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
 
 
-def make_domain_date_ip_key(row: PageFetchRow) -> DomainDateIpKey:
-  return (row.domain or '', row.date or '', row.ip or '')
+def make_source_ip_key(
+    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerWithKeys]
+) -> SourceIpKey:
+  """Makes a tuple key of the source and ip from a given row dict."""
+  return (tag.source or '', tag.ip or '')
 
 
-def make_date_domain_key(row: SatelliteRow) -> DateDomainKey:
-  return (row.date or '', row.domain or '')
+def make_domain_source_ip_key(row: PageFetchRow) -> DomainSourceIpKey:
+  return (row.domain or '', row.source or '', row.ip or '')
 
 
 def make_source_domain_key(row: SatelliteRow) -> SourceDomainKey:
@@ -83,13 +88,13 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
 
 
 def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
-    key: DateIpKey,
+    key: SourceIpKey,
     value: Dict[str, Union[List[SatelliteAnswer],
                            List[Tuple[str, SatelliteAnswerWithKeys]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
   """
   Args:
-    key: DateIp key, unused
+    key: SourceIpKey key, unused
     value:
       {RECEIVED_IPS_PCOLLECTION_NAME:
           list of Tuple[roundtrip_id, SatelliteAnswer]s without metadata
@@ -112,7 +117,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
 
 def merge_tagged_answers_with_rows(
-    key: DateIpKey,  # pylint: disable=unused-argument
+    key: str,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[SatelliteRow],
                            List[List[Tuple[str, SatelliteAnswerWithKeys]]]]]
 ) -> SatelliteRow:
@@ -181,7 +186,7 @@ def merge_tagged_answers_with_rows(
 
 
 def merge_page_fetches_with_answers(
-    key: DomainDateIpKey,  # pylint: disable=unused-argument
+    key: DomainSourceIpKey,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[PageFetchRow],
                            List[Tuple[str, SatelliteAnswerWithKeys]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
