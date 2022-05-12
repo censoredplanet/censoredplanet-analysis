@@ -11,7 +11,7 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
+from pipeline.metadata.beam_metadata import DateIpKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, SourceDomainKey, make_date_ip_key, make_source_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
 from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, MatchesControl, SCAN_TYPE_PAGE_FETCH
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
@@ -326,8 +326,8 @@ def _add_satellite_tags(
   return rows_with_tags
 
 
-def _total_tags(key: DateDomainKey,
-                row: SatelliteRow) -> Tuple[DateDomainKey, int]:
+def _total_tags(key: SourceDomainKey,
+                row: SatelliteRow) -> Tuple[SourceDomainKey, int]:
   total_tags = 0
   for ans in row.received:
     tag_values = [
@@ -338,8 +338,8 @@ def _total_tags(key: DateDomainKey,
   return (key, total_tags)
 
 
-def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
-                                 _: int) -> int:
+def _partition_test_and_controls(row_tuple: Tuple[SourceDomainKey,
+                                                  SatelliteRow], _: int) -> int:
   """Partition tests from domain and ip controls
 
   Returns
@@ -357,15 +357,15 @@ def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
 
 
 def _take_max_ctag(
-    ctag: Tuple[DateDomainKey, List[int]]) -> Tuple[DateDomainKey, int]:
+    ctag: Tuple[SourceDomainKey, List[int]]) -> Tuple[SourceDomainKey, int]:
   (key, ctags) = ctag
   max_ctag = max(ctags)
   return (key, max_ctag)
 
 
 def _append_num_controls(
-    key_value: Tuple[DateDomainKey, SatelliteRow],
-    max_num_ctags: Dict[DateDomainKey, int]) -> Tuple[SatelliteRow, int]:
+    key_value: Tuple[SourceDomainKey, SatelliteRow],
+    max_num_ctags: Dict[SourceDomainKey, int]) -> Tuple[SatelliteRow, int]:
   key, row = key_value
   if key in max_num_ctags:
     num_ctags = max_num_ctags[key]
@@ -384,34 +384,34 @@ def post_processing_satellite(
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
-  # PCollection[Tuple[DateDomainKey, SatelliteRow]]
-  rows_keyed_by_date_domains = (
-      rows | 'key by dates and domains' >>
-      beam.Map(lambda row: (make_date_domain_key(row), row)).with_output_types(
-          Tuple[DateDomainKey, SatelliteRow]))
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]]
+  rows_keyed_by_source_domains = (
+      rows | 'key by sources and domains' >> beam.Map(
+          lambda row: (make_source_domain_key(row), row)).with_output_types(
+              Tuple[SourceDomainKey, SatelliteRow]))
 
-  # PCollection[Tuple[DateDomainKey, SatelliteRow]] x3
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]] x3
   domain_controls, ip_controls, tests = (
-      rows_keyed_by_date_domains | 'partition test and control' >>
+      rows_keyed_by_source_domains | 'partition test and control' >>
       beam.Partition(_partition_test_and_controls, 3).with_output_types(
-          Tuple[DateDomainKey, SatelliteRow]))
+          Tuple[SourceDomainKey, SatelliteRow]))
 
-  # PCollection[Tuple[DateDomainKey, int]]
+  # PCollection[Tuple[SourceDomainKey, int]]
   num_ctags = (
       ip_controls | 'calculate # control tags' >>
-      beam.MapTuple(_total_tags).with_output_types(Tuple[DateDomainKey, int]))
+      beam.MapTuple(_total_tags).with_output_types(Tuple[SourceDomainKey, int]))
 
-  # PCollection[Tuple[DateDomainKey, List[int]]]
+  # PCollection[Tuple[SourceDomainKey, List[int]]]
   grouped_num_ctags = (
       num_ctags | 'group_ctags' >> beam.GroupByKey().with_output_types(
-          Tuple[DateDomainKey, List]))
+          Tuple[SourceDomainKey, List]))
 
-  # PCollection[Tuple[DateDomainKey, int]]
+  # PCollection[Tuple[SourceDomainKey, int]]
   max_num_ctags = (
       grouped_num_ctags | 'take max ctag' >>
-      beam.Map(_take_max_ctag).with_output_types(Tuple[DateDomainKey, int]))
+      beam.Map(_take_max_ctag).with_output_types(Tuple[SourceDomainKey, int]))
 
-  # SideInputData[PCollection[Tuple[DateDomainKey, int]]
+  # SideInputData[PCollection[Tuple[SourceDomainKey, int]]
   max_num_ctags_dict = beam.pvalue.AsDict(max_num_ctags)
 
   # PCollection[Tuple[SatelliteRow, num_controls]]
