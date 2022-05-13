@@ -58,7 +58,7 @@ class FlattenBaseTest(unittest.TestCase):
     )
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
-    parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    parsed = flatten_base.parse_received_data(blockpage_matcher, received, 'blocked.com', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -77,7 +77,7 @@ class FlattenBaseTest(unittest.TestCase):
         page_signature=None,
     )
     blockpage_matcher = BlockpageMatcher()
-    parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    parsed = flatten_base.parse_received_data(blockpage_matcher, received, 'blocked.com', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_http_status_line_false_positive(self) -> None:
@@ -96,7 +96,7 @@ class FlattenBaseTest(unittest.TestCase):
         page_signature='x_521',
     )
     blockpage_matcher = BlockpageMatcher()
-    parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    parsed = flatten_base.parse_received_data(blockpage_matcher, received, 'not-blocked.com', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_http_header_false_positive(self) -> None:
@@ -117,7 +117,7 @@ class FlattenBaseTest(unittest.TestCase):
         page_signature='a_prod_barracuda_2',
     )
     blockpage_matcher = BlockpageMatcher()
-    parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    parsed = flatten_base.parse_received_data(blockpage_matcher, received, 'blocked.com', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -150,6 +150,7 @@ class FlattenBaseTest(unittest.TestCase):
         tls_version = 771,
         tls_cipher_suite = 49199,
         tls_cert = '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',
+        tls_cert_matches_domain = True,
         tls_cert_common_name = 'www.tabikore.jp',
         tls_cert_issuer = 'DigiCert SHA2 Extended Validation Server CA',
         tls_cert_start_date = '2020-10-05T00:00:00',
@@ -169,18 +170,17 @@ class FlattenBaseTest(unittest.TestCase):
     )
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
-    parsed = flatten_base.parse_received_data(blockpage_matcher, received, True)
+    parsed = flatten_base.parse_received_data(blockpage_matcher, received, 'tabikore.jp', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_cert_invalid(self) -> None:
     """Test parsing an invalid certificate."""
     cert_str = "invalid certificate text"
     with self.assertLogs(level='WARNING') as cm:
-      parsed = flatten_base.parse_cert(cert_str)
+      parsed = flatten_base.parse_cert(cert_str, 'invalid.com')
       self.assertIn('Unable to load PEM file.', cm.output[0])
       self.assertIn('Cert: invalid certificate text', cm.output[0])
-    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
-                    List[str]] = (None, None, None, None, [])
+    expected = (None, None, None, None, [], False)
     self.assertEqual(parsed, expected)
 
   def test_parse_cert_no_subject_alternative_names(self) -> None:
@@ -188,15 +188,14 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: disable
     cert_str = "MIICxjCCAa6gAwIBAgIUbwuTH716p+5ULWPvIU6RP1QIIiwwDQYJKoZIhvcNAQELBQAwHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMB4XDTIyMDQwNjAwMjAxNloXDTIyMDUwNzAwMjAxNlowHTEbMBkGA1UEAwwSY2Vuc29yZWRwbGFuZXQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4H6+8AY3CuT/fjcxqJmFocYwqPUdaWc1o0X/YJmqde2dNuvkoVfvJfhWhjfbex0B42ha5Qy+qiV1WwApmtGNk0VdGTPvHgeFrrRKS8fv6tt4AqYUkF49UCyTfao+iVlZUKVu1IPdd5eOZ8AKqfBUbDjMVArEOG4G4OMqaNHtP+FoXvTyEGinu5S4wnx4ioQgmfMzU+/HdRvxI8UftDKggyyvLLhEIJaduY+y6Au+2Dtnx1+AShCVWUAx6cbCqC6HZ36tZBFJsDdENXQ9yGOzdmEIcvGbPIKdU1HYBUcd4opO+lqHs1NTk6lMpvtzj/F2rXkz1fjLjEfQy8cMaDuufQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAumw/AvuONpiUY9RlakrUkpb05wwRZUyHlVSLAkuYE6WXfSjg5VlRtwb8C7U5KCz9p5oFVK0FgGFYgBTqGYqbMEBDJELPBvFaQ5zg21/Uhwb0KEYqLvDNqlltaW2EoJwof+KntTj8OVaWqFMX1JvgPkswwNWs605opX+8z3W3pDh1YK8HyENlHig/jGVIJrXRRCFo8tbGTAJvgPEnW9s+xDCkql8tuXojiaCf56B3XHrus0E7NZLNzXI2qSoJxIrAedSbtfnD3Mw6bjoDG8sW+Y743TeIx/dFWxlX8uY4G+pg8Cyg1BiGLkNWWFGStK9JpyekN7khsuEdGgzj9YQep"
     # yapf: enable
-    parsed = flatten_base.parse_cert(cert_str)
-    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
-                    List[str]] = (
-                        'censoredplanet.org',
-                        'censoredplanet.org',
-                        '2022-04-06T00:20:16',
-                        '2022-05-07T00:20:16',
-                        [],
-                    )
+    parsed = flatten_base.parse_cert(cert_str, 'censoredplanet.org')
+    expected =  ('censoredplanet.org',
+                 'censoredplanet.org',
+                 '2022-04-06T00:20:16',
+                 '2022-05-07T00:20:16',
+                 [],
+                 True
+                )
     self.assertEqual(parsed, expected)
 
   def test_parse_cert_self_signed(self) -> None:
@@ -204,11 +203,13 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: disable
     cert_str = "MIIBeTCCAR+gAwIBAgIIFj3y08kD21kwCgYIKoZIzj0EAwIwLDEPMA0GA1UECgwGU2t5RE5TMRkwFwYDVQQDDBBTa3lETlMgU2VydmVyIENBMB4XDTIxMDYyNzAxMTM1MloXDTIxMDYyOTAxMTM1MlowGTEXMBUGA1UEAxMOd3d3LnRpa3Rvay5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATq1oeKtxjrDQ0JccJGzr8oQ3O4o048yFtA4DUFp93Ssk/3TAcwLzaRRHqXsuvUQeXtCQWeIJi06jlUOQtfkVi2oz4wPDAfBgNVHSMEGDAWgBSVpcfn4Rsi7YJxAk4dWHT+QcjokTAZBgNVHREEEjAQgg53d3cudGlrdG9rLmNvbTAKBggqhkjOPQQDAgNIADBFAiEA7cSgmPKszqefVPK5oNiK8SuiyJzggF75M9tQbMePOhMCID+sPNOYgJEgoLd3YVnNuh5VDW0AWvmmzfoNBCKlLOzW"
     # yapf: enable
-    parsed = flatten_base.parse_cert(cert_str)
-    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
-                    List[str]] = ('www.tiktok.com', 'SkyDNS Server CA',
-                                  '2021-06-27T01:13:52', '2021-06-29T01:13:52',
-                                  ['www.tiktok.com'])
+    parsed = flatten_base.parse_cert(cert_str, 'www.tiktok.com')
+    expected = ('www.tiktok.com',
+                'SkyDNS Server CA',
+                '2021-06-27T01:13:52',
+                '2021-06-29T01:13:52',
+                ['www.tiktok.com'],
+                False)
     self.assertEqual(parsed, expected)
 
   def test_parse_cert_missing_fields(self) -> None:
@@ -216,8 +217,6 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: disable
     cert_str = "MIIC7TCCAdWgAwIBAgIJAKnnHjNBTIeNMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNVBAYTAlJVMB4XDTIyMDEyMDA3MDIzN1oXDTQ5MDYwNjA3MDIzN1owDTELMAkGA1UEBhMCUlUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDPRtBvMF9d+GnHYzdn2wMgTmyKip8z1cyyoEriPZtM7KCu3TAHXJclz7H9Zt5jpzwSxUXpFcvLGxfEUo/tHxJw5CoHJYQGKxDvlQcn2FV3MrVmrFUd9Pg2BXgwAEdIMSZjDjLkBvvHBWxdz6uUI/r9YGjalawvvYelhrZGK+5h7w1Vx4cew3sOxuuOcnY+9SG8FbLYtEj2/Ase9Nwu+fBIXNS2nSZYtZta2sQVtcJEg24Ppqg2Ak1gHMPtDqJpD27OVuRiJXLlhwl4LD4gamH9nhaQM558W/D2h4ubMOA9mx8RmyEZVEKB7Mb0PGo45vcDQMQu5azXiqofuahOEjjRAgMBAAGjUDBOMB0GA1UdDgQWBBTLPcKME7F77rRYROBi7VJJW1Y7hzAfBgNVHSMEGDAWgBTLPcKME7F77rRYROBi7VJJW1Y7hzAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBvRkE4QZ8d4096lRqP6GP50366cSbe4Sw6tB8yDZ+qNNRhHmLA6XpwSf2W2WG703DfCAFsKPR2hAAZKgl7LeEhM0MjElHikBpIqSE3VX7CxyAj3FBpD5i9oR9ztvtYkk/LSdXES4cXYR+gHP2FFKT2yVQc5b7ZDN2OQuuXJP6mCLWaDGH4Zz0IOQnTmtx6ZF6DGSOcNx0u4dS/Ki+DYAy0gXYsAzdi8QIPCBUyxNSn78PY4ayZfyUq86hPGwiSHn1AJvsf+4wn6X781aFNr5ReouModCB+kX5CrCOFJqIlo9KOhpPf8v7ZfsSWpEGSSENkcArkXpZHHtbKyQmPUvhU"
     # yapf: enable
-    parsed = flatten_base.parse_cert(cert_str)
-    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
-                    List[str]] = (None, None, '2022-01-20T07:02:37',
-                                  '2049-06-06T07:02:37', [])
+    parsed = flatten_base.parse_cert(cert_str, 'example.com')
+    expected = (None, None, '2022-01-20T07:02:37', '2049-06-06T07:02:37', [], False)
     self.assertEqual(parsed, expected)

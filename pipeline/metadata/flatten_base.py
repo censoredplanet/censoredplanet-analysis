@@ -5,12 +5,18 @@ from __future__ import annotations  # required to use class as a type inside the
 
 import os
 import logging
+import re
+import ssl
 from typing import Optional, List, Dict, Any, Union, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+
+
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.schema import HttpsResponse
+
+
 
 # pylint: enable=too-many-instance-attributes
 
@@ -21,6 +27,31 @@ CONTROL_URLS = [
     'a.root-servers.net',  # Satellite
     'www.example.com'  # Satellite
 ]
+
+def cert_matches_domain(cert: x509.Certificate, domain: str) -> bool:
+  common_name = get_common_name(cert.subject)
+  cert_alternative_names = get_alternative_names(cert)
+
+  dict_cert = {
+    'subject': (
+      (('commonName', common_name))
+    ),
+  }
+
+  alt_list = tuple([('DNS', alt_name) for alt_name in cert_alternative_names])
+  if alt_list:
+    dict_cert['subjectAltName'] = alt_list
+
+  from pprint import pprint
+  pprint(("dict cert", dict_cert))
+
+  try:
+    ssl.match_hostname(dict_cert, domain)
+    return True
+  except ssl.CertificateError:
+    return False
+  except ValueError:
+    return False
 
 
 def get_common_name(cert_name: x509.Name) -> Optional[str]:
@@ -77,9 +108,10 @@ def load_cert_from_str(cert_str: str) -> x509.Certificate:
 
 
 def parse_cert(
-    cert_str: str
+    cert_str: str,
+    domain: str
 ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
-           List[str]]:
+           List[str], bool]:
   """Parse certificate fields from base64 certificate string.
 
   Args:
@@ -87,8 +119,9 @@ def parse_cert(
 
   Returns:
     tuple containing parsed certificate fields
-    (cert_common_name, cert_issuer, cert_start_date, cert_end_date, cert_alternative_names)
+    (cert_common_name, cert_issuer, cert_start_date, cert_end_date, cert_alternative_names, cert_matches_domain)
   """
+  matches_domain = False
   cert_common_name = None
   cert_issuer = None
   cert_start_date = None
@@ -96,6 +129,8 @@ def parse_cert(
   cert_alternative_names = []
   try:
     cert = load_cert_from_str(cert_str)
+
+    matches_domain = cert_matches_domain(cert, domain)
     cert_common_name = get_common_name(cert.subject)
     cert_issuer = get_common_name(cert.issuer)
     cert_start_date = cert.not_valid_before.isoformat()
@@ -104,7 +139,7 @@ def parse_cert(
   except ValueError as e:
     logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
   return (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
-          cert_alternative_names)
+          cert_alternative_names, matches_domain)
 
 
 def parse_received_headers(headers: Dict[str, List[str]]) -> List[str]:
@@ -188,6 +223,7 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
 
 def parse_received_data(blockpage_matcher: BlockpageMatcher,
                         received: Union[str, Dict[str, Any]],
+                        domain: str,
                         anomaly: bool) -> HttpsResponse:
   """Parse a received field into a section of a row to write to bigquery.
 
@@ -229,7 +265,9 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   # Parse certificate fields
   if row.tls_cert:
     (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
-     cert_alternative_names) = parse_cert(row.tls_cert)
+     cert_alternative_names, valid) = parse_cert(row.tls_cert, domain)
+
+    row.tls_cert_matches_domain = cert_matches_domain
     row.tls_cert_common_name = cert_common_name
     row.tls_cert_issuer = cert_issuer
     row.tls_cert_start_date = cert_start_date

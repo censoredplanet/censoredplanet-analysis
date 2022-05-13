@@ -30,6 +30,7 @@ class HttpsResponse:
   tls_version: Optional[int] = None
   tls_cipher_suite: Optional[int] = None
   tls_cert: Optional[str] = None
+  tls_cert_matches_domain: Optional[bool] = None
   tls_cert_common_name: Optional[str] = None
   tls_cert_issuer: Optional[str] = None
   tls_cert_start_date: Optional[str] = None
