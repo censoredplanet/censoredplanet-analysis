@@ -426,7 +426,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'asn': ('integer', 'nullable'),
             'as_name': ('string', 'nullable'),
             'censys_http_body_hash': ('string', 'nullable'),
-            'censys_ip_cert': ('bytes', 'nullable'),
+            'censys_ip_cert': ('string', 'nullable'),
             'matches_control': ('record', 'nullable', {
                 'ip': ('boolean', 'nullable'),
                 'censys_http_body_hash': ('boolean', 'nullable'),
