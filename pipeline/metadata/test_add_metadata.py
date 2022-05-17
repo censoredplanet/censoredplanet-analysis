@@ -8,7 +8,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithKeys
+from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithDateKey
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import beam_metadata
 from pipeline.metadata.add_metadata import MetadataAdder
@@ -118,7 +118,7 @@ class MetadataAdderTest(unittest.TestCase):
     metadatas = list(adder._annotate_ips('2020-01-01', ['1.1.1.1', '8.8.8.8']))
 
     expected_key_1: beam_metadata.DateIpKey = ('2020-01-01', '1.1.1.1')
-    expected_value_1 = IpMetadataWithKeys(
+    expected_value_1 = IpMetadataWithDateKey(
         ip='1.1.1.1',
         date='2020-01-01',
         netblock='1.0.0.1/24',
@@ -131,7 +131,7 @@ class MetadataAdderTest(unittest.TestCase):
     )
 
     expected_key_2: beam_metadata.DateIpKey = ('2020-01-01', '8.8.8.8')
-    expected_value_2 = IpMetadataWithKeys(
+    expected_value_2 = IpMetadataWithDateKey(
         ip='8.8.8.8',
         date='2020-01-01',
         netblock='8.8.8.0/24',
@@ -156,7 +156,7 @@ class MetadataAdderTest(unittest.TestCase):
     # Test Maxmind lookup when country data is missing
     # Cloudflare IPs return Australia
     expected_key_1 = ('2020-01-01', '1.1.1.3')
-    expected_value_1 = IpMetadataWithKeys(
+    expected_value_1 = IpMetadataWithDateKey(
         ip='1.1.1.3',
         date='2020-01-01',
         netblock='1.0.0.1/24',

@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithKeys, SatelliteAnswer, SatelliteAnswerWithKeys, merge_ip_metadata, merge_satellite_answers
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithDateKey, IpMetadataWithSourceKey, SatelliteAnswer, SatelliteAnswerWithSourceKey, SatelliteAnswerWithDateKey, SatelliteAnswerWithAnyKey, merge_ip_metadata, merge_satellite_answers
 
 # A key containing a date and IP
 # ex: ('2020-01-01', '1.2.3.4')
@@ -34,13 +34,15 @@ RECEIVED_IPS_PCOLLECTION_NAME = 'received_ips'
 BLOCKPAGE_PCOLLECTION_NAME = 'blockpage'
 
 
-def make_date_ip_key(tag: Union[IpMetadataWithKeys, BigqueryRow]) -> DateIpKey:
+def make_date_ip_key(
+    tag: Union[IpMetadataWithDateKey, BigqueryRow]) -> DateIpKey:
   """Makes a tuple key of the date and ip from a given row dict."""
   return (tag.date or '', tag.ip or '')
 
 
 def make_source_ip_key(
-    tag: Union[IpMetadataWithKeys, BigqueryRow, SatelliteAnswerWithKeys]
+    tag: Union[IpMetadataWithSourceKey, BigqueryRow,
+               SatelliteAnswerWithSourceKey]
 ) -> SourceIpKey:
   """Makes a tuple key of the source and ip from a given row dict."""
   return (tag.source or '', tag.ip or '')
@@ -56,15 +58,16 @@ def make_source_domain_key(row: SatelliteRow) -> SourceDomainKey:
 
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey,
-    value: Dict[str, Union[List[BigqueryRow],
-                           List[IpMetadataWithKeys]]]) -> Iterator[BigqueryRow]:
+    value: Dict[str,
+                Union[List[BigqueryRow],
+                      List[IpMetadataWithDateKey]]]) -> Iterator[BigqueryRow]:
   # pyformat: disable
   """Merge a list of rows with their corresponding metadata information.
 
   Args:
     key: The DateIpKey tuple that we joined on. This is thrown away.
     value: A two-element dict
-      {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing IpMetadataWithKeys
+      {IP_METADATA_PCOLLECTION_NAME: list (often one element) containing IpMetadataWithDateKey
                ROWS_PCOLLECION_NAME: Many element list containing Rows}
     rows_pcollection_name: default ROWS_PCOLLECION_NAME
       set if joining a pcollection with a different name
@@ -74,7 +77,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   """
   # pyformat: enable
   if value[IP_METADATA_PCOLLECTION_NAME]:
-    ip_metadatas: List[IpMetadataWithKeys] = value[
+    ip_metadatas: List[IpMetadataWithDateKey] = value[
         IP_METADATA_PCOLLECTION_NAME]  # type: ignore
   else:
     ip_metadatas = []
@@ -90,7 +93,7 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
 def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
     key: SourceIpKey,
     value: Dict[str, Union[List[SatelliteAnswer],
-                           List[Tuple[str, SatelliteAnswerWithKeys]]]]
+                           List[Tuple[str, SatelliteAnswerWithSourceKey]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
   """
   Args:
@@ -107,7 +110,36 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
   """
   received_ips: List[Tuple[str, SatelliteAnswer]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
-  tags: List[SatelliteAnswerWithKeys] = value[
+  tags: List[SatelliteAnswerWithSourceKey] = value[
+      IP_METADATA_PCOLLECTION_NAME]  # type: ignore
+
+  for (roundtrip_id, answer) in received_ips:
+    for tag in tags:
+      merge_satellite_answers(answer, tag)
+    yield (roundtrip_id, answer)
+
+
+def merge_satellite_metadata_with_answers(  # pylint: disable=unused-argument
+    key: DateIpKey,
+    value: Dict[str, Union[List[SatelliteAnswer],
+                           List[Tuple[str, SatelliteAnswerWithDateKey]]]]
+) -> Iterator[Tuple[str, SatelliteAnswer]]:
+  """
+  Args:
+    key: DateIpKey key, unused
+    value:
+      {RECEIVED_IPS_PCOLLECTION_NAME:
+          list of Tuple[roundtrip_id, SatelliteAnswer]s without metadata
+       IP_METADATA_PCOLLECTION_NAME:
+           list of SatelliteAnswerMetadata with metadata
+      }
+
+  Yields:
+    The Tuple[roundtrip_id, SatelliteAnswer]s with metadata added.
+  """
+  received_ips: List[Tuple[str, SatelliteAnswer]] = value[
+      RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
+  tags: List[SatelliteAnswerWithDateKey] = value[
       IP_METADATA_PCOLLECTION_NAME]  # type: ignore
 
   for (roundtrip_id, answer) in received_ips:
@@ -119,7 +151,7 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 def merge_tagged_answers_with_rows(
     key: str,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[SatelliteRow],
-                           List[List[Tuple[str, SatelliteAnswerWithKeys]]]]]
+                           List[List[Tuple[str, SatelliteAnswerWithAnyKey]]]]]
 ) -> SatelliteRow:
   """
   Args:
@@ -173,9 +205,9 @@ def merge_tagged_answers_with_rows(
 
   if len(value[RECEIVED_IPS_PCOLLECTION_NAME]) == 0:  # No tags
     return row
-  tagged_answers_with_ids: List[Tuple[str, SatelliteAnswerWithKeys]] = value[
+  tagged_answers_with_ids: List[Tuple[str, SatelliteAnswerWithAnyKey]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME][0]  # type: ignore
-  tagged_answers: Iterable[SatelliteAnswerWithKeys] = list(
+  tagged_answers: Iterable[SatelliteAnswerWithAnyKey] = list(
       map(lambda x: x[1], tagged_answers_with_ids))
 
   for untagged_answer in row.received:
@@ -188,7 +220,7 @@ def merge_tagged_answers_with_rows(
 def merge_page_fetches_with_answers(
     key: DomainSourceIpKey,  # pylint: disable=unused-argument
     value: Dict[str, Union[List[PageFetchRow],
-                           List[Tuple[str, SatelliteAnswerWithKeys]]]]
+                           List[Tuple[str, SatelliteAnswerWithSourceKey]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
   """Add fetched page info to answers."""
   answers: List[Tuple[str, SatelliteAnswer]] = value[

@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 import unittest
 
 from pipeline.metadata import beam_metadata
-from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithKeys
+from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithDateKey
 
 
 class BeamMetadataTest(unittest.TestCase):
@@ -13,7 +13,7 @@ class BeamMetadataTest(unittest.TestCase):
   def test_merge_metadata_with_rows(self) -> None:
     """Test merging IP metadata pcollection with rows pcollection."""
     key: beam_metadata.DateIpKey = ('2020-01-01', '1.1.1.1')
-    ip_metadata = IpMetadataWithKeys(
+    ip_metadata = IpMetadataWithDateKey(
         ip='1.1.1.1',
         date='2020-01-01',
         netblock='1.0.0.1/24',
@@ -35,7 +35,7 @@ class BeamMetadataTest(unittest.TestCase):
             date='2020-01-01',
         )
     ]
-    value: Dict[str, Union[List[BigqueryRow], List[IpMetadataWithKeys]]] = {
+    value: Dict[str, Union[List[BigqueryRow], List[IpMetadataWithDateKey]]] = {
         beam_metadata.IP_METADATA_PCOLLECTION_NAME: [ip_metadata],
         beam_metadata.ROWS_PCOLLECION_NAME: rows
     }
