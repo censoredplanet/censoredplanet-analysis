@@ -155,13 +155,14 @@ class MetadataAdder():
     """
     # PCollection[Tuple[roundtrip_id, SatelliteRow]]
     rows_with_roundtrip_id = (
-        rows | 'add roundtrip_ids' >>
+        rows | 'add roundtrip_ids: answer metadata' >>
         beam.Map(_set_random_roundtrip_id).with_output_types(
             Tuple[str, SatelliteRow]))
 
     # PCollection[Tuple[DateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
     received_ips_keyed_by_ip_and_date = (
-        rows_with_roundtrip_id | 'get received ips' >> beam.FlatMap(
+        rows_with_roundtrip_id |
+        'get received ips: answer metadata' >> beam.FlatMap(
             _get_received_ips_with_roundtrip_id_and_date).with_output_types(
                 Tuple[DateIpKey, Tuple[str, SatelliteAnswer]]))
 
@@ -202,19 +203,20 @@ class MetadataAdder():
 
     # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithDateKey]]]]
     received_ips_grouped_by_roundtrip_ip = (
-        received_ips_with_metadata | 'group received_by roundtrip' >>
+        received_ips_with_metadata |
+        'group received_by roundtrip: answer metadata' >>
         beam.GroupBy(lambda x: x[0]).with_output_types(
             Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithDateKey]]]))
 
     grouped_rows_and_received_ips = (({
         ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
         RECEIVED_IPS_PCOLLECTION_NAME: received_ips_grouped_by_roundtrip_ip
-    }) | 'add received ip tags: group by roundtrip' >> beam.CoGroupByKey())
+    }) | 'add received ip metadata: group by roundtrip' >> beam.CoGroupByKey())
 
     # PCollection[SatelliteRow] received ip row with roundtrip id
     rows_with_metadata = (
         grouped_rows_and_received_ips |
-        'add received ip tags: add tagged answers back' >> beam.MapTuple(
+        'add received ip metadata: add tagged answers back' >> beam.MapTuple(
             merge_tagged_answers_with_rows).with_output_types(SatelliteRow))
 
     return rows_with_metadata
