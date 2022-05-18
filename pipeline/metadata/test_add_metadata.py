@@ -8,7 +8,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import BigqueryRow, IpMetadata, IpMetadataWithDateKey
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, SatelliteAnswer, IpMetadata, IpMetadataWithDateKey
 from pipeline.metadata.ip_metadata_chooser import FakeIpMetadataChooserFactory
 from pipeline.metadata import beam_metadata
 from pipeline.metadata.add_metadata import MetadataAdder
@@ -18,7 +18,7 @@ class MetadataAdderTest(unittest.TestCase):
   """Unit tests for adding ip metadata."""
 
   def test_annotate_row_ip(self) -> None:  # pylint: disable=no-self-use
-    """Test adding IP metadata to mesurements."""
+    """Test adding IP metadata to measurement ips."""
     rows = [
         BigqueryRow(
             domain='www.example.com',
@@ -105,6 +105,125 @@ class MetadataAdderTest(unittest.TestCase):
                 as_class='Content',
                 country='US',
             ))
+    ]
+
+    beam_test_util.assert_that(rows_with_metadata,
+                               beam_test_util.equal_to(expected))
+
+  def test_annotate_answer_ips(self) -> None:  # pylint: disable=no-self-use
+    """Test adding IP metadata to measurement answers."""
+    rows = [
+        SatelliteRow(
+            domain='dns.google.com',
+            date='2020-01-01',
+            success=True,
+            received=[SatelliteAnswer(ip='8.8.8.8')]),
+        SatelliteRow(
+            domain='dns.google.com',
+            date='2020-01-01',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='8.8.8.8',
+                    cert='MII...'  # non IpMetadata tags are not overwritten
+                )
+            ]),
+        SatelliteRow(
+            domain='one.one.one.one',
+            date='2020-01-02',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='1.1.1.1',
+                    ip_metadata=IpMetadata(
+                        # tags we also have in routeviews are overwritten
+                        country='AU',
+                        # tags we don't have within the same metadata aren't
+                        organization='Not Overwritten Cloudflare Org'))
+            ]),
+        SatelliteRow(
+            domain='www.example.com',
+            date='2020-01-02',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='1.2.3.4',
+                    ip_metadata=IpMetadata(
+                        asn=1234,
+                        # tags we don't have in routeviews are not overwritten
+                        as_name='1234 Name Not Overwritten',
+                    ))
+            ])
+    ]
+
+    p = TestPipeline()
+    rows = (p | beam.Create(rows))
+
+    adder = MetadataAdder(FakeIpMetadataChooserFactory())
+    rows_with_metadata = adder.annotate_answer_ips(rows)
+
+    expected = [
+        SatelliteRow(
+            domain='dns.google.com',
+            date='2020-01-01',
+            success=True,
+            received=[
+                SatelliteAnswer(
+                    ip='8.8.8.8',
+                    ip_metadata=IpMetadata(
+                        netblock='8.8.8.0/24',
+                        asn=15169,
+                        as_name='GOOGLE',
+                        as_full_name='Google LLC',
+                        as_class='Content',
+                        country='US',
+                    ))
+            ]),
+        SatelliteRow(
+            domain='dns.google.com',
+            date='2020-01-01',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='8.8.8.8',
+                    cert='MII...',
+                    ip_metadata=IpMetadata(
+                        netblock='8.8.8.0/24',
+                        asn=15169,
+                        as_name='GOOGLE',
+                        as_full_name='Google LLC',
+                        as_class='Content',
+                        country='US',
+                    ))
+            ]),
+        SatelliteRow(
+            domain='one.one.one.one',
+            date='2020-01-02',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='1.1.1.1',
+                    ip_metadata=IpMetadata(
+                        netblock='1.0.0.1/24',
+                        asn=13335,
+                        as_name='CLOUDFLARENET',
+                        as_full_name='Cloudflare Inc.',
+                        as_class='Content',
+                        country='US',
+                        organization='Not Overwritten Cloudflare Org'))
+            ]),
+        SatelliteRow(
+            domain='www.example.com',
+            date='2020-01-02',
+            success=False,
+            received=[
+                SatelliteAnswer(
+                    ip='1.2.3.4',
+                    ip_metadata=IpMetadata(
+                        asn=1234,
+                        as_name='1234 Name Not Overwritten',
+                    ))
+            ])
     ]
 
     beam_test_util.assert_that(rows_with_metadata,

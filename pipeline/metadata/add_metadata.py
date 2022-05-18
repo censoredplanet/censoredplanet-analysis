@@ -113,45 +113,12 @@ class MetadataAdder():
       self, rows: beam.pvalue.PCollection[SatelliteRow]
   ) -> beam.pvalue.PCollection[SatelliteRow]:
     """Add ip metadata info to received ip lists in rows
+
     Args:
-      rows: PCollection of dicts without metadata in the received ips like:
-        {
-          'ip': '1.2.3.4'
-          'domain': 'ex.com'
-          'received' : [{
-              ip: '4.5.6.7'
-              ip_metadata: Old_IP_Metadata
-            }, {
-              ip: '5.6.7.8'
-            },
-          ]
-        }
-      tags: PCollection of received ip metadata like:
-        {
-          'ip': '4.5.6.7'
-          'asname': 'AMAZON-AES',
-          'asnum': 14618,
-        }
-        {
-          'ip': '5.6.7.8'
-          'asname': 'CLOUDFLARE',
-          'asnum': 13335,
-        }
-    Returns a PCollection of rows with metadata tags added to received ips like
-      {
-        'ip': '1.2.3.4'
-        'domain': 'ex.com'
-        'received' : [{
-            'ip': '4.5.6.7'
-            'asname': 'AMAZON-AES',
-            'asnum': 14618,
-          }, {
-            'ip': '5.6.7.8'
-            'asname': 'CLOUDFLARE',
-            'asnum': 13335,
-          },
-        ]
-      }
+      rows: PCollection of SatelliteRows
+
+    Returns:
+      SatelliteRows with routeview metadata attatched to answer ips.
     """
     # PCollection[Tuple[roundtrip_id, SatelliteRow]]
     rows_with_roundtrip_id = (
