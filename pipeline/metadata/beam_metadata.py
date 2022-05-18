@@ -2,10 +2,9 @@
 
 from __future__ import absolute_import
 
-from copy import deepcopy
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithDateKey, IpMetadataWithSourceKey, SatelliteAnswer, SatelliteAnswerWithSourceKey, SatelliteAnswerWithDateKey, SatelliteAnswerWithAnyKey, merge_ip_metadata, merge_satellite_answers
+from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithDateKey, IpMetadataWithSourceKey, SatelliteAnswer, SatelliteAnswerWithSourceKey, SatelliteAnswerWithAnyKey, merge_ip_metadata, merge_satellite_answers
 
 # A key containing a date and IP
 # ex: ('2020-01-01', '1.2.3.4')
@@ -84,10 +83,9 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
   rows: List[BigqueryRow] = value[ROWS_PCOLLECION_NAME]  # type: ignore
 
   for row in rows:
-    new_row = deepcopy(row)
     for ip_metadata in ip_metadatas:
-      merge_ip_metadata(new_row.ip_metadata, ip_metadata)
-    yield new_row
+      merge_ip_metadata(row.ip_metadata, ip_metadata)
+    yield row
 
 
 def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
@@ -120,9 +118,9 @@ def merge_satellite_tags_with_answers(  # pylint: disable=unused-argument
 
 
 def merge_satellite_metadata_with_answers(  # pylint: disable=unused-argument
-    key: DateIpKey,
-    value: Dict[str, Union[List[SatelliteAnswer],
-                           List[Tuple[str, SatelliteAnswerWithDateKey]]]]
+    key: DateIpKey, value: Dict[str, Union[List[SatelliteAnswer],
+                                           List[Tuple[str,
+                                                      IpMetadataWithDateKey]]]]
 ) -> Iterator[Tuple[str, SatelliteAnswer]]:
   """
   Args:
@@ -130,8 +128,7 @@ def merge_satellite_metadata_with_answers(  # pylint: disable=unused-argument
     value:
       {RECEIVED_IPS_PCOLLECTION_NAME:
           list of Tuple[roundtrip_id, SatelliteAnswer]s without metadata
-       IP_METADATA_PCOLLECTION_NAME:
-           list of SatelliteAnswerMetadata with metadata
+       IP_METADATA_PCOLLECTION_NAME: single IpMetadataWithDateKey
       }
 
   Yields:
@@ -139,12 +136,11 @@ def merge_satellite_metadata_with_answers(  # pylint: disable=unused-argument
   """
   received_ips: List[Tuple[str, SatelliteAnswer]] = value[
       RECEIVED_IPS_PCOLLECTION_NAME]  # type: ignore
-  tags: List[SatelliteAnswerWithDateKey] = value[
-      IP_METADATA_PCOLLECTION_NAME]  # type: ignore
+  ip_metadata: IpMetadataWithDateKey = value[IP_METADATA_PCOLLECTION_NAME][
+      0]  # type: ignore
 
   for (roundtrip_id, answer) in received_ips:
-    for tag in tags:
-      merge_satellite_answers(answer, tag)
+    merge_ip_metadata(answer.ip_metadata, ip_metadata)
     yield (roundtrip_id, answer)
 
 

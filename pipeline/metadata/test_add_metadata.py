@@ -46,12 +46,6 @@ class MetadataAdderTest(unittest.TestCase):
         )
     ]
 
-    p = TestPipeline()
-    rows = (p | beam.Create(rows))
-
-    adder = MetadataAdder(FakeIpMetadataChooserFactory())
-    rows_with_metadata = adder.annotate_row_ip(rows)
-
     expected = [
         BigqueryRow(
             domain='www.example.com',
@@ -78,7 +72,7 @@ class MetadataAdderTest(unittest.TestCase):
                 as_full_name='Cloudflare Inc.',
                 as_class='Content',
                 country='US',
-            )),
+                organization='Fake Cloudflare Sub-Org')),
         BigqueryRow(
             domain='www.example.com',
             ip='8.8.8.8',
@@ -104,11 +98,15 @@ class MetadataAdderTest(unittest.TestCase):
                 as_full_name='Cloudflare Inc.',
                 as_class='Content',
                 country='US',
-            ))
+                organization='Fake Cloudflare Sub-Org'))
     ]
+    adder = MetadataAdder(FakeIpMetadataChooserFactory())
 
-    beam_test_util.assert_that(rows_with_metadata,
-                               beam_test_util.equal_to(expected))
+    with TestPipeline() as p:
+      rows = p | beam.Create(rows)
+      rows_with_metadata = adder.annotate_row_ip(rows)
+      beam_test_util.assert_that(rows_with_metadata,
+                                 beam_test_util.equal_to(expected))
 
   def test_annotate_answer_ips(self) -> None:  # pylint: disable=no-self-use
     """Test adding IP metadata to measurement answers."""
@@ -125,7 +123,7 @@ class MetadataAdderTest(unittest.TestCase):
             received=[
                 SatelliteAnswer(
                     ip='8.8.8.8',
-                    cert='MII...'  # non IpMetadata tags are not overwritten
+                    cert='MII...',  # non IpMetadata tags are not overwritten
                 )
             ]),
         SatelliteRow(
@@ -137,9 +135,7 @@ class MetadataAdderTest(unittest.TestCase):
                     ip='1.1.1.1',
                     ip_metadata=IpMetadata(
                         # tags we also have in routeviews are overwritten
-                        country='AU',
-                        # tags we don't have within the same metadata aren't
-                        organization='Not Overwritten Cloudflare Org'))
+                        country='AU'))
             ]),
         SatelliteRow(
             domain='www.example.com',
@@ -155,12 +151,6 @@ class MetadataAdderTest(unittest.TestCase):
                     ))
             ])
     ]
-
-    p = TestPipeline()
-    rows = (p | beam.Create(rows))
-
-    adder = MetadataAdder(FakeIpMetadataChooserFactory())
-    rows_with_metadata = adder.annotate_answer_ips(rows)
 
     expected = [
         SatelliteRow(
@@ -210,7 +200,7 @@ class MetadataAdderTest(unittest.TestCase):
                         as_full_name='Cloudflare Inc.',
                         as_class='Content',
                         country='US',
-                        organization='Not Overwritten Cloudflare Org'))
+                        organization='Fake Cloudflare Sub-Org'))
             ]),
         SatelliteRow(
             domain='www.example.com',
@@ -226,8 +216,13 @@ class MetadataAdderTest(unittest.TestCase):
             ])
     ]
 
-    beam_test_util.assert_that(rows_with_metadata,
-                               beam_test_util.equal_to(expected))
+    adder = MetadataAdder(FakeIpMetadataChooserFactory())
+
+    with TestPipeline() as p:
+      rows = p | beam.Create(rows)
+      rows_with_answer_metadata = adder.annotate_answer_ips(rows)
+      beam_test_util.assert_that(rows_with_answer_metadata,
+                                 beam_test_util.equal_to(expected))
 
   # pylint: disable=protected-access
 
