@@ -224,7 +224,11 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   if 'TlsVersion' in received:
     row.tls_version = received['TlsVersion']
     row.tls_cipher_suite = received['CipherSuite']
-    row.tls_cert = received['Certificate']
+    if isinstance(received['Certificate'], str):
+      row.tls_cert = received['Certificate']
+    elif isinstance(received['Certificate'],
+                    List) and len(received['Certificate']) > 0:
+      row.tls_cert = received['Certificate'][0]
 
   # Parse certificate fields
   if row.tls_cert:
