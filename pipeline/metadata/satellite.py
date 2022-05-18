@@ -833,23 +833,23 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
-  # PCollection[BlockpageRow]
-  page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
-
-  # PCollection[SatelliteRow]
-  satellite_with_page_fetches = add_page_fetch_to_answers(
-      tagged_satellite, page_fetch_rows)
-
-  # PCollection[SatelliteRow]
-  post_processed_satellite = post_processing_satellite(
-      satellite_with_page_fetches)
-
   # PCollection[SatelliteRow]
   rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
-      post_processed_satellite)
+      tagged_satellite)
 
   # PCollection[SatelliteRow]
   rows_with_answer_ip_annotations = metadata_adder.annotate_answer_ips(
       rows_with_resolver_ip_annotations)
 
-  return rows_with_answer_ip_annotations
+  # PCollection[BlockpageRow]
+  page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
+
+  # PCollection[SatelliteRow]
+  satellite_with_page_fetches = add_page_fetch_to_answers(
+      rows_with_answer_ip_annotations, page_fetch_rows)
+
+  # PCollection[SatelliteRow]
+  post_processed_satellite = post_processing_satellite(
+      satellite_with_page_fetches)
+
+  return post_processed_satellite
