@@ -13,7 +13,7 @@ from pipeline.metadata.schema import BigqueryRow, IpMetadataWithDateKey, Satelli
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
 
-def _set_random_roundtrip_id(row: SatelliteRow) -> Tuple[str, SatelliteRow]:
+def set_random_roundtrip_id(row: SatelliteRow) -> Tuple[str, SatelliteRow]:
   """Add a roundtrip_id field to a row."""
   roundtrip_id = uuid.uuid4().hex
   return (roundtrip_id, row)
@@ -123,7 +123,7 @@ class MetadataAdder():
     # PCollection[Tuple[roundtrip_id, SatelliteRow]]
     rows_with_roundtrip_id = (
         rows | 'add roundtrip_ids: answer metadata' >>
-        beam.Map(_set_random_roundtrip_id).with_output_types(
+        beam.Map(set_random_roundtrip_id).with_output_types(
             Tuple[str, SatelliteRow]))
 
     # PCollection[Tuple[DateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
