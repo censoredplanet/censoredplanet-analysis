@@ -52,22 +52,22 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
 );
 
 
-CREATE TEMP FUNCTION InvalidIp(received ANY TYPE) AS (
+CREATE TEMP FUNCTION InvalidIp(answer ANY TYPE) AS (
   CASE
-    WHEN STARTS_WITH(received.ip, "0.") THEN TRUE
-    WHEN STARTS_WITH(received.ip, "127.") then TRUE
-    WHEN STARTS_WITH(received.ip, "10.")
-         OR STARTS_WITH(received.ip, "192.168.") then TRUE
+    WHEN STARTS_WITH(answer.ip, "0.") THEN TRUE
+    WHEN STARTS_WITH(answer.ip, "127.") then TRUE
+    WHEN STARTS_WITH(answer.ip, "10.")
+         OR STARTS_WITH(answer.ip, "192.168.") then TRUE
     ELSE FALSE
   END
 );
 
-CREATE TEMP FUNCTION InvalidIpType(received ANY TYPE) AS (
+CREATE TEMP FUNCTION InvalidIpType(answer ANY TYPE) AS (
   CASE
-    WHEN STARTS_WITH(received.ip, "0.") then "ip_invalid:zero"
-    WHEN STARTS_WITH(received.ip, "127.") then "ip_invalid:local_host"
-    WHEN STARTS_WITH(received.ip, "10.")
-         OR STARTS_WITH(received.ip, "192.168.") then "ip_invalid:local_net"
+    WHEN STARTS_WITH(answer.ip, "0.") then "ip_invalid:zero"
+    WHEN STARTS_WITH(answer.ip, "127.") then "ip_invalid:local_host"
+    WHEN STARTS_WITH(answer.ip, "10.")
+         OR STARTS_WITH(answer.ip, "192.168.") then "ip_invalid:local_net"
     ELSE "invalid_ip_parse_error"
   END
 );
@@ -80,12 +80,12 @@ CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
 );
 
 CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
-                                         cert STRING,
+                                         cert BYTES,
                                          https_is_known_blockpage BOOLEAN,
                                          https_page_signature STRING) AS (
   CASE
-    WHEN (STRPOS(FROM_BASE64(cert), CAST(domain as bytes)) > 0
-          OR STRPOS(FROM_BASE64(cert), 
+    WHEN (STRPOS(cert, CAST(domain as bytes)) > 0
+          OR STRPOS(cert, 
              CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0)
       THEN "expected/cert_match"
     WHEN https_is_known_blockpage
@@ -94,10 +94,10 @@ CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
   END
 );
 
-# Input: array of received IP information, array of rcodes, error,
+# Input: array of answer IP information, array of rcodes, error,
 #        controls failed, and anomaly fields from the raw data
 # Output is a string of the format "stage/outcome"
-CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
+CREATE TEMP FUNCTION SatelliteOutcome(answers ANY TYPE,
                                       rcode INTEGER, 
                                       error STRING, 
                                       controls_failed BOOL, 
@@ -107,21 +107,21 @@ CREATE TEMP FUNCTION SatelliteOutcome(received ANY TYPE,
     WHEN controls_failed THEN "setup/controls"
     WHEN rcode IS NULL THEN ClassifySatelliteError(error)
     WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(error)
-    WHEN ARRAY_LENGTH(received) = 0 THEN ClassifySatelliteRCode(rcode)
+    WHEN ARRAY_LENGTH(answers) = 0 THEN ClassifySatelliteRCode(rcode)
     ELSE
       CASE
         # assuming no one will mix valid and invalid ips
-        WHEN InvalidIp(received[OFFSET(0)])
-          THEN InvalidIpType(received[OFFSET(0)])
-        WHEN received[OFFSET(0)].https_response_tls_cert IS NOT NULL
+        WHEN InvalidIp(answers[OFFSET(0)])
+          THEN InvalidIpType(answers[OFFSET(0)])
+        WHEN answers[OFFSET(0)].https_tls_cert IS NOT NULL
           THEN TlsCertMatchOutcome(domain,
-                                   received[OFFSET(0)].https_response_tls_cert,
-                                   received[OFFSET(0)].https_analysis_is_known_blockpage,
-                                   received[OFFSET(0)].https_analysis_page_signature)
-        WHEN received[OFFSET(0)].http_analysis_is_known_blockpage
-          THEN CONCAT("http_blockpage:", received[OFFSET(0)].http_analysis_page_signature)
+                                   answers[OFFSET(0)].https_tls_cert,
+                                   answers[OFFSET(0)].https_analysis_is_known_blockpage,
+                                   answers[OFFSET(0)].https_analysis_page_signature)
+        WHEN answers[OFFSET(0)].http_analysis_is_known_blockpage
+          THEN CONCAT("http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
         WHEN anomaly
-          THEN CONCAT("dns/ipmismatch:", received[OFFSET(0)].asname)
+          THEN CONCAT("dns/ipmismatch:", answers[OFFSET(0)].as_name)
         ELSE "expected/match"
       END
   END
@@ -150,21 +150,21 @@ WITH Grouped AS (
     SELECT
         date,
 
-        IF(name="special","special",NET.REG_DOMAIN(name)) as reg_hostname,
-        name as hostname,
-        as_full_name AS network,
-        CONCAT("AS", asn, IF(organization IS NOT NULL, CONCAT(" - ", organization), "")) AS subnetwork,
-        country AS country_code,
+        IF(resolver_name="special","special",NET.REG_DOMAIN(resolver_name)) as reg_hostname,
+        resolver_name as hostname,
+        resolver_as_full_name AS network,
+        CONCAT("AS", resolver_asn, IF(resolver_organization IS NOT NULL, CONCAT(" - ", resolver_organization), "")) AS subnetwork,
+        resolver_country AS country_code,
 
-        IF(is_control, "CONTROL", domain) AS domain,
-        IFNULL(category, "Uncategorized") AS category,
+        IF(domain_is_control, "CONTROL", domain) AS domain,
+        IFNULL(domain_category, "Uncategorized") AS category,
 
-        SatelliteOutcome(received, rcode, error, controls_failed, anomaly, domain) as outcome,
+        SatelliteOutcome(answers, received_rcode, received_error, domain_controls_failed, anomaly, domain) as outcome,
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE controls_failed = FALSE
+    WHERE domain_controls_failed = FALSE
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
