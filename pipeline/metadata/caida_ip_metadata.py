@@ -231,7 +231,11 @@ class CaidaIpMetadata():
     Raises:
       KeyError: when the IP's ASN can't be found
     """
-    asn, netblock = self.asn_db.lookup(ip)
+    try:
+      asn, netblock = self.asn_db.lookup(ip)
+    except ValueError as ex:
+      raise KeyError(
+          f"Could not parse IP {ip} at {self.date.isoformat()}. {ex}") from ex
 
     if not asn:
       raise KeyError(f"Missing IP {ip} at {self.date.isoformat()}")

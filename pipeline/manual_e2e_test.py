@@ -459,22 +459,44 @@ class PipelineManualE2eTest(unittest.TestCase):
                   str(context.exception))
 
   def test_ipmetadata_init(self) -> None:
+    """Test getting getting routeview metadata from prod."""
     caida_ip_metadata_db = caida_ip_metadata.get_firehook_caida_ip_metadata_db(
         datetime.date(2018, 7, 27))
-    metadata = caida_ip_metadata_db.lookup('1.1.1.1')
 
+    metadata = caida_ip_metadata_db.lookup('1.1.1.1')
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
                                 'Cloudflare, Inc.', 'Content', 'US'))
 
+    # TODO add IPv6 data to routeviews
+    with self.assertRaises(KeyError) as context:
+      caida_ip_metadata_db.lookup('2606:4700:4700::1111')
+    self.assertEqual("'Missing IP 2606:4700:4700::1111 at 2018-07-27'",
+                     str(context.exception))
+
+    with self.assertRaises(KeyError) as context:
+      caida_ip_metadata_db.lookup('not-an-ip')
+    self.assertEqual(
+        "'Could not parse IP not-an-ip at 2018-07-27. inet_pton(v4) returned error'",
+        str(context.exception))
+
   def test_maxmind_init(self) -> None:
+    """Test getting maxmind metadata from prod."""
     maxmind_db = maxmind.MaxmindIpMetadata(
         firehook_resources.MAXMIND_FILE_LOCATION)
-    metadata = maxmind_db.lookup('1.1.1.1')
 
+    metadata = maxmind_db.lookup('1.1.1.1')
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET', 'AU'))
 
+    ipv6_metadata = maxmind_db.lookup('2606:4700:4700::1111')
+    self.assertEqual(ipv6_metadata,
+                     ('2606:4700:4700::/48', 13335, 'CLOUDFLARENET', 'US'))
+
+    with self.assertRaises(KeyError) as context:
+      ipv6_metadata = maxmind_db.lookup('not-an-ip')
+    self.assertEqual("'No Maxmind entry for not-an-ip'", str(context.exception))
+
   def test_dbip_init(self) -> None:
-    """Test DBIP database access."""
+    """Test DBIP database access from prod."""
     dbip_data = dbip.DbipMetadata(firehook_resources.DBIP_FILE_LOCATION)
 
     (org, asn) = dbip_data.lookup('1.211.95.160')
@@ -484,6 +506,14 @@ class PipelineManualE2eTest(unittest.TestCase):
     (org, asn) = dbip_data.lookup('1.0.0.0')
     self.assertEqual(org, None)
     self.assertEqual(asn, 13335)
+
+    (org, asn) = dbip_data.lookup('2606:4700:4700::1111')
+    self.assertEqual(org, 'Cloudflare, Inc.')
+    self.assertEqual(asn, 13335)
+
+    (org, asn) = dbip_data.lookup('not-an-ip')
+    self.assertEqual(org, None)
+    self.assertEqual(asn, None)
 
 
 # This test is not run by default in unittest because it takes about a minute
