@@ -39,10 +39,10 @@ def _get_received_ips_with_roundtrip_id_and_date(
               SatelliteAnswer(ip: '4.5.6.7')))
   """
   (roundtrip_id, row) = row_with_id
-  date = row.date or ''
+  roundtrip_date = row.date or ''
 
   for answer in row.received:
-    key: DateIpKey = (date, answer.ip)
+    key: DateIpKey = (roundtrip_date, answer.ip)
     yield (key, (roundtrip_id, answer))
 
 
@@ -161,7 +161,7 @@ class MetadataAdder():
         RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
     }) | 'add received ip metadata: group by keys' >> beam.CoGroupByKey())
 
-    # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithDateKey]] received ip row with
+    # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithDateKey]]
     received_ips_with_metadata = (
         grouped_metadata_and_received_ips |
         'add received ip metadata: merge tags with answers' >> beam.
@@ -171,8 +171,8 @@ class MetadataAdder():
     # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithDateKey]]]]
     received_ips_grouped_by_roundtrip_ip = (
         received_ips_with_metadata |
-        'group received_by roundtrip: answer metadata' >>
-        beam.GroupBy(lambda x: x[0]).with_output_types(
+        'group received answers by roundtrip: answer metadata' >>
+        beam.GroupBy(lambda kv: kv[0]).with_output_types(
             Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithDateKey]]]))
 
     grouped_rows_and_received_ips = (({
