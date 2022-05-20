@@ -109,7 +109,8 @@ def _read_scan_text(
 
   # PCollection[Tuple(filename, line)]
   lines = (
-      pfilenames | "read files" >> beam.io.ReadAllFromText(with_filename=True))
+      pfilenames | "read files" >> beam.io.ReadAllFromText(
+          with_filename=True).with_resource_hints(min_ram="70GB"))
 
   return lines
 
