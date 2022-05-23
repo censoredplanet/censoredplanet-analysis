@@ -24,9 +24,12 @@ import datetime
 from typing import List, Any, Callable
 import unittest
 import warnings
+import io
+import gzip
 
 from apache_beam.options.pipeline_options import PipelineOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
+from google.cloud import storage
 from google.cloud.exceptions import NotFound  # type: ignore
 
 import firehook_resources
@@ -39,6 +42,9 @@ from table import run_queries
 BEAM_TEST_BASE_DATASET = 'test'
 BEAM_TEST_BASE_TABLE_SUFFIX = '_scan'
 DERIVED_TABLE_NAME = 'merged_reduced_scans_v2'
+
+BEAM_TEST_GCS_BUCKET = 'firehook-test'
+BEAM_TEST_GCS_FOLDER = 'e2e-test'
 
 HYPERQUACK_SCAN_TYPES = ['echo', 'discard', 'http', 'https']
 SATELLITE_SCAN_TYPE = 'satellite'
@@ -58,19 +64,19 @@ JOB_NAME = 'manual-test-job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/http/http_results_v1.json',
-      'pipeline/e2e_test_data/http/http_results_v2.json',
-      'pipeline/e2e_test_data/https/https_results_v1.json',
-      'pipeline/e2e_test_data/https/https_results_v2.json'
+      'pipeline/e2e_test_data/Quackv1_http/http_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2_http/http_results_v2.json',
+      'pipeline/e2e_test_data/Quackv1_https/https_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2_https/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/discard/discard_results_v1.json',
-      'pipeline/e2e_test_data/discard/discard_results_v2.json',
-      'pipeline/e2e_test_data/echo/echo_results_v1.json',
-      'pipeline/e2e_test_data/echo/echo_results_v2.json'
+      'pipeline/e2e_test_data/Quackv1_discard/discard_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2_discard/discard_results_v2.json',
+      'pipeline/e2e_test_data/Quackv1_echo/echo_results_v1.json',
+      'pipeline/e2e_test_data/Quackv2_echo/echo_results_v2.json'
   ]
 
 
@@ -118,9 +124,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}/{scan_type}_results_v1.json'
+    scan_file = f'pipeline/e2e_test_data/Quackv1_{scan_type}/{scan_type}_results_v1.json'
   else:
-    scan_file = f'pipeline/e2e_test_data/{scan_type}/{scan_type}_results_v2.json'
+    scan_file = f'pipeline/e2e_test_data/Quackv2_{scan_type}/{scan_type}_results_v2.json'
 
   return lambda *_: [scan_file]
 
@@ -163,6 +169,10 @@ def get_bq_derived_table_name() -> str:
   return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME}'
 
 
+def get_gs_formatted_gcs_folder(scan_type: str) -> str:
+  return f'gs://{BEAM_TEST_GCS_BUCKET}/{BEAM_TEST_GCS_FOLDER}/{scan_type}'
+
+
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
@@ -195,8 +205,33 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
   pipeline_name = f'test_{scan_type}'
   dataset_table_name = get_beam_base_table_name(scan_type)
   test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
-                                dataset_table_name, None, None)
+                                dataset_table_name, None, None, None, False)
   # pylint: enable=protected-access
+
+
+def run_local_pipeline_gcs(scan_type: str, incremental: bool) -> None:
+  """Run a local pipeline.
+
+  Reads local files but writes to Google Cloud Storage.
+
+  Args:
+    scan_type: one of echo/discard/http/https
+    incremental: bool, whether to run a full or incremental local pipeline.
+  """
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+
+  # Monkey patch the get_pipeline_options method to run a local pipeline
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+
+  # Monkey patch the data_to_load method to load only local data
+  test_runner._data_to_load = get_local_data_function(  # type: ignore
+      scan_type, incremental)
+
+  pipeline_name = f'test_{scan_type}'
+  gcs_folder = get_gs_formatted_gcs_folder(scan_type)
+  test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME, None,
+                                gcs_folder, None, None, True)
 
 
 def run_local_pipeline_satellite_v1() -> None:
@@ -208,7 +243,7 @@ def run_local_pipeline_satellite_v1() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -221,7 +256,7 @@ def run_local_pipeline_satellite_v2p1() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -234,7 +269,46 @@ def run_local_pipeline_satellite_v2p2() -> None:
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None)
+                                None, None, None, False)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v1_gcs() -> None:
+  # run_local_pipeline for satellite - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v1  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v2p1_gcs() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
+  # pylint: enable=protected-access
+
+
+def run_local_pipeline_satellite_v2p2_gcs() -> None:
+  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
+  # pylint: disable=protected-access
+  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2p2  # type: ignore
+
+  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
+  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
+                                None, None, True)
   # pylint: enable=protected-access
 
 
@@ -246,7 +320,7 @@ def run_local_pipeline_invalid() -> None:
 
   dataset_table_name = get_beam_base_table_name('invalid')
   test_runner.run_beam_pipeline('invalid', True, JOB_NAME, dataset_table_name,
-                                None, None)
+                                None, None, None, False)
   # pylint: enable=protected-access
 
 
@@ -260,6 +334,21 @@ def clean_up_bq_tables(client: cloud_bigquery.Client,
       pass
 
 
+def clean_up_gcs_folder(client: storage.client.Client, bucket_name: str,
+                        folder: str) -> None:
+  bucket = client.get_bucket(bucket_name)
+  for file in client.list_blobs(bucket, prefix=folder):
+    clean_up_gcs_file(bucket, file)
+
+
+def clean_up_gcs_file(bucket: storage.bucket.Bucket,
+                      file: storage.blob.Blob) -> None:
+  try:
+    bucket.delete_blob(file.name)
+  except NotFound:
+    pass
+
+
 def get_bq_rows(client: cloud_bigquery.Client, table_names: List[str]) -> List:
   results = []
   for table_name in table_names:
@@ -269,6 +358,145 @@ def get_bq_rows(client: cloud_bigquery.Client, table_names: List[str]) -> List:
 
 class PipelineManualE2eTest(unittest.TestCase):
   """Manual tests that require access to cloud project resources."""
+
+  def test_hyperquack_gcs_pipeline_e2e(self) -> None:
+    """Test the full pipeline on local files writing output files to GCS."""
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = storage.Client()
+
+    try:
+      bucket = client.get_bucket(BEAM_TEST_GCS_BUCKET)
+
+      # Run pipelines for v1 data
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline_gcs(scan_type, True)
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+
+      expected_v1_partitions = [
+          ('discard', 'source=Quackv1_discard', 'country=US'),
+          ('discard', 'source=Quackv1_discard', 'country=CO'),
+          ('discard', 'source=Quackv1_discard', 'country=RU'),
+          ('echo', 'source=Quackv1_echo', 'country=US'),
+          ('echo', 'source=Quackv1_echo', 'country=TH'),
+          ('http', 'source=Quackv1_http', 'country=US'),
+          ('http', 'source=Quackv1_http', 'country=IQ'),
+          ('https', 'source=Quackv1_https', 'country=CA'),
+          ('https', 'source=Quackv1_https', 'country=LB'),
+          ('https', 'source=Quackv1_https', 'country=US'),
+      ]
+      self.assertEqual(len(partitions), 10)
+      self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 53)
+      # Remove concatenated file
+      clean_up_gcs_file(bucket, concatenated)
+
+      # Run pipelines for v2 data
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline_gcs(scan_type, False)
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+      expected_v2_partitions = [
+          ('discard', 'source=Quackv2_discard', 'country=US'),
+          ('discard', 'source=Quackv2_discard', 'country=CN'),
+          ('discard', 'source=Quackv2_discard', 'country=PK'),
+          ('echo', 'source=Quackv2_echo', 'country=US'),
+          ('echo', 'source=Quackv2_echo', 'country=CN'),
+          ('echo', 'source=Quackv2_echo', 'country=RU'),
+          ('http', 'source=Quackv2_http', 'country=US'),
+          ('http', 'source=Quackv2_http', 'country=CN'),
+          ('https', 'source=Quackv2_https', 'country=US'),
+          ('https', 'source=Quackv2_https', 'country=CN'),
+          ('https', 'source=Quackv2_https', 'country=CA'),
+          ('https', 'source=Quackv2_https', 'country=NO'),
+      ]
+      self.assertEqual(len(partitions), 22)
+      self.assertListEqual(
+          sorted(partitions),
+          sorted(expected_v1_partitions + expected_v2_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 110)
+    finally:
+      clean_up_gcs_folder(client, BEAM_TEST_GCS_BUCKET, BEAM_TEST_GCS_FOLDER)
+
+  def test_satellite_gcs_pipeline_e2e(self) -> None:
+    """Test the full pipeline on local files writing output files to GCS."""
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = storage.Client()
+
+    try:
+      bucket = client.get_bucket(BEAM_TEST_GCS_BUCKET)
+
+      run_local_pipeline_satellite_v1_gcs()
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+
+      expected_v1_partitions = [
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=US'),
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=IE'),
+          ('satellite', 'source=Satellitev1_2018-08-03', 'country=FR'),
+      ]
+      self.assertEqual(len(partitions), 3)
+      self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 8)
+      # Remove concatenated file
+      clean_up_gcs_file(bucket, concatenated)
+
+      # Run pipelines for v2 data
+      run_local_pipeline_satellite_v2p1_gcs()
+      run_local_pipeline_satellite_v2p2_gcs()
+
+      blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
+      partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
+      expected_v2_partitions = [
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=US'),
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=DE'),
+          ('satellite', 'source=Satellitev2_2021-04-25', 'country=AF'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=US'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=DE'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=SE'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=UA'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=RU'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=TH'),
+          ('satellite', 'source=Satellitev2-2021-10-20', 'country=CN'),
+      ]
+      self.assertEqual(len(partitions), 13)
+      self.assertListEqual(
+          sorted(partitions),
+          sorted(expected_v1_partitions + expected_v2_partitions))
+
+      # Get the rows from all files
+      concatenated = bucket.blob(f'{BEAM_TEST_GCS_FOLDER}/results.json.gz')
+      concatenated.compose(blobs)
+      with gzip.open(
+          io.BytesIO(concatenated.download_as_string()), mode='rt') as f:
+        written_rows = [line.strip() for line in f]
+      self.assertEqual(len(written_rows), 44)
+    finally:
+      clean_up_gcs_folder(client, BEAM_TEST_GCS_BUCKET, BEAM_TEST_GCS_FOLDER)
 
   def test_hyperquack_pipeline_e2e(self) -> None:
     """Test the full pipeline by running it twice locally on a few files."""

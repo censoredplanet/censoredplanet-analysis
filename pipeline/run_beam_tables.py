@@ -25,13 +25,15 @@ from typing import Optional, List
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
+from firehook_resources import OUTPUT_BUCKET
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
                            dataset: str, scan_types: List[str],
                            incremental_load: bool,
                            start_date: Optional[datetime.date],
-                           end_date: Optional[datetime.date]) -> bool:
+                           end_date: Optional[datetime.date],
+                           export_gcs: bool) -> bool:
   """Runs beam pipelines for different scan types in parallel.
 
   Args:
@@ -44,6 +46,8 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       Mostly only used during development.
     end_date: date object, only files at or before this date will be read.
       Mostly only used during development.
+    export_gcs: boolean. If true, write to Google Cloud Storage, if false
+      write to BigQuery.
 
   Returns:
     True on success
@@ -54,13 +58,20 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
   with concurrent.futures.ThreadPoolExecutor() as pool:
     futures = []
     for scan_type in scan_types:
-      table_name = beam_tables.get_table_name(dataset, scan_type,
-                                              beam_tables.BASE_TABLE_NAME)
-      job_name = beam_tables.get_job_name(table_name, incremental_load)
+      table_name = None
+      gcs_folder = None
+      if export_gcs:
+        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                OUTPUT_BUCKET)
+        job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+      else:
+        table_name = beam_tables.get_table_name(dataset, scan_type,
+                                                beam_tables.BASE_TABLE_NAME)
+        job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
-                           incremental_load, job_name, table_name, start_date,
-                           end_date)
+                           incremental_load, job_name, table_name, gcs_folder,
+                           start_date, end_date, export_gcs)
       futures.append(future)
 
     finished, pending = concurrent.futures.wait(
@@ -111,11 +122,13 @@ def main(parsed_args: argparse.Namespace) -> None:
   if parsed_args.env == 'user':
     run_parallel_pipelines(firehook_runner, parsed_args.user_dataset,
                            selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date)
+                           parsed_args.start_date, parsed_args.end_date,
+                           parsed_args.export_gcs)
   elif parsed_args.env == 'prod':
     run_parallel_pipelines(firehook_runner, beam_tables.PROD_DATASET_NAME,
                            selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date)
+                           parsed_args.start_date, parsed_args.end_date,
+                           parsed_args.export_gcs)
 
 
 def parse_args() -> argparse.Namespace:
@@ -156,6 +169,11 @@ def parse_args() -> argparse.Namespace:
       default=None,
       metavar='yyyy-mm-dd',
       help='Last date to read data from')
+  parser.add_argument(
+      '--export_gcs',
+      action='store_true',
+      default=False,
+      help='Export to Google Cloud Storage instead of BigQuery')
   parsed_args = parser.parse_args()
 
   if (parsed_args.env == 'user' and parsed_args.user_dataset is None):

@@ -54,17 +54,29 @@ class PipelineMainTest(unittest.TestCase):
   def test_get_job_name(self) -> None:
     """Test getting the name for the beam job"""
     self.assertEqual(
-        beam_tables.get_job_name('base.scan_echo', False),
+        beam_tables.get_bq_job_name('base.scan_echo', False),
         'write-base-scan-echo')
     self.assertEqual(
-        beam_tables.get_job_name('base.scan_discard', True),
+        beam_tables.get_bq_job_name('base.scan_discard', True),
         'append-base-scan-discard')
     self.assertEqual(
-        beam_tables.get_job_name('laplante.scan_http', False),
+        beam_tables.get_bq_job_name('laplante.scan_http', False),
         'write-laplante-scan-http')
     self.assertEqual(
-        beam_tables.get_job_name('laplante.scan_https', True),
+        beam_tables.get_bq_job_name('laplante.scan_https', True),
         'append-laplante-scan-https')
+    self.assertEqual(
+        beam_tables.get_gcs_job_name('gs://firehook-test/scans/echo', False),
+        'write-gs-firehook-test-scans-echo')
+    self.assertEqual(
+        beam_tables.get_gcs_job_name('gs://firehook-test/scans/discard', True),
+        'append-gs-firehook-test-scans-discard')
+    self.assertEqual(
+        beam_tables.get_gcs_job_name('gs://firehook-test/avirkud/http', False),
+        'write-gs-firehook-test-avirkud-http')
+    self.assertEqual(
+        beam_tables.get_gcs_job_name('gs://firehook-test/avirkud/https', True),
+        'append-gs-firehook-test-avirkud-https')
 
   # pylint: disable=protected-access
 
