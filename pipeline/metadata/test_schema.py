@@ -270,7 +270,6 @@ class SchemaTest(unittest.TestCase):
       'received_status': '302 Found',
       'received_headers': ['Content-Language: en', 'X-Frame-Options: SAMEORIGIN'],
       'received_body': 'example body',
-      'outcome': 'content/status_mismatch:302',
       'matches_template': False,
       'no_response_in_measurement_matches_template': False,
       'controls_failed': False,
