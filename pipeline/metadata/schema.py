@@ -56,7 +56,15 @@ class IpMetadata():
 
 
 @dataclass
-class IpMetadataWithKeys(IpMetadata):
+class IpMetadataWithSourceKey(IpMetadata):
+  """Extension of IpMetadata with ip and source keys."""
+  # Keys
+  ip: str = ''
+  source: str = ''
+
+
+@dataclass
+class IpMetadataWithDateKey(IpMetadata):
   """Extension of IpMetadata with ip and date keys."""
   # Keys
   ip: str = ''
@@ -111,13 +119,28 @@ class SatelliteAnswer():
 
 
 @dataclass
-class SatelliteAnswerWithKeys(SatelliteAnswer):
+class SatelliteAnswerWithSourceKey(SatelliteAnswer):
+  """Satellite Answer Metadata.
+
+  When this metadata is being passed around
+  it needs an additional source field to keep track of when it's valid.
+  """
+  source: str = ''
+
+
+@dataclass
+class SatelliteAnswerWithDateKey(SatelliteAnswer):
   """Satellite Answer Metadata.
 
   When this metadata is being passed around
   it needs an additional date field to keep track of when it's valid.
   """
   date: str = ''
+
+
+# Some operations can take either kind of key
+SatelliteAnswerWithAnyKey = Union[SatelliteAnswerWithSourceKey,
+                                  SatelliteAnswerWithDateKey]
 
 
 def merge_satellite_answers(base: SatelliteAnswer,
@@ -468,7 +491,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'asn': ('integer', 'nullable'),
             'as_name': ('string', 'nullable'),
             'censys_http_body_hash': ('string', 'nullable'),
-            'censys_ip_cert': ('bytes', 'nullable'),
+            'censys_ip_cert': ('string', 'nullable'),
             'matches_control': ('record', 'nullable', {
                 'ip': ('boolean', 'nullable'),
                 'censys_http_body_hash': ('boolean', 'nullable'),

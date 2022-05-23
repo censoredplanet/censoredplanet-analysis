@@ -11,8 +11,9 @@ import uuid
 
 import apache_beam as beam
 
-from pipeline.metadata.beam_metadata import DateIpKey, DateDomainKey, DomainDateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_date_ip_key, make_date_domain_key, make_domain_date_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
-from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithKeys, PageFetchRow, IpMetadata, IpMetadataWithKeys, MatchesControl, SCAN_TYPE_PAGE_FETCH
+from pipeline.metadata import flatten_base
+from pipeline.metadata.beam_metadata import SourceDomainKey, SourceIpKey, DomainSourceIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, BLOCKPAGE_PCOLLECTION_NAME, make_source_ip_key, make_source_domain_key, make_domain_source_ip_key, merge_metadata_with_rows, merge_satellite_tags_with_answers, merge_tagged_answers_with_rows, merge_page_fetches_with_answers
+from pipeline.metadata.schema import SatelliteRow, SatelliteAnswer, SatelliteAnswerWithSourceKey, PageFetchRow, IpMetadata, IpMetadataWithSourceKey, MatchesControl, SCAN_TYPE_PAGE_FETCH
 from pipeline.metadata.lookup_country_code import country_name_to_code
 from pipeline.metadata import flatten_satellite
 from pipeline.metadata import flatten
@@ -116,63 +117,63 @@ def get_blockpage_table_name(table_name: str, scan_type: str) -> str:
                             f'.{scan_type}_{SCAN_TYPE_PAGE_FETCH}')
 
 
-def _get_received_ips_with_roundtrip_id_and_date(
+def _get_received_ips_with_roundtrip_id_and_source(
     row_with_id: Tuple[str, SatelliteRow]
-) -> Iterable[Tuple[DateIpKey, Tuple[str, SatelliteAnswer]]]:
+) -> Iterable[Tuple[SourceIpKey, Tuple[str, SatelliteAnswer]]]:
   """Get all the individual received ips answers from a row.
 
   Args:
     row_with_id Tuple[roundtrip_id, SatelliteRow]
 
-  Yields individual recieved answers that also include the roundtrip and date
+  Yields individual recieved answers that also include the roundtrip and source
     ex:
       Tuple(
-        Tuple('2021-01-01', '1.2.3.4')
+        Tuple('CP_Satellite-2022-01-02-12-00-01', '1.2.3.4')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '1.2.3.4')))
       Tuple(
-        Tuple('2021-01-01', '4.5.6.7')
+        Tuple('CP_Satellite-2022-01-02-12-00-01', '4.5.6.7')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '4.5.6.7')))
   """
   (roundtrip_id, row) = row_with_id
-  date = row.date or ''
+  source = row.source or ''
 
   for answer in row.received:
-    key: DateIpKey = (date, answer.ip)
+    key: SourceIpKey = (source, answer.ip)
     yield (key, (roundtrip_id, answer))
 
 
-def _get_received_ips_with_roundtrip_id_and_date_domain(
+def _get_received_ips_with_roundtrip_id_and_source_domain(
     row_with_id: Tuple[str, SatelliteRow]
-) -> Iterable[Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]]:
+) -> Iterable[Tuple[DomainSourceIpKey, Tuple[str, SatelliteAnswer]]]:
   """Get all the individual received ips answers from a row.
 
   Args:
     row_with_id Tuple[roundtrip_id, SatelliteRow]
 
-  Yields individual recieved answers that also include the roundtrip and date
+  Yields individual recieved answers that also include the roundtrip and source
     ex:
       Tuple(
-        Tuple('2021-01-01', 'example.com', '1.2.3.4')
+        Tuple('example.com', 'CP_Satellite-2022-01-02-12-00-01', '1.2.3.4')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '1.2.3.4')))
       Tuple(
-        Tuple('2021-01-01', 'example.com', '4.5.6.7')
+        Tuple('example.com', 'CP_Satellite-2022-01-02-12-00-01', '4.5.6.7')
         Tuple('abc' # roundtrip id
               SatelliteAnswer(ip: '4.5.6.7')))
   """
   (roundtrip_id, row) = row_with_id
-  date = row.date or ''
+  source = row.source or ''
   domain = row.domain or ''
 
   for answer in row.received:
-    key: DomainDateIpKey = (domain, date, answer.ip)
+    key: DomainSourceIpKey = (domain, source, answer.ip)
     yield (key, (roundtrip_id, answer))
 
 
-def _read_satellite_resolver_tags(filepath: str,
-                                  line: str) -> Iterator[IpMetadataWithKeys]:
+def _read_satellite_resolver_tags(
+    filepath: str, line: str) -> Iterator[IpMetadataWithSourceKey]:
   """Read data for IP tagging from Satellite.
 
     Args:
@@ -180,10 +181,10 @@ def _read_satellite_resolver_tags(filepath: str,
       line: json str (dictionary containing geo tag data)
 
   Yields:
-      A IpMetadataWithKeys of the format
+      A IpMetadataWithSourceKey of the format
         IpMetadata(
           ip='1.1.1.1',
-          date='2020-01-01'
+          source='CP_Satellite-2022-01-02-12-00-01'
           country='US'  # optional
           name='one.one.one.one'  # optional
         )
@@ -196,8 +197,8 @@ def _read_satellite_resolver_tags(filepath: str,
     return
 
   ip: str = scan.get('resolver') or scan.get('vp')
-  date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
-  tags = IpMetadataWithKeys(ip=ip, date=date)
+  source = flatten_base.source_from_filename(filepath)
+  tags = IpMetadataWithSourceKey(ip=ip, source=source)
 
   if 'name' in scan:
     tags.name = scan['name']
@@ -210,8 +211,8 @@ def _read_satellite_resolver_tags(filepath: str,
   yield tags
 
 
-def _read_satellite_answer_tags(filepath: str,
-                                line: str) -> Iterator[SatelliteAnswerWithKeys]:
+def _read_satellite_answer_tags(
+    filepath: str, line: str) -> Iterator[SatelliteAnswerWithSourceKey]:
   """Read data for IP tagging from Satellite.
 
     Args:
@@ -222,7 +223,7 @@ def _read_satellite_answer_tags(filepath: str,
       A SatelliteAnswerMetadata of the format
         SatelliteAnswerMetadata(
           ip='1.1.1.1',
-          date='2020-01-01'
+          source='2020-01-01'
           http='e3c1d3...' # optional
           cert='a2fed1...' # optional
           asname='CLOUDFLARENET' # optional
@@ -236,9 +237,9 @@ def _read_satellite_answer_tags(filepath: str,
                     line)
     return
 
-  answer_with_keys = SatelliteAnswerWithKeys(
+  answer_with_keys = SatelliteAnswerWithSourceKey(
       ip=scan['ip'],
-      date=re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0],
+      source=flatten_base.source_from_filename(filepath),
       http=scan['http'],
       cert=scan['cert'],
       ip_metadata=IpMetadata(
@@ -250,34 +251,34 @@ def _read_satellite_answer_tags(filepath: str,
 
 def _add_vantage_point_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    tags: beam.pvalue.PCollection[IpMetadataWithKeys]
+    tags: beam.pvalue.PCollection[IpMetadataWithSourceKey]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for vantage point IPs - resolver name (hostname/control/special) and country
 
   Args:
       rows: PCollection of measurement rows
-      ips_with_metadata: PCollection of dated ips with geo metadata
+      ips_with_metadata: PCollection of source/ips with geo metadata
 
     Returns:
       PCollection of measurement rows with tag information added to the ip row
   """
-  # PCollection[Tuple[DateIpKey,IpMetadataWithKeys]]
+  # PCollection[Tuple[SourceIpKey,IpMetadataWithSourceKey]]
   ips_with_metadata = (
-      tags | 'tags key by ips and dates' >>
+      tags | 'tags key by ips and source' >>
       beam.Map(lambda metadata:
-               (make_date_ip_key(metadata), metadata)).with_output_types(
-                   Tuple[DateIpKey, IpMetadataWithKeys]))
+               (make_source_ip_key(metadata), metadata)).with_output_types(
+                   Tuple[SourceIpKey, IpMetadataWithSourceKey]))
 
-  # PCollection[Tuple[DateIpKey,SatelliteRow]]
-  rows_keyed_by_ip_and_date = (
-      rows | 'add vp tags: key by ips and dates' >>
-      beam.Map(lambda row: (make_date_ip_key(row), row)).with_output_types(
-          Tuple[DateIpKey, SatelliteRow]))
+  # PCollection[Tuple[SourceIpKey,SatelliteRow]]
+  rows_keyed_by_ip_and_source = (
+      rows | 'add vp tags: key by ips and source' >>
+      beam.Map(lambda row: (make_source_ip_key(row), row)).with_output_types(
+          Tuple[SourceIpKey, SatelliteRow]))
 
-  # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[SatelliteRow|IpMetadataWithKeys]]]]
+  # PCollection[Tuple[SourceIpKey,Dict[input_name_key,List[SatelliteRow|IpMetadataWithSourceKey]]]]
   grouped_metadata_and_rows = (({
       IP_METADATA_PCOLLECTION_NAME: ips_with_metadata,
-      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_date
+      ROWS_PCOLLECION_NAME: rows_keyed_by_ip_and_source
   }) | 'add vp tags: group by keys' >> beam.CoGroupByKey())
 
   # PCollection[SatelliteRow]
@@ -291,8 +292,8 @@ def _add_vantage_point_tags(
 
 def _add_satellite_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    resolver_tags: beam.pvalue.PCollection[IpMetadataWithKeys],
-    answer_tags: beam.pvalue.PCollection[SatelliteAnswerWithKeys]
+    resolver_tags: beam.pvalue.PCollection[IpMetadataWithSourceKey],
+    answer_tags: beam.pvalue.PCollection[SatelliteAnswerWithSourceKey]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
@@ -326,8 +327,8 @@ def _add_satellite_tags(
   return rows_with_tags
 
 
-def _total_tags(key: DateDomainKey,
-                row: SatelliteRow) -> Tuple[DateDomainKey, int]:
+def _total_tags(key: SourceDomainKey,
+                row: SatelliteRow) -> Tuple[SourceDomainKey, int]:
   total_tags = 0
   for ans in row.received:
     tag_values = [
@@ -338,8 +339,8 @@ def _total_tags(key: DateDomainKey,
   return (key, total_tags)
 
 
-def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
-                                 _: int) -> int:
+def _partition_test_and_controls(row_tuple: Tuple[SourceDomainKey,
+                                                  SatelliteRow], _: int) -> int:
   """Partition tests from domain and ip controls
 
   Returns
@@ -357,15 +358,15 @@ def _partition_test_and_controls(row_tuple: Tuple[DateDomainKey, SatelliteRow],
 
 
 def _take_max_ctag(
-    ctag: Tuple[DateDomainKey, List[int]]) -> Tuple[DateDomainKey, int]:
+    ctag: Tuple[SourceDomainKey, List[int]]) -> Tuple[SourceDomainKey, int]:
   (key, ctags) = ctag
   max_ctag = max(ctags)
   return (key, max_ctag)
 
 
 def _append_num_controls(
-    key_value: Tuple[DateDomainKey, SatelliteRow],
-    max_num_ctags: Dict[DateDomainKey, int]) -> Tuple[SatelliteRow, int]:
+    key_value: Tuple[SourceDomainKey, SatelliteRow],
+    max_num_ctags: Dict[SourceDomainKey, int]) -> Tuple[SatelliteRow, int]:
   key, row = key_value
   if key in max_num_ctags:
     num_ctags = max_num_ctags[key]
@@ -384,34 +385,34 @@ def post_processing_satellite(
     Returns:
       PCollection of measurement rows with confidence and verify fields
   """
-  # PCollection[Tuple[DateDomainKey, SatelliteRow]]
-  rows_keyed_by_date_domains = (
-      rows | 'key by dates and domains' >>
-      beam.Map(lambda row: (make_date_domain_key(row), row)).with_output_types(
-          Tuple[DateDomainKey, SatelliteRow]))
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]]
+  rows_keyed_by_source_domains = (
+      rows | 'key by sources and domains' >> beam.Map(
+          lambda row: (make_source_domain_key(row), row)).with_output_types(
+              Tuple[SourceDomainKey, SatelliteRow]))
 
-  # PCollection[Tuple[DateDomainKey, SatelliteRow]] x3
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]] x3
   domain_controls, ip_controls, tests = (
-      rows_keyed_by_date_domains | 'partition test and control' >>
+      rows_keyed_by_source_domains | 'partition test and control' >>
       beam.Partition(_partition_test_and_controls, 3).with_output_types(
-          Tuple[DateDomainKey, SatelliteRow]))
+          Tuple[SourceDomainKey, SatelliteRow]))
 
-  # PCollection[Tuple[DateDomainKey, int]]
+  # PCollection[Tuple[SourceDomainKey, int]]
   num_ctags = (
       ip_controls | 'calculate # control tags' >>
-      beam.MapTuple(_total_tags).with_output_types(Tuple[DateDomainKey, int]))
+      beam.MapTuple(_total_tags).with_output_types(Tuple[SourceDomainKey, int]))
 
-  # PCollection[Tuple[DateDomainKey, List[int]]]
+  # PCollection[Tuple[SourceDomainKey, List[int]]]
   grouped_num_ctags = (
       num_ctags | 'group_ctags' >> beam.GroupByKey().with_output_types(
-          Tuple[DateDomainKey, List]))
+          Tuple[SourceDomainKey, List]))
 
-  # PCollection[Tuple[DateDomainKey, int]]
+  # PCollection[Tuple[SourceDomainKey, int]]
   max_num_ctags = (
       grouped_num_ctags | 'take max ctag' >>
-      beam.Map(_take_max_ctag).with_output_types(Tuple[DateDomainKey, int]))
+      beam.Map(_take_max_ctag).with_output_types(Tuple[SourceDomainKey, int]))
 
-  # SideInputData[PCollection[Tuple[DateDomainKey, int]]
+  # SideInputData[PCollection[Tuple[SourceDomainKey, int]]
   max_num_ctags_dict = beam.pvalue.AsDict(max_num_ctags)
 
   # PCollection[Tuple[SatelliteRow, num_controls]]
@@ -453,7 +454,7 @@ def post_processing_satellite(
 
 def add_received_ip_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    tags: beam.pvalue.PCollection[SatelliteAnswerWithKeys]
+    tags: beam.pvalue.PCollection[SatelliteAnswerWithSourceKey]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add ip metadata info to received ip lists in rows
 
@@ -497,40 +498,40 @@ def add_received_ip_tags(
       ]
     }
   """
-  # PCollection[Tuple[DateIpKey, SatelliteAnswerWithKeys]]
-  tags_keyed_by_ip_and_date = (
-      tags | 'tags: key by ips and dates' >>
-      beam.Map(lambda tag: (make_date_ip_key(tag), tag)).with_output_types(
-          Tuple[DateIpKey, SatelliteAnswerWithKeys]))
+  # PCollection[Tuple[SourceIpKey, SatelliteAnswerWithSourceKey]]
+  tags_keyed_by_ip_and_source = (
+      tags | 'tags: key by ips and source' >>
+      beam.Map(lambda tag: (make_source_ip_key(tag), tag)).with_output_types(
+          Tuple[SourceIpKey, SatelliteAnswerWithSourceKey]))
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
       rows | 'add roundtrip_ids' >> beam.Map(
           _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
 
-  # PCollection[Tuple[DateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
-  received_ips_keyed_by_ip_and_date = (
+  # PCollection[Tuple[SourceIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
+  received_ips_keyed_by_ip_and_source = (
       rows_with_roundtrip_id | 'get received ips' >> beam.FlatMap(
-          _get_received_ips_with_roundtrip_id_and_date).with_output_types(
-              Tuple[DateIpKey, Tuple[str, SatelliteAnswer]]))
+          _get_received_ips_with_roundtrip_id_and_source).with_output_types(
+              Tuple[SourceIpKey, Tuple[str, SatelliteAnswer]]))
 
   grouped_metadata_and_received_ips = (({
-      IP_METADATA_PCOLLECTION_NAME: tags_keyed_by_ip_and_date,
-      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_date
+      IP_METADATA_PCOLLECTION_NAME: tags_keyed_by_ip_and_source,
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_and_source
   }) | 'add received ip tags: group by keys' >> beam.CoGroupByKey())
 
-  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithKeys]] received ip row with
+  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithSourceKey]] received ip row with
   received_ips_with_metadata = (
       grouped_metadata_and_received_ips |
       'add received ip tags: merge tags with answers' >>
       beam.FlatMapTuple(merge_satellite_tags_with_answers).with_output_types(
-          Tuple[str, SatelliteAnswerWithKeys]))
+          Tuple[str, SatelliteAnswerWithSourceKey]))
 
-  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]]]
+  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithSourceKey]]]]
   received_ips_grouped_by_roundtrip_ip = (
       received_ips_with_metadata | 'group received_by roundtrip' >>
       beam.GroupBy(lambda x: x[0]).with_output_types(
-          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithKeys]]]))
+          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithSourceKey]]]))
 
   grouped_rows_and_received_ips = (({
       ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
@@ -566,16 +567,17 @@ def process_satellite_with_tags(
       row_lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(SatelliteRow))
 
-  # PCollection[IpMetadataWithKeys]
+  # PCollection[IpMetadataWithSourceKey]
   resolver_tags = (
-      resolver_lines | 'resolver tag rows' >> beam.FlatMapTuple(
-          _read_satellite_resolver_tags).with_output_types(IpMetadataWithKeys))
+      resolver_lines |
+      'resolver tag rows' >> beam.FlatMapTuple(_read_satellite_resolver_tags).
+      with_output_types(IpMetadataWithSourceKey))
 
-  # PCollection[SatelliteAnswerWithKeys]
+  # PCollection[SatelliteAnswerWithSourceKey]
   answer_tags = (
       answer_lines |
       'answer tag rows' >> beam.FlatMapTuple(_read_satellite_answer_tags).
-      with_output_types(SatelliteAnswerWithKeys))
+      with_output_types(SatelliteAnswerWithSourceKey))
 
   rows_with_metadata = _add_satellite_tags(rows, resolver_tags, answer_tags)
 
@@ -601,42 +603,42 @@ def add_page_fetch_to_answers(
       rows | 'partition by date v2' >> beam.Partition(
           _get_satellite_v2_date_partition, 2))
 
-  # PCollection[Tuple[DomainDateIpKey, PageFetchRow]
+  # PCollection[Tuple[DomainSourceIpKey, PageFetchRow]
   page_fetches_keyed = (
-      page_fetches | 'key page fetch by domain/date/ip' >> beam.Map(
-          lambda row: (make_domain_date_ip_key(row), row)).with_output_types(
-              Tuple[DomainDateIpKey, PageFetchRow]))
+      page_fetches | 'key page fetch by domain/source/ip' >> beam.Map(
+          lambda row: (make_domain_source_ip_key(row), row)).with_output_types(
+              Tuple[DomainSourceIpKey, PageFetchRow]))
 
   # PCollection[Tuple[roundtrip_id, SatelliteRow]]
   rows_with_roundtrip_id = (
       rows_v2 | 'add roundtrip_ids: adding page fetch' >> beam.Map(
           _set_random_roundtrip_id).with_output_types(Tuple[str, SatelliteRow]))
 
-  # PCollection[Tuple[DomainDateIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
-  received_ips_keyed_by_ip_domain_and_date = (
+  # PCollection[Tuple[DomainSourceIpKey, Tuple[roundtrip_id, SatelliteAnswer]]]
+  received_ips_keyed_by_ip_domain_and_source = (
       rows_with_roundtrip_id | 'get received ips: adding page fetch' >>
-      beam.FlatMap(_get_received_ips_with_roundtrip_id_and_date_domain).
-      with_output_types(Tuple[DomainDateIpKey, Tuple[str, SatelliteAnswer]]))
+      beam.FlatMap(_get_received_ips_with_roundtrip_id_and_source_domain).
+      with_output_types(Tuple[DomainSourceIpKey, Tuple[str, SatelliteAnswer]]))
 
   # cogroup
   grouped_page_fetches_and_answers = (({
       BLOCKPAGE_PCOLLECTION_NAME: page_fetches_keyed,
-      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_domain_and_date
+      RECEIVED_IPS_PCOLLECTION_NAME: received_ips_keyed_by_ip_domain_and_source
   }) | 'cogroup answers and page fetches' >> beam.CoGroupByKey())
 
   # add page fetches into satellite answers
-  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]
+  # PCollection[Tuple[roundtrip_id, SatelliteAnswerWithSourceKey]]
   received_ips_with_page_fetches = (
       grouped_page_fetches_and_answers |
       'add page fetches : merge page fetches with answers' >>
       beam.FlatMapTuple(merge_page_fetches_with_answers).with_output_types(
-          Tuple[str, SatelliteAnswerWithKeys]))
+          Tuple[str, SatelliteAnswerWithSourceKey]))
 
-  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithKeys]]]]
+  # PCollection[Tuple[roundtrip_id, List[Tuple[roundtrip_id, SatelliteAnswerWithSourceKey]]]]
   received_ips_grouped_by_roundtrip_ip = (
       received_ips_with_page_fetches | 'group answers by roundtrip' >>
       beam.GroupBy(lambda x: x[0]).with_output_types(
-          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithKeys]]]))
+          Tuple[str, Iterable[Tuple[str, SatelliteAnswerWithSourceKey]]]))
 
   grouped_rows_and_received_ips = (({
       ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
@@ -831,19 +833,23 @@ def process_satellite_lines(
   tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
                                                  resolver_lines)
 
+  # PCollection[SatelliteRow]
+  rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
+      tagged_satellite)
+
+  # PCollection[SatelliteRow]
+  rows_with_answer_ip_annotations = metadata_adder.annotate_answer_ips(
+      rows_with_resolver_ip_annotations)
+
   # PCollection[BlockpageRow]
   page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
 
   # PCollection[SatelliteRow]
   satellite_with_page_fetches = add_page_fetch_to_answers(
-      tagged_satellite, page_fetch_rows)
+      rows_with_answer_ip_annotations, page_fetch_rows)
 
   # PCollection[SatelliteRow]
   post_processed_satellite = post_processing_satellite(
       satellite_with_page_fetches)
 
-  # PCollection[SatelliteRow]
-  rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
-      post_processed_satellite)
-
-  return rows_with_resolver_ip_annotations
+  return post_processed_satellite

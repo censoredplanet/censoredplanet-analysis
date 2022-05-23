@@ -4,7 +4,7 @@ import logging
 
 from pipeline.metadata import caida_ip_metadata
 from pipeline.metadata import dbip
-from pipeline.metadata.schema import IpMetadataWithKeys
+from pipeline.metadata.schema import IpMetadataWithDateKey
 
 
 # pylint: disable=too-many-instance-attributes
@@ -24,12 +24,12 @@ class IpMetadataChooser():
     self.caida = caida_db
     self.dbip = dbip_db
 
-  def get_metadata(self, ip: str) -> IpMetadataWithKeys:
+  def get_metadata(self, ip: str) -> IpMetadataWithDateKey:
     """Pick which metadata values to return for an IP from our sources."""
     try:
       (netblock, asn, as_name, as_full_name, as_type,
        country) = self.caida.lookup(ip)
-      metadata_values = IpMetadataWithKeys(
+      metadata_values = IpMetadataWithDateKey(
           ip=ip,
           date=self.date.isoformat(),
           netblock=netblock,
@@ -55,7 +55,7 @@ class IpMetadataChooser():
       #   metadata_values['country'] = country
     except KeyError as e:
       logging.warning('KeyError: %s\n', e)
-      metadata_values = IpMetadataWithKeys(ip=ip, date=self.date.isoformat())
+      metadata_values = IpMetadataWithDateKey(ip=ip, date=self.date.isoformat())
       # metadata values are missing, but entry should still exist
 
     return metadata_values

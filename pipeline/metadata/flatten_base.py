@@ -35,7 +35,7 @@ def get_common_name(cert_name: x509.Name) -> Optional[str]:
   try:
     attributes = cert_name.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
     if attributes:
-      return attributes[0].value
+      return str(attributes[0].value)
   except x509.AttributeNotFound:
     logging.warning('x509.AttributeNotFound: Common Name\n')
   return None
@@ -224,7 +224,11 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
   if 'TlsVersion' in received:
     row.tls_version = received['TlsVersion']
     row.tls_cipher_suite = received['CipherSuite']
-    row.tls_cert = received['Certificate']
+    if isinstance(received['Certificate'], str):
+      row.tls_cert = received['Certificate']
+    elif isinstance(received['Certificate'],
+                    List) and len(received['Certificate']) > 0:
+      row.tls_cert = received['Certificate'][0]
 
   # Parse certificate fields
   if row.tls_cert:
