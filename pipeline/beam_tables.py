@@ -303,6 +303,37 @@ def _raise_error_if_collection_empty(
   return count_collection
 
 
+def _get_destination(record: str) -> str:
+  """Returns the hive-format dest folder for a measurement record str."""
+  record_dict = json.loads(record)
+  if 'server_country' in record_dict:
+    return f'source={record_dict["source"]}/country={record_dict["server_country"]}/results'
+  return f'source={record_dict["source"]}/country={record_dict["resolver_country"]}/results'
+
+
+def _custom_file_naming(suffix: str = None) -> Callable:
+  """Returns custom function to name destination files."""
+
+  # Beam requires the returned function to have the following arguments,
+  # see beam.io.filename.destination_prefix_naming.
+  def _inner(window: Any, pane: Any, shard_index: Optional[int],
+             total_shards: Optional[int], compression: Optional[str],
+             destination: Optional[str]) -> str:
+    # Get the filename with the destination_prefix_naming format:
+    # '{prefix}-{start}-{end}-{pane}-{shard:05d}-of-{total_shards:05d}{suffix}{compression}'
+    # where prefix = destination.
+    filename = beam.io.fileio.destination_prefix_naming(suffix)(window, pane,
+                                                                shard_index,
+                                                                total_shards,
+                                                                compression,
+                                                                destination)
+    # Remove shard component from filename if there is only one shard.
+    filename = filename.replace('-00000-of-00001', '')
+    return filename
+
+  return _inner
+
+
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
@@ -367,6 +398,8 @@ class ScanDataBeamPipelineRunner():
       elif gcs_folder:
         existing_sources = _get_existing_gcs_datasources(
             gcs_folder, self.project)
+      else:
+        raise Exception('Either table_name or gcs_folder argument is required.')
     else:
       existing_sources = []
 
@@ -447,33 +480,6 @@ class ScanDataBeamPipelineRunner():
     Raises:
       Exception: if any arguments are invalid.
     """
-
-    def _get_destination(record: str) -> str:
-      """Returns the hive-format dest folder for a measurement record str."""
-      record_dict = json.loads(record)
-      if 'server_country' in record_dict:
-        return f'source={record_dict["source"]}/country={record_dict["server_country"]}/results'
-      return f'source={record_dict["source"]}/country={record_dict["resolver_country"]}/results'
-
-    def _custom_file_naming(suffix: str = None) -> Callable:
-      """Returns custom function to name destination files."""
-
-      # Beam requires the returned function to have the following arguments,
-      # see beam.io.filename.destination_prefix_naming.
-      def _inner(window: Any, pane: Any, shard_index: Optional[int],
-                 total_shards: Optional[int], compression: Optional[str],
-                 destination: Optional[str]) -> str:
-        # Get the filename with the destination_prefix_naming format:
-        # '{prefix}-{start}-{end}-{pane}-{shard:05d}-of-{total_shards:05d}{suffix}{compression}'
-        # where prefix = destination.
-        filename = beam.io.fileio.destination_prefix_naming(suffix)(
-            window, pane, shard_index, total_shards, compression, destination)
-        # Remove shard component from filename if there is only one shard.
-        filename = filename.replace('-00000-of-00001', '')
-        return filename
-
-      return _inner
-
     # Pcollection[Dict[str, Any]]
     dict_rows = (
         rows | f'dataclass to dicts {scan_type}' >> beam.Map(
