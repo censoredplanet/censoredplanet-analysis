@@ -30,8 +30,8 @@ MAXMIND_FILE_LOCATION = f'gs://{METADATA_BUCKET}/maxmind/'
 DBIP_FILE_LOCATION = f'gs://{METADATA_BUCKET}/dbip/'
 
 # Output GCS Buckets
-# TODO: define separate buckets for prod and test
-OUTPUT_BUCKET = 'firehook-test'
+OUTPUT_PROD_BUCKET = 'censoredplanetraw'
+OUTPUT_TEST_BUCKET = 'firehook-test'
 
 # Temp Buckets
 BEAM_STAGING_LOCATION = 'gs://firehook-dataflow-test/staging'

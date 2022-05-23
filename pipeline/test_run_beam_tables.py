@@ -51,8 +51,8 @@ class RunBeamTablesTest(unittest.TestCase):
                                            datetime.date(2020, 1, 2), True)
 
     mock_runner.run_beam_pipeline.assert_called_with(
-        'echo', True, 'append-gs-firehook-test-base-echo', None,
-        'gs://firehook-test/base/echo', datetime.date(2020, 1, 1),
+        'echo', True, 'append-gs-censoredplanetraw-base-echo', None,
+        'gs://censoredplanetraw/base/echo', datetime.date(2020, 1, 1),
         datetime.date(2020, 1, 2), True)
 
   def test_run_parallel_pipelines(self) -> None:
@@ -120,16 +120,18 @@ class RunBeamTablesTest(unittest.TestCase):
           export_gcs=True)
       run_beam_tables.main(args)
 
-      call6 = call('echo', True, 'append-gs-firehook-test-base-echo', None,
-                   'gs://firehook-test/base/echo', None, None, True)
-      call7 = call('discard', True, 'append-gs-firehook-test-base-discard',
-                   None, 'gs://firehook-test/base/discard', None, None, True)
-      call8 = call('http', True, 'append-gs-firehook-test-base-http', None,
-                   'gs://firehook-test/base/http', None, None, True)
-      call9 = call('https', True, 'append-gs-firehook-test-base-https', None,
-                   'gs://firehook-test/base/https', None, None, True)
-      call10 = call('satellite', True, 'append-gs-firehook-test-base-satellite',
-                    None, 'gs://firehook-test/base/satellite', None, None, True)
+      call6 = call('echo', True, 'append-gs-censoredplanetraw-base-echo', None,
+                   'gs://censoredplanetraw/base/echo', None, None, True)
+      call7 = call('discard', True, 'append-gs-censoredplanetraw-base-discard',
+                   None, 'gs://censoredplanetraw/base/discard', None, None,
+                   True)
+      call8 = call('http', True, 'append-gs-censoredplanetraw-base-http', None,
+                   'gs://censoredplanetraw/base/http', None, None, True)
+      call9 = call('https', True, 'append-gs-censoredplanetraw-base-https',
+                   None, 'gs://censoredplanetraw/base/https', None, None, True)
+      call10 = call('satellite', True,
+                    'append-gs-censoredplanetraw-base-satellite', None,
+                    'gs://censoredplanetraw/base/satellite', None, None, True)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call6, call7, call8, call9, call10], any_order=True)
       # No extra calls

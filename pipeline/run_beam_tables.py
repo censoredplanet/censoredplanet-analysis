@@ -25,7 +25,7 @@ from typing import Optional, List
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
-from firehook_resources import OUTPUT_BUCKET
+from firehook_resources import OUTPUT_TEST_BUCKET, OUTPUT_PROD_BUCKET
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
@@ -61,8 +61,12 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       table_name = None
       gcs_folder = None
       if export_gcs:
-        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
-                                                OUTPUT_BUCKET)
+        if dataset == beam_tables.PROD_DATASET_NAME:
+          gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                  OUTPUT_PROD_BUCKET)
+        else:
+          gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                  OUTPUT_TEST_BUCKET)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:
         table_name = beam_tables.get_table_name(dataset, scan_type,
