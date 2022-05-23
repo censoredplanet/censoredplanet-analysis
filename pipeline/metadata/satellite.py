@@ -249,7 +249,7 @@ def _read_satellite_answer_tags(
   yield answer_with_keys
 
 
-def _add_vantage_point_tags(
+def add_vantage_point_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
     tags: beam.pvalue.PCollection[IpMetadataWithSourceKey]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
@@ -257,7 +257,7 @@ def _add_vantage_point_tags(
 
   Args:
       rows: PCollection of measurement rows
-      ips_with_metadata: PCollection of source/ips with geo metadata
+      tags: PCollection of source/ips with geo metadata
 
     Returns:
       PCollection of measurement rows with tag information added to the ip row
@@ -290,30 +290,25 @@ def _add_vantage_point_tags(
   return rows_with_metadata
 
 
-def _add_satellite_tags(
+def add_satellite_answer_tags(
     rows: beam.pvalue.PCollection[SatelliteRow],
-    resolver_tags: beam.pvalue.PCollection[IpMetadataWithSourceKey],
     answer_tags: beam.pvalue.PCollection[SatelliteAnswerWithSourceKey]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Add tags for resolvers and answer IPs and unflatten the Satellite measurement rows.
 
     Args:
       rows: PCollection of measurement rows
-      resolver_tags: PCollection of tag info for resolvers
       answer_tags: PCollection of geo/asn tag info for received ips
 
     Returns:
-      PCollection of measurement rows containing tag information
+      PCollection of measurement rows containing answer tag information
   """
-  # PCollection[SatelliteRow]
-  rows_with_metadata = _add_vantage_point_tags(rows, resolver_tags)
-
   # Starting with the Satellite v2.2 format, the rows include received ip tags.
   # Received tagging steps are only required prior to v2.2
 
   # PCollection[SatelliteRow] x2
   rows_pre_v2_2, rows_v2_2 = (
-      rows_with_metadata | 'partition by date v2.2' >> beam.Partition(
+      rows | 'partition by date v2.2' >> beam.Partition(
           _get_satellite_v2p2_date_partition, 2))
 
   # PCollection[SatelliteRow]
@@ -547,41 +542,62 @@ def add_received_ip_tags(
   return rows_with_metadata
 
 
-def process_satellite_with_tags(
+def process_and_flatten_satellite_rows(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    answer_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
-  """Process Satellite measurements and tags.
+  """Process Satellite measurements
 
   Args:
     row_lines: Tuple[filepath, json_line]
-    answer_lines: Tuple[filepath, json_line]
-    resolver_lines: Tuple[filepath, json_line]
 
   Returns:
-    PCollection[SatelliteRow] of rows with tag metadata added
+    PCollection[SatelliteRow] of rows
   """
   # PCollection[SatelliteRow]
   rows = (
       row_lines | 'flatten json' >> beam.ParDo(
           flatten.FlattenMeasurement()).with_output_types(SatelliteRow))
+  return rows
 
+
+def process_satellite_resolver_tags(
+    resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[IpMetadataWithSourceKey]:
+  """Process Satellite resolver tags.
+
+  Args:
+    resolver_lines: Tuple[filepath, json_line]
+
+  Returns:
+    PCollection[IpMetadataWithSourceKey] of resolver tags
+  """
   # PCollection[IpMetadataWithSourceKey]
   resolver_tags = (
       resolver_lines |
       'resolver tag rows' >> beam.FlatMapTuple(_read_satellite_resolver_tags).
       with_output_types(IpMetadataWithSourceKey))
 
+  return resolver_tags
+
+
+def process_satellite_answer_tags(
+    answer_lines: beam.pvalue.PCollection[Tuple[str, str]]
+) -> beam.pvalue.PCollection[SatelliteAnswerWithSourceKey]:
+  """Process Satellite resolver tags.
+
+  Args:
+    answer_lines: Tuple[filepath, json_line]
+
+  Returns:
+    PCollection[SatelliteAnswerWithSourceKey] of answer tags
+  """
   # PCollection[SatelliteAnswerWithSourceKey]
   answer_tags = (
       answer_lines |
       'answer tag rows' >> beam.FlatMapTuple(_read_satellite_answer_tags).
       with_output_types(SatelliteAnswerWithSourceKey))
 
-  rows_with_metadata = _add_satellite_tags(rows, resolver_tags, answer_tags)
-
-  return rows_with_metadata
+  return answer_tags
 
 
 def add_page_fetch_to_answers(
@@ -825,28 +841,52 @@ def process_satellite_lines(
   Returns:
     post_processed_satellite: rows of satellite scan data
   """
+  # Read in file data
+
   # PCollection[Tuple[filename,line]] x4
   answer_lines, resolver_lines, page_fetch_lines, row_lines = lines | beam.Partition(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
-  # PCollection[SatelliteRow]
-  tagged_satellite = process_satellite_with_tags(row_lines, answer_lines,
-                                                 resolver_lines)
+  # Parse all file data into schema pcollections
 
   # PCollection[SatelliteRow]
-  rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
-      tagged_satellite)
+  rows = process_and_flatten_satellite_rows(row_lines)
 
-  # PCollection[SatelliteRow]
-  rows_with_answer_ip_annotations = metadata_adder.annotate_answer_ips(
-      rows_with_resolver_ip_annotations)
+  # PCollection[IpMetadataWithSourceKey]
+  resolver_tags = process_satellite_resolver_tags(resolver_lines)
+
+  # PCollection[SatelliteAnswerWithSourceKey]
+  answer_tags = process_satellite_answer_tags(answer_lines)
 
   # PCollection[BlockpageRow]
   page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
 
+  # Join auxiliary file data onto main row data
+
+  # - join data onto resolver ips
+
+  # PCollection[SatelliteRow]
+  resolver_tagged_satellite = add_vantage_point_tags(rows, resolver_tags)
+
+  # PCollection[SatelliteRow]
+  rows_with_resolver_ip_annotations = metadata_adder.annotate_row_ip(
+      resolver_tagged_satellite)
+
+  # - join data onto answer ips
+
+  # PCollection[SatelliteRow]
+  answer_tagged_satellite = add_satellite_answer_tags(
+      rows_with_resolver_ip_annotations, answer_tags)
+
+  # PCollection[SatelliteRow]
+  rows_with_answer_ip_annotations = metadata_adder.annotate_answer_ips(
+      answer_tagged_satellite)
+
   # PCollection[SatelliteRow]
   satellite_with_page_fetches = add_page_fetch_to_answers(
       rows_with_answer_ip_annotations, page_fetch_rows)
+
+  # Do some post-processing steps
 
   # PCollection[SatelliteRow]
   post_processed_satellite = post_processing_satellite(
