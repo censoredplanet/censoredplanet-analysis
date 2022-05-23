@@ -7,7 +7,7 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 import apache_beam.testing.util as beam_test_util
 
-from pipeline.metadata.schema import SatelliteRow, PageFetchRow, HttpsResponse, SatelliteAnswer, SatelliteAnswerWithKeys, IpMetadataWithKeys, IpMetadata, MatchesControl
+from pipeline.metadata.schema import SatelliteRow, PageFetchRow, HttpsResponse, SatelliteAnswer, SatelliteAnswerWithSourceKey, IpMetadata, IpMetadataWithSourceKey, MatchesControl
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
@@ -19,7 +19,7 @@ class SatelliteTest(unittest.TestCase):
   # pylint: disable=protected-access
 
   def test_make_source_ip_key(self) -> None:
-    row = IpMetadataWithKeys(
+    row = IpMetadataWithSourceKey(
         source='CP_Satellite-2020-12-17-12-00-01',
         ip='1.2.3.4',
     )
@@ -45,12 +45,12 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(filenames, lines)
 
-    tag1 = IpMetadataWithKeys(
+    tag1 = IpMetadataWithSourceKey(
         ip='1.1.1.1',
         source='CP_Satellite-2020-12-17-12-00-01',
         country='US'
     )
-    tag2 = IpMetadataWithKeys(
+    tag2 = IpMetadataWithSourceKey(
         ip='1.1.1.3',
         source='CP_Satellite-2020-12-17-12-00-01',
         country='AU'
@@ -89,7 +89,7 @@ class SatelliteTest(unittest.TestCase):
 
     data = zip(filenames, lines)
 
-    tag1 = SatelliteAnswerWithKeys(
+    tag1 = SatelliteAnswerWithSourceKey(
         ip='60.210.17.137',
         source='CP_Satellite-2020-12-17-12-00-01',
         cert='a2fed117238c94a04ba787cfe69e93de36cc8571bab44d5481df9becb9beec75',
