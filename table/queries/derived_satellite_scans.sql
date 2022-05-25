@@ -1,53 +1,53 @@
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
   CASE
-    WHEN rcode = 0 THEN "dns/answer:no_answer"
-    WHEN rcode = 1 THEN "dns/rcode:FormErr"
-    WHEN rcode = 2 THEN "dns/rcode:ServFail"
-    WHEN rcode = 3 THEN "dns/rcode:NXDomain"
-    WHEN rcode = 4 THEN "dns/rcode:NotImp"
-    WHEN rcode = 5 THEN "dns/rcode:Refused"
-    WHEN rcode = 6 THEN "dns/rcode:YXDomain"
-    WHEN rcode = 7 THEN "dns/rcode:YXRRSet"
-    WHEN rcode = 8 THEN "dns/rcode:NXRRSet"
-    WHEN rcode = 9 THEN "dns/rcode:NotAuth"
-    WHEN rcode = 10 THEN "dns/rcode:NotZone"
-    WHEN rcode = 11 THEN "dns/rcode:DSOTYPENI"
-    WHEN rcode = 12 THEN "dns/rcode:Unassigned"
-    WHEN rcode = 13 THEN "dns/rcode:Unassigned"
-    WHEN rcode = 14 THEN "dns/rcode:Unassigned"
-    WHEN rcode = 15 THEN "dns/rcode:Unassigned"
-    WHEN rcode = 16 THEN "dns/rcode:BadVers"
-    WHEN rcode = 17 THEN "dns/rcode:BadSig"
-    WHEN rcode = 18 THEN "dns/rcode:BadKey"
-    WHEN rcode = 19 THEN "dns/rcode:BadTime"
-    WHEN rcode = 20 THEN "dns/rcode:BadMode"
-    WHEN rcode = 21 THEN "dns/rcode:BadAlg"
-    WHEN rcode = 22 THEN "dns/rcode:BadTrunc"
-    WHEN rcode = 23 THEN "dns/rcode:BadCookie"
-    ELSE CONCAT("dns/unknown_rcode:", rcode)
+    WHEN rcode = 0 THEN "❗️dns/answer:no_answer"
+    WHEN rcode = 1 THEN "❗️dns/rcode:FormErr"
+    WHEN rcode = 2 THEN "❗️dns/rcode:ServFail"
+    WHEN rcode = 3 THEN "❗️dns/rcode:NXDomain"
+    WHEN rcode = 4 THEN "❗️dns/rcode:NotImp"
+    WHEN rcode = 5 THEN "❗️dns/rcode:Refused"
+    WHEN rcode = 6 THEN "❗️dns/rcode:YXDomain"
+    WHEN rcode = 7 THEN "❗️dns/rcode:YXRRSet"
+    WHEN rcode = 8 THEN "❗️dns/rcode:NXRRSet"
+    WHEN rcode = 9 THEN "❗️dns/rcode:NotAuth"
+    WHEN rcode = 10 THEN "❗️dns/rcode:NotZone"
+    WHEN rcode = 11 THEN "❗️dns/rcode:DSOTYPENI"
+    WHEN rcode = 12 THEN "❗️dns/rcode:Unassigned"
+    WHEN rcode = 13 THEN "❗️dns/rcode:Unassigned"
+    WHEN rcode = 14 THEN "❗️dns/rcode:Unassigned"
+    WHEN rcode = 15 THEN "❗️dns/rcode:Unassigned"
+    WHEN rcode = 16 THEN "❗️dns/rcode:BadVers"
+    WHEN rcode = 17 THEN "❗️dns/rcode:BadSig"
+    WHEN rcode = 18 THEN "❗️dns/rcode:BadKey"
+    WHEN rcode = 19 THEN "❗️dns/rcode:BadTime"
+    WHEN rcode = 20 THEN "❗️dns/rcode:BadMode"
+    WHEN rcode = 21 THEN "❗️dns/rcode:BadAlg"
+    WHEN rcode = 22 THEN "❗️dns/rcode:BadTrunc"
+    WHEN rcode = 23 THEN "❗️dns/rcode:BadCookie"
+    ELSE CONCAT("❗️dns/unknown_rcode:", rcode)
   END
 );
 
 CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   CASE
     # Satellite v1
-    WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "read/udp.timeout"
-    WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "read/dns.msgsize"
-    WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "read/udp.refused"
-    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "read/ip.host_no_route"
-    WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "setup/system_failure" # Too many open files
-    WHEN error = "{}" THEN "dns/unknown" # TODO figure out origin
-    WHEN error = "no_answer" THEN "dns/answer:no_answer"
+    WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "❗️read/udp.timeout"
+    WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "❗️read/dns.msgsize"
+    WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "❗️read/udp.refused"
+    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "❗️read/ip.host_no_route"
+    WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "❗️setup/system_failure" # Too many open files
+    WHEN error = "{}" THEN "❗️dns/unknown" # TODO figure out origin
+    WHEN error = "no_answer" THEN "❗️dns/answer:no_answer"
     #Satellite v2
-    WHEN ENDS_WITH(error, "i/o timeout") THEN "read/udp.timeout"
-    WHEN ENDS_WITH(error, "message too long") THEN "read/dns.msgsize"
-    WHEN ENDS_WITH(error, "connection refused") THEN "read/udp.refused"
-    WHEN ENDS_WITH(error, "no route to host") THEN "read/ip.host_no_route"
-    WHEN ENDS_WITH(error, "short read") THEN "read/dns.msgsize"
-    WHEN ENDS_WITH(error, "read: protocol error") THEN "read/protocol_error"
-    WHEN ENDS_WITH(error, "socket: too many open files") THEN "setup/system_failure"
-    ELSE CONCAT("dns/unknown_error:", error)
+    WHEN ENDS_WITH(error, "i/o timeout") THEN "❗️read/udp.timeout"
+    WHEN ENDS_WITH(error, "message too long") THEN "❗️read/dns.msgsize"
+    WHEN ENDS_WITH(error, "connection refused") THEN "❗️read/udp.refused"
+    WHEN ENDS_WITH(error, "no route to host") THEN "❗️read/ip.host_no_route"
+    WHEN ENDS_WITH(error, "short read") THEN "❗️read/dns.msgsize"
+    WHEN ENDS_WITH(error, "read: protocol error") THEN "❗️read/protocol_error"
+    WHEN ENDS_WITH(error, "socket: too many open files") THEN "❗️setup/system_failure"
+    ELSE CONCAT("❗️dns/unknown_error:", error)
   END
 );
 
@@ -73,18 +73,18 @@ CREATE TEMP FUNCTION InvalidIpTypeOld(answer ANY TYPE) AS (
 
 CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   CASE
-    WHEN STARTS_WITH(ip, "0.") THEN "ip_invalid:zero"
-    WHEN STARTS_WITH(ip, "127.") THEN "ip_invalid:local_host"
-    WHEN STARTS_WITH(ip, "10.") THEN "ip_invalid:local_net"
-    WHEN NET.IP_TO_STRING(NET.IP_TRUNC(NET.SAFE_IP_FROM_STRING(ip), 12)) = "172.16.0.0"  THEN "ip_invalid:local_net"
-    WHEN STARTS_WITH(ip, "192.168.") THEN "ip_invalid:local_net"
+    WHEN STARTS_WITH(ip, "0.") THEN "❗️ip_invalid:zero"
+    WHEN STARTS_WITH(ip, "127.") THEN "❗️ip_invalid:local_host"
+    WHEN STARTS_WITH(ip, "10.") THEN "❗️ip_invalid:local_net"
+    WHEN NET.IP_TO_STRING(NET.IP_TRUNC(NET.SAFE_IP_FROM_STRING(ip), 12)) = "172.16.0.0"  THEN "❗️ip_invalid:local_net"
+    WHEN STARTS_WITH(ip, "192.168.") THEN "❗️ip_invalid:local_net"
     ELSE NULL
   END
 );
 
 CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
   CASE
-    WHEN (error IS NULL OR error = "" OR error = "null")  THEN "read/udp.timeout"
+    WHEN (error IS NULL OR error = "" OR error = "null")  THEN "❗️read/udp.timeout"
     ELSE ClassifySatelliteError(error)
   END
 );
@@ -168,14 +168,18 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
             (SELECT InvalidIpType(answer.ip) FROM UNNEST(answers) answer LIMIT 1),
             CASE
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.ip)
-                      FROM UNNEST(answers) answer) THEN "✅ answer:matches_ip"
+                      FROM UNNEST(answers) answer) THEN "✅answer:matches_ip"
+                WHEN (SELECT LOGICAL_OR(answer.http_analysis_is_known_blockpage)
+                      FROM UNNEST(answers) answer) THEN CONCAT("❗️page:http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
+                WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
+                      FROM UNNEST(answers) answer) THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
                 WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
-                      FROM UNNEST(answers) a) THEN "✅ answer:cert_for_domain"
+                      FROM UNNEST(answers) a) THEN "✅answer:cert_for_domain"
                 WHEN (SELECT LOGICAL_AND(NOT IsCertForDomain(a.https_tls_cert, domain_name))
                       FROM UNNEST(answers) a) THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
                 -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
-                      FROM UNNEST(answers) answer) THEN "✅ answer:matches_asn"
+                      FROM UNNEST(answers) answer) THEN "✅answer:matches_asn"
                 ELSE CONCAT("❗️answer:not_validated:", AnswersSignature(answers))
             END
         )
