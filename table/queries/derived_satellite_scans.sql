@@ -55,20 +55,30 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
 CREATE TEMP FUNCTION InvalidIp(answer ANY TYPE) AS (
   CASE
     WHEN STARTS_WITH(answer.ip, "0.") THEN TRUE
-    WHEN STARTS_WITH(answer.ip, "127.") then TRUE
-    WHEN STARTS_WITH(answer.ip, "10.")
-         OR STARTS_WITH(answer.ip, "192.168.") then TRUE
+    WHEN STARTS_WITH(answer.ip, "127.") THEN TRUE
+    WHEN STARTS_WITH(answer.ip, "10.") OR STARTS_WITH(answer.ip, "192.168.") THEN TRUE
     ELSE FALSE
   END
 );
 
-CREATE TEMP FUNCTION InvalidIpType(answer ANY TYPE) AS (
+CREATE TEMP FUNCTION InvalidIpTypeOld(answer ANY TYPE) AS (
   CASE
-    WHEN STARTS_WITH(answer.ip, "0.") then "ip_invalid:zero"
-    WHEN STARTS_WITH(answer.ip, "127.") then "ip_invalid:local_host"
+    WHEN STARTS_WITH(answer.ip, "0.") THEN "ip_invalid:zero"
+    WHEN STARTS_WITH(answer.ip, "127.") THEN "ip_invalid:local_host"
     WHEN STARTS_WITH(answer.ip, "10.")
-         OR STARTS_WITH(answer.ip, "192.168.") then "ip_invalid:local_net"
+         OR STARTS_WITH(answer.ip, "192.168.") THEN "ip_invalid:local_net"
     ELSE "invalid_ip_parse_error"
+  END
+);
+
+CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
+  CASE
+    WHEN STARTS_WITH(ip, "0.") THEN "ip_invalid:zero"
+    WHEN STARTS_WITH(ip, "127.") THEN "ip_invalid:local_host"
+    WHEN STARTS_WITH(ip, "10.") THEN "ip_invalid:local_net"
+    WHEN NET.IP_TO_STRING(NET.IP_TRUNC(NET.SAFE_IP_FROM_STRING(ip), 12)) = "172.16.0.0"  THEN "ip_invalid:local_net"
+    WHEN STARTS_WITH(ip, "192.168.") THEN "ip_invalid:local_net"
+    ELSE NULL
   END
 );
 
@@ -84,14 +94,31 @@ CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
                                          https_is_known_blockpage BOOLEAN,
                                          https_page_signature STRING) AS (
   CASE
-    WHEN (STRPOS(cert, CAST(domain as bytes)) > 0
+    WHEN (STRPOS(cert, CAST(domain AS BYTES)) > 0
           OR STRPOS(cert, 
-             CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) as bytes)) > 0)
+             CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) AS BYTES)) > 0)
       THEN "expected/cert_match"
     WHEN https_is_known_blockpage
       THEN CONCAT("https_blockpage:", https_page_signature)                                      
     ELSE "cert_mismatch"
   END
+);
+
+CREATE TEMP FUNCTION IsCertForDomain(tls_cert BYTES, domain STRING) AS (
+  STRPOS(tls_cert, CAST(domain AS BYTES)) > 0 OR 
+  STRPOS(tls_cert, CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) AS BYTES)) > 0
+);
+
+CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
+  ARRAY_TO_STRING(ARRAY(
+    SELECT DISTINCT
+      CASE
+        WHEN answer.as_name != "" THEN answer.as_name
+        WHEN answer.asn IS NOT NULL THEN CONCAT("AS", answer.asn)
+        ELSE "missing_as_info"
+      END
+    FROM UNNEST(answers) answer
+  ), ",")
 );
 
 # Input: array of answer IP information, array of rcodes, error,
@@ -112,7 +139,7 @@ CREATE TEMP FUNCTION SatelliteOutcome(answers ANY TYPE,
       CASE
         # assuming no one will mix valid and invalid ips
         WHEN InvalidIp(answers[OFFSET(0)])
-          THEN InvalidIpType(answers[OFFSET(0)])
+          THEN InvalidIpTypeOld(answers[OFFSET(0)])
         WHEN answers[OFFSET(0)].https_tls_cert IS NOT NULL
           THEN TlsCertMatchOutcome(domain,
                                    answers[OFFSET(0)].https_tls_cert,
@@ -125,6 +152,34 @@ CREATE TEMP FUNCTION SatelliteOutcome(answers ANY TYPE,
         ELSE "expected/match"
       END
   END
+);
+
+
+CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
+                                   dns_error STRING,
+                                   rcode INTEGER,
+                                   answers ANY TYPE) AS (
+    CASE 
+        WHEN dns_error IS NOT NULL THEN ClassifySatelliteError(dns_error)
+        WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(dns_error)
+        WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
+        WHEN ARRAY_LENGTH(answers) = 0 THEN "❗️answer:no_answer"
+        ELSE IFNULL(
+            (SELECT InvalidIpType(answer.ip) FROM UNNEST(answers) answer LIMIT 1),
+            CASE
+                WHEN (SELECT LOGICAL_OR(answer.matches_control.ip)
+                      FROM UNNEST(answers) answer) THEN "✅ answer:matches_ip"
+                WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
+                      FROM UNNEST(answers) a) THEN "✅ answer:cert_for_domain"
+                WHEN (SELECT LOGICAL_AND(NOT IsCertForDomain(a.https_tls_cert, domain_name))
+                      FROM UNNEST(answers) a) THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
+                -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
+                WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
+                      FROM UNNEST(answers) answer) THEN "✅ answer:matches_asn"
+                ELSE CONCAT("❗️answer:not_validated:", AnswersSignature(answers))
+            END
+        )
+    END
 );
 
 
@@ -160,12 +215,13 @@ WITH Grouped AS (
         IFNULL(domain_category, "Uncategorized") AS category,
 
         SatelliteOutcome(answers, received_rcode, received_error, domain_controls_failed, anomaly, domain) as outcome,
+        OutcomeString(domain, received_error, received_rcode, answers) as outcome2,
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
-    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY date, hostname, country_code, network, subnetwork, outcome, outcome2, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -195,4 +251,7 @@ DROP FUNCTION ClassifySatelliteErrorNegRCode;
 DROP FUNCTION SatelliteOutcome;
 DROP FUNCTION InvalidIp;
 DROP FUNCTION InvalidIpType;
+DROP FUNCTION InvalidIpTypeOld;
 DROP FUNCTION TlsCertMatchOutcome;
+DROP FUNCTION IsCertForDomain;
+DROP FUNCTION AnswersSignature;
