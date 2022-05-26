@@ -51,26 +51,6 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   END
 );
 
-
-CREATE TEMP FUNCTION InvalidIp(answer ANY TYPE) AS (
-  CASE
-    WHEN STARTS_WITH(answer.ip, "0.") THEN TRUE
-    WHEN STARTS_WITH(answer.ip, "127.") THEN TRUE
-    WHEN STARTS_WITH(answer.ip, "10.") OR STARTS_WITH(answer.ip, "192.168.") THEN TRUE
-    ELSE FALSE
-  END
-);
-
-CREATE TEMP FUNCTION InvalidIpTypeOld(answer ANY TYPE) AS (
-  CASE
-    WHEN STARTS_WITH(answer.ip, "0.") THEN "ip_invalid:zero"
-    WHEN STARTS_WITH(answer.ip, "127.") THEN "ip_invalid:local_host"
-    WHEN STARTS_WITH(answer.ip, "10.")
-         OR STARTS_WITH(answer.ip, "192.168.") THEN "ip_invalid:local_net"
-    ELSE "invalid_ip_parse_error"
-  END
-);
-
 CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   CASE
     WHEN STARTS_WITH(ip, "0.") THEN "❗️ip_invalid:zero"
@@ -119,39 +99,6 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
       END
     FROM UNNEST(answers) answer
   ), ",")
-);
-
-# Input: array of answer IP information, array of rcodes, error,
-#        controls failed, and anomaly fields from the raw data
-# Output is a string of the format "stage/outcome"
-CREATE TEMP FUNCTION SatelliteOutcome(answers ANY TYPE,
-                                      rcode INTEGER, 
-                                      error STRING, 
-                                      controls_failed BOOL, 
-                                      anomaly BOOL,
-                                      domain STRING) AS (
-  CASE
-    WHEN controls_failed THEN "setup/controls"
-    WHEN rcode IS NULL THEN ClassifySatelliteError(error)
-    WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(error)
-    WHEN ARRAY_LENGTH(answers) = 0 THEN ClassifySatelliteRCode(rcode)
-    ELSE
-      CASE
-        # assuming no one will mix valid and invalid ips
-        WHEN InvalidIp(answers[OFFSET(0)])
-          THEN InvalidIpTypeOld(answers[OFFSET(0)])
-        WHEN answers[OFFSET(0)].https_tls_cert IS NOT NULL
-          THEN TlsCertMatchOutcome(domain,
-                                   answers[OFFSET(0)].https_tls_cert,
-                                   answers[OFFSET(0)].https_analysis_is_known_blockpage,
-                                   answers[OFFSET(0)].https_analysis_page_signature)
-        WHEN answers[OFFSET(0)].http_analysis_is_known_blockpage
-          THEN CONCAT("http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
-        WHEN anomaly
-          THEN CONCAT("dns/ipmismatch:", answers[OFFSET(0)].as_name)
-        ELSE "expected/match"
-      END
-  END
 );
 
 
@@ -218,14 +165,13 @@ WITH Grouped AS (
         IF(domain_is_control, "CONTROL", domain) AS domain,
         IFNULL(domain_category, "Uncategorized") AS category,
 
-        SatelliteOutcome(answers, received_rcode, received_error, domain_controls_failed, anomaly, domain) as outcome,
-        OutcomeString(domain, received_error, received_rcode, answers) as outcome2,
+        OutcomeString(domain, received_error, received_rcode, answers) as outcome,
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
-    GROUP BY date, hostname, country_code, network, subnetwork, outcome, outcome2, domain, category
+    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -252,10 +198,8 @@ SELECT
 DROP FUNCTION ClassifySatelliteRCode;
 DROP FUNCTION ClassifySatelliteError;
 DROP FUNCTION ClassifySatelliteErrorNegRCode;
-DROP FUNCTION SatelliteOutcome;
-DROP FUNCTION InvalidIp;
+DROP FUNCTION OutcomeString;
 DROP FUNCTION InvalidIpType;
-DROP FUNCTION InvalidIpTypeOld;
 DROP FUNCTION TlsCertMatchOutcome;
 DROP FUNCTION IsCertForDomain;
 DROP FUNCTION AnswersSignature;
