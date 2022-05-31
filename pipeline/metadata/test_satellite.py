@@ -1,7 +1,6 @@
 """Unit tests for satellite."""
 
 import json
-from typing import Tuple
 import unittest
 
 import apache_beam as beam
@@ -12,24 +11,6 @@ from pipeline.metadata.schema import SatelliteRow, PageFetchRow, HttpsResponse, 
 from pipeline.metadata import satellite
 
 # pylint: disable=too-many-lines
-
-
-def process_satellite_with_tags(
-    row_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    answer_lines: beam.pvalue.PCollection[Tuple[str, str]],
-    resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
-) -> beam.pvalue.PCollection[SatelliteRow]:
-  """Helper method to test processing satellite tag information."""
-  rows = satellite.parse_and_flatten_satellite_rows(row_lines)
-  resolver_tags = satellite.parse_satellite_resolver_tags(resolver_lines)
-  answer_tags = satellite.parse_satellite_answer_tags(answer_lines)
-
-  resolver_tagged_satellite = satellite.add_vantage_point_tags(
-      rows, resolver_tags)
-  answer_tagged_satellite = satellite.add_satellite_answer_tags(
-      resolver_tagged_satellite, answer_tags)
-
-  return answer_tagged_satellite
 
 
 class SatelliteTest(unittest.TestCase):
@@ -320,8 +301,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      final = process_satellite_with_tags(row_lines, answer_tag_lines,
-                                          resolver_tag_lines)
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p0(self) -> None:  # pylint: disable=no-self-use
@@ -578,8 +559,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create(answer_tags)
 
-      final = process_satellite_with_tags(row_lines, answer_tag_lines,
-                                          resolver_tag_lines)
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p1(self) -> None:  # pylint: disable=no-self-use
@@ -881,8 +862,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      final = process_satellite_with_tags(row_lines, answer_tag_lines,
-                                          resolver_tag_lines)
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
@@ -1212,8 +1193,8 @@ class SatelliteTest(unittest.TestCase):
           resolver_tags)
       answer_tag_lines = p | 'create answer tags' >> beam.Create([])
 
-      final = process_satellite_with_tags(row_lines, answer_tag_lines,
-                                          resolver_tag_lines)
+      final = satellite.process_satellite_with_tags(row_lines, answer_tag_lines,
+                                                    resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
   def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
