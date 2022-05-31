@@ -542,7 +542,7 @@ def add_received_ip_tags(
   return rows_with_metadata
 
 
-def process_and_flatten_satellite_rows(
+def parse_and_flatten_satellite_rows(
     row_lines: beam.pvalue.PCollection[Tuple[str, str]],
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Process Satellite measurements
@@ -560,7 +560,7 @@ def process_and_flatten_satellite_rows(
   return rows
 
 
-def process_satellite_resolver_tags(
+def parse_satellite_resolver_tags(
     resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[IpMetadataWithSourceKey]:
   """Process Satellite resolver tags.
@@ -580,7 +580,7 @@ def process_satellite_resolver_tags(
   return resolver_tags
 
 
-def process_satellite_answer_tags(
+def parse_satellite_answer_tags(
     answer_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[SatelliteAnswerWithSourceKey]:
   """Process Satellite resolver tags.
@@ -674,7 +674,7 @@ def add_page_fetch_to_answers(
   return all_rows
 
 
-def process_satellite_page_fetches(
+def parse_satellite_page_fetches(
     page_fetches: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[PageFetchRow]:
   """Process Satellite measurements and tags.
@@ -850,16 +850,16 @@ def process_satellite_lines(
   # Parse all file data into schema pcollections
 
   # PCollection[SatelliteRow]
-  rows = process_and_flatten_satellite_rows(row_lines)
+  rows = parse_and_flatten_satellite_rows(row_lines)
 
   # PCollection[IpMetadataWithSourceKey]
-  resolver_tags = process_satellite_resolver_tags(resolver_lines)
+  resolver_tags = parse_satellite_resolver_tags(resolver_lines)
 
   # PCollection[SatelliteAnswerWithSourceKey]
-  answer_tags = process_satellite_answer_tags(answer_lines)
+  answer_tags = parse_satellite_answer_tags(answer_lines)
 
   # PCollection[BlockpageRow]
-  page_fetch_rows = process_satellite_page_fetches(page_fetch_lines)
+  page_fetch_rows = parse_satellite_page_fetches(page_fetch_lines)
 
   # Join auxiliary file data onto main row data
 

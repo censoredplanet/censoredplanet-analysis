@@ -20,9 +20,9 @@ def process_satellite_with_tags(
     resolver_lines: beam.pvalue.PCollection[Tuple[str, str]]
 ) -> beam.pvalue.PCollection[SatelliteRow]:
   """Helper method to test processing satellite tag information."""
-  rows = satellite.process_and_flatten_satellite_rows(row_lines)
-  resolver_tags = satellite.process_satellite_resolver_tags(resolver_lines)
-  answer_tags = satellite.process_satellite_answer_tags(answer_lines)
+  rows = satellite.parse_and_flatten_satellite_rows(row_lines)
+  resolver_tags = satellite.parse_satellite_resolver_tags(resolver_lines)
+  answer_tags = satellite.parse_satellite_answer_tags(answer_lines)
 
   resolver_tagged_satellite = satellite.add_vantage_point_tags(
       rows, resolver_tags)
