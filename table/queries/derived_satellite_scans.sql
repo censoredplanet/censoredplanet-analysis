@@ -1,7 +1,6 @@
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
   CASE
-    WHEN rcode = 0 THEN "❗️dns/answer:no_answer"
     WHEN rcode = 1 THEN "❗️dns/rcode:FormErr"
     WHEN rcode = 2 THEN "❗️dns/rcode:ServFail"
     WHEN rcode = 3 THEN "❗️dns/rcode:NXDomain"
@@ -107,26 +106,33 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    rcode INTEGER,
                                    answers ANY TYPE) AS (
     CASE 
-        WHEN dns_error IS NOT NULL THEN ClassifySatelliteError(dns_error)
+        # TODO fix -1 rcodes in v1 data in the pipeline
         WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(dns_error)
+        WHEN dns_error IS NOT NULL THEN ClassifySatelliteError(dns_error)
         WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
         WHEN ARRAY_LENGTH(answers) = 0 THEN "❗️answer:no_answer"
         ELSE IFNULL(
             (SELECT InvalidIpType(answer.ip) FROM UNNEST(answers) answer LIMIT 1),
             CASE
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.ip)
-                      FROM UNNEST(answers) answer) THEN "✅answer:matches_ip"
+                      FROM UNNEST(answers) answer)
+                      THEN "✅answer:matches_ip"
                 WHEN (SELECT LOGICAL_OR(answer.http_analysis_is_known_blockpage)
-                      FROM UNNEST(answers) answer) THEN CONCAT("❗️page:http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
+                      FROM UNNEST(answers) answer)
+                      THEN CONCAT("❗️page:http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
                 WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
-                      FROM UNNEST(answers) answer) THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
+                      FROM UNNEST(answers) answer)
+                      THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
                 WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
-                      FROM UNNEST(answers) a) THEN "✅answer:cert_for_domain"
+                      FROM UNNEST(answers) a)
+                      THEN "✅answer:cert_for_domain"
                 WHEN (SELECT LOGICAL_AND(NOT IsCertForDomain(a.https_tls_cert, domain_name))
-                      FROM UNNEST(answers) a) THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
+                      FROM UNNEST(answers) a)
+                      THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
                 -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
-                      FROM UNNEST(answers) answer) THEN "✅answer:matches_asn"
+                      FROM UNNEST(answers) answer)
+                      THEN "✅answer:matches_asn"
                 ELSE CONCAT("❗️answer:not_validated:", AnswersSignature(answers))
             END
         )
@@ -185,6 +191,7 @@ SELECT
     END AS unexpected_count,
     CASE
         WHEN STARTS_WITH(outcome, "expected/") THEN count
+        WHEN outcome = "read/udp.timeout" THEN NULL
         ELSE 0
     END AS expected_count,
     FROM Grouped
