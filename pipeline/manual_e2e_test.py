@@ -576,10 +576,14 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      # pylint: disable=protected-access
       # Write derived table
-      run_queries.rebuild_all_tables(
-          base_dataset=BEAM_TEST_BASE_DATASET,
-          derived_dataset=BEAM_TEST_BASE_DATASET)
+      run_queries._run_query(
+          'table/queries/merged_reduced_scans.sql',
+          BEAM_TEST_BASE_DATASET,
+          BEAM_TEST_BASE_DATASET,
+      )
+      # pylint: enable=protected-access
 
       written_derived_rows = get_bq_rows(client, [derived_table_name])
       self.assertEqual(len(written_derived_rows), 53)
