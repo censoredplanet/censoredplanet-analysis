@@ -17,7 +17,7 @@ from pipeline.metadata.add_metadata import MetadataAdder
 class MetadataAdderTest(unittest.TestCase):
   """Unit tests for adding ip metadata."""
 
-  def test_annotate_row_ip(self) -> None:  # pylint: disable=no-self-use
+  def test_annotate_row_ip(self) -> None:
     """Test adding IP metadata to measurement ips."""
     rows = [
         BigqueryRow(
@@ -108,7 +108,7 @@ class MetadataAdderTest(unittest.TestCase):
       beam_test_util.assert_that(rows_with_metadata,
                                  beam_test_util.equal_to(expected))
 
-  def test_annotate_answer_ips(self) -> None:  # pylint: disable=no-self-use
+  def test_annotate_answer_ips(self) -> None:
     """Test adding IP metadata to measurement answers."""
     rows = [
         SatelliteRow(

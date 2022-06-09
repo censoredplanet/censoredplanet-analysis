@@ -41,7 +41,7 @@ class RepositoryMirror():
     self.github = github
     self.history = self._load_history()
 
-  def _load_history(self) -> Dict[str, Any]:  # pylint: disable=no-self-use
+  def _load_history(self) -> Dict[str, Any]:
     """Load history for local versions of files."""
     if not os.path.exists(FILE_HISTORY):
       return {}

@@ -46,7 +46,7 @@ class SatelliteTest(unittest.TestCase):
         satellite.make_source_ip_key(row),
         ('CP_Satellite-2020-12-17-12-00-01', '1.2.3.4'))
 
-  def test_read_satellite_resolver_tags(self) -> None:  # pylint: disable=no-self-use
+  def test_read_satellite_resolver_tags(self) -> None:
     """Test reading rows from Satellite resolver tag files."""
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
     tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
@@ -87,7 +87,7 @@ class SatelliteTest(unittest.TestCase):
       beam_test_util.assert_that(
           resolver_tags, beam_test_util.equal_to(expected_resolver_tags))
 
-  def test_read_satellite_answer_tags(self) -> None:  # pylint: disable=no-self-use
+  def test_read_satellite_answer_tags(self) -> None:
     """Test reading rows from Satellite answer tag files."""
     # yapf: disable
     tagged_answer1 = {
@@ -130,7 +130,7 @@ class SatelliteTest(unittest.TestCase):
       beam_test_util.assert_that(answer_tags,
                                  beam_test_util.equal_to(expected_answer_tags))
 
-  def test_process_satellite_v1(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v1(self) -> None:
     """Test processing of Satellite v1 interference and tag files."""
 
     data_filenames = [
@@ -324,7 +324,7 @@ class SatelliteTest(unittest.TestCase):
                                           resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2p0(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v2p0(self) -> None:
     """Test processing of Satellite v2 interference and tag files."""
     data_filenames = [
         "CP_Satellite-2021-03-01-12-00-01/results.json",
@@ -582,7 +582,7 @@ class SatelliteTest(unittest.TestCase):
                                           resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2p1(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v2p1(self) -> None:
     """Test processing of Satellite v2p1 interference and tag files."""
     data_filenames = [
         "CP_Satellite-2021-04-18-12-00-01/results.json",
@@ -885,7 +885,7 @@ class SatelliteTest(unittest.TestCase):
                                           resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_process_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
+  def test_process_satellite_v2p2(self) -> None:
     """Test processing of Satellite v2p2 interference and tag files."""
     data_filenames = [
         "CP_Satellite-2021-10-20-12-00-01/results.json",
@@ -1216,7 +1216,7 @@ class SatelliteTest(unittest.TestCase):
                                           resolver_tag_lines)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected))
 
-  def test_partition_satellite_input(self) -> None:  # pylint: disable=no-self-use
+  def test_partition_satellite_input(self) -> None:
     """Test partitioning of Satellite input into tags, blockpages, and results."""
     data = [
         ("CP_Satellite-2020-09-02-12-00-01/resolvers.json", "resolver_tag"),
@@ -1513,7 +1513,7 @@ class SatelliteTest(unittest.TestCase):
 
     self.assertListEqual(result, expected)
 
-  def test_add_blockpages_to_answers(self) -> None:  # pylint: disable=no-self-use
+  def test_add_blockpages_to_answers(self) -> None:
     """Test adding blockpage info to Satellite Rows."""
     row_data = [
         SatelliteRow(
@@ -1657,7 +1657,7 @@ class SatelliteTest(unittest.TestCase):
       final = satellite.add_page_fetch_to_answers(rows, page_fetches)
       beam_test_util.assert_that(final, beam_test_util.equal_to(expected_rows))
 
-  def test_postprocessing_satellite_v2p2(self) -> None:  # pylint: disable=no-self-use
+  def test_postprocessing_satellite_v2p2(self) -> None:
     """Test postprocessing on Satellite v2.2 data."""
     # yapf: disable
     data = [

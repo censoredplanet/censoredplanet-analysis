@@ -29,8 +29,6 @@ class RunBeamTablesTest(unittest.TestCase):
   not the beam pipelines themselves.
   """
 
-  # pylint: disable=no-self-use
-
   def test_run_single_pipelines(self) -> None:
     """Test running a single dated pipeline."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
@@ -172,8 +170,6 @@ class RunBeamTablesTest(unittest.TestCase):
                    datetime.date(2021, 1, 8), datetime.date(2021, 1, 15), True)
       mock_runner.run_beam_pipeline.assert_has_calls([call2])
       self.assertEqual(2, mock_runner.run_beam_pipeline.call_count)
-
-  # pylint: enable=no-self-use
 
 
 if __name__ == '__main__':
