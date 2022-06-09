@@ -462,9 +462,9 @@ class ScanDataBeamPipelineRunner():
         write_disposition=write_mode,
         additional_bq_parameters=_get_partition_params(scan_type)))
 
-  def _write_to_gcs(
-      self, scan_type: str, rows: beam.pvalue.PCollection[BigqueryRow],
-      gcs_folder: str) -> None:
+  def _write_to_gcs(self, scan_type: str,
+                    rows: beam.pvalue.PCollection[BigqueryRow],
+                    gcs_folder: str) -> None:
     """Write out rows to GCS folder with hive-partioned format.
 
     Rows are written to .json.gz files organized by source and country:
