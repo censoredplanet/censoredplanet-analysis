@@ -55,6 +55,5 @@ class FakeDbipMetadata(DbipMetadata):
   def __init__(self) -> None:
     pass
 
-  # pylint: disable=no-self-use
   def lookup(self, _: str) -> DbipReturnValues:
     return DbipReturnValues("Fake Cloudflare Sub-Org", 13335)

@@ -101,6 +101,5 @@ class FakeMaxmindIpMetadata(MaxmindIpMetadata):
   def __init__(self) -> None:
     pass
 
-  # pylint: disable=no-self-use
   def lookup(self, _: str) -> MaxmindReturnValues:
     return MaxmindReturnValues('101.103.0.0/16', 1221, 'ASN-TELSTRA', 'AU')

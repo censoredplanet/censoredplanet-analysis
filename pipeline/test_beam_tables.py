@@ -88,7 +88,7 @@ class PipelineMainTest(unittest.TestCase):
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')
 
-  def test_read_scan_text(self) -> None:  # pylint: disable=no-self-use
+  def test_read_scan_text(self) -> None:
     """Test reading lines from compressed and uncompressed files"""
     with TestPipeline() as p:
       lines = beam_tables._read_scan_text(

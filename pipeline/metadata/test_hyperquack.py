@@ -16,7 +16,7 @@ from pipeline.metadata.add_metadata import MetadataAdder
 class HyperquackTest(unittest.TestCase):
   """unit testing for overall hyperquack pipeline"""
 
-  def test_process_hyperquack_lines(self) -> None:  # pylint: disable=no-self-use
+  def test_process_hyperquack_lines(self) -> None:
     """Test processing a single hyperquack line fully"""
 
     data_filenames = [
