@@ -162,6 +162,7 @@ WITH Grouped AS (
     SELECT
         date,
 
+        # As per https://docs.censoredplanet.org/dns.html#id2, some resolvers are named `special` instead of the real hostname.
         IF(resolver_name="special","special",NET.REG_DOMAIN(resolver_name)) as reg_hostname,
         resolver_name as hostname,
         resolver_as_full_name AS network,
