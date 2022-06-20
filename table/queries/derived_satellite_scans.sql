@@ -61,13 +61,6 @@ CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   END
 );
 
-CREATE TEMP FUNCTION ClassifySatelliteErrorNegRCode(error STRING) AS (
-  CASE
-    WHEN (error IS NULL OR error = "" OR error = "null")  THEN "❗️read/udp.timeout"
-    ELSE ClassifySatelliteError(error)
-  END
-);
-
 CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
                                          cert BYTES,
                                          https_is_known_blockpage BOOLEAN,
@@ -106,9 +99,9 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    rcode INTEGER,
                                    answers ANY TYPE) AS (
     CASE 
+        WHEN dns_error is NOT NULL AND dns_error != "" AND dns_error != "null" THEN ClassifySatelliteError(dns_error)
         # TODO fix -1 rcodes in v1 data in the pipeline
-        WHEN rcode = -1 THEN ClassifySatelliteErrorNegRCode(dns_error)
-        WHEN dns_error IS NOT NULL THEN ClassifySatelliteError(dns_error)
+        WHEN rcode = -1 THEN "❗️read/udp.timeout"
         WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
         WHEN ARRAY_LENGTH(answers) = 0 THEN "❗️answer:no_answer"
         ELSE IFNULL(
@@ -205,7 +198,6 @@ SELECT
 # Since any temp functions in scope block view creation.
 DROP FUNCTION ClassifySatelliteRCode;
 DROP FUNCTION ClassifySatelliteError;
-DROP FUNCTION ClassifySatelliteErrorNegRCode;
 DROP FUNCTION OutcomeString;
 DROP FUNCTION InvalidIpType;
 DROP FUNCTION TlsCertMatchOutcome;
