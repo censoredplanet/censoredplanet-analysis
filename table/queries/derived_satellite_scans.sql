@@ -132,6 +132,38 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
     END
 );
 
+CREATE TEMP FUNCTION OutcomeStringNoBlockpage(domain_name STRING,
+                                   dns_error STRING,
+                                   rcode INTEGER,
+                                   answers ANY TYPE) AS (
+    CASE 
+        WHEN dns_error is NOT NULL AND dns_error != "" AND dns_error != "null" THEN ClassifySatelliteError(dns_error)
+        # TODO fix -1 rcodes in v1 data in the pipeline
+        WHEN rcode = -1 THEN "❗️read/udp.timeout"
+        WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
+        WHEN ARRAY_LENGTH(answers) = 0 THEN "❗️answer:no_answer"
+        ELSE IFNULL(
+            (SELECT InvalidIpType(answer.ip) FROM UNNEST(answers) answer LIMIT 1),
+            CASE
+                WHEN (SELECT LOGICAL_OR(answer.matches_control.ip)
+                      FROM UNNEST(answers) answer)
+                      THEN "✅answer:matches_ip"
+                WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
+                      FROM UNNEST(answers) a)
+                      THEN "✅answer:cert_for_domain"
+                WHEN (SELECT LOGICAL_AND(NOT IsCertForDomain(a.https_tls_cert, domain_name))
+                      FROM UNNEST(answers) a)
+                      THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
+                -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
+                WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
+                      FROM UNNEST(answers) answer)
+                      THEN "✅answer:matches_asn"
+                ELSE CONCAT("❗️answer:not_validated:", AnswersSignature(answers))
+            END
+        )
+    END
+);
+
 
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
@@ -141,7 +173,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_both_blockpages`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -166,12 +198,27 @@ WITH Grouped AS (
         IFNULL(domain_category, "Uncategorized") AS category,
 
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
+        OutcomeStringNoBlockpage(domain, received_error, received_rcode, answers) as outcome_string_no_blockpage,
+        IF(ARRAY_LENGTH(answers) = 0, NULL, answers[ORDINAL(1)].https_tls_cert_issuer) as cert_issuer,
+        IF(ARRAY_LENGTH(answers) = 0, NULL, answers[ORDINAL(1)].https_tls_cert) as cert,
+        IF(ARRAY_LENGTH(answers) = 0, NULL, answers[ORDINAL(1)].https_response_status) as https_status,
+
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
-    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY date, hostname,
+                   country_code,
+                   network, 
+                   subnetwork, 
+                   outcome, 
+                   outcome_string_no_blockpage, 
+                   cert_issuer, 
+                   cert,
+                   https_status,
+                   domain, 
+                   category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
