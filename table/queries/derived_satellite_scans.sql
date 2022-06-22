@@ -179,13 +179,13 @@ SELECT
     Grouped.* EXCEPT (country_code),
     IFNULL(country_name, country_code) AS country_name,
     CASE
-        WHEN STARTS_WITH(outcome, "expected/") THEN 0
-        WHEN outcome = "read/udp.timeout" THEN NULL # timeouts are common in dns
+        WHEN STARTS_WITH(outcome, "✅") THEN 0
+        WHEN outcome = "❗️read/udp.timeout" THEN NULL # timeouts are common in dns
         ELSE count
     END AS unexpected_count,
     CASE
-        WHEN STARTS_WITH(outcome, "expected/") THEN count
-        WHEN outcome = "read/udp.timeout" THEN NULL
+        WHEN STARTS_WITH(outcome, "✅") THEN count
+        WHEN outcome = "❗️read/udp.timeout" THEN NULL
         ELSE 0
     END AS expected_count,
     FROM Grouped
