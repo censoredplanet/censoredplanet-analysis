@@ -21,7 +21,9 @@ CONTROL_URLS = [
     'example5718349450314.com',  # echo/discard
     'rtyutgyhefdafioasfjhjhi.com',  # HTTP/S
     'a.root-servers.net',  # Satellite
-    'www.example.com'  # Satellite
+    'www.example.com',  # Satellite
+    'yr-in-f94.1e100.net',  # Satellite - gstatic
+    'usmia1-vip-bx-006.aaplimg.com',  # Satellite - captive.apple.com
 ]
 
 
