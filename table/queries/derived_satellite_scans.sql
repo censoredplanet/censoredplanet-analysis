@@ -93,6 +93,28 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ), ",")
 );
 
+CREATE TEMP FUNCTION IsIssuerMitm(cert_issuer STRING) AS (
+  CASE
+    # not the actual issuer string used by Let's Encrypt
+    WHEN cert_issuer = 'Let\'s Encrypt Authority X3' THEN TRUE 
+    WHEN cert_issuer = 'Proxy Intermediate Certificate Authority' THEN TRUE
+    WHEN cert_issuer = 'Cisco Umbrella Secondary SubCA lax-SG' THEN TRUE 
+    WHEN cert_issuer = 'SafeDNS Server CA' THEN TRUE 
+    WHEN cert_issuer = 'Cisco Umbrella Secondary SubCA chi-SG' THEN TRUE 
+    WHEN cert_issuer = 'comodo.com.tr' THEN TRUE 
+    WHEN cert_issuer = 'WebTitan Cloud' THEN TRUE 
+    WHEN cert_issuer = 'WebFilter CA' THEN TRUE 
+    WHEN cert_issuer = 'keweon AdBlock RootCA' THEN TRUE 
+    WHEN cert_issuer = 'SkyDNS Server CA' THEN TRUE 
+    WHEN cert_issuer = 'NextDNS Blockpage Edge CA' THEN TRUE 
+    WHEN cert_issuer = 'infoblox.com' THEN TRUE 
+    WHEN cert_issuer = 'Securd Intermediate Certificate Authority' THEN TRUE 
+    WHEN cert_issuer = 'NetAlerts Services' THEN TRUE 
+    WHEN cert_issuer = 'Securly Intermediate 2024' THEN TRUE 
+    ELSE FALSE
+  END
+);
+
 
 CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    dns_error STRING,
@@ -116,6 +138,9 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
                       FROM UNNEST(answers) answer)
                       THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
+                WHEN (SELECT LOGICAL_OR(IsIssuerMitm(a.https_tls_cert_issuer))
+                      FROM UNNEST(answers) a)
+                      THEN "❗️answer:MITM_cert"
                 WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
                       FROM UNNEST(answers) a)
                       THEN "✅answer:cert_for_domain"
