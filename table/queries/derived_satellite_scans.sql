@@ -140,7 +140,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                       THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
                 WHEN (SELECT LOGICAL_OR(IsIssuerMitm(a.https_tls_cert_issuer))
                       FROM UNNEST(answers) a)
-                      THEN "❗️answer:MITM_cert"
+                      THEN CONCAT("❗️answer:MITM_cert:", answers[OFFSET(0)].https_tls_cert_issuer)
                 WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
                       FROM UNNEST(answers) a)
                       THEN "✅answer:cert_for_domain"
