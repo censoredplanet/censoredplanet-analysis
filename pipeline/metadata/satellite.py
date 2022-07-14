@@ -567,6 +567,84 @@ def parse_satellite_page_fetches(
   return rows
 
 
+def _partition_test_and_controls(row_tuple: Tuple[SourceDomainKey,
+                                                  SatelliteRow], _: int) -> int:
+  """Partition tests from domain and ip controls
+  Returns
+    0 = domain control
+    1 = ip control
+    2 = test measurement
+  """
+  row: SatelliteRow = row_tuple[1]
+  if row.is_control:
+    return 0
+  # 'anomaly' is None for control measurements
+  if row.is_control_ip or row.anomaly is None:
+    return 1
+  return 2
+
+
+def compare_with_controls(rows: beam.pvalue.PCollection[SatelliteRow]) -> beam.pvalue.PCollection[SatelliteRow]:
+  """Compare satellite rows against their respective controls
+  
+  Args:
+    rows: PCollection of measurement rows
+
+  Returns:
+    All satellite rows including controls
+  """
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]]
+  rows_keyed_by_source_domains = (
+      rows | 'key by sources and domains' >> beam.Map(
+          lambda row: (make_source_domain_key(row), row)).with_output_types(
+              Tuple[SourceDomainKey, SatelliteRow]))
+
+  # PCollection[Tuple[SourceDomainKey, SatelliteRow]] x3
+  domain_controls, ip_controls, tests = (
+      rows_keyed_by_source_domains | 'partition test and controls' >>
+      beam.Partition(_partition_test_and_controls, 3).with_output_types(
+          Tuple[SourceDomainKey, SatelliteRow]))
+
+  ###### compare
+
+  # PCollection[Tuple[SourceDomainKey, List[SatelliteRow]]]
+  domain_controls_by_domain = (
+    domain_controls | 'group domain controls by domain' >>
+    beam.GroupBy(lambda x: x[0]).with_output_types(
+          Tuple[SourceDomainKey, Iterable[SatelliteRow]])
+  )
+
+  # PCollection[Tuple[SourceDomainKey, List[SatelliteRow]]]
+  tests_by_domain = (
+    tests | 'group domain controls by domain' >>
+    beam.GroupBy(lambda x: x[0]).with_output_types(
+          Tuple[SourceDomainKey, Iterable[SatelliteRow]])
+  )
+
+
+
+  ####
+
+  # PCollection[SatelliteRow]
+  # pylint: disable=no-value-for-parameter
+  ip_controls = (
+      ip_controls |
+      'unkey ip controls' >> beam.Values().with_output_types(SatelliteRow))
+
+  # PCollection[SatelliteRow]
+  # pylint: disable=no-value-for-parameter
+  domain_controls = (
+      domain_controls |
+      'unkey domain controls' >> beam.Values().with_output_types(SatelliteRow))
+
+  # PCollection[SatelliteRow]
+  post = ((compared, ip_controls, domain_controls) |
+          'flatten test and controls' >> beam.Flatten())
+
+  return post
+
+
+
 def partition_satellite_input(
     line: Tuple[str, str],
     num_partitions: int = NUM_SATELLITE_INPUT_PARTITIONS) -> int:
@@ -661,4 +739,6 @@ def process_satellite_lines(
   satellite_with_page_fetches = add_page_fetch_to_answers(
       rows_with_answer_ip_annotations, page_fetch_rows)
 
-  return satellite_with_page_fetches
+  satellite_compared = compare_with_controls(satellite_with_page_fetches)
+
+  return satellite_compared
