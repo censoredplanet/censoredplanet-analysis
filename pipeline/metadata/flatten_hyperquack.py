@@ -129,7 +129,7 @@ class HyperquackFlattener():
       if 'Received' in result:
         received = result.get('Received', '')
         received_fields = flatten_base.parse_received_data(
-            self.blockpage_matcher, received, scan['Blocked'])
+            self.blockpage_matcher, received, domain, scan['Blocked'])
         row.received = received_fields
 
       if 'Error' in result:
@@ -175,7 +175,7 @@ class HyperquackFlattener():
       if 'response' in response:
         received = response.get('response', '')
         received_fields = flatten_base.parse_received_data(
-            self.blockpage_matcher, received, scan['anomaly'])
+            self.blockpage_matcher, received, domain, scan['anomaly'])
         row.received = received_fields
 
       if 'error' in response:

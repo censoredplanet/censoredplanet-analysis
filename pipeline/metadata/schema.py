@@ -31,6 +31,7 @@ class HttpsResponse:
   tls_version: Optional[int] = None
   tls_cipher_suite: Optional[int] = None
   tls_cert: Optional[str] = None
+  tls_cert_matches_domain: Optional[bool] = None
   tls_cert_common_name: Optional[str] = None
   tls_cert_issuer: Optional[str] = None
   tls_cert_start_date: Optional[str] = None
@@ -256,6 +257,7 @@ def flatten_to_dict_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'received_tls_version': row.received.tls_version,
       'received_tls_cipher_suite': row.received.tls_cipher_suite,
       'received_tls_cert': row.received.tls_cert,
+      'received_tls_cert_matches_domain': row.received.tls_cert_matches_domain,
       'received_tls_cert_common_name': row.received.tls_cert_common_name,
       'received_tls_cert_issuer': row.received.tls_cert_issuer,
       'received_tls_cert_alternative_names': row.received.tls_cert_alternative_names,
@@ -343,6 +345,7 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'https_tls_version': https_response.tls_version,
         'https_tls_cipher_suite': https_response.tls_cipher_suite,
         'https_tls_cert': https_response.tls_cert,
+        'https_tls_cert_matches_domain': https_response.tls_cert_matches_domain,
         'https_tls_cert_common_name': https_response.tls_cert_common_name,
         'https_tls_cert_issuer': https_response.tls_cert_issuer,
         'https_tls_cert_start_date': https_response.tls_cert_start_date,
@@ -375,6 +378,7 @@ def dict_to_gcs_dict_hyperquack(
   measurement_dict.pop('is_known_blockpage')
   measurement_dict.pop('page_signature')
   measurement_dict.pop('outcome')
+  measurement_dict.pop('received_tls_cert_matches_domain')
   return measurement_dict
 
 
@@ -398,6 +402,7 @@ def dict_to_gcs_dict_satellite(
     measurement_dict['answers'][i].pop('http_analysis_page_signature')
     measurement_dict['answers'][i].pop('https_analysis_is_known_blockpage')
     measurement_dict['answers'][i].pop('https_analysis_page_signature')
+    measurement_dict['answers'][i].pop('https_tls_cert_matches_domain')
   return measurement_dict
 
 
@@ -430,6 +435,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     'received_tls_version': ('integer', 'nullable'),
     'received_tls_cipher_suite': ('integer', 'nullable'),
     'received_tls_cert': ('bytes', 'nullable'),
+    'received_tls_cert_matches_domain': ('boolean', 'nullable'),
     'received_tls_cert_common_name': ('string', 'nullable'),
     'received_tls_cert_issuer': ('string', 'nullable'),
     'received_tls_cert_alternative_names': ('string', 'repeated'),
@@ -512,6 +518,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'https_tls_version': ('integer', 'nullable'),
             'https_tls_cipher_suite': ('integer', 'nullable'),
             'https_tls_cert': ('bytes', 'nullable'),
+            'https_tls_cert_matches_domain': ('boolean', 'nullable'),
             'https_tls_cert_common_name': ('string', 'nullable'),
             'https_tls_cert_issuer': ('string', 'nullable'),
             'https_tls_cert_start_date': ('timestamp', 'nullable'),
