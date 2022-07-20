@@ -61,26 +61,6 @@ CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   END
 );
 
-CREATE TEMP FUNCTION TlsCertMatchOutcome(domain STRING,
-                                         cert BYTES,
-                                         https_is_known_blockpage BOOLEAN,
-                                         https_page_signature STRING) AS (
-  CASE
-    WHEN (STRPOS(cert, CAST(domain AS BYTES)) > 0
-          OR STRPOS(cert, 
-             CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) AS BYTES)) > 0)
-      THEN "expected/cert_match"
-    WHEN https_is_known_blockpage
-      THEN CONCAT("https_blockpage:", https_page_signature)                                      
-    ELSE "cert_mismatch"
-  END
-);
-
-CREATE TEMP FUNCTION IsCertForDomain(tls_cert BYTES, domain STRING) AS (
-  STRPOS(tls_cert, CAST(domain AS BYTES)) > 0 OR 
-  STRPOS(tls_cert, CAST(CONCAT("*.", NET.REG_DOMAIN(domain)) AS BYTES)) > 0
-);
-
 CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ARRAY_TO_STRING(ARRAY(
     SELECT DISTINCT
@@ -116,10 +96,10 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
                       FROM UNNEST(answers) answer)
                       THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
-                WHEN (SELECT LOGICAL_OR(IsCertForDomain(a.https_tls_cert, domain_name))
+                WHEN (SELECT LOGICAL_OR(a.tls_cert_matches_domain))
                       FROM UNNEST(answers) a)
                       THEN "✅answer:cert_for_domain"
-                WHEN (SELECT LOGICAL_AND(NOT IsCertForDomain(a.https_tls_cert, domain_name))
+                WHEN (SELECT LOGICAL_AND(NOT a.tls_cert_matches_domain))
                       FROM UNNEST(answers) a)
                       THEN CONCAT("❗️answer:cert_not_for_domain:", AnswersSignature(answers))
                 -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
@@ -200,6 +180,4 @@ DROP FUNCTION ClassifySatelliteRCode;
 DROP FUNCTION ClassifySatelliteError;
 DROP FUNCTION OutcomeString;
 DROP FUNCTION InvalidIpType;
-DROP FUNCTION TlsCertMatchOutcome;
-DROP FUNCTION IsCertForDomain;
 DROP FUNCTION AnswersSignature;
