@@ -1395,7 +1395,85 @@ class FlattenSatelliteTest(unittest.TestCase):
     # yapf: enable
 
     flattener = get_blockpage_flattener()
-
     rows = flattener.process((filename, json.dumps(line)))
+    self.assertEqual(list(rows), expected_rows)
 
+  def test_flattenmeasurement_blockpage_with_cert_validation(self) -> None:
+    """Test parsing a blockpage after 2022-06-26 which has extra fields"""
+
+    # yapf: disable
+    line = {
+        "ip": "184.25.113.140",
+        "keyword": "adobe.com",
+        "http": {
+            "status_line": "301 Moved Permanently",
+            "body": ""
+        },
+        "https": {
+            "status_line": "301 Moved Permanently",
+            "body": "",
+            "TlsVersion": 771,
+            "CipherSuite": 49195,
+            "Certificate": [
+            "MIIFwzCCBKugAwIBAgIQCeK9ffFaGC3s+NA4gQLAPzANBgkqhkiG9w0BAQsFADBNMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMScwJQYDVQQDEx5EaWdpQ2VydCBTSEEyIFNlY3VyZSBTZXJ2ZXIgQ0EwHhcNMjExMjA5MDAwMDAwWhcNMjIxMjA5MjM1OTU5WjBfMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTERMA8GA1UEBxMIU2FuIEpvc2UxEjAQBgNVBAoTCUFkb2JlIEluYzEUMBIGA1UEAwwLKi5hZG9iZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASxdIr6pLGBNvCnxEJOzliAHSEQ9TfGEeXQQg1ehNzlXS46VC7Qg+yy3JFAYEgfJczkzHSF3DCtwyRJlW4eKmERo4IDVjCCA1IwHwYDVR0jBBgwFoAUD4BhHIIxYdUvKOeNRji0LOHG2eIwHQYDVR0OBBYEFO9Jjige0jwgPB/U/sRy45LLvjd1MCEGA1UdEQQaMBiCCyouYWRvYmUuY29tgglhZG9iZS5jb20wDgYDVR0PAQH/BAQDAgeAMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjBvBgNVHR8EaDBmMDGgL6AthitodHRwOi8vY3JsMy5kaWdpY2VydC5jb20vc3NjYS1zaGEyLWc2LTEuY3JsMDGgL6AthitodHRwOi8vY3JsNC5kaWdpY2VydC5jb20vc3NjYS1zaGEyLWc2LTEuY3JsMD4GA1UdIAQ3MDUwMwYGZ4EMAQICMCkwJwYIKwYBBQUHAgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzB8BggrBgEFBQcBAQRwMG4wJAYIKwYBBQUHMAGGGGh0dHA6Ly9vY3NwLmRpZ2ljZXJ0LmNvbTBGBggrBgEFBQcwAoY6aHR0cDovL2NhY2VydHMuZGlnaWNlcnQuY29tL0RpZ2lDZXJ0U0hBMlNlY3VyZVNlcnZlckNBLmNydDAMBgNVHRMBAf8EAjAAMIIBfwYKKwYBBAHWeQIEAgSCAW8EggFrAWkAdgBGpVXrdfqRIDC1oolp9PN9ESxBdL79SbiFq/L8cP5tRwAAAX2cgnwtAAAEAwBHMEUCIQDW06vzR0rYTV4EO30q646eCJ1rTXtJoO2zwFYU0oXGDQIgbKDg4DkaZuQMMysB8Lc0mCHzglnxihN1fzQlr24KAYEAdgBRo7D1/QF5nFZtuDd4jwykeswbJ8v3nohCmg3+1IsF5QAAAX2cgnxOAAAEAwBHMEUCIG/94rVQnxq4LYMwp1gD8fZ9PcPcGFI+J5Hq97W6jCpsAiEAybXymAGSgJ0h2as6kj/b5tyhYnVSl50i1AmBrvmxBiYAdwBByMqx3yJGShDGoToJQodeTjGLGwPr60vHaPCQYpYG9gAAAX2cgnwuAAAEAwBIMEYCIQCHJwOdLh1Fmd5ZhyCWtlmop7Dhl0WQarhVJaD1n5MpbAIhAOKyKQNDRimHhbxjk/aNhh10ZSefAzlk6w0Cpa8SBzWNMA0GCSqGSIb3DQEBCwUAA4IBAQBfJcLcGVds+2Wa5KPIQ5+sPHphhEHBm2tN1FWU70XMN0YNBw60SBT/jsEIcOI1kE75Oqm+iv1x/UEJK7+6i2qCS++R/mkmf7zcIcj6maZmy3H1CAMj4DzalVRwp9zTzA2xVRRSMzi2SsW8BJj4rL8wFy1VhW0KYWdxmHyVoLs4dBrBJsvqQiUiMhDzReIxNjJ+CJO+iLtWOfZTbfVnlhAx5/4Uukl/mOfByoVOH0xQVP9c910wAzrzL1iGM9qi8bQPzTAPhG7WjLwJW7v6pXWXwuDW5XIQ+UPbBsFsV/PJBy4McvOpH3TDsiKtgh+79bWrCETncyyJq55dI9vsfhWY",
+            "MIIElDCCA3ygAwIBAgIQAf2j627KdciIQ4tyS8+8kTANBgkqhkiG9w0BAQsFADBhMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBDQTAeFw0xMzAzMDgxMjAwMDBaFw0yMzAzMDgxMjAwMDBaME0xCzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxJzAlBgNVBAMTHkRpZ2lDZXJ0IFNIQTIgU2VjdXJlIFNlcnZlciBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANyuWJBNwcQwFZA1W248ghX1LFy949v/cUP6ZCWA1O4Yok3wZtAKc24RmDYXZK83nf36QYSvx6+M/hpzTc8zl5CilodTgyu5pnVILR1WN3vaMTIa16yrBvSqXUu3R0bdKpPDkC55gIDvEwRqFDu1m5K+wgdlTvza/P96rtxcflUxDOg5B6TXvi/TC2rSsd9f/ld0Uzs1gN2ujkSYs58O09rg1/RrKatEp0tYhG2SS4HD2nOLEpdIkARFdRrdNzGXkujNVA075ME/OV4uuPNcfhCOhkEAjUVmR7ChZc6gqikJTvOX6+guqw9ypzAO+sf0/RR3w6RbKFfCs/mC/bdFWJsCAwEAAaOCAVowggFWMBIGA1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgGGMDQGCCsGAQUFBwEBBCgwJjAkBggrBgEFBQcwAYYYaHR0cDovL29jc3AuZGlnaWNlcnQuY29tMHsGA1UdHwR0MHIwN6A1oDOGMWh0dHA6Ly9jcmwzLmRpZ2ljZXJ0LmNvbS9EaWdpQ2VydEdsb2JhbFJvb3RDQS5jcmwwN6A1oDOGMWh0dHA6Ly9jcmw0LmRpZ2ljZXJ0LmNvbS9EaWdpQ2VydEdsb2JhbFJvb3RDQS5jcmwwPQYDVR0gBDYwNDAyBgRVHSAAMCowKAYIKwYBBQUHAgEWHGh0dHBzOi8vd3d3LmRpZ2ljZXJ0LmNvbS9DUFMwHQYDVR0OBBYEFA+AYRyCMWHVLyjnjUY4tCzhxtniMB8GA1UdIwQYMBaAFAPeUDVW0Uy7ZvCj4hsbw5eyPdFVMA0GCSqGSIb3DQEBCwUAA4IBAQAjPt9L0jFCpbZ+QlwaRMxp0Wi0XUvgBCFsS+JtzLHgl4+mUwnNqipl5TlPHoOlblyYoiQm5vuh7ZPHLgLGTUq/sELfeNqzqPlt/yGFUzZgTHbO7Djc1lGA8MXW5dRNJ2Srm8c+cftIl7gzbckTB+6WohsYFfZcTEDts8Ls/3HB40f/1LkAtDdC2iDJ6m6K7hQGrn2iWZiIqBtvLfTyyRRfJs8sjX7tN8Cp1Tm5gr8ZDOo0rwAhaPitc+LJMto4JQtV05od8GiG7S5BNO98pVAdvzr508EIDObtHopYJeS4d60tbvVS3bR0j6tJLp07kzQoH3jOlOrHvdPJbRzeXDLz"
+            ]
+        },
+        "fetched": True,
+        "start_time": "2022-06-26 12:37:45.45643359 -0400 EDT m=+45402.040608357",
+        "end_time": "2022-06-26 12:37:45.531362568 -0400 EDT m=+45402.115537351",
+        "trusted_cert": True,
+        "cert_hostname_match": True
+    }
+    # yapf: enable
+
+    filename = 'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/blockpages.json'
+
+    expected_rows = [
+        PageFetchRow(
+            received=HttpsResponse(
+                is_known_blockpage=None,
+                page_signature=None,
+                status='301 Moved Permanently',
+                body=''),
+            domain='adobe.com',
+            ip='184.25.113.140',
+            date='2022-06-26',
+            start_time='2022-06-26T12:37:45.45643359-04:00',
+            end_time='2022-06-26T12:37:45.531362568-04:00',
+            success=True,
+            https=False,
+            source='CP-Satellite-2021-09-16-12-00-01',
+            error=None),
+        PageFetchRow(
+            received=HttpsResponse(
+                is_known_blockpage=None,
+                page_signature=None,
+                status='301 Moved Permanently',
+                body='',
+                tls_version=771,
+                tls_cipher_suite=49195,
+                tls_cert=
+                'MIIFwzCCBKugAwIBAgIQCeK9ffFaGC3s+NA4gQLAPzANBgkqhkiG9w0BAQsFADBNMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMScwJQYDVQQDEx5EaWdpQ2VydCBTSEEyIFNlY3VyZSBTZXJ2ZXIgQ0EwHhcNMjExMjA5MDAwMDAwWhcNMjIxMjA5MjM1OTU5WjBfMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTERMA8GA1UEBxMIU2FuIEpvc2UxEjAQBgNVBAoTCUFkb2JlIEluYzEUMBIGA1UEAwwLKi5hZG9iZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASxdIr6pLGBNvCnxEJOzliAHSEQ9TfGEeXQQg1ehNzlXS46VC7Qg+yy3JFAYEgfJczkzHSF3DCtwyRJlW4eKmERo4IDVjCCA1IwHwYDVR0jBBgwFoAUD4BhHIIxYdUvKOeNRji0LOHG2eIwHQYDVR0OBBYEFO9Jjige0jwgPB/U/sRy45LLvjd1MCEGA1UdEQQaMBiCCyouYWRvYmUuY29tgglhZG9iZS5jb20wDgYDVR0PAQH/BAQDAgeAMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjBvBgNVHR8EaDBmMDGgL6AthitodHRwOi8vY3JsMy5kaWdpY2VydC5jb20vc3NjYS1zaGEyLWc2LTEuY3JsMDGgL6AthitodHRwOi8vY3JsNC5kaWdpY2VydC5jb20vc3NjYS1zaGEyLWc2LTEuY3JsMD4GA1UdIAQ3MDUwMwYGZ4EMAQICMCkwJwYIKwYBBQUHAgEWG2h0dHA6Ly93d3cuZGlnaWNlcnQuY29tL0NQUzB8BggrBgEFBQcBAQRwMG4wJAYIKwYBBQUHMAGGGGh0dHA6Ly9vY3NwLmRpZ2ljZXJ0LmNvbTBGBggrBgEFBQcwAoY6aHR0cDovL2NhY2VydHMuZGlnaWNlcnQuY29tL0RpZ2lDZXJ0U0hBMlNlY3VyZVNlcnZlckNBLmNydDAMBgNVHRMBAf8EAjAAMIIBfwYKKwYBBAHWeQIEAgSCAW8EggFrAWkAdgBGpVXrdfqRIDC1oolp9PN9ESxBdL79SbiFq/L8cP5tRwAAAX2cgnwtAAAEAwBHMEUCIQDW06vzR0rYTV4EO30q646eCJ1rTXtJoO2zwFYU0oXGDQIgbKDg4DkaZuQMMysB8Lc0mCHzglnxihN1fzQlr24KAYEAdgBRo7D1/QF5nFZtuDd4jwykeswbJ8v3nohCmg3+1IsF5QAAAX2cgnxOAAAEAwBHMEUCIG/94rVQnxq4LYMwp1gD8fZ9PcPcGFI+J5Hq97W6jCpsAiEAybXymAGSgJ0h2as6kj/b5tyhYnVSl50i1AmBrvmxBiYAdwBByMqx3yJGShDGoToJQodeTjGLGwPr60vHaPCQYpYG9gAAAX2cgnwuAAAEAwBIMEYCIQCHJwOdLh1Fmd5ZhyCWtlmop7Dhl0WQarhVJaD1n5MpbAIhAOKyKQNDRimHhbxjk/aNhh10ZSefAzlk6w0Cpa8SBzWNMA0GCSqGSIb3DQEBCwUAA4IBAQBfJcLcGVds+2Wa5KPIQ5+sPHphhEHBm2tN1FWU70XMN0YNBw60SBT/jsEIcOI1kE75Oqm+iv1x/UEJK7+6i2qCS++R/mkmf7zcIcj6maZmy3H1CAMj4DzalVRwp9zTzA2xVRRSMzi2SsW8BJj4rL8wFy1VhW0KYWdxmHyVoLs4dBrBJsvqQiUiMhDzReIxNjJ+CJO+iLtWOfZTbfVnlhAx5/4Uukl/mOfByoVOH0xQVP9c910wAzrzL1iGM9qi8bQPzTAPhG7WjLwJW7v6pXWXwuDW5XIQ+UPbBsFsV/PJBy4McvOpH3TDsiKtgh+79bWrCETncyyJq55dI9vsfhWY',
+                tls_cert_common_name='*.adobe.com',
+                tls_cert_issuer='DigiCert SHA2 Secure '
+                'Server CA',
+                tls_cert_start_date='2021-12-09T00:00:00',
+                tls_cert_end_date='2022-12-09T23:59:59',
+                tls_cert_alternative_names=['*.adobe.com', 'adobe.com'],
+                tls_cert_has_trusted_ca=True,
+                tls_cert_matches_hostname=True),
+            domain='adobe.com',
+            ip='184.25.113.140',
+            date='2022-06-26',
+            start_time='2022-06-26T12:37:45.45643359-04:00',
+            end_time='2022-06-26T12:37:45.531362568-04:00',
+            success=True,
+            https=True,
+            source='CP-Satellite-2021-09-16-12-00-01',
+            error=None)
+    ]
+
+    flattener = get_blockpage_flattener()
+    rows = flattener.process((filename, json.dumps(line)))
     self.assertEqual(list(rows), expected_rows)
