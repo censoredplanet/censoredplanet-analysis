@@ -546,4 +546,9 @@ class FlattenBlockpages(beam.DoFn):
     if isinstance(received, dict):
       https_row.received = flatten_base.parse_received_data(
           self.blockpage_matcher, received, True)
+
+      https_row.received.tls_cert_has_trusted_ca = blockpage_entry.get(
+          'trusted_cert', None)
+      https_row.received.tls_cert_matches_hostname = blockpage_entry.get(
+          'cert_hostname_match', None)
     yield https_row
