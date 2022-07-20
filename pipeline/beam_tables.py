@@ -494,6 +494,7 @@ class ScanDataBeamPipelineRunner():
     (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
         path=gcs_folder,
         destination=_get_destination,
+        temp_directory=self.temp_location,
         sink=lambda dest: sink.JsonGzSink(),
         shards=1,
         max_writers_per_bundle=0,

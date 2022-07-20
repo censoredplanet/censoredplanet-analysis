@@ -62,7 +62,7 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       gcs_folder = None
       if export_gcs:
         if dataset == beam_tables.PROD_DATASET_NAME:
-          gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+          gcs_folder = beam_tables.get_gcs_folder('scans', scan_type,
                                                   OUTPUT_PROD_BUCKET)
         else:
           gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
