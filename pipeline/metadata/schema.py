@@ -32,6 +32,7 @@ class HttpsResponse:
   tls_cipher_suite: Optional[int] = None
   tls_cert: Optional[str] = None
   tls_cert_matches_domain: Optional[bool] = None
+  tls_cert_has_trusted_ca: Optional[bool] = None
   tls_cert_common_name: Optional[str] = None
   tls_cert_issuer: Optional[str] = None
   tls_cert_start_date: Optional[str] = None
@@ -346,6 +347,7 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'https_tls_cipher_suite': https_response.tls_cipher_suite,
         'https_tls_cert': https_response.tls_cert,
         'https_tls_cert_matches_domain': https_response.tls_cert_matches_domain,
+        'https_tls_cert_has_trusted_ca': https_response.tls_cert_has_trusted_ca,
         'https_tls_cert_common_name': https_response.tls_cert_common_name,
         'https_tls_cert_issuer': https_response.tls_cert_issuer,
         'https_tls_cert_start_date': https_response.tls_cert_start_date,
@@ -400,9 +402,10 @@ def dict_to_gcs_dict_satellite(
     measurement_dict['answers'][i].pop('match_confidence', None)
     measurement_dict['answers'][i].pop('http_analysis_is_known_blockpage')
     measurement_dict['answers'][i].pop('http_analysis_page_signature')
+    measurement_dict['answers'][i].pop('https_tls_cert_has_trusted_ca')
+    measurement_dict['answers'][i].pop('https_tls_cert_matches_domain')
     measurement_dict['answers'][i].pop('https_analysis_is_known_blockpage')
     measurement_dict['answers'][i].pop('https_analysis_page_signature')
-    measurement_dict['answers'][i].pop('https_tls_cert_matches_domain')
   return measurement_dict
 
 
@@ -524,6 +527,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'https_tls_cert_start_date': ('timestamp', 'nullable'),
             'https_tls_cert_end_date': ('timestamp', 'nullable'),
             'https_tls_cert_alternative_names': ('string', 'repeated'),
+            'https_tls_cert_has_trusted_ca': ('boolean', 'nullable'),
             'https_response_status': ('string', 'nullable'),
             'https_response_headers': ('string', 'repeated'),
             'https_response_body': ('string', 'nullable'),
