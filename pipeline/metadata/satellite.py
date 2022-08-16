@@ -862,7 +862,7 @@ def process_satellite_lines_by_source(
   # Read in file data
 
   # PCollection[Tuple[filename,line]] x4
-  answer_lines, resolver_lines, page_fetch_lines, row_lines = lines | beam.Partition(
+  answer_lines, resolver_lines, page_fetch_lines, row_lines = lines | "partition by filename" >> beam.Partition(
       partition_satellite_input, NUM_SATELLITE_INPUT_PARTITIONS)
 
   # Parse all file data into schema pcollections
@@ -912,14 +912,17 @@ def process_satellite_lines_by_source(
 
   return post_processed_satellite
 
+
 def process_satellite_lines(
-    lines: beam.pvalue.PCollection[Tuple[str, str]],
-    metadata_adder: MetadataAdder,
+    lines: beam.pvalue.PCollection[Tuple[str,
+                                         str]], metadata_adder: MetadataAdder,
     num_sources: int) -> beam.pvalue.PCollection[SatelliteRow]:
 
   # List[PCollection[Tuple[filename,line]]]
-  source_partitions = (lines | beam.Partition(
-      _partition_by_source, num_sources))
+  source_partitions = (
+      lines |
+      "partition by source" >> beam.Partition(_partition_by_source, num_sources)
+  )
 
   # List[PCollection[SatelliteRow]]
   processed_source_partitions = []
@@ -928,11 +931,11 @@ def process_satellite_lines(
   for source_partition in source_partitions:
 
     # PCollection[SatelliteRow]
-    processed_source_partition = process_satellite_lines_by_source(source_partition, metadata_adder)
+    processed_source_partition = process_satellite_lines_by_source(
+        source_partition, metadata_adder)
     processed_source_partitions.append(processed_source_partition)
 
   # PCollection[SatelliteRow]
-  merged = (processed_source_partitions| beam.Flatten())
+  merged = (processed_source_partitions | beam.Flatten())
 
   return merged
-

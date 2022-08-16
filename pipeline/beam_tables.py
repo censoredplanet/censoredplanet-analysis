@@ -576,7 +576,7 @@ class ScanDataBeamPipelineRunner():
 
       if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
-        rows = satellite.process_satellite_lines(lines, self.metadata_adder)
+        rows = satellite.process_satellite_lines(lines, self.metadata_adder, 1)
 
       else:  # Hyperquack scans
         # PCollection[HyperquackRow]
