@@ -574,13 +574,20 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
+      # window by source
+      windowed_lines = (
+          lines | 'window lines' >> beam.WindowInto(
+              beam.transforms.window.GlobalWindows()))
+
       if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
-        rows = satellite.process_satellite_lines(lines, self.metadata_adder)
+        rows = satellite.process_satellite_lines(windowed_lines,
+                                                 self.metadata_adder)
 
       else:  # Hyperquack scans
         # PCollection[HyperquackRow]
-        rows = hyperquack.process_hyperquack_lines(lines, self.metadata_adder)
+        rows = hyperquack.process_hyperquack_lines(windowed_lines,
+                                                   self.metadata_adder)
 
       _raise_error_if_collection_empty(rows)
 
