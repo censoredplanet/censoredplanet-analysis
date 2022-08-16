@@ -830,13 +830,31 @@ def _verify(scan: SatelliteRow) -> SatelliteRow:
   return scan
 
 
-def process_satellite_lines(
+def _partition_by_source(line: Tuple[str, str], num_partitions: int) -> int:
+  """Partitions satellite input by source tag.
+  
+  Args:
+    line: Tuple[filepath, line_content]
+      filepath is "<path>/name.json"
+    num_partitions: number of partitions to use, same as number of different source dates
+      
+  Returns: int
+  """
+  source = flatten_base.source_from_filename(line[0])
+
+  # somehow map source dates to partitions without knowing the overall list and without collisions
+
+  return 0
+
+
+def process_satellite_lines_by_source(
     lines: beam.pvalue.PCollection[Tuple[str, str]],
     metadata_adder: MetadataAdder) -> beam.pvalue.PCollection[SatelliteRow]:
   """Process both satellite and page fetch data files.
 
   Args:
-    lines: input lines from all satellite files. Tuple[filename, line]
+    lines: input lines from all satellite files for a single source
+      Tuple[filename, line]
 
   Returns:
     post_processed_satellite: rows of satellite scan data
@@ -893,3 +911,28 @@ def process_satellite_lines(
       satellite_with_page_fetches)
 
   return post_processed_satellite
+
+def process_satellite_lines(
+    lines: beam.pvalue.PCollection[Tuple[str, str]],
+    metadata_adder: MetadataAdder,
+    num_sources: int) -> beam.pvalue.PCollection[SatelliteRow]:
+
+  # List[PCollection[Tuple[filename,line]]]
+  source_partitions = (lines | beam.Partition(
+      _partition_by_source, num_sources))
+
+  # List[PCollection[SatelliteRow]]
+  processed_source_partitions = []
+
+  # PCollection[Tuple[filename,line]]
+  for source_partition in source_partitions:
+
+    # PCollection[SatelliteRow]
+    processed_source_partition = process_satellite_lines_by_source(source_partition, metadata_adder)
+    processed_source_partitions.append(processed_source_partition)
+
+  # PCollection[SatelliteRow]
+  merged = (processed_source_partitions| beam.Flatten())
+
+  return merged
+
