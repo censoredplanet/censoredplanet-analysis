@@ -107,6 +107,19 @@ def local_data_to_load_satellite_v2p2(*_: List[Any]) -> List[str]:
   ]
 
 
+# satellite v2p1 and v2p2
+def local_data_to_load_satellite_v2(*_: List[Any]) -> List[str]:
+  return [
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_resolvers.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/tagged_responses.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/responses_control.json',
+      'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/blockpages.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/resolvers.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/results.json',
+  ]
+
+
 def local_data_to_load_invalid(*_: List[Any]) -> List[str]:
   return ['pipeline/e2e_test_data/invalid_results.json']
 
@@ -247,25 +260,12 @@ def run_local_pipeline_satellite_v1() -> None:
   # pylint: enable=protected-access
 
 
-def run_local_pipeline_satellite_v2p1() -> None:
+def run_local_pipeline_satellite_v2() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
-
-  dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
-  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
-                                None, None, None, False)
-  # pylint: enable=protected-access
-
-
-def run_local_pipeline_satellite_v2p2() -> None:
-  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
-  # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
-  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite_v2p2  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
   dataset_table_name = get_beam_base_table_name(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, dataset_table_name,
@@ -286,25 +286,12 @@ def run_local_pipeline_satellite_v1_gcs() -> None:
   # pylint: enable=protected-access
 
 
-def run_local_pipeline_satellite_v2p1_gcs() -> None:
+def run_local_pipeline_satellite_v2_gcs() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
   # pylint: disable=protected-access
   test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite_v2p1  # type: ignore
-
-  gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
-  test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
-                                None, None, True)
-  # pylint: enable=protected-access
-
-
-def run_local_pipeline_satellite_v2p2_gcs() -> None:
-  # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
-  # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
-  test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
-  test_runner._data_to_load = local_data_to_load_satellite_v2p2  # type: ignore
+  test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
   gcs_folder = get_gs_formatted_gcs_folder(SATELLITE_SCAN_TYPE)
   test_runner.run_beam_pipeline('satellite', True, JOB_NAME, None, gcs_folder,
@@ -466,8 +453,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       clean_up_gcs_file(bucket, concatenated)
 
       # Run pipelines for v2 data
-      run_local_pipeline_satellite_v2p1_gcs()
-      run_local_pipeline_satellite_v2p2_gcs()
+      run_local_pipeline_satellite_v2_gcs()
 
       blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
@@ -597,82 +583,38 @@ class PipelineManualE2eTest(unittest.TestCase):
     finally:
       clean_up_bq_tables(client, bq_table_names + [derived_table_name])
 
-  def test_satellite_v1_pipeline_e2e(self) -> None:
-    """Test the satellite v1 pipeline by running it locally."""
+  def test_satellite_pipeline_e2e(self) -> None:
+    """Test the satellite pipeline by running it locally."""
     # Suppress some unittest socket warnings in beam code we don't control
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
     try:
       run_local_pipeline_satellite_v1()
+      # contains v2p1 and v2p2
+      run_local_pipeline_satellite_v2()
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 8)
-
-      all_expected_domains = [
-          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
-          'www.usacasino.com'
-      ] * 2
-
-      written_domains = [row[0] for row in written_rows]
-      self.assertListEqual(
-          sorted(written_domains), sorted(all_expected_domains))
-
-    finally:
-      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-
-  def test_satellite_v2p1_pipeline_e2e(self) -> None:
-    """Test the satellite v2.1 pipeline by running it locally."""
-    # Suppress some unittest socket warnings in beam code we don't control
-    warnings.simplefilter('ignore', ResourceWarning)
-    client = cloud_bigquery.Client()
-
-    try:
-      run_local_pipeline_satellite_v2p1()
-
-      written_rows = get_bq_rows(client,
-                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 16)
-
-      expected_double_domains = ['custhelp.com', 'www.unwatch.org']
-      expected_quad_domains = [
-          'a.root-servers.net', 'www.americorps.gov', 'www.mainichi.co.jp'
-      ]
-
-      all_expected_domains = (
-          expected_double_domains * 2 + expected_quad_domains * 4)
-
-      written_domains = [row[0] for row in written_rows]
-      self.assertListEqual(
-          sorted(written_domains), sorted(all_expected_domains))
-
-    finally:
-      clean_up_bq_tables(client, [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-
-  def test_satellite_v2p2_pipeline_e2e(self) -> None:
-    """Test the satellite v2.2 pipeline by running it locally."""
-    # Suppress some unittest socket warnings in beam code we don't control
-    warnings.simplefilter('ignore', ResourceWarning)
-    client = cloud_bigquery.Client()
-
-    try:
-      run_local_pipeline_satellite_v2p2()
-
-      written_rows = get_bq_rows(client,
-                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 20)
+      self.assertEqual(len(written_rows), 44)
 
       expected_single_domains = ['1688.com', '1337x.to', '104.com.tw']
       expected_double_domains = [
-          'a.root-servers.net', '1922.gov.tw', '9gag.com'
+          '1922.gov.tw', '9gag.com', 'custhelp.com', 'www.unwatch.org',
+          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
+          'www.usacasino.com'
       ]
       expected_triple_domains = ['11st.co.kr']
-      expected_quad_domains = ['ajax.aspnetcdn.com', 'alipay.com']
+      expected_quad_domains = [
+          'ajax.aspnetcdn.com', 'alipay.com', 'www.americorps.gov',
+          'www.mainichi.co.jp'
+      ]
+      expected_six_domains = ['a.root-servers.net']
 
       all_expected_domains = (
           expected_single_domains + expected_double_domains * 2 +
-          expected_triple_domains * 3 + expected_quad_domains * 4)
+          expected_triple_domains * 3 + expected_quad_domains * 4 +
+          expected_six_domains * 6)
 
       written_domains = [row[0] for row in written_rows]
 
