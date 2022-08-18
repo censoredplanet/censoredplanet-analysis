@@ -5,7 +5,7 @@ from __future__ import absolute_import
 import datetime
 
 import re
-from typing import Tuple, Iterable, Any
+from typing import Tuple, Iterable
 
 import apache_beam as beam
 
@@ -56,7 +56,3 @@ def window(
       'window lines' >> beam.WindowInto(beam.window.FixedWindows(1)))
 
   return windowed_lines
-
-
-def unwindow(rows: beam.PCollection[Any]) -> beam.PCollection[Any]:
-  return rows | 'combine windows' >> beam.CombineGlobally().without_defaults()
