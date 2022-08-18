@@ -64,19 +64,19 @@ JOB_NAME = 'manual-test-job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/Quackv1_http/http_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_http/http_results_v2.json',
-      'pipeline/e2e_test_data/Quackv1_https/https_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_https/https_results_v2.json'
+      'pipeline/e2e_test_data/Quack_http_2019-01-01-00-00-00/http_results_v1.json',
+      'pipeline/e2e_test_data/Quack_http_2021-01-01-00-00-00/http_results_v2.json',
+      'pipeline/e2e_test_data/Quack_https_2019-01-01-00-00-00/https_results_v1.json',
+      'pipeline/e2e_test_data/Quack_https_2021-01-01-00-00-00/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/Quackv1_discard/discard_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_discard/discard_results_v2.json',
-      'pipeline/e2e_test_data/Quackv1_echo/echo_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_echo/echo_results_v2.json'
+      'pipeline/e2e_test_data/Quack_discard_2019-01-01-00-00-00/discard_results_v1.json',
+      'pipeline/e2e_test_data/Quack-discard_2021-01-01-00-00-00/discard_results_v2.json',
+      'pipeline/e2e_test_data/Quack_echo_2019-01-01-00-00-00/echo_results_v1.json',
+      'pipeline/e2e_test_data/Quack_echo_2021-01-01-00-00-00/echo_results_v2.json'
   ]
 
 
@@ -124,9 +124,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/Quackv1_{scan_type}/{scan_type}_results_v1.json'
+    scan_file = f'pipeline/e2e_test_data/Quack_{scan_type}_2019-01-01-00-00-00/{scan_type}_results_v1.json'
   else:
-    scan_file = f'pipeline/e2e_test_data/Quackv2_{scan_type}/{scan_type}_results_v2.json'
+    scan_file = f'pipeline/e2e_test_data/Quack_{scan_type}_2021-01-01-00-00-00/{scan_type}_results_v2.json'
 
   return lambda *_: [scan_file]
 
