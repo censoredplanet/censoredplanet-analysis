@@ -20,7 +20,7 @@ import logging
 import pathlib
 import re
 import json
-from typing import Any, Callable, Dict, List, Optional, Tuple, Iterable
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
@@ -34,6 +34,7 @@ from pipeline.metadata import hyperquack
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
 from pipeline.metadata import satellite
+from pipeline.metadata import window_data
 from pipeline.metadata.add_metadata import MetadataAdder
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 from pipeline.metadata import sink
@@ -298,7 +299,7 @@ def _raise_exception_if_zero(num: int) -> None:
 def _raise_error_if_collection_empty(
     rows: beam.pvalue.PCollection[BigqueryRow]) -> beam.pvalue.PCollection:
   count_collection = (
-      rows | "Count" >> beam.combiners.Count.Globally() |
+      rows | "Count" >> beam.combiners.Count.Globally().without_defaults() |
       "Error if empty" >> beam.Map(_raise_exception_if_zero))
   return count_collection
 
@@ -332,29 +333,6 @@ def _custom_file_naming(suffix: str = None) -> Callable:
     return filename
 
   return _inner
-
-
-class AddTimestampFromSourceDoFn(beam.DoFn):
-  """Add beam timestamps to a row."""
-
-  def process(
-      self, element: Tuple[str, str]) -> Iterable[beam.window.TimestampedValue]:
-    """Add a beam timestamp to PCollection row using the source date.
-
-    Args:
-      element: Tuple[filepath, line]
-        filepath is like 'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
-
-    Yields the same row but as a beam timestamped value
-    """
-    source: str = flatten_base.source_from_filename(element[0])
-    date_match = re.search(r'\d\d\d\d-\d\d-\d\d', source)
-    if not date_match:
-      raise Exception(f"Failed to parse date from source: {element[0]}")
-    source_date_string = date_match.group(0)
-    source_datetime = datetime.datetime.fromisoformat(source_date_string)
-    unix_timestamp = source_datetime.timestamp()
-    yield beam.window.TimestampedValue(element, unix_timestamp)
 
 
 class ScanDataBeamPipelineRunner():
@@ -597,13 +575,7 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
-      timestamped_lines = lines | 'timestamp' >> beam.ParDo(
-          AddTimestampFromSourceDoFn().with_output_types(Tuple[str, str]))
-
-      # window by source
-      windowed_lines = (
-          timestamped_lines | 'window lines' >> beam.WindowInto(
-              beam.transforms.window.GlobalWindows()))
+      windowed_lines = window_data.window(lines)
 
       if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
