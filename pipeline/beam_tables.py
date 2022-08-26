@@ -377,6 +377,9 @@ class ScanDataBeamPipelineRunner():
             'enable_execution_details_collection',
             'use_monitoring_state_manager'
         ],
+        profile_memory=True,
+        profile_cpu=True,
+        profile_location='gs://firehook-test/laplante',
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
