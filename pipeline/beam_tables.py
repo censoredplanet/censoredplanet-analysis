@@ -377,6 +377,10 @@ class ScanDataBeamPipelineRunner():
             'enable_execution_details_collection',
             'use_monitoring_state_manager'
         ],
+        dataflow_service_options=[
+          'enable_google_cloud_profiler',
+          'enable_prime'
+        ],
         setup_file='./pipeline/setup.py')
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
