@@ -181,7 +181,6 @@ class SchemaTest(unittest.TestCase):
               tls_version = 123,
               tls_cipher_suite = 3,
               tls_cert = 'MII...',
-              tls_cert_matches_domain=True,
               tls_cert_common_name = 'Common Name',
               tls_cert_issuer = 'Issuer',
               tls_cert_start_date = '2018-04-06T12:00:00',
