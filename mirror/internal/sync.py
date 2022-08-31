@@ -77,7 +77,7 @@ class RepositoryMirror():
       headers['If-None-Match'] = etag
 
     # Download file
-    req = requests.get(url, headers=headers, stream=True)
+    req = requests.get(url, headers=headers, stream=True, timeout=60)
 
     if req.status_code == 200:
       print("Status 200: Downloading...")
