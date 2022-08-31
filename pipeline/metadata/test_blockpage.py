@@ -202,7 +202,7 @@ class BlockpageTest(unittest.TestCase):
         matcher.match_page(content)
       end = time.perf_counter()
 
-      self.assertLess(end - start, 10)
+      self.assertLess(end - start, 15)
 
   def test_long_blockpage(self) -> None:
     # This blockpage is a random long page take from the data.
