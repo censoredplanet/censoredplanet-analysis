@@ -186,7 +186,7 @@ class SchemaTest(unittest.TestCase):
               tls_cert_end_date = '2012-04-06T12:00:00',
               tls_cert_alternative_names = ['Common Name', 'Alt Name'],
               tls_cert_has_trusted_ca = True,
-              tls_cert_matches_hostname = True,
+              tls_cert_matches_domain = True,
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
