@@ -1462,7 +1462,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 tls_cert_end_date='2022-12-09T23:59:59',
                 tls_cert_alternative_names=['*.adobe.com', 'adobe.com'],
                 tls_cert_has_trusted_ca=True,
-                tls_cert_matches_hostname=True),
+                tls_cert_matches_domain=True),
             domain='adobe.com',
             ip='184.25.113.140',
             date='2022-06-26',

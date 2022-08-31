@@ -38,7 +38,7 @@ class HttpsResponse:
   tls_cert_alternative_names: List[str] = dataclasses.field(
       default_factory=list)
   tls_cert_has_trusted_ca: Optional[bool] = None
-  tls_cert_matches_hostname: Optional[bool] = None
+  tls_cert_matches_domain: Optional[bool] = None
   headers: List[str] = dataclasses.field(default_factory=list)
 
 
@@ -351,7 +351,7 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
         'https_tls_cert_end_date': https_response.tls_cert_end_date,
         'https_tls_cert_alternative_names': https_response.tls_cert_alternative_names,
         'https_tls_cert_has_trusted_ca': https_response.tls_cert_has_trusted_ca,
-        'https_tls_cert_matches_hostname': https_response.tls_cert_matches_hostname,
+        'https_tls_cert_matches_domain': https_response.tls_cert_matches_domain,
         'https_response_status': https_response.status,
         'https_response_headers': https_response.headers,
         'https_response_body': https_response.body,
@@ -401,7 +401,7 @@ def dict_to_gcs_dict_satellite(
     measurement_dict['answers'][i].pop('http_analysis_is_known_blockpage')
     measurement_dict['answers'][i].pop('http_analysis_page_signature')
     measurement_dict['answers'][i].pop('https_tls_cert_has_trusted_ca')
-    measurement_dict['answers'][i].pop('https_tls_cert_matches_hostname')
+    measurement_dict['answers'][i].pop('https_tls_cert_matches_domain')
     measurement_dict['answers'][i].pop('https_analysis_is_known_blockpage')
     measurement_dict['answers'][i].pop('https_analysis_page_signature')
   return measurement_dict
@@ -524,7 +524,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'https_tls_cert_end_date': ('timestamp', 'nullable'),
             'https_tls_cert_alternative_names': ('string', 'repeated'),
             'https_tls_cert_has_trusted_ca': ('boolean', 'nullable'),
-            'https_tls_cert_matches_hostname': ('boolean', 'nullable'),
+            'https_tls_cert_matches_domain': ('boolean', 'nullable'),
             'https_response_status': ('string', 'nullable'),
             'https_response_headers': ('string', 'repeated'),
             'https_response_body': ('string', 'nullable'),
