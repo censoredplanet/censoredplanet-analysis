@@ -660,7 +660,7 @@ def add_page_fetch_to_answers(
       ROWS_PCOLLECION_NAME: rows_with_roundtrip_id,
       RECEIVED_IPS_PCOLLECTION_NAME: received_ips_grouped_by_roundtrip_ip
   }) | 'cogroup by roundtrip id' >> beam.CoGroupByKey().with_resource_hints(
-      min_ram="16GB"))
+      min_ram="32GB"))
 
   # PCollection[SatelliteRow]
   rows_with_page_fetches = (
