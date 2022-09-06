@@ -146,7 +146,12 @@ def _read_scan_text(
   lines = (
       pfilenames | "read files" >> beam.io.ReadAllFromText(with_filename=True))
 
-  return lines
+  # Shuffle to avoid fusion of largest files
+  # PCollection[Tuple(filename, line)]
+  shuffled_lines = (
+      lines | 'reshuffle lines' >> beam.transforms.util.Reshuffle())
+
+  return shuffled_lines
 
 
 def _between_dates(filename: str,
