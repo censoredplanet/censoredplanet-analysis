@@ -241,7 +241,7 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
     return row
 
   row.status = received['status_line']
-  row.body = received['body']
+  #row.body = received['body']
   row.headers = parse_received_headers(received.get('headers', {}))
 
   full_http_response = _reconstruct_http_response(row)
