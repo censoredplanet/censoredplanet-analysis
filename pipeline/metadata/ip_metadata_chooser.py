@@ -74,6 +74,7 @@ class IpMetadataChooserFactory():
     self.dbip_file_location = dbip_file_location
 
   def make_chooser(self, date: datetime.date) -> IpMetadataChooser:
+    logging.info(f'Loading full CAIDA and DBIP files for {date.isoformat()}')
     caida_db = caida_ip_metadata.CaidaIpMetadata(date, self.caida_file_location,
                                                  True)
     # TODO turn back on when using maxmind again.
