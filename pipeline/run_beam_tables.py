@@ -114,6 +114,8 @@ def main(parsed_args: argparse.Namespace) -> None:
 
   if parsed_args.scan_type == 'all':
     selected_scan_types = list(beam_tables.ALL_SCAN_TYPES)
+    # TODO turn back on Satellite once issues with 2022-08-31+ data are fixed
+    selected_scan_types.remove('satellite')
   else:
     selected_scan_types = [parsed_args.scan_type]
 
