@@ -102,12 +102,10 @@ class RunBeamTablesTest(unittest.TestCase):
                    None, None, None, False)
       call4 = call('https', True, 'append-base-https-scan', 'base.https_scan',
                    None, None, None, False)
-      call5 = call('satellite', True, 'append-base-satellite-scan',
-                   'base.satellite_scan', None, None, None, False)
       mock_runner.run_beam_pipeline.assert_has_calls(
-          [call1, call2, call3, call4, call5], any_order=True)
+          [call1, call2, call3, call4], any_order=True)
       # No extra calls
-      self.assertEqual(5, mock_runner.run_beam_pipeline.call_count)
+      self.assertEqual(4, mock_runner.run_beam_pipeline.call_count)
 
       args = argparse.Namespace(
           full=False,
@@ -126,12 +124,10 @@ class RunBeamTablesTest(unittest.TestCase):
                    'gs://firehook-test/base/http', None, None, True)
       call9 = call('https', True, 'append-gs-firehook-test-base-https', None,
                    'gs://firehook-test/base/https', None, None, True)
-      call10 = call('satellite', True, 'append-gs-firehook-test-base-satellite',
-                    None, 'gs://firehook-test/base/satellite', None, None, True)
       mock_runner.run_beam_pipeline.assert_has_calls(
-          [call6, call7, call8, call9, call10], any_order=True)
+          [call6, call7, call8, call9], any_order=True)
       # No extra calls
-      self.assertEqual(10, mock_runner.run_beam_pipeline.call_count)
+      self.assertEqual(8, mock_runner.run_beam_pipeline.call_count)
 
   def test_main_user_dates(self) -> None:
     """Test arg parsing for a user pipeline with dates."""
