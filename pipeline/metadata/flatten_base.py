@@ -191,7 +191,7 @@ def get_scan_type_from_filename(filepath: str) -> str:
     filepath:
     'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
 
-  Returns: one of 'echo'
+  Returns: one of 'echo', 'satellite' etc.
   """
   source = source_from_filename(filepath)
   if 'Quack-echo' in source:
