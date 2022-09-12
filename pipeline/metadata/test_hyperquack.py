@@ -20,7 +20,7 @@ class HyperquackTest(unittest.TestCase):
     """Test processing a single hyperquack line fully"""
 
     data_filenames = [
-        "CP_Hyperquack-https-2022-03-31-23-40-26/results.json",
+        "CP_Quack-https-2022-03-31-23-40-26/results.json",
     ]
 
     # yapf: disable
@@ -83,8 +83,8 @@ class HyperquackTest(unittest.TestCase):
             success=False,
             is_control=False,
             controls_failed=False,
-            measurement_id='207d388e27c1566eb7f51de85dd7f664',
-            source='CP_Hyperquack-https-2022-03-31-23-40-26',
+            measurement_id='c978424387b45ba1b78f28438063f835',
+            source='CP_Quack-https-2022-03-31-23-40-26',
             ip_metadata=IpMetadata(),
             received=HttpsResponse(
                 is_known_blockpage=None,
@@ -127,8 +127,8 @@ class HyperquackTest(unittest.TestCase):
             success=True,
             is_control=True,
             controls_failed=False,
-            measurement_id='207d388e27c1566eb7f51de85dd7f664',
-            source='CP_Hyperquack-https-2022-03-31-23-40-26',
+            measurement_id='c978424387b45ba1b78f28438063f835',
+            source='CP_Quack-https-2022-03-31-23-40-26',
             ip_metadata=IpMetadata(),
             received=HttpsResponse(),
             stateful_block=False,

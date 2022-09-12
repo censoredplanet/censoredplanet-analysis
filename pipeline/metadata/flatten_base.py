@@ -184,6 +184,29 @@ def source_from_filename(filepath: str) -> str:
   return path_end
 
 
+def get_scan_type_from_filename(filepath: str) -> str:
+  """Get the scan type from a scan filename
+
+  Args:
+    filepath:
+    'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json'
+
+  Returns: one of 'echo'
+  """
+  source = source_from_filename(filepath)
+  if 'Quack-echo' in source:
+    return 'echo'
+  if 'Quack-discard' in source:
+    return 'discard'
+  if 'Quack-https' in source:
+    return 'https'
+  if 'Quack-http' in source:
+    return 'http'
+  if 'Satellite' in source:
+    return 'satellite'
+  raise Exception(f"Unknown scan type {source}")
+
+
 def is_control_url(url: Optional[str]) -> bool:
   return url in CONTROL_URLS
 
@@ -222,12 +245,14 @@ def _add_blockpage_match(blockpage_matcher: BlockpageMatcher, content: str,
 
 def parse_received_data(blockpage_matcher: BlockpageMatcher,
                         received: Union[str, Dict[str, Any]], domain: str,
-                        anomaly: bool) -> HttpsResponse:
+                        scan_type: str, anomaly: bool) -> HttpsResponse:
   """Parse a received field into a section of a row to write to bigquery.
 
   Args:
     blockpage_matcher: Matcher object
     received: a dict parsed from json data, or a str
+    domain: string like 'example.com'
+    scan_type: string like 'echo', 'http', 'satellite' etc.
     anomaly: whether data may indicate blocking
 
   Returns:
@@ -241,8 +266,12 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
     return row
 
   row.status = received['status_line']
-  row.body = received['body']
   row.headers = parse_received_headers(received.get('headers', {}))
+
+  # We drop http/s bodies in satellite
+  # since they're too large and cause scaling problems
+  if scan_type != 'satellite':
+    row.body = received['body']
 
   full_http_response = _reconstruct_http_response(row)
   _add_blockpage_match(blockpage_matcher, full_http_response, anomaly, row)

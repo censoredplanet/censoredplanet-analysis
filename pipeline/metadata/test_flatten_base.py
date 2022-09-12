@@ -59,7 +59,7 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'blocked.com', True)
+                                              'blocked.com', 'http', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_no_header_field(self) -> None:
@@ -79,7 +79,7 @@ class FlattenBaseTest(unittest.TestCase):
     )
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'blocked.com', True)
+                                              'blocked.com', 'http', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_http_status_line_false_positive(self) -> None:
@@ -99,7 +99,7 @@ class FlattenBaseTest(unittest.TestCase):
     )
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'not-blocked.com', True)
+                                              'not-blocked.com', 'http', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_http_header_false_positive(self) -> None:
@@ -121,7 +121,7 @@ class FlattenBaseTest(unittest.TestCase):
     )
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'not-blocked.com', True)
+                                              'not-blocked.com', 'http', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_https(self) -> None:
@@ -175,7 +175,7 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'www.tabikore.jp', True)
+                                              'www.tabikore.jp', 'https', True)
     self.assertEqual(parsed, expected)
 
   def test_parse_received_data_multiple_certs(self) -> None:
@@ -201,7 +201,7 @@ class FlattenBaseTest(unittest.TestCase):
 
     expected = HttpsResponse(
         status = '301 Moved Permanently',
-        body = '',
+        body = None,
         tls_version = 771,
         tls_cipher_suite = 49199,
         tls_cert = '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',
@@ -231,7 +231,7 @@ class FlattenBaseTest(unittest.TestCase):
     # yapf: enable
     blockpage_matcher = BlockpageMatcher()
     parsed = flatten_base.parse_received_data(blockpage_matcher, received,
-                                              'mayo.edu', True)
+                                              'mayo.edu', 'satellite', True)
 
     self.assertEqual(parsed, expected)
 
