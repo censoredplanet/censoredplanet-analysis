@@ -518,8 +518,10 @@ class FlattenBlockpages(beam.DoFn):
     Yields:
       PageFetchRow, usually 2 corresponding to the fetched http and https data
     """
+    domain = blockpage_entry['keyword']
+
     row = PageFetchRow(
-        domain=blockpage_entry['keyword'],
+        domain=domain,
         ip=blockpage_entry['ip'],
         date=blockpage_entry['start_time'][:10],
         start_time=format_timestamp(blockpage_entry['start_time']),
@@ -535,7 +537,7 @@ class FlattenBlockpages(beam.DoFn):
       http_row.error = received
     if isinstance(received, dict):
       http_row.received = flatten_base.parse_received_data(
-          self.blockpage_matcher, received, True)
+          self.blockpage_matcher, received, domain, True)
     yield http_row
 
     https_row = deepcopy(row)
@@ -545,5 +547,9 @@ class FlattenBlockpages(beam.DoFn):
       https_row.error = received
     if isinstance(received, dict):
       https_row.received = flatten_base.parse_received_data(
-          self.blockpage_matcher, received, True)
+          self.blockpage_matcher, received, domain, True)
+      https_row.received.tls_cert_has_trusted_ca = blockpage_entry.get(
+          'trusted_cert', None)
+      https_row.received.tls_cert_matches_domain = blockpage_entry.get(
+          'cert_hostname_match', None)
     yield https_row

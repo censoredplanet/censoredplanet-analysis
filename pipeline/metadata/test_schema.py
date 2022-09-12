@@ -93,6 +93,7 @@ class SchemaTest(unittest.TestCase):
             tls_version = 771,
             tls_cipher_suite = 49199,
             tls_cert = 'MIIH...',
+            tls_cert_matches_domain=True,
             tls_cert_common_name = 'example.com',
             tls_cert_issuer = 'Verisign',
             tls_cert_alternative_names = ['www.example.com']
@@ -185,6 +186,8 @@ class SchemaTest(unittest.TestCase):
               tls_cert_start_date = '2018-04-06T12:00:00',
               tls_cert_end_date = '2012-04-06T12:00:00',
               tls_cert_alternative_names = ['Common Name', 'Alt Name'],
+              tls_cert_has_trusted_ca = True,
+              tls_cert_matches_domain = True,
               headers = [
                 'Content-Language: en',
                 'X-Frame-Options: SAMEORIGIN',
@@ -240,6 +243,7 @@ class SchemaTest(unittest.TestCase):
             tls_version = 771,
             tls_cipher_suite = 49199,
             tls_cert = 'MIIH...',
+            tls_cert_matches_domain=True,
             tls_cert_common_name = 'example.com',
             tls_cert_issuer = 'Verisign',
             tls_cert_alternative_names = ['www.example.com']
@@ -355,6 +359,7 @@ class SchemaTest(unittest.TestCase):
               tls_version = 123,
               tls_cipher_suite = 3,
               tls_cert = 'MII...',
+              tls_cert_matches_domain=True,
               tls_cert_common_name = 'Common Name',
               tls_cert_issuer = 'Issuer',
               tls_cert_start_date = '2018-04-06T12:00:00',
