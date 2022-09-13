@@ -64,19 +64,19 @@ JOB_NAME = 'manual-test-job'
 # are measurements that succeeded, the last two are measurements that failed.
 def local_data_to_load_http_and_https(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/Quackv1_http/http_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_http/http_results_v2.json',
-      'pipeline/e2e_test_data/Quackv1_https/https_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_https/https_results_v2.json'
+      'pipeline/e2e_test_data/Quack-http_v1/http_results_v1.json',
+      'pipeline/e2e_test_data/Quack-http_v2/http_results_v2.json',
+      'pipeline/e2e_test_data/Quack-https_v1/https_results_v1.json',
+      'pipeline/e2e_test_data/Quack-https_v2/https_results_v2.json'
   ]
 
 
 def local_data_to_load_discard_and_echo(*_: List[Any]) -> List[str]:
   return [
-      'pipeline/e2e_test_data/Quackv1_discard/discard_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_discard/discard_results_v2.json',
-      'pipeline/e2e_test_data/Quackv1_echo/echo_results_v1.json',
-      'pipeline/e2e_test_data/Quackv2_echo/echo_results_v2.json'
+      'pipeline/e2e_test_data/Quack-discard_v1/discard_results_v1.json',
+      'pipeline/e2e_test_data/Quack-discard_v2/discard_results_v2.json',
+      'pipeline/e2e_test_data/Quack-echo_v1/echo_results_v1.json',
+      'pipeline/e2e_test_data/Quack-echo_v2/echo_results_v2.json'
   ]
 
 
@@ -137,9 +137,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/Quackv1_{scan_type}/{scan_type}_results_v1.json'
+    scan_file = f'pipeline/e2e_test_data/Quack-{scan_type}_v1/{scan_type}_results_v1.json'
   else:
-    scan_file = f'pipeline/e2e_test_data/Quackv2_{scan_type}/{scan_type}_results_v2.json'
+    scan_file = f'pipeline/e2e_test_data/Quack-{scan_type}_v2/{scan_type}_results_v2.json'
 
   return lambda *_: [scan_file]
 
@@ -362,16 +362,16 @@ class PipelineManualE2eTest(unittest.TestCase):
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
 
       expected_v1_partitions = [
-          ('discard', 'source=Quackv1_discard', 'country=US'),
-          ('discard', 'source=Quackv1_discard', 'country=CO'),
-          ('discard', 'source=Quackv1_discard', 'country=RU'),
-          ('echo', 'source=Quackv1_echo', 'country=US'),
-          ('echo', 'source=Quackv1_echo', 'country=TH'),
-          ('http', 'source=Quackv1_http', 'country=US'),
-          ('http', 'source=Quackv1_http', 'country=IQ'),
-          ('https', 'source=Quackv1_https', 'country=CA'),
-          ('https', 'source=Quackv1_https', 'country=LB'),
-          ('https', 'source=Quackv1_https', 'country=US'),
+          ('discard', 'source=Quack-discard_v1', 'country=US'),
+          ('discard', 'source=Quack-discard_v1', 'country=CO'),
+          ('discard', 'source=Quack-discard_v1', 'country=RU'),
+          ('echo', 'source=Quack-echo_v1', 'country=US'),
+          ('echo', 'source=Quack-echo_v1', 'country=TH'),
+          ('http', 'source=Quack-http_v1', 'country=US'),
+          ('http', 'source=Quack-http_v1', 'country=IQ'),
+          ('https', 'source=Quack-https_v1', 'country=CA'),
+          ('https', 'source=Quack-https_v1', 'country=LB'),
+          ('https', 'source=Quack-https_v1', 'country=US'),
       ]
       self.assertEqual(len(partitions), 10)
       self.assertListEqual(sorted(partitions), sorted(expected_v1_partitions))
@@ -393,18 +393,18 @@ class PipelineManualE2eTest(unittest.TestCase):
       blobs = list(client.list_blobs(bucket, prefix=BEAM_TEST_GCS_FOLDER))
       partitions = [tuple(blob.name.split('/')[-4:-1]) for blob in blobs]
       expected_v2_partitions = [
-          ('discard', 'source=Quackv2_discard', 'country=US'),
-          ('discard', 'source=Quackv2_discard', 'country=CN'),
-          ('discard', 'source=Quackv2_discard', 'country=PK'),
-          ('echo', 'source=Quackv2_echo', 'country=US'),
-          ('echo', 'source=Quackv2_echo', 'country=CN'),
-          ('echo', 'source=Quackv2_echo', 'country=RU'),
-          ('http', 'source=Quackv2_http', 'country=US'),
-          ('http', 'source=Quackv2_http', 'country=CN'),
-          ('https', 'source=Quackv2_https', 'country=US'),
-          ('https', 'source=Quackv2_https', 'country=CN'),
-          ('https', 'source=Quackv2_https', 'country=CA'),
-          ('https', 'source=Quackv2_https', 'country=NO'),
+          ('discard', 'source=Quack-discard_v2', 'country=US'),
+          ('discard', 'source=Quack-discard_v2', 'country=CN'),
+          ('discard', 'source=Quack-discard_v2', 'country=PK'),
+          ('echo', 'source=Quack-echo_v2', 'country=US'),
+          ('echo', 'source=Quack-echo_v2', 'country=CN'),
+          ('echo', 'source=Quack-echo_v2', 'country=RU'),
+          ('http', 'source=Quack-http_v2', 'country=US'),
+          ('http', 'source=Quack-http_v2', 'country=CN'),
+          ('https', 'source=Quack-https_v2', 'country=US'),
+          ('https', 'source=Quack-https_v2', 'country=CN'),
+          ('https', 'source=Quack-https_v2', 'country=CA'),
+          ('https', 'source=Quack-https_v2', 'country=NO'),
       ]
       self.assertEqual(len(partitions), 22)
       self.assertListEqual(

@@ -128,8 +128,10 @@ class HyperquackFlattener():
 
       if 'Received' in result:
         received = result.get('Received', '')
+        scan_type = flatten_base.get_scan_type_from_filename(filename)
         received_fields = flatten_base.parse_received_data(
-            self.blockpage_matcher, received, domain, scan['Blocked'])
+            self.blockpage_matcher, received, domain, scan_type,
+            scan['Blocked'])
         row.received = received_fields
 
       if 'Error' in result:
@@ -174,8 +176,10 @@ class HyperquackFlattener():
 
       if 'response' in response:
         received = response.get('response', '')
+        scan_type = flatten_base.get_scan_type_from_filename(filename)
         received_fields = flatten_base.parse_received_data(
-            self.blockpage_matcher, received, domain, scan['anomaly'])
+            self.blockpage_matcher, received, domain, scan_type,
+            scan['anomaly'])
         row.received = received_fields
 
       if 'error' in response:

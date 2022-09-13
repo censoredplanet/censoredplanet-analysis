@@ -1368,7 +1368,7 @@ class FlattenSatelliteTest(unittest.TestCase):
         https = False,
         received = HttpsResponse(
             status = '302 Moved Temporarily',
-            body = '<html>\r\n<head><title>302 Found</title></head>\r\n<body bgcolor=\"white\">\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx/1.10.3 (Ubuntu)</center>\r\n</body>\r\n</html>\r\n',
+            body = None,
             headers = [
             'Content-Length: 170',
             'Content-Type: text/html',
@@ -1435,7 +1435,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 is_known_blockpage=None,
                 page_signature=None,
                 status='301 Moved Permanently',
-                body=''),
+                body=None),
             domain='adobe.com',
             ip='184.25.113.140',
             date='2022-06-26',
@@ -1450,7 +1450,7 @@ class FlattenSatelliteTest(unittest.TestCase):
                 is_known_blockpage=None,
                 page_signature=None,
                 status='301 Moved Permanently',
-                body='',
+                body=None,
                 tls_version=771,
                 tls_cipher_suite=49195,
                 tls_cert=

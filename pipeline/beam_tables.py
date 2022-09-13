@@ -61,6 +61,10 @@ SCAN_FILES = ['results.json']
 # An empty json file is 0 bytes when unzipped, but 33 bytes when zipped
 EMPTY_GZIPPED_FILE_SIZE = 33
 
+# We don't include data before this data in satellite
+# since it's not very accurate and causes scaling problems
+DONT_READ_SATELLITE_DATA_BEFORE = datetime.date(2022, 5, 1)
+
 
 def _get_existing_bq_datasources(table_name: str, project: str) -> List[str]:
   """Given a BigQuery table return all sources that contributed to the table.
@@ -414,6 +418,10 @@ class ScanDataBeamPipelineRunner():
 
     filepaths = [metadata.path for metadata in file_metadata]
     file_sizes = [metadata.size_in_bytes for metadata in file_metadata]
+
+    if scan_type == 'satellite':
+      if start_date is None or start_date < DONT_READ_SATELLITE_DATA_BEFORE:
+        start_date = DONT_READ_SATELLITE_DATA_BEFORE
 
     filtered_filenames = [
         filepath for (filepath, file_size) in zip(filepaths, file_sizes)
