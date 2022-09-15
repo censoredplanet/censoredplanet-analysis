@@ -119,7 +119,8 @@ CREATE TEMP FUNCTION ExtraControls(domain STRING) AS (
   domain = 'eecs.umich.edu' OR
   domain = 'cse.engin.umich.edu' OR
   domain = 'captive.apple.com' OR
-  domain = 'gstatic.com'
+  domain = 'gstatic.com' OR
+  domain = 'massbrowser.cs.umass.edu'
 );
 
 CREATE TEMP FUNCTION BadDomain(domain STRING) AS (
@@ -173,14 +174,27 @@ CREATE TEMP FUNCTION BadDomain(domain STRING) AS (
   domain = "www.dw-world.de" OR
   domain = "www.dfid.gov.uk" OR
   domain = "telecomix.org" OR
+  domain = "www.shinto.org" OR
+  domain = "www.appzplanet.com" OR
+  domain = "www.dw-world.de" OR
+
+  # some other systematic problem
+  domain = "www.craigslist.org" OR
+  domain = "www.huffpost.com" OR
+  domain = "digikala.com" OR
+  domain = "www.interpol.int" OR
+  domain = "www.pmi.com" OR
+  domain = "moonbeam.network" OR
+  domain = "www.venus.com" OR
+
 
   # Bug in our cert parsing code
-  domain = "ORroid.apis.google.com" OR
-  domain = "dell.com" OR # ??
-  domain = "qsbr.fs.quoracdn.net" OR
-  domain = "qph.fs.quoracdn.net" OR
-  domain = "www.ecdc.europa.eu" OR
-  domain = "download-installer.cdn.mozilla.net" OR
+  #domain = "ORroid.apis.google.com" OR
+  #domain = "dell.com" OR # ??
+  #domain = "qsbr.fs.quoracdn.net" OR
+  #domain = "qph.fs.quoracdn.net" OR
+  #domain = "www.ecdc.europa.eu" OR
+  #domain = "download-installer.cdn.mozilla.net" OR
 
   # NXDomain problems (domain is not registered/serving)
   domain = "www.cannabis.info" OR
