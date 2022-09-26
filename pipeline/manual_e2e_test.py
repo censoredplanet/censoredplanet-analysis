@@ -41,7 +41,8 @@ from table import run_queries
 # The test table is written into the <project>:test dataset
 BEAM_TEST_BASE_DATASET = 'test'
 BEAM_TEST_BASE_TABLE_SUFFIX = '_scan'
-DERIVED_TABLE_NAME = 'merged_reduced_scans_v2'
+DERIVED_TABLE_NAME_HYPERQUACK = 'merged_reduced_scans_v2'
+DERIVED_TABLE_NAME_SATELLITE = 'reduced_satellite_scans_v1'
 
 BEAM_TEST_GCS_BUCKET = 'firehook-test'
 BEAM_TEST_GCS_FOLDER = 'e2e-test'
@@ -178,8 +179,12 @@ def get_bq_blockpage_table_name(scan_type: str) -> str:
   return get_blockpage_table_name(get_bq_base_table_name(scan_type), scan_type)
 
 
-def get_bq_derived_table_name() -> str:
-  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME}'
+def get_bq_derived_table_name_hyperquack() -> str:
+  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_HYPERQUACK}'
+
+
+def get_bq_derived_table_name_satellite() -> str:
+  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_SATELLITE}'
 
 
 def get_gs_formatted_gcs_folder(scan_type: str) -> str:
@@ -490,7 +495,7 @@ class PipelineManualE2eTest(unittest.TestCase):
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
-    derived_table_name = get_bq_derived_table_name()
+    derived_table_name = get_bq_derived_table_name_hyperquack()
 
     try:
       bq_table_names = [
@@ -589,6 +594,8 @@ class PipelineManualE2eTest(unittest.TestCase):
     warnings.simplefilter('ignore', ResourceWarning)
     client = cloud_bigquery.Client()
 
+    derived_table_name = get_bq_derived_table_name_satellite()
+
     try:
       run_local_pipeline_satellite_v1()
       # contains v2p1 and v2p2
@@ -621,10 +628,30 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      # pylint: disable=protected-access
+      # Write derived table
+      run_queries._run_query(
+          'table/queries/derived_satellite_scans.sql',
+          BEAM_TEST_BASE_DATASET,
+          BEAM_TEST_BASE_DATASET,
+      )
+      # pylint: enable=protected-access
+
+      written_derived_rows = get_bq_rows(client, [derived_table_name])
+      self.assertEqual(len(written_derived_rows), 29)
+      expected_domains = (['CONTROL'] + expected_single_domains +
+                          expected_double_domains + expected_triple_domains +
+                          expected_quad_domains)
+      # alipay is filtered out for udp timeouts
+      expected_domains.remove('alipay.com')
+
+      written_derived_domains = [row[5] for row in written_derived_rows]
+      self.assertEqual(set(written_derived_domains), set(expected_domains))
+
     finally:
-      clean_up_bq_tables(client, [
-          get_bq_base_table_name(SATELLITE_SCAN_TYPE),
-      ])
+      clean_up_bq_tables(
+          client,
+          [get_bq_base_table_name(SATELLITE_SCAN_TYPE), derived_table_name])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
