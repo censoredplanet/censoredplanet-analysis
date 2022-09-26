@@ -96,10 +96,10 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
                       FROM UNNEST(answers) answer)
                       THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
-                WHEN (SELECT LOGICAL_OR(a.tls_cert_matches_domain)
+                WHEN (SELECT LOGICAL_OR(a.https_tls_cert_matches_domain)
                       FROM UNNEST(answers) a)
                       THEN "✅answer:cert_for_domain"
-                WHEN (SELECT LOGICAL_AND(NOT a.tls_cert_matches_domain)
+                WHEN (SELECT LOGICAL_AND(NOT a.https_tls_cert_matches_domain)
                       FROM UNNEST(answers) a)
                       THEN CONCAT("❗️answer:cert_not_for_domain:", answers[OFFSET(0)].https_tls_cert_common_name)
                 -- We check AS after cert because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
