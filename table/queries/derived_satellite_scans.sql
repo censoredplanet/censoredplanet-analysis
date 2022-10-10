@@ -499,7 +499,8 @@ CREATE TEMP FUNCTION GoodDomain(domain STRING) AS (
   domain = 'ikhwanonline.com' OR
   domain = 'ilga.org' OR
   domain = 'ilovepdf.com' OR
-  domain = 'im0-tub-com.yandex.net' OR
+  # always bad
+  # domain = 'im0-tub-com.yandex.net' OR
   domain = 'imdb.com' OR
   domain = 'imgur.com' OR
   domain = 'immunet.com' OR
@@ -9093,7 +9094,7 @@ WITH Grouped AS (
         CONCAT("AS", resolver_asn, IF(resolver_organization IS NOT NULL, CONCAT(" - ", resolver_organization), "")) AS subnetwork,
         resolver_country AS country_code,
 
-        IF(domain_is_control or ExtraControls(domain), "CONTROL", domain) AS domain,
+        IF(domain_is_control, "CONTROL", domain) AS domain,
         IFNULL(domain_category, "Uncategorized") AS category,
 
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
@@ -9104,6 +9105,7 @@ WITH Grouped AS (
     WHERE domain_controls_failed = FALSE
           AND GoodDomain(domain)
           AND NOT BadResolver(resolver_ip)
+          AND NOT ExtraControls(domain)
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
