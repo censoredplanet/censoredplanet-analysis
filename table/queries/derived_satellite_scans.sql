@@ -24,29 +24,29 @@ CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
     WHEN rcode = 21 THEN "❗️dns/rcode:BadAlg"
     WHEN rcode = 22 THEN "❗️dns/rcode:BadTrunc"
     WHEN rcode = 23 THEN "❗️dns/rcode:BadCookie"
-    ELSE CONCAT("❗️dns/unknown_rcode:", rcode)
+    ELSE CONCAT("⚠️dns/unknown_rcode:", rcode)
   END
 );
 
 CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   CASE
     # Satellite v1
-    WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "❗️read/udp.timeout"
-    WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "❗️read/dns.msgsize"
-    WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "❗️read/udp.refused"
-    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "❗️read/ip.host_no_route"
-    WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "❗️setup/system_failure" # Too many open files
-    WHEN error = "{}" THEN "❗️dns/unknown" # TODO figure out origin
-    WHEN error = "no_answer" THEN "❗️dns/answer:no_answer"
+    WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "⚠️read/udp.timeout"
+    WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "⚠️read/dns.msgsize"
+    WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "⚠️read/udp.refused"
+    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "⚠️read/ip.host_no_route"
+    WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "⚠️setup/system_failure" # Too many open files
+    WHEN error = "{}" THEN "⚠️dns/unknown" # TODO figure out origin
+    WHEN error = "no_answer" THEN "⚠️dns/answer:no_answer"
     #Satellite v2
-    WHEN ENDS_WITH(error, "i/o timeout") THEN "❗️read/udp.timeout"
-    WHEN ENDS_WITH(error, "message too long") THEN "❗️read/dns.msgsize"
-    WHEN ENDS_WITH(error, "connection refused") THEN "❗️read/udp.refused"
-    WHEN ENDS_WITH(error, "no route to host") THEN "❗️read/ip.host_no_route"
-    WHEN ENDS_WITH(error, "short read") THEN "❗️read/dns.msgsize"
-    WHEN ENDS_WITH(error, "read: protocol error") THEN "❗️read/protocol_error"
-    WHEN ENDS_WITH(error, "socket: too many open files") THEN "❗️setup/system_failure"
-    ELSE CONCAT("❗️dns/unknown_error:", error)
+    WHEN ENDS_WITH(error, "i/o timeout") THEN "⚠️read/udp.timeout"
+    WHEN ENDS_WITH(error, "message too long") THEN "⚠️read/dns.msgsize"
+    WHEN ENDS_WITH(error, "connection refused") THEN "⚠️read/udp.refused"
+    WHEN ENDS_WITH(error, "no route to host") THEN "⚠️read/ip.host_no_route"
+    WHEN ENDS_WITH(error, "short read") THEN "⚠️read/dns.msgsize"
+    WHEN ENDS_WITH(error, "read: protocol error") THEN "⚠️read/protocol_error"
+    WHEN ENDS_WITH(error, "socket: too many open files") THEN "⚠️setup/system_failure"
+    ELSE CONCAT("⚠️dns/unknown_error:", error)
   END
 );
 
@@ -81,9 +81,9 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
     CASE 
         WHEN dns_error is NOT NULL AND dns_error != "" AND dns_error != "null" THEN ClassifySatelliteError(dns_error)
         # TODO fix -1 rcodes in v1 data in the pipeline
-        WHEN rcode = -1 THEN "❗️read/udp.timeout"
+        WHEN rcode = -1 THEN "⚠️read/udp.timeout"
         WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
-        WHEN ARRAY_LENGTH(answers) = 0 THEN "❗️answer:no_answer"
+        WHEN ARRAY_LENGTH(answers) = 0 THEN "⚠️answer:no_answer"
         ELSE IFNULL(
             (SELECT InvalidIpType(answer.ip) FROM UNNEST(answers) answer LIMIT 1),
             CASE
@@ -109,7 +109,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
                       FROM UNNEST(answers) answer)
                       THEN "✅answer:matches_asn"
-                ELSE CONCAT("❗️answer:not_validated:", AnswersSignature(answers))
+                ELSE CONCAT("⚠️answer:not_validated:", AnswersSignature(answers))
             END
         )
     END
@@ -163,12 +163,12 @@ SELECT
     IFNULL(country_name, country_code) AS country_name,
     CASE
         WHEN STARTS_WITH(outcome, "✅") THEN 0
-        WHEN outcome = "❗️read/udp.timeout" THEN NULL # timeouts are common in dns
+        WHEN outcome = "⚠️read/udp.timeout" THEN NULL # timeouts are common in dns
         ELSE count
     END AS unexpected_count,
     CASE
         WHEN STARTS_WITH(outcome, "✅") THEN count
-        WHEN outcome = "❗️read/udp.timeout" THEN NULL
+        WHEN outcome = "⚠️read/udp.timeout" THEN NULL
         ELSE 0
     END AS expected_count,
     FROM Grouped
