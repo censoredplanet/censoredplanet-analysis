@@ -50,6 +50,69 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   END
 );
 
+# Classify all errors into a small set of enums
+#
+# Input is a nullable error string from the raw data
+# Source is one of "ECHO", "DISCARD, "HTTP", "HTTPS"
+#
+# Output is a string of the format "stage/outcome"
+# Documentation of this enum is at
+# https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
+CREATE TEMP FUNCTION ClassifyPageFetchError(error STRING) AS (
+  CASE
+    # System failures
+    WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol error") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol not available") THEN "setup/system_failure" # ipv4 vs 6 error
+    WHEN ENDS_WITH(error, "too many open files") THEN "setup/system_failure"
+
+    # Dial failures
+    WHEN ENDS_WITH(error, "network is unreachable") THEN "dial/ip.network_unreachable"
+    WHEN ENDS_WITH(error, "no route to host") THEN "dial/ip.host_no_route"
+    WHEN ENDS_WITH(error, "connection refused") THEN "dial/tcp.refused"
+    WHEN ENDS_WITH(error, "context deadline exceeded") THEN "dial/timeout"
+    WHEN ENDS_WITH(error, "connect: connection timed out") THEN "dial/timeout"
+    WHEN STARTS_WITH(error, "connection reset by peer") THEN "dial/tcp.reset" #no read: or write: prefix in error
+    WHEN ENDS_WITH(error, "connect: connection reset by peer") THEN "dial/tcp.reset"
+    WHEN ENDS_WITH(error, "getsockopt: connection reset by peer") THEN "dial/tcp.reset"
+
+    # TLS failures
+    WHEN REGEXP_CONTAINS(error, "tls:") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "remote error:") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "local error:") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "readLoopPeekFailLocked: <nil>") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "missing ServerKeyExchange message") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "no mutual cipher suite") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "TLS handshake timeout") THEN "tls/timeout"
+
+    # Write failures
+    WHEN ENDS_WITH(error, "write: connection reset by peer") THEN "write/tcp.reset"
+    WHEN ENDS_WITH(error, "write: broken pipe") THEN "write/system"
+
+    # Read failures
+    WHEN REGEXP_CONTAINS(error, "request canceled") THEN "read/timeout"
+    WHEN ENDS_WITH(error, "i/o timeout") THEN "read/timeout"
+    WHEN ENDS_WITH(error, "shutdown: transport endpoint is not connected") THEN "read/system"
+    # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
+    # find a way to diffentiate this case.
+    WHEN REGEXP_CONTAINS(error, "read: connection reset by peer") THEN "read/tcp.reset"
+
+    # HTTP content verification failures
+    WHEN REGEXP_CONTAINS(error, "unexpected EOF") THEN "read/http.truncated_response"
+    WHEN REGEXP_CONTAINS(error, "EOF") THEN "read/http.empty"
+    WHEN REGEXP_CONTAINS(error, "http: server closed idle connection") THEN "read/http.truncated_response"
+    WHEN ENDS_WITH(error, "trailer header without chunked transfer encoding") THEN "http/http.invalid"
+    WHEN ENDS_WITH(error, "response missing Location header") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "bad Content-Length") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "failed to parse Location header") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "malformed HTTP") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "malformed MIME") THEN "http/http.invalid"
+
+    # Unknown errors
+    ELSE "unknown/unknown"
+  END
+);
+
 CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   CASE
     WHEN STARTS_WITH(ip, "0.") THEN "❗️ip_invalid:zero"
@@ -65,6 +128,8 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ARRAY_TO_STRING(ARRAY(
     SELECT DISTINCT
       CASE
+        WHEN answer.https_error != "" AND answer.as_name != "" THEN CONCAT(answer.as_name, ":", ClassifyPageFetchError(answer.https_error))
+        WHEN answer.https_error != "" THEN answer.https_error
         WHEN answer.as_name != "" THEN answer.as_name
         WHEN answer.asn IS NOT NULL THEN CONCAT("AS", answer.asn)
         ELSE "missing_as_info"
