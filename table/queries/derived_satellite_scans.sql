@@ -5,7 +5,7 @@ CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
     WHEN rcode = 2 THEN "⚠️dns/rcode:ServFail"
     WHEN rcode = 3 THEN "❗️dns/rcode:NXDomain"
     WHEN rcode = 4 THEN "⚠️dns/rcode:NotImp"
-    WHEN rcode = 5 THEN "⚠️dns/rcode:Refused"
+    WHEN rcode = 5 THEN "❗️dns/rcode:Refused"
     WHEN rcode = 6 THEN "⚠️dns/rcode:YXDomain"
     WHEN rcode = 7 THEN "⚠️dns/rcode:YXRRSet"
     WHEN rcode = 8 THEN "⚠️dns/rcode:NXRRSet"
