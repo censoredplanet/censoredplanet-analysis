@@ -23,7 +23,7 @@ CONTROL_URLS = [
     'a.root-servers.net',  # Satellite
     'www.example.com',  # Satellite
     'gstatic.com',  # Satellite
-    '1. yr-in-f94.1e100.net',  # Satellite - gstatic
+    'yr-in-f94.1e100.net',  # Satellite - gstatic
     'captive.apple.com',  # Satellite
     'usmia1-vip-bx-006.aaplimg.com',  # Satellite - captive.apple
     'cse.engin.umich.edu',  # Satellite
