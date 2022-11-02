@@ -160,6 +160,7 @@ class SchemaTest(unittest.TestCase):
                 as_name='AMAZON-02',
                 country = 'US',
                 netblock = '213.175.166.157/24',
+                organization = 'VX GROUP - AWS'
             ),
             http_error = 'Get \"http://31.13.77.33:80/\": dial tcp 31.13.77.33:80: connect: connection refused',
             http_response = schema.HttpsResponse(
@@ -338,6 +339,7 @@ class SchemaTest(unittest.TestCase):
                 as_name='AMAZON-02',
                 country = 'US',
                 netblock = '213.175.166.157/24',
+                organization = 'VX GROUP - AWS'
             ),
             http_error = 'Get \"http://31.13.77.33:80/\": dial tcp 31.13.77.33:80: connect: connection refused',
             http_response = schema.HttpsResponse(
@@ -395,6 +397,7 @@ class SchemaTest(unittest.TestCase):
         'ip': '13.249.134.38',
         'asn': 16509,
         'as_name': 'AMAZON-02',
+        'ip_organization': 'VX GROUP - AWS',
         'censys_http_body_hash': 'c5ba7f2da503045170f1d66c3e9f84576d8f3a606bb246db589a8f62c65921af',
         'censys_ip_cert': 'MII...',
         'http_error': 'Get "http://31.13.77.33:80/": dial tcp 31.13.77.33:80: connect: connection refused',
