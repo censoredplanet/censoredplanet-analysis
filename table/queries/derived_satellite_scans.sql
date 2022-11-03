@@ -124,11 +124,16 @@ CREATE TEMP FUNCTION InvalidIpType(ip STRING) AS (
   END
 );
 
+CREATE TEMP FUNCTION MatchesAkamai(answers ANY TYPE) AS (
+  (SELECT LOGICAL_OR(REGEXP_CONTAINS(answer.as_name, "Akamai") OR REGEXP_CONTAINS(answer.ip_organization, "Akamai"))
+    FROM UNNEST(answers) answer
+  )
+);
+
 CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ARRAY_TO_STRING(ARRAY(
     SELECT DISTINCT
       CASE
-        WHEN REGEXP_CONTAINS(answer.as_name, "Akamai") OR REGEXP_CONTAINS(answer.ip_organization, "Akamai") THEN "akamai_network"
         WHEN answer.as_name != "" THEN CONCAT(answer.as_name, ":", answer.ip_organization)
         WHEN answer.asn IS NOT NULL THEN CONCAT("AS", answer.asn)
         ELSE "missing_as_info"
@@ -173,6 +178,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
                       FROM UNNEST(answers) answer)
                       THEN "✅answer:matches_asn"
+                WHEN MatchesAkamai(answers) THEN "✅answer:matches_akamai"
                 ELSE CONCAT("⚠️answer:not_validated:", AnswersSignature(answers))
             END
         )
