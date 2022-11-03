@@ -128,9 +128,8 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ARRAY_TO_STRING(ARRAY(
     SELECT DISTINCT
       CASE
-        WHEN answer.https_error != "" AND answer.as_name != "" THEN CONCAT(answer.as_name, ":", ClassifyPageFetchError(answer.https_error))
-        WHEN answer.https_error != "" THEN answer.https_error
-        WHEN answer.as_name != "" THEN answer.as_name
+        WHEN REGEXP_CONTAINS(answer.as_name, "Akamai") OR REGEXP_CONTAINS(answer.ip_organization, "Akamai") THEN "akamai_network"
+        WHEN answer.as_name != "" THEN CONCAT(answer.as_name, ":", answer.ip_organization)
         WHEN answer.asn IS NOT NULL THEN CONCAT("AS", answer.asn)
         ELSE "missing_as_info"
       END
