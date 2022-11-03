@@ -325,6 +325,7 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
         # Ip Metadata
         'asn': received_answer.ip_metadata.asn,
         'as_name': received_answer.ip_metadata.as_name,
+        'ip_organization': received_answer.ip_metadata.organization,
         'censys_http_body_hash': received_answer.http,
         'censys_ip_cert': received_answer.cert,
         'matches_control': {
@@ -499,6 +500,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
             'ip': ('string', 'nullable'),
             'asn': ('integer', 'nullable'),
             'as_name': ('string', 'nullable'),
+            'ip_organization': ('string', 'nullable'),
             'censys_http_body_hash': ('string', 'nullable'),
             'censys_ip_cert': ('string', 'nullable'),
             'matches_control': ('record', 'nullable', {
