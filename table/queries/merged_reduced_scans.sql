@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
+  CASE
+    WHEN STARTS_WITH(outcome, "setup/") THEN outcome
+    WHEN STARTS_WITH(outcome, "expected/") THEN CONCAT("✅", SUBSTR(outcome, 10))
+    ELSE CONCAT("❗️", outcome)
+  END
+);
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -49,7 +57,7 @@ WITH AllScans AS (
         server_country AS country_code,
         server_as_full_name AS network,
         IF(domain_is_control, "CONTROL", domain) AS domain,
-        outcome AS outcome,
+        AddOutcomeEmoji(outcome) AS outcome,
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IFNULL(domain_category, "Uncategorized") AS category,
         COUNT(*) AS count
@@ -64,8 +72,8 @@ SELECT
     Grouped.* EXCEPT (country_code),
     IFNULL(country_name, country_code) AS country_name,
     CASE
-        WHEN (STARTS_WITH(outcome, "expected/")) THEN 0
-        WHEN (STARTS_WITH(outcome, "dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
+        WHEN (STARTS_WITH(outcome, "✅")) THEN 0
+        WHEN (STARTS_WITH(outcome, "❗️dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
         WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
         ELSE count
     END AS unexpected_count
@@ -73,6 +81,10 @@ SELECT
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
 );
+
+# Drop the temp function before creating the view
+# Since any temp functions in scope block view creation.
+DROP FUNCTION AddOutcomeEmoji;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
