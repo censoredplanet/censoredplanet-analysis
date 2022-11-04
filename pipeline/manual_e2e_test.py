@@ -117,6 +117,7 @@ def local_data_to_load_satellite_v2(*_: List[Any]) -> List[str]:
       'pipeline/e2e_test_data/Satellitev2_2021-04-25/results.json',
       'pipeline/e2e_test_data/Satellitev2-2021-10-20/blockpages.json',
       'pipeline/e2e_test_data/Satellitev2-2021-10-20/resolvers.json',
+      'pipeline/e2e_test_data/Satellitev2-2021-10-20/resolvers_profile.json',
       'pipeline/e2e_test_data/Satellitev2-2021-10-20/results.json',
   ]
 

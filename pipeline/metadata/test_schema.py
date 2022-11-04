@@ -140,7 +140,12 @@ class SchemaTest(unittest.TestCase):
           as_name = 'CLOUDFLARENET',
           as_full_name = 'Cloudflare Inc.',
           as_class = 'Content',
-          organization = 'Fake Organization'
+          organization = 'Fake Organization',
+          non_zero_rcode_rate = 0.129,
+          private_ip_rate = 0,
+          zero_ip_rate = 0,
+          connect_error_rate = 0,
+          invalid_cert_rate = 0
         ),
         received = [
           schema.SatelliteAnswer(
@@ -319,7 +324,12 @@ class SchemaTest(unittest.TestCase):
           as_name = 'CLOUDFLARENET',
           as_full_name = 'Cloudflare Inc.',
           as_class = 'Content',
-          organization = 'Fake Organization'
+          organization = 'Fake Organization',
+          non_zero_rcode_rate = 0.129,
+          private_ip_rate = 0,
+          zero_ip_rate = 0,
+          connect_error_rate = 0,
+          invalid_cert_rate = 0
         ),
         received = [
           schema.SatelliteAnswer(

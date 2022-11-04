@@ -55,6 +55,12 @@ class IpMetadata():
   organization: Optional[str] = None
   # Satellite Metadata
   name: Optional[str] = None
+  # Satellite metadata related to resolver aggregate statistics
+  non_zero_rcode_rate: Optional[float] = None
+  private_ip_rate: Optional[float] = None
+  zero_ip_rate: Optional[float] = None
+  connect_error_rate: Optional[float] = None
+  invalid_cert_rate: Optional[float] = None
 
 
 @dataclass
@@ -75,6 +81,7 @@ class IpMetadataWithDateKey(IpMetadata):
 
 def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
   """Merge metadata info into an existing metadata."""
+  # pylint: disable=too-many-branches
   if new.netblock is not None:
     base.netblock = new.netblock
   if new.asn is not None:
@@ -89,8 +96,20 @@ def merge_ip_metadata(base: IpMetadata, new: IpMetadata) -> None:
     base.country = new.country
   if new.organization is not None:
     base.organization = new.organization
+  # Satellite resolver metadata
   if new.name is not None:
     base.name = new.name
+  if new.non_zero_rcode_rate is not None:
+    base.non_zero_rcode_rate = new.non_zero_rcode_rate
+  if new.private_ip_rate is not None:
+    base.private_ip_rate = new.private_ip_rate
+  if new.zero_ip_rate is not None:
+    base.zero_ip_rate = new.zero_ip_rate
+  if new.connect_error_rate is not None:
+    base.connect_error_rate = new.connect_error_rate
+  if new.invalid_cert_rate is not None:
+    base.invalid_cert_rate = new.invalid_cert_rate
+  # pylint: enable=too-many-branches
 
 
 @dataclass
@@ -298,6 +317,11 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
       'resolver_as_class': row.ip_metadata.as_class,
       'resolver_country': row.ip_metadata.country,
       'resolver_organization': row.ip_metadata.organization,
+      'resolver_non_zero_rcode_rate': row.ip_metadata.non_zero_rcode_rate,
+      'resolver_private_ip_rate': row.ip_metadata.private_ip_rate,
+      'resolver_zero_ip_rate': row.ip_metadata.zero_ip_rate,
+      'resolver_connect_error_rate': row.ip_metadata.connect_error_rate,
+      'resolver_invalid_cert_rate': row.ip_metadata.invalid_cert_rate,
       'received_error': row.error,
       'received_rcode': row.rcode,
       'answers': [],
@@ -398,6 +422,11 @@ def dict_to_gcs_dict_satellite(
   measurement_dict.pop('excluded')
   measurement_dict.pop('exclude_reason')
   measurement_dict.pop('has_type_a')
+  measurement_dict.pop('resolver_non_zero_rcode_rate')
+  measurement_dict.pop('resolver_private_ip_rate')
+  measurement_dict.pop('resolver_zero_ip_rate')
+  measurement_dict.pop('resolver_connect_error_rate')
+  measurement_dict.pop('resolver_invalid_cert_rate')
   for i in range(0, len(measurement_dict['answers'])):
     measurement_dict['answers'][i].pop('matches_control')
     measurement_dict['answers'][i].pop('match_confidence', None)
@@ -489,6 +518,12 @@ SATELLITE_BIGQUERY_SCHEMA = {
     'resolver_country': ('string', 'nullable'),
     # Columns from DBIP
     'resolver_organization': ('string', 'nullable'),
+    # Columns from resolver profile
+    'resolver_non_zero_rcode_rate': ('float', 'nullable'),
+    'resolver_private_ip_rate': ('float', 'nullable'),
+    'resolver_zero_ip_rate': ('float', 'nullable'),
+    'resolver_connect_error_rate': ('float', 'nullable'),
+    'resolver_invalid_cert_rate': ('float', 'nullable'),
 
     # Observation
     'received_error': ('string', 'nullable'),

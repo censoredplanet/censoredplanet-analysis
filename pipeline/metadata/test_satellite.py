@@ -50,16 +50,26 @@ class SatelliteTest(unittest.TestCase):
     """Test reading rows from Satellite resolver tag files."""
     tagged_resolver1 = {'resolver': '1.1.1.1', 'country': 'United States'}
     tagged_resolver2 = {'resolver': '1.1.1.3', 'country': 'Australia'}
+    resolver_profile = {
+        'resolver': '182.76.93.77',
+        'non_zero_rcode': '0.1290',
+        'private_ip': '0.0000',
+        'zero_ip': '0.0000',
+        'connect_error': '0.0000',
+        'invalid_cert': '0.0000'
+    }
     # yapf: disable
 
     lines = [
         json.dumps(tagged_resolver1),
         json.dumps(tagged_resolver2),
+        json.dumps(resolver_profile),
     ]
 
     filenames = [
       "CP_Satellite-2020-12-17-12-00-01/resolvers.json",
       "CP_Satellite-2020-12-17-12-00-01/resolvers.json.gz",
+      "CP_Satellite-2022-10-26-00-01-01/resolvers_profile.json.gz",
     ]
 
     data = zip(filenames, lines)
@@ -74,9 +84,18 @@ class SatelliteTest(unittest.TestCase):
         source='CP_Satellite-2020-12-17-12-00-01',
         country='AU'
     )
+    tag3 = IpMetadataWithSourceKey(
+        ip='182.76.93.77',
+        source='CP_Satellite-2022-10-26-00-01-01',
+        non_zero_rcode_rate=0.1290,
+        private_ip_rate=0,
+        zero_ip_rate=0,
+        connect_error_rate=0,
+        invalid_cert_rate=0
+    )
     # yapf: enable
 
-    expected_resolver_tags = [tag1, tag2]
+    expected_resolver_tags = [tag1, tag2, tag3]
 
     with TestPipeline() as p:
       lines = p | 'create tags' >> beam.Create(data)
@@ -1022,6 +1041,7 @@ class SatelliteTest(unittest.TestCase):
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
         "CP_Satellite-2021-10-20-12-00-01/resolvers.json",
+        "CP_Satellite-2021-10-20-12-00-01/resolvers_profile.json"
     ]
 
     # yapf: disable
@@ -1034,7 +1054,13 @@ class SatelliteTest(unittest.TestCase):
          "location": {"country_name": "United States","country_code": "US"}},
         {"vp": "62.80.182.26",
          "name": "mx4.orlantrans.com.",
-         "location": {"country_name": "Ukraine","country_code": "UA"}}
+         "location": {"country_name": "Ukraine","country_code": "UA"}},
+        {"resolver": "208.67.220.220",
+         "non_zero_rcode": "0.1290",
+         "private_ip": "0.0000",
+         "zero_ip": "0.0000",
+         "connect_error": "0.0000",
+         "invalid_cert": "0.0000"}
     ]
     # yapf: enable
 
@@ -1098,6 +1124,11 @@ class SatelliteTest(unittest.TestCase):
         ip_metadata = IpMetadata(
             country = 'US',
             name = 'resolver2.opendns.com.',
+            non_zero_rcode_rate = 0.129,
+            private_ip_rate = 0,
+            zero_ip_rate = 0,
+            connect_error_rate = 0,
+            invalid_cert_rate = 0,
         )
     ), SatelliteRow(
         received = [],
@@ -1225,6 +1256,8 @@ class SatelliteTest(unittest.TestCase):
          "resolver_tag"),
         ("CP_Satellite-2020-09-02-12-00-01/tagged_resolvers.json",
          "resolver_tag"),
+        ("CP_Satellite-2020-09-02-12-00-01/resolvers_profile.json",
+         "resolver_tag"),
         ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "answer_tag"),
         ("CP_Satellite-2020-09-02-12-00-01/tagged_answers.json", "answer_tag"),
         ("CP_Satellite-2021-09-02-12-00-01/blockpages.json", "blockpage"),
@@ -1232,10 +1265,10 @@ class SatelliteTest(unittest.TestCase):
         ("CP_Satellite-2020-09-02-12-00-01/interference.json", "row")
     ]
 
-    expected_resolver_tags = data[0:4]
-    expected_answer_tags = data[4:6]
-    expected_blockpages = data[6:7]
-    expected_rows = data[7:]
+    expected_resolver_tags = data[0:5]
+    expected_answer_tags = data[5:7]
+    expected_blockpages = data[7:8]
+    expected_rows = data[8:]
 
     with TestPipeline() as p:
       lines = p | 'create data' >> beam.Create(data)
