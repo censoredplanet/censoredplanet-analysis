@@ -21,6 +21,7 @@ from pipeline.metadata.add_metadata import MetadataAdder
 
 # Data files for the Satellite pipeline
 SATELLITE_RESOLVERS_FILE = 'resolvers.json'  #v1, v2.2
+SATELLITE_RESOLVERS_PROFILE_FILE = 'resolvers_profile.json'  #v2.3
 
 SATELLITE_RESULTS_FILE = 'results.json'  # v2.1, v2.2
 
@@ -37,7 +38,8 @@ SATELLITE_BLOCKPAGES_FILE = 'blockpages.json'  # v2.2
 
 # Files containing metadata for satellite DNS resolvers
 SATELLITE_RESOLVER_TAG_FILES = [
-    SATELLITE_RESOLVERS_FILE, SATELLITE_TAGGED_RESOLVERS_FILE
+    SATELLITE_RESOLVERS_FILE, SATELLITE_TAGGED_RESOLVERS_FILE,
+    SATELLITE_RESOLVERS_PROFILE_FILE
 ]
 
 # Files containing metadata for satellite receives answer ips
@@ -187,6 +189,7 @@ def _read_satellite_resolver_tags(
           source='CP_Satellite-2022-01-02-12-00-01'
           country='US'  # optional
           name='one.one.one.one'  # optional
+          non_zero_rcode_rate = .5  # optional
         )
   """
   try:
@@ -200,6 +203,7 @@ def _read_satellite_resolver_tags(
   source = flatten_base.source_from_filename(filepath)
   tags = IpMetadataWithSourceKey(ip=ip, source=source)
 
+  # Fields in SATELLITE_RESOLVERS_FILE
   if 'name' in scan:
     tags.name = scan['name']
 
@@ -207,6 +211,19 @@ def _read_satellite_resolver_tags(
     tags.country = scan['location']['country_code']
   if 'country' in scan:
     tags.country = country_name_to_code(scan['country'])
+
+  # Fields in SATELLITE_RESOLVERS_PROFILE_FILE
+  # which contain aggregate rates 0-1 of test failures on that resolver
+  if 'non_zero_rcode' in scan:
+    tags.non_zero_rcode_rate = float(scan['non_zero_rcode'])
+  if 'private_ip' in scan:
+    tags.private_ip_rate = float(scan['private_ip'])
+  if 'zero_ip' in scan:
+    tags.zero_ip_rate = float(scan['zero_ip'])
+  if 'connect_error' in scan:
+    tags.connect_error_rate = float(scan['connect_error'])
+  if 'invalid_cert' in scan:
+    tags.invalid_cert_rate = float(scan['invalid_cert'])
 
   yield tags
 
