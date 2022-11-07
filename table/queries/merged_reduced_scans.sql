@@ -73,9 +73,9 @@ SELECT
     IFNULL(country_name, country_code) AS country_name,
     CASE
         WHEN (STARTS_WITH(outcome, "✅")) THEN 0
-        WHEN (STARTS_WITH(outcome, "❗️dial/") OR STARTS_WITH(outcome, "setup/") OR ENDS_WITH(outcome, "/invalid")) THEN NULL
-        WHEN (ENDS_WITH(outcome, "unknown")) THEN count / 2.0
-        ELSE count
+        WHEN (STARTS_WITH(outcome, "❗️")) THEN count
+        WHEN (STARTS_WITH(outcome, "❔")) THEN NULL
+        ELSE count / 2.0  # unknown
     END AS unexpected_count
     FROM Grouped
     LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
