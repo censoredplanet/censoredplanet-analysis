@@ -1,24 +1,22 @@
 ## Outcome Classification
 
-The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `❗️read/timeout` means the test received a TCP timeout during the read stage. `✅match` means a test finished successfully.
+The `outcome` field classifies the result of a test into an enumeration of the different types of high-level outcomes. Outcome strings are of the format `stage/outcome`. For example `read/timeout` means the test received a TCP timeout during the read stage. `expected/match` means a test finished successfully.
 
 ### Stages
 
-Stages are listed here in order. If a test reaches a later stage like `❗️content` then it successfully passed the earlier stages like `❗️dial` and `❗️read`.
+Stages are listed here in order. If a test reaches a later stage like `content` then it successfully passed the earlier stages like `dial` and `read`.
 
-Stages include emoji to make them easier to differentiate at a glance.
-
-| Stage         | Explanation |
-| ------------- | ----------- |
-| ❔setup       | The initial setup phase for the test (mustering resources, opening ports, etc.) |
-| ❗️dial        | The initial TCP dial connection to the remote |
-| ❗️tls         | The TLS handshake. `HTTPS` only. The [SNI header](https://en.wikipedia.org/wiki/Server_Name_Indication) containing the test domain is sent in this stage |
-| ❗️write       | Writing to the remote. For non-`HTTPS` tests this is where the domain is sent |
-| ❗️read        | Reading from the remote |
-| ❗️http        | Verification of HTTP headers. `HTTP/S` only |
-| ❗️content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
-| ✅            | Verified an expected response |
-| ❔unknown     | Unknown stage. Usually these are new outcomes which should be investigated and classified |
+| Stage       | Explanation |
+| ----------- | ----------- |
+| setup       | The initial setup phase for the test (mustering resources, opening ports, etc.) |
+| dial        | The initial TCP dial connection to the remote |
+| tls         | The TLS handshake. `HTTPS` only. The [SNI header](https://en.wikipedia.org/wiki/Server_Name_Indication) containing the test domain is sent in this stage |
+| write       | Writing to the remote. For non-`HTTPS` tests this is where the domain is sent |
+| read        | Reading from the remote |
+| http        | Verification of HTTP headers. `HTTP/S` only |
+| content     | Verification that the returned content matches the expected content. These are the most common types of errors and represent things like blockpages |
+| expected    | Verified an expected response |
+| unknown     | Unknown stage. Usually these are new outcomes which should be investigated and classified |
 
 #### Stages per Probe
 
