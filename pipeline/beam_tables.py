@@ -315,7 +315,7 @@ def _get_destination(record: str) -> str:
   return f'source={record_dict["source"]}/country={record_dict["resolver_country"]}/results'
 
 
-def _custom_file_naming(suffix: str = None) -> Callable:
+def _custom_file_naming(suffix: Optional[str] = None) -> Callable:
   """Returns custom function to name destination files."""
 
   # Beam requires the returned function to have the following arguments,
