@@ -73,6 +73,20 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ), ",")
 );
 
+CREATE TEMP FUNCTION BadResolver(
+  resolver_non_zero_rcode_rate FLOAT64,
+  resolver_private_ip_rate FLOAT64,
+  resolver_zero_ip_rate FLOAT64,
+  resolver_connect_error_rate FLOAT64,
+  resolver_invalid_cert_rate FLOAT64
+) AS (
+  (resolver_non_zero_rcode_rate +
+   resolver_private_ip_rate +
+   resolver_zero_ip_rate +
+   resolver_connect_error_rate +
+   resolver_invalid_cert_rate) > 0.15
+);
+
 
 CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    dns_error STRING,
@@ -154,6 +168,11 @@ WITH Grouped AS (
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
+          AND NOT BadResolver(resolver_non_zero_rcode_rate,
+                              resolver_private_ip_rate,
+                              resolver_zero_ip_rate,
+                              resolver_connect_error_rate,
+                              resolver_invalid_cert_rate)
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
