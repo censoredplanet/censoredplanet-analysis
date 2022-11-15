@@ -116,6 +116,23 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 );
 
 
+# When some roundtrips in the DNS scans fail they retry.
+# These retried are identified in bigquery by having the same measurement id
+# Once a roundtrip succeeds we stop retrying
+# To avoid overcounting retries (ex: measuring x4 timeouts on failure but only x1 success when succeeding)
+# We only want to include the last retry in any set
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.last_measurement_ids`
+# More correctly this would be by source, but we can't partition on strings
+PARTITION BY date
+AS (
+  SELECT date,
+         measurement_id,
+         MAX(end_time) as end_time
+  FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
+  GROUP BY date, measurement_id
+);
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -124,7 +141,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_only_last_retry`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -152,6 +169,9 @@ WITH Grouped AS (
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
+    # Only include the last measurement in any set of retries
+    RIGHT JOIN `firehook-censoredplanet.DERIVED_DATASET.last_measurement_ids`
+      USING (date, measurement_id, end_time)
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
