@@ -124,7 +124,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_export_resolver_info`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -149,12 +149,23 @@ WITH Grouped AS (
         IFNULL(domain_category, "Uncategorized") AS category,
 
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
+
+        resolver_non_zero_rcode_rate,
+        resolver_private_ip_rate,
+        resolver_zero_ip_rate,
+        resolver_connect_error_rate,
+        resolver_invalid_cert_rate,
         
         COUNT(1) AS count
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
-    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category,
+             resolver_non_zero_rcode_rate,
+             resolver_private_ip_rate,
+             resolver_zero_ip_rate,
+             resolver_connect_error_rate,
+             resolver_invalid_cert_rate
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
