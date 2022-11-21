@@ -36,6 +36,7 @@ The json data is processed into a flat table format which looks like this.
 | date                      | DATE         | Date that an individual measurement was taken |
 | start_time                | TIMESTAMP    | Start time of the individual measurement |
 | end_time                  | TIMESTAMP    | End time of the individual measurement |
+| retry                     | INTEGER      | Number 0-N (usually not > 5) indicating which retry in the measurement_id set this roundtrip was |
 |                           |
 | **Vantage Point Server**  |
 |                           |

@@ -177,7 +177,9 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
 
   if not input_response_data:
     base_response.received = []
-    yield base_response
+    empty_observation = deepcopy(base_response)
+    empty_observation.retry = 0
+    yield empty_observation
     return
 
   # separate into one answer ip per row for tagging
@@ -199,6 +201,29 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     )
     return
 
+  # Measurements retry 4 times or until success
+  retry_index = 0
+
+  for rcode in failed_test_rcodes:
+    failed_observation = deepcopy(base_response)
+    failed_observation.rcode = rcode
+    failed_observation.retry = retry_index
+    # -1 rcodes corrospond to the error messages in order.
+    if rcode == -1:
+      failed_observation.error = errors.pop(0) if errors else None
+    yield failed_observation
+    retry_index += 1
+
+  # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
+  # In that case we add them back in manually
+  for error in errors:
+    error_observation = deepcopy(base_response)
+    error_observation.rcode = -1
+    error_observation.retry = retry_index
+    error_observation.error = error
+    yield error_observation
+    retry_index += 1
+
   if successful_test_rcode:
     all_received = []
     for (ip, tags) in input_response_data.items():
@@ -210,23 +235,8 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     success_observation = deepcopy(base_response)
     success_observation.received = all_received
     success_observation.rcode = successful_test_rcode[0]
+    success_observation.retry = retry_index
     yield success_observation
-
-  for rcode in failed_test_rcodes:
-    failed_observation = deepcopy(base_response)
-    failed_observation.rcode = rcode
-    # -1 rcodes corrospond to the error messages in order.
-    if rcode == -1:
-      failed_observation.error = errors.pop() if errors else None
-    yield failed_observation
-
-  # There is a bug in some v2.1 data where -1 rcodes weren't recorded.
-  # In that case we add them back in manually
-  for error in errors:
-    error_observation = deepcopy(base_response)
-    error_observation.rcode = -1
-    error_observation.error = error
-    yield error_observation
 
 
 class SatelliteFlattener():
@@ -293,6 +303,7 @@ class SatelliteFlattener():
         ip=responses_entry.get('resolver', responses_entry.get('ip')),
         is_control_ip=filename == SATELLITE_ANSWERS_CONTROL_FILE,
         date=date,
+        retry=0,
         anomaly=not responses_entry['passed']
         if 'passed' in responses_entry else None,
         success='error' not in responses_entry,
@@ -373,6 +384,8 @@ class SatelliteFlattener():
     base_row.exclude_reason = ' '.join(
         responses_entry.get('exclude_reason', []))
 
+    retry_index = 0
+
     # We yield a row for each individual roundrip in the measurement
     for roundtrip in responses:
       roundtrip_row = deepcopy(base_row)
@@ -384,6 +397,8 @@ class SatelliteFlattener():
       roundtrip_row.is_control = is_control_domain
       roundtrip_row.category = self.category_matcher.get_category(
           roundtrip['url'], is_control_domain)
+
+      roundtrip_row.retry = None if is_control_domain else retry_index
 
       if roundtrip['error'] and roundtrip['error'] != 'null':
         roundtrip_row.error = roundtrip['error']
@@ -429,6 +444,9 @@ class SatelliteFlattener():
         roundtrip_row.received = all_received
         yield roundtrip_row
 
+      if not is_control_domain:
+        retry_index += 1
+
   def _process_satellite_v2_control(
       self, responses_entry: ResponsesEntry, filepath: str,
       measurement_id: str) -> Iterator[SatelliteRow]:
@@ -444,6 +462,8 @@ class SatelliteFlattener():
     """
     responses = responses_entry.get('response', [])
 
+    retry_index = 0
+
     for response in responses:
       is_control_domain = flatten_base.is_control_url(response['url'])
 
@@ -455,6 +475,7 @@ class SatelliteFlattener():
           ip=responses_entry['vp'],
           is_control_ip=True,
           date=response['start_time'][:10],
+          retry=None if is_control_domain else retry_index,
           start_time=format_timestamp(response['start_time']),
           end_time=format_timestamp(response['end_time']),
           anomaly=None,
@@ -485,6 +506,9 @@ class SatelliteFlattener():
         row.received = all_received
 
         yield row
+
+      if not is_control_domain:
+        retry_index += 1
 
 
 class FlattenBlockpages(beam.DoFn):

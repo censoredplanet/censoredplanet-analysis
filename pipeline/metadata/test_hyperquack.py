@@ -77,6 +77,7 @@ class HyperquackTest(unittest.TestCase):
             date='2022-03-31',
             start_time='2022-03-31T23:40:25.75122271-04:00',
             end_time='2022-03-31T23:40:26.287401066-04:00',
+            retry=0,
             error=
             'Cipher suites do not match;Certificates do not match;Status lines do not match;Content-Length header field missing;Bodies do not match;',
             anomaly=True,
@@ -122,6 +123,7 @@ class HyperquackTest(unittest.TestCase):
             date='2022-03-31',
             start_time='2022-03-31T23:40:44.354253273-04:00',
             end_time='2022-03-31T23:40:44.383259487-04:00',
+            retry=None,
             error=None,
             anomaly=True,
             success=True,

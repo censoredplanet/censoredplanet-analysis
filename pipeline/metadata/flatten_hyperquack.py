@@ -118,6 +118,7 @@ class HyperquackFlattener():
           date=date,
           start_time=result['StartTime'],
           end_time=result['EndTime'],
+          retry=None if is_control else index,
           anomaly=scan['Blocked'],
           success=result['Success'],
           stateful_block=scan['StatefulBlock'],
@@ -153,6 +154,10 @@ class HyperquackFlattener():
     Yields:
       Rows
     """
+    # Retries don't include controls,
+    # which can come at the beginning and end of measurements
+    retry_index = 0
+
     for response in scan.get('response', []):
       date = response['start_time'][:10]
       domain: str = response.get('control_url', scan['test_url'])
@@ -165,6 +170,7 @@ class HyperquackFlattener():
           date=date,
           start_time=response['start_time'],
           end_time=response['end_time'],
+          retry=None if is_control else retry_index,
           anomaly=scan['anomaly'],
           success=response['matches_template'],
           stateful_block=scan['stateful_block'],
@@ -186,3 +192,5 @@ class HyperquackFlattener():
         row.error = response['error']
 
       yield row
+      if not is_control:
+        retry_index += 1

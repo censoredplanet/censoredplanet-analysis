@@ -198,6 +198,7 @@ class BigqueryRow:  # Corresponds to BASE_BIGQUERY_SCHEMA
   date: Optional[str] = None
   start_time: Optional[str] = None
   end_time: Optional[str] = None
+  retry: Optional[int] = None
   error: Optional[str] = None
   anomaly: Optional[bool] = None
   success: Optional[bool] = None
@@ -265,6 +266,7 @@ def flatten_to_dict_hyperquack(row: HyperquackRow) -> Dict[str, Any]:
       'date': row.date,
       'start_time': row.start_time,
       'end_time': row.end_time,
+      'retry': row.retry,
       'server_ip': row.ip,
       'server_netblock': row.ip_metadata.netblock,
       'server_asn': row.ip_metadata.asn,
@@ -307,6 +309,7 @@ def flatten_to_dict_satellite(row: SatelliteRow) -> Dict[str, Any]:
       'date': row.date,
       'start_time': row.start_time,
       'end_time': row.end_time,
+      'retry': row.retry,
       'resolver_ip': row.ip,
       'resolver_name': row.ip_metadata.name,
       'resolver_is_trusted': row.is_control_ip,
@@ -449,6 +452,7 @@ HYPERQUACK_BIGQUERY_SCHEMA = {
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
+    'retry': ('integer', 'nullable'),
 
     # Resolver fields
     'server_ip': ('string', 'nullable'),
@@ -504,6 +508,7 @@ SATELLITE_BIGQUERY_SCHEMA = {
     'date': ('date', 'nullable'),
     'start_time': ('timestamp', 'nullable'),
     'end_time': ('timestamp', 'nullable'),
+    'retry': ('integer', 'nullable'),
 
     # Resolver fields
     'resolver_ip': ('string', 'nullable'),
