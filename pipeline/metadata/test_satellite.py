@@ -236,6 +236,7 @@ class SatelliteTest(unittest.TestCase):
         is_control_ip = False,
         domain = 'signal.org',
         is_control = False,
+        retry=0,
         controls_failed = False,
         category = 'Communication Tools',
         error = None,
@@ -311,6 +312,7 @@ class SatelliteTest(unittest.TestCase):
         is_control_ip = False,
         domain = 'adl.org',
         is_control = False,
+        retry=0,
         controls_failed = False,
         category = 'Religion',
         error = None,
@@ -475,6 +477,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-03-01',
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
+        retry=0,
         source = 'CP_Satellite-2021-03-01-12-00-01',
         measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
@@ -496,6 +499,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-03-01',
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
+        retry=1,
         source = 'CP_Satellite-2021-03-01-12-00-01',
         measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
@@ -537,6 +541,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-03-01',
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
+        retry=2,
         source = 'CP_Satellite-2021-03-01-12-00-01',
         measurement_id = 'faf6d14d2b765c1e8e22724c57230361',
         ip_metadata = IpMetadata(
@@ -558,6 +563,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-03-01',
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
+        retry=0,
         source = 'CP_Satellite-2021-03-01-12-00-01',
         measurement_id = '180143e90b5e5082a21f440b4482e78c',
         ip_metadata = IpMetadata(
@@ -582,6 +588,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-03-01',
         start_time = '2021-03-01T12:43:25.3438285-05:00',
         end_time = '2021-03-01T12:43:25.3696119-05:00',
+        retry=1,
         source = 'CP_Satellite-2021-03-01-12-00-01',
         measurement_id = '180143e90b5e5082a21f440b4482e78c',
         ip_metadata = IpMetadata(
@@ -751,6 +758,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:49:01.62448452-04:00',
         end_time = '2021-04-18T14:49:03.624563629-04:00',
+        retry=0,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '0590413e5980581891beec5c6a80425c',
         ip_metadata = IpMetadata(
@@ -772,6 +780,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:49:07.712972288-04:00',
         end_time = '2021-04-18T14:49:07.749265765-04:00',
+        retry=0,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = 'f1c72aa0a7bd5368af0d3f28732da6fe',
         ip_metadata = IpMetadata(
@@ -796,6 +805,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:51:57.561175746-04:00',
         end_time = '2021-04-18T14:51:57.587097567-04:00',
+        retry=None,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '6df37f5f0e9e58e58d3a6019880efafb',
         ip_metadata = IpMetadata(
@@ -819,6 +829,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:51:57.587109091-04:00',
         end_time = '2021-04-18T14:51:57.61294601-04:00',
+        retry=0,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '6df37f5f0e9e58e58d3a6019880efafb',
         ip_metadata = IpMetadata(
@@ -842,6 +853,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:51:45.836310062-04:00',
         end_time = '2021-04-18T14:51:45.862080031-04:00',
+        retry=None,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
@@ -863,6 +875,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:51:45.862091022-04:00',
         end_time = '2021-04-18T14:51:47.862170832-04:00',
+        retry=0,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
@@ -886,6 +899,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-04-18',
         start_time = '2021-04-18T14:51:47.862183185-04:00',
         end_time = '2021-04-18T14:51:48.162724942-04:00',
+        retry=1,
         source = 'CP_Satellite-2021-04-18-12-00-01',
         measurement_id = '2697a4f148a553f0bcdc4d6a67af5c56',
         ip_metadata = IpMetadata(
@@ -1077,6 +1091,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:41.297636661-04:00',
         end_time = '2021-10-20T14:51:41.348612088-04:00',
+        retry=0,
         error = None,
         anomaly = False,
         success = True,
@@ -1140,6 +1155,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:41.288634425-04:00',
         end_time = '2021-10-20T14:51:41.506755185-04:00',
+        retry=0,
         error = None,
         anomaly = True,
         success = False,
@@ -1166,6 +1182,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
+        retry=None,
         error = 'read udp 141.212.123.185:30437->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
@@ -1192,6 +1209,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
+        retry=0,
         error = 'read udp 141.212.123.185:23315->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
@@ -1218,6 +1236,7 @@ class SatelliteTest(unittest.TestCase):
         date = '2021-10-20',
         start_time = '2021-10-20T14:51:45.361175691-04:00',
         end_time = '2021-10-20T14:51:46.261234037-04:00',
+        retry=None,
         error = 'read udp 141.212.123.185:53501->62.80.182.26:53: read: connection refused',
         anomaly = False,
         success = False,
