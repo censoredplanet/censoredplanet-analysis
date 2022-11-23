@@ -73,6 +73,23 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
   ), ",")
 );
 
+# resolver_*_rate fields measure various error rates for each resolver across the whole scan
+# They should be a value from 0-1 calculated as
+# number_of_unique_domains_with_error_on_resolver_per_scan
+#  /total_number_of_unique_domains_on_resolver_per_scan
+# resolvers which consistantly return too many errors are filtered out.
+CREATE TEMP FUNCTION BadResolver(
+  # Error rate in creating the DNS connection, including timeouts
+  resolver_connect_error_rate FLOAT64,
+  # Failure to get a valid certificate when fetching the page from a returned IP.
+  resolver_invalid_cert_rate FLOAT64,
+  resolver_non_zero_rcode_rate FLOAT64
+) AS (
+  resolver_connect_error_rate > .75 OR
+  resolver_invalid_cert_rate > .75 OR
+  resolver_non_zero_rcode_rate > .75 
+);
+
 
 CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    dns_error STRING,
@@ -154,6 +171,9 @@ WITH Grouped AS (
     FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
+          AND NOT BadResolver(resolver_connect_error_rate,
+                              resolver_invalid_cert_rate,
+                              resolver_non_zero_rcode_rate)
     GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
