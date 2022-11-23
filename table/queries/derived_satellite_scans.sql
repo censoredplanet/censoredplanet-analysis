@@ -79,7 +79,9 @@ CREATE TEMP FUNCTION AnswersSignature(answers ANY TYPE) AS (
 #  /total_number_of_unique_domains_on_resolver_per_scan
 # resolvers which consistantly return too many errors are filtered out.
 CREATE TEMP FUNCTION BadResolver(
+  # Error rate in creating the DNS connection, including timeouts
   resolver_connect_error_rate FLOAT64,
+  # Failure to get a valid certificate when fetching the page from a returned IP.
   resolver_invalid_cert_rate FLOAT64,
   resolver_non_zero_rcode_rate FLOAT64
 ) AS (
