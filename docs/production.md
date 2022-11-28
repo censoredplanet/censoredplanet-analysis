@@ -75,7 +75,7 @@ existing base tables.
 Runs an appending Apache Beam pipeline. This will check for new unprocessed
 data, and process and append it to the base tables if they exist.
 
- `python -m table.run_queries`
+ `python -m table.run_queries --env=dev`
 
 Runs queries to recreate any tables derived from the base tables.
 
