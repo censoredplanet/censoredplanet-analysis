@@ -46,13 +46,13 @@ if [[ "${action}" == "backfill" ]]; then
     --iam-account ${service_account_id}-compute@developer.gserviceaccount.com
   fi
 
-  # --entrypoint 'python3 -m pipeline.run_beam_tables --env=prod --full'
+  # --entrypoint 'python3 -m pipeline.run_beam_tables --env=dev --full'
   docker run -it \
   -v $HOME/.config/gcloud:$HOME/.config/gcloud \
   -e GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/${service_account_id}_compute_credentials.json \
   ${project}
 
-elif [[ "${action}" == "prod" ]]; then
+elif [[ "${action}" == "dev" ]]; then
   # For builders outside the VPC security perimeter the build will succeed
   # but throw a logging error, so we ignore errors here
   gcloud builds submit . --tag gcr.io/${project}/pipeline --project ${project} || true

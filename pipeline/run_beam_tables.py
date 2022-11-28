@@ -55,6 +55,7 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
   Raises:
     Exception: if any of the pipelines fail or don't finish.
   """
+
   with concurrent.futures.ThreadPoolExecutor() as pool:
     futures = []
     for scan_type in scan_types:
@@ -87,28 +88,42 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
     return True
 
 
-def get_firehook_beam_pipeline_runner(
-) -> beam_tables.ScanDataBeamPipelineRunner:
-  """Factory function to get a beam pipeline class with firehook values."""
+def get_beam_pipeline_runner(
+    env: str) -> beam_tables.ScanDataBeamPipelineRunner:
+  """Factory function to get a beam pipeline class with gcloud values.
+
+  Args:
+    env: One of 'prod' 'dev' or 'user',
+      to indicate which project and inputs/outputs to use.
+
+  Returns:
+    An initialized ScanDataBeamPipelineRunner with gcloud values
+  """
   # importing here to avoid beam pickling issues
   import firehook_resources  # pylint: disable=import-outside-toplevel
 
-  matadata_chooser_factory = IpMetadataChooserFactory(
+  metadata_chooser_factory = IpMetadataChooserFactory(
       firehook_resources.CAIDA_FILE_LOCATION,
       firehook_resources.MAXMIND_FILE_LOCATION,
       firehook_resources.DBIP_FILE_LOCATION)
 
+  if env in ('dev', 'user'):
+    project_name = firehook_resources.DEV_PROJECT_NAME
+  if env == 'prod':
+    project_name = firehook_resources.PROD_PROJECT_NAME
+
   return beam_tables.ScanDataBeamPipelineRunner(
-      firehook_resources.PROJECT_NAME, firehook_resources.INPUT_BUCKET,
+      project_name, firehook_resources.INPUT_BUCKET,
       firehook_resources.BEAM_STAGING_LOCATION,
-      firehook_resources.BEAM_TEMP_LOCATION, matadata_chooser_factory)
+      firehook_resources.BEAM_TEMP_LOCATION, metadata_chooser_factory)
 
 
 def main(parsed_args: argparse.Namespace) -> None:
   """Parse namespace arguments and run a beam pipeline based on them.
 
   Args:
-    parsed_args: an argparse namespace with 'full', 'env' and 'scan_type' args.
+    parsed_args: an argparse namespace
+      with 'full', 'env' 'project', and 'scan_type' args.
   """
   incremental = not parsed_args.full
 
@@ -117,15 +132,15 @@ def main(parsed_args: argparse.Namespace) -> None:
   else:
     selected_scan_types = [parsed_args.scan_type]
 
-  firehook_runner = get_firehook_beam_pipeline_runner()
+  pipeline_runner = get_beam_pipeline_runner(parsed_args.env)
 
   if parsed_args.env == 'user':
-    run_parallel_pipelines(firehook_runner, parsed_args.user_dataset,
+    run_parallel_pipelines(pipeline_runner, parsed_args.user_dataset,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date,
                            parsed_args.export_gcs)
-  elif parsed_args.env == 'prod':
-    run_parallel_pipelines(firehook_runner, beam_tables.PROD_DATASET_NAME,
+  elif parsed_args.env in ('dev', 'prod'):
+    run_parallel_pipelines(pipeline_runner, beam_tables.BASE_DATASET_NAME,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date,
                            parsed_args.export_gcs)
@@ -143,8 +158,8 @@ def parse_args() -> argparse.Namespace:
       '--env',
       type=str,
       default='user',
-      choices=['user', 'prod'],
-      help='Whether to write to prod or test tables')
+      choices=['user', 'dev', 'prod'],
+      help='Whether to write to prod, dev or test tables')
   parser.add_argument(
       '--user_dataset',
       type=str,

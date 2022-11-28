@@ -1,8 +1,10 @@
 # Production
 
+:warning: This code is in the process of splitting up prod and dev.
+
 ## Running the Automated Pipeline
 
-There are two main top-level pieces of the production pipeline
+There are two main top-level pieces of the pipeline
 
  `python -m mirror.data_transfer`
 
@@ -15,7 +17,7 @@ This does some additional daily data processing and schedules a daily
 incremental Apache Beam pipeline over the data. It expects to be run via a
 Docker container on a GCE machine.
 
- `./deploy.sh prod`
+ `./deploy.sh dev`
 
 Will deploy the main pipeline loop to a GCE machine. If the machine does not
 exist it will be created, if it does exist it will be updated.
@@ -63,12 +65,12 @@ updated resources can then be committed and deployed.
 
 ### Processing Data
 
- `python -m pipeline.run_beam_tables --env=prod --full`
+ `python -m pipeline.run_beam_tables --env=dev --full`
 
 Runs the full Apache Beam pipeline. This will re-process all data and rebuild
 existing base tables.
 
- `python -m pipeline.run_beam_tables --env=prod`
+ `python -m pipeline.run_beam_tables --env=dev`
 
 Runs an appending Apache Beam pipeline. This will check for new unprocessed
 data, and process and append it to the base tables if they exist.
@@ -89,12 +91,12 @@ Here are the steps to run a backfill:
 *    Checkout master and make sure you're synced to the latest changes.
 *    `./deploy.sh delete` turn off the nightly pipeline so it doesn't conflict
      with the backfill
-*    `python -m pipeline.run_beam_tables --env=prod --scan_type=all --full` to
+*    `python -m pipeline.run_beam_tables --env=dev --scan_type=all --full` to
      run manual backfill jobs, this can take several hours.
 *    Make sure a job is running for each scan type in dataflow. If some scan
      types didn't take then re-run them by hand.
 *    Check if the backfill worked the next day
-*    if so run `./deploy.sh prod` at head to turn the pipeline back on with
+*    if so run `./deploy.sh dev` at head to turn the pipeline back on with
      the new code
 
 ## Access

@@ -13,7 +13,8 @@
 # limitations under the License.
 """Various cross-file constants and project-specific initializers."""
 
-PROJECT_NAME = 'firehook-censoredplanet'
+PROD_PROJECT_NAME = 'censoredplanet-analysisv1'
+DEV_PROJECT_NAME = 'firehook-censoredplanet'
 
 # Buckets that store scanfiles
 U_MICH_BUCKET = 'censoredplanetscanspublic'

@@ -90,7 +90,7 @@ def setup_transfer_service(project_name: str, source_bucket: str,
 
 def setup_firehook_data_transfer() -> None:
   transfer_job_start = datetime.date.today()
-  setup_transfer_service(firehook_resources.PROJECT_NAME,
+  setup_transfer_service(firehook_resources.DEV_PROJECT_NAME,
                          firehook_resources.U_MICH_BUCKET,
                          firehook_resources.TARRED_BUCKET, transfer_job_start)
 
