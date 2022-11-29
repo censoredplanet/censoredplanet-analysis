@@ -577,6 +577,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_queries._run_query(
           client,
           'table/queries/merged_reduced_scans.sql',
+          firehook_resources.DEV_PROJECT_NAME,
           BEAM_TEST_BASE_DATASET,
           BEAM_TEST_BASE_DATASET,
       )
@@ -641,6 +642,7 @@ class PipelineManualE2eTest(unittest.TestCase):
       run_queries._run_query(
           client,
           'table/queries/derived_satellite_scans.sql',
+          firehook_resources.DEV_PROJECT_NAME,
           BEAM_TEST_BASE_DATASET,
           BEAM_TEST_BASE_DATASET,
       )

@@ -29,7 +29,7 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -41,16 +41,16 @@ OPTIONS (
 AS (
 WITH AllScans AS (
   SELECT * EXCEPT (source), "DISCARD" AS source
-  FROM `firehook-censoredplanet.BASE_DATASET.discard_scan`
+  FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
   UNION ALL
   SELECT * EXCEPT (source), "ECHO" AS source
-  FROM `firehook-censoredplanet.BASE_DATASET.echo_scan`
+  FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
   UNION ALL
   SELECT * EXCEPT (source), "HTTP" AS source
-  FROM `firehook-censoredplanet.BASE_DATASET.http_scan`
+  FROM `PROJECT_NAME.BASE_DATASET.http_scan`
   UNION ALL
   SELECT * EXCEPT (source), "HTTPS" AS source
-  FROM `firehook-censoredplanet.BASE_DATASET.https_scan`
+  FROM `PROJECT_NAME.BASE_DATASET.https_scan`
 ), Grouped AS (
     SELECT
         date,
@@ -78,7 +78,7 @@ SELECT
         WHEN (STARTS_WITH(outcome, "❔")) THEN NULL
     END AS unexpected_count
     FROM Grouped
-    LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
+    LEFT JOIN `PROJECT_NAME.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
 );
 
@@ -89,8 +89,8 @@ DROP FUNCTION AddOutcomeEmoji;
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
 # if you would like to continue pointing to the table even when there is a breaking change.
-CREATE OR REPLACE VIEW `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans`
+CREATE OR REPLACE VIEW `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans`
 AS (
   SELECT *
-  FROM `firehook-censoredplanet.DERIVED_DATASET.merged_reduced_scans_v2`
+  FROM `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
 )

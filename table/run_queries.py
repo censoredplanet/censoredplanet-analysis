@@ -26,6 +26,7 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 import firehook_resources
 
+PROJECT_NAME_PLACEHOLDER = 'PROJECT_NAME'
 BASE_PLACEHOLDER = 'BASE_DATASET'
 DERIVED_PLACEHOLDER = 'DERIVED_DATASET'
 
@@ -33,11 +34,13 @@ DEFAULT_BASE_DATASET = 'base'
 DEFAULT_DERIVED_DATASET = 'derived'
 
 
-def _run_query(client: cloud_bigquery.Client, filepath: str, base_dataset: str,
+def _run_query(client: cloud_bigquery.Client, filepath: str, project_name: str,
+               base_dataset: str,
                derived_dataset: str) -> cloud_bigquery.table.RowIterator:
   with open(filepath, encoding='utf-8') as sql:
     query = sql.read()
 
+    query = query.replace(PROJECT_NAME_PLACEHOLDER, project_name)
     query = query.replace(BASE_PLACEHOLDER, base_dataset)
     query = query.replace(DERIVED_PLACEHOLDER, derived_dataset)
 
@@ -59,7 +62,7 @@ def rebuild_all_tables(project_name: str,
 
   for filepath in glob.glob('table/queries/derived_satellite_scans.sql'):
     try:
-      _run_query(client, filepath, base_dataset, derived_dataset)
+      _run_query(client, filepath, project_name, base_dataset, derived_dataset)
     except Exception as ex:
       pprint(('Failed SQL query', filepath))
       raise ex

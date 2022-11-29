@@ -141,7 +141,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_v1`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -168,7 +168,7 @@ WITH Grouped AS (
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
         
         COUNT(1) AS count
-    FROM `firehook-censoredplanet.BASE_DATASET.satellite_scan`
+    FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
           AND NOT BadResolver(resolver_connect_error_rate,
@@ -192,7 +192,7 @@ SELECT
         ELSE 0
     END AS expected_count,
     FROM Grouped
-    LEFT JOIN `firehook-censoredplanet.metadata.country_names` USING (country_code)
+    LEFT JOIN `PROJECT_NAME.metadata.country_names` USING (country_code)
     WHERE country_code IS NOT NULL
 );
 
