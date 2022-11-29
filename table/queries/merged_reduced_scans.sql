@@ -21,6 +21,28 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   END
 );
 
+# When some roundtrips in the DNS scans fail they retry.
+# These retried are identified in bigquery by having the same measurement id
+# Once a roundtrip succeeds we stop retrying
+# To avoid overcounting retries (ex: measuring x4 timeouts on failure but only x1 success when succeeding)
+# We only want to include the last retry in any set
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.hyperquack_last_retries`
+# More correctly this would be by source, but we can't partition on strings
+PARTITION BY date
+AS (
+  SELECT date,
+         measurement_id,
+         MAX(retry) AS retry
+  FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
+  UNION ALL
+  FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
+  UNION ALL
+  FROM `PROJECT_NAME.BASE_DATASET.http_scan`
+  UNION ALL
+  FROM `PROJECT_NAME.BASE_DATASET.https_scan`
+  GROUP BY date, measurement_id
+);
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -29,7 +51,7 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_last_retries_only`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -62,7 +84,10 @@ WITH AllScans AS (
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IFNULL(domain_category, "Uncategorized") AS category,
         COUNT(*) AS count
-    FROM AllScans
+    FROM AllScans AS a
+    # Only include the last measurement in any set of retries
+    JOIN `firehook-censoredplanet.DERIVED_DATASET.hyperquack_last_retries` AS b
+      ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
     GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
@@ -85,6 +110,8 @@ SELECT
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
 DROP FUNCTION AddOutcomeEmoji;
+
+DROP TABLE `PROJECT_NAME.DERIVED_DATASET.hyperquack_last_retries`;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
