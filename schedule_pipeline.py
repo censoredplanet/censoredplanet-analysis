@@ -27,6 +27,7 @@ from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
 from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from mirror.internal.sync import get_censoredplanet_mirror
 from table.run_queries import rebuild_all_tables
+import firehook_resources
 
 
 def run_pipeline() -> None:
@@ -44,13 +45,14 @@ def run_pipeline() -> None:
     # which in our case requires packaging up many google cloud packages
     # which is slow (hangs basic worker machines) and wasteful.
     subprocess.run([
-        sys.executable, '-m', 'pipeline.run_beam_tables', '--env=prod',
+        sys.executable, '-m', 'pipeline.run_beam_tables', '--env=dev',
         '--scan_type=all'
     ],
                    check=True,
                    stdout=subprocess.PIPE)
 
-    rebuild_all_tables()
+    # TODO update this to prod once we move the queries from the dev project.
+    rebuild_all_tables(firehook_resources.DEV_PROJECT_NAME)
   except Exception:
     # If something goes wrong also log to GCP error console.
     error_reporting.Client().report_exception()

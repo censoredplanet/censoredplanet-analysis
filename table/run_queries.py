@@ -26,8 +26,6 @@ from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 import firehook_resources
 
-client = cloud_bigquery.Client(project=firehook_resources.PROJECT_NAME)
-
 BASE_PLACEHOLDER = 'BASE_DATASET'
 DERIVED_PLACEHOLDER = 'DERIVED_DATASET'
 
@@ -35,7 +33,7 @@ DEFAULT_BASE_DATASET = 'base'
 DEFAULT_DERIVED_DATASET = 'derived'
 
 
-def _run_query(filepath: str, base_dataset: str,
+def _run_query(client: cloud_bigquery.Client, filepath: str, base_dataset: str,
                derived_dataset: str) -> cloud_bigquery.table.RowIterator:
   with open(filepath, encoding='utf-8') as sql:
     query = sql.read()
@@ -47,11 +45,21 @@ def _run_query(filepath: str, base_dataset: str,
   return query_job.result()
 
 
-def rebuild_all_tables(base_dataset: str = DEFAULT_BASE_DATASET,
+def rebuild_all_tables(project_name: str,
+                       base_dataset: str = DEFAULT_BASE_DATASET,
                        derived_dataset: str = DEFAULT_DERIVED_DATASET) -> None:
-  for filepath in glob.glob('table/queries/*.sql'):
+  """Rebuild all the derived bigquery tables from the base table data.
+
+  Args:
+    project_name: name of gcloud project
+    base_dataset: bq dataset name to read from (ex: 'base')
+    derived_dataset: bq dataset name to write to (ex: 'derived')
+  """
+  client = cloud_bigquery.Client(project=project_name)
+
+  for filepath in glob.glob('table/queries/derived_satellite_scans.sql'):
     try:
-      _run_query(filepath, base_dataset, derived_dataset)
+      _run_query(client, filepath, base_dataset, derived_dataset)
     except Exception as ex:
       pprint(('Failed SQL query', filepath))
       raise ex
@@ -69,7 +77,21 @@ if __name__ == '__main__':
       '--output',
       type=str,
       required=True,
-      help='Output dataset to write to. To write to prod use --output=derived')
+      help=
+      'Output dataset to write to. To write to the dashboard table use --output=derived'
+  )
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to use the prod or dev project')
   args = parser.parse_args()
 
-  rebuild_all_tables(base_dataset=args.input, derived_dataset=args.output)
+  if args.env == 'dev':
+    bq_project_name = firehook_resources.DEV_PROJECT_NAME
+  if args.env == 'prod':
+    bq_project_name = firehook_resources.PROD_PROJECT_NAME
+
+  rebuild_all_tables(
+      bq_project_name, base_dataset=args.input, derived_dataset=args.output)

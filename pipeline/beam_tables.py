@@ -40,8 +40,8 @@ from pipeline.metadata import sink
 
 # Tables have names like 'echo_scan' and 'http_scan
 BASE_TABLE_NAME = 'scan'
-# Prod data goes in the `firehook-censoredplanet:base' dataset
-PROD_DATASET_NAME = 'base'
+# Prod and dev data goes in the `firehook-censoredplanet:base' dataset
+BASE_DATASET_NAME = 'base'
 
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.

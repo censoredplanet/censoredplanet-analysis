@@ -83,8 +83,8 @@ class RunBeamTablesTest(unittest.TestCase):
     """Test arg parsing for prod pipelines."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
-    with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
-               lambda: mock_runner):
+    with patch('pipeline.run_beam_tables.get_beam_pipeline_runner',
+               lambda _: mock_runner):
       args = argparse.Namespace(
           full=False,
           scan_type='all',
@@ -137,8 +137,8 @@ class RunBeamTablesTest(unittest.TestCase):
     """Test arg parsing for a user pipeline with dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
 
-    with patch('pipeline.run_beam_tables.get_firehook_beam_pipeline_runner',
-               lambda: mock_runner):
+    with patch('pipeline.run_beam_tables.get_beam_pipeline_runner',
+               lambda _: mock_runner):
       args = argparse.Namespace(
           full=False,
           scan_type='echo',

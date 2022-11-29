@@ -52,6 +52,8 @@ SATELLITE_SCAN_TYPE = 'satellite'
 
 JOB_NAME = 'manual-test-job'
 
+DEV_ENV = 'dev'
+
 
 # These methods are used to monkey patch the data_to_load method in beam_tables
 # in order to return our test data.
@@ -166,7 +168,7 @@ def get_bq_base_table_name(scan_type: str) -> str:
   Returns: table name like 'firehook-censoredplanet.test.echo_scan'
   """
   beam_table_name = get_beam_base_table_name(scan_type)
-  return f'{firehook_resources.PROJECT_NAME}.{beam_table_name}'
+  return f'{firehook_resources.DEV_PROJECT_NAME}.{beam_table_name}'
 
 
 def get_bq_blockpage_table_name(scan_type: str) -> str:
@@ -181,11 +183,11 @@ def get_bq_blockpage_table_name(scan_type: str) -> str:
 
 
 def get_bq_derived_table_name_hyperquack() -> str:
-  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_HYPERQUACK}'
+  return f'{firehook_resources.DEV_PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_HYPERQUACK}'
 
 
 def get_bq_derived_table_name_satellite() -> str:
-  return f'{firehook_resources.PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_SATELLITE}'
+  return f'{firehook_resources.DEV_PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_SATELLITE}'
 
 
 def get_gs_formatted_gcs_folder(scan_type: str) -> str:
@@ -198,7 +200,7 @@ def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   return PipelineOptions(
       runner='DirectRunner',
       job_name=JOB_NAME,
-      project=firehook_resources.PROJECT_NAME,
+      project=firehook_resources.DEV_PROJECT_NAME,
       temp_location=firehook_resources.BEAM_TEMP_LOCATION)
 
 
@@ -212,7 +214,7 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
     incremental: bool, whether to run a full or incremental local pipeline.
   """
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
@@ -238,7 +240,7 @@ def run_local_pipeline_gcs(scan_type: str, incremental: bool) -> None:
     incremental: bool, whether to run a full or incremental local pipeline.
   """
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
 
   # Monkey patch the get_pipeline_options method to run a local pipeline
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
@@ -256,7 +258,7 @@ def run_local_pipeline_gcs(scan_type: str, incremental: bool) -> None:
 def run_local_pipeline_satellite_v1() -> None:
   # run_local_pipeline for satellite - scan_type must be 'satellite'
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v1  # type: ignore
 
@@ -269,7 +271,7 @@ def run_local_pipeline_satellite_v1() -> None:
 def run_local_pipeline_satellite_v2() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
@@ -282,7 +284,7 @@ def run_local_pipeline_satellite_v2() -> None:
 def run_local_pipeline_satellite_v1_gcs() -> None:
   # run_local_pipeline for satellite - scan_type must be 'satellite'
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v1  # type: ignore
 
@@ -295,7 +297,7 @@ def run_local_pipeline_satellite_v1_gcs() -> None:
 def run_local_pipeline_satellite_v2_gcs() -> None:
   # run_local_pipeline for satellite v2 - scan_type must be 'satellite'
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_satellite_v2  # type: ignore
 
@@ -307,7 +309,7 @@ def run_local_pipeline_satellite_v2_gcs() -> None:
 
 def run_local_pipeline_invalid() -> None:
   # pylint: disable=protected-access
-  test_runner = run_beam_tables.get_firehook_beam_pipeline_runner()
+  test_runner = run_beam_tables.get_beam_pipeline_runner(DEV_ENV)
   test_runner._get_pipeline_options = get_local_pipeline_options  # type: ignore
   test_runner._data_to_load = local_data_to_load_invalid  # type: ignore
 
@@ -568,9 +570,12 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      client = cloud_bigquery.Client(
+          project=firehook_resources.DEV_PROJECT_NAME)
       # pylint: disable=protected-access
       # Write derived table
       run_queries._run_query(
+          client,
           'table/queries/merged_reduced_scans.sql',
           BEAM_TEST_BASE_DATASET,
           BEAM_TEST_BASE_DATASET,
@@ -629,9 +634,12 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
+      client = cloud_bigquery.Client(
+          project=firehook_resources.DEV_PROJECT_NAME)
       # pylint: disable=protected-access
       # Write derived table
       run_queries._run_query(
+          client,
           'table/queries/derived_satellite_scans.sql',
           BEAM_TEST_BASE_DATASET,
           BEAM_TEST_BASE_DATASET,
