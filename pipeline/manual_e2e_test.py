@@ -649,12 +649,8 @@ class PipelineManualE2eTest(unittest.TestCase):
       # pylint: enable=protected-access
 
       written_derived_rows = get_bq_rows(client, [derived_table_name])
-      self.assertEqual(len(written_derived_rows), 29)
-      expected_domains = (['CONTROL'] + expected_single_domains +
-                          expected_double_domains + expected_triple_domains +
-                          expected_quad_domains)
-      # alipay is filtered out for udp timeouts
-      expected_domains.remove('alipay.com')
+      self.assertEqual(len(written_derived_rows), 1)
+      expected_domains = ['11st.co.kr']
 
       written_derived_domains = [row[5] for row in written_derived_rows]
       self.assertEqual(set(written_derived_domains), set(expected_domains))
