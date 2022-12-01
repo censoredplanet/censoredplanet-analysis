@@ -25,7 +25,6 @@ from typing import Optional, List
 
 from pipeline import beam_tables
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
-from firehook_resources import OUTPUT_BUCKET
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
@@ -63,7 +62,7 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       gcs_folder = None
       if export_gcs:
         gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
-                                                OUTPUT_BUCKET)
+                                                runner.output_bucket)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:
         table_name = beam_tables.get_table_name(dataset, scan_type,
@@ -109,13 +108,20 @@ def get_beam_pipeline_runner(
 
   if env in ('dev', 'user'):
     project_name = firehook_resources.DEV_PROJECT_NAME
+    staging_location = firehook_resources.DEV_BEAM_STAGING_LOCATION
+    temp_location = firehook_resources.DEV_BEAM_TEMP_LOCATION
+    output_bucket = firehook_resources.DEV_OUTPUT_BUCKET
   if env == 'prod':
     project_name = firehook_resources.PROD_PROJECT_NAME
+    staging_location = firehook_resources.PROD_BEAM_STAGING_LOCATION
+    temp_location = firehook_resources.PROD_BEAM_TEMP_LOCATION
+    output_bucket = firehook_resources.PROD_OUTPUT_BUCKET
 
-  return beam_tables.ScanDataBeamPipelineRunner(
-      project_name, firehook_resources.INPUT_BUCKET,
-      firehook_resources.BEAM_STAGING_LOCATION,
-      firehook_resources.BEAM_TEMP_LOCATION, metadata_chooser_factory)
+  return beam_tables.ScanDataBeamPipelineRunner(project_name,
+                                                firehook_resources.INPUT_BUCKET,
+                                                staging_location, temp_location,
+                                                output_bucket,
+                                                metadata_chooser_factory)
 
 
 def main(parsed_args: argparse.Namespace) -> None:

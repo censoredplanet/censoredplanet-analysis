@@ -201,7 +201,7 @@ def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
       runner='DirectRunner',
       job_name=JOB_NAME,
       project=firehook_resources.DEV_PROJECT_NAME,
-      temp_location=firehook_resources.BEAM_TEMP_LOCATION)
+      temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION)
 
 
 def run_local_pipeline(scan_type: str, incremental: bool) -> None:
