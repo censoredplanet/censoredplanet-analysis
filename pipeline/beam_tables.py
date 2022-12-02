@@ -341,22 +341,24 @@ def _custom_file_naming(suffix: Optional[str] = None) -> Callable:
 class ScanDataBeamPipelineRunner():
   """A runner to collect cloud values and run a corrosponding beam pipeline."""
 
-  def __init__(self, project: str, bucket: str, staging_location: str,
-               temp_location: str,
+  def __init__(self, project: str, input_bucket: str, staging_location: str,
+               temp_location: str, output_bucket: str,
                metadata_chooser_factory: IpMetadataChooserFactory) -> None:
     """Initialize a pipeline runner.
 
     Args:
       project: google cluod project name
-      bucket: gcs bucket name
+      input_bucket: gcs bucket name
       staging_location: gcs bucket name, used for staging beam data
       temp_location: gcs bucket name, used for temp beam data
+      output_bucket: gcs bucket name, used when writing to GCS (instead of bq)
       metadata_chooser: factory to create a metadata chooser
     """
     self.project = project
-    self.bucket = bucket
+    self.input_bucket = input_bucket
     self.staging_location = staging_location
     self.temp_location = temp_location
+    self.output_bucket = output_bucket
     self.metadata_adder = MetadataAdder(metadata_chooser_factory)
 
   def _get_full_table_name(self, table_name: str) -> str:
@@ -413,7 +415,7 @@ class ScanDataBeamPipelineRunner():
       files_to_load = SCAN_FILES
 
     # Filepath like `gs://firehook-scans/echo/**/*'
-    files_regex = f'{self.bucket}{scan_type}/**/*'
+    files_regex = f'{self.input_bucket}{scan_type}/**/*'
     file_metadata = [m.metadata_list for m in gcs.match([files_regex])][0]
 
     filepaths = [metadata.path for metadata in file_metadata]

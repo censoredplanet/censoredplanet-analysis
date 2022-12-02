@@ -83,7 +83,7 @@ class PipelineMainTest(unittest.TestCase):
   def test_get_full_table_name(self) -> None:
     project = 'firehook-censoredplanet'
     runner = beam_tables.ScanDataBeamPipelineRunner(
-        project, '', '', '', FakeIpMetadataChooserFactory())
+        project, '', '', '', '', FakeIpMetadataChooserFactory())
 
     full_name = runner._get_full_table_name('prod.echo_scan')
     self.assertEqual(full_name, 'firehook-censoredplanet:prod.echo_scan')

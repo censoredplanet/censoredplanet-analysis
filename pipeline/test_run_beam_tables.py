@@ -32,6 +32,7 @@ class RunBeamTablesTest(unittest.TestCase):
   def test_run_single_pipelines(self) -> None:
     """Test running a single dated pipeline."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+    mock_runner.output_bucket = 'firehook-test'
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
                                            datetime.date(2020, 1, 1),
@@ -56,6 +57,7 @@ class RunBeamTablesTest(unittest.TestCase):
   def test_run_parallel_pipelines(self) -> None:
     """Test running two pipelines in parallel."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+    mock_runner.output_bucket = 'firehook-test'
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'laplante',
                                            ['http', 'https'], False, None, None,
@@ -82,6 +84,7 @@ class RunBeamTablesTest(unittest.TestCase):
   def test_main_prod(self) -> None:
     """Test arg parsing for prod pipelines."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+    mock_runner.output_bucket = 'firehook-test'
 
     with patch('pipeline.run_beam_tables.get_beam_pipeline_runner',
                lambda _: mock_runner):
@@ -136,6 +139,7 @@ class RunBeamTablesTest(unittest.TestCase):
   def test_main_user_dates(self) -> None:
     """Test arg parsing for a user pipeline with dates."""
     mock_runner = MagicMock(beam_tables.ScanDataBeamPipelineRunner)
+    mock_runner.output_bucket = 'firehook-test'
 
     with patch('pipeline.run_beam_tables.get_beam_pipeline_runner',
                lambda _: mock_runner):
