@@ -16,7 +16,10 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   CASE
     WHEN STARTS_WITH(outcome, "setup/") THEN CONCAT("❔", outcome)
     WHEN STARTS_WITH(outcome, "unknown/") THEN CONCAT("❔", outcome)
+    WHEN STARTS_WITH(outcome, "dial/") THEN CONCAT("❔", outcome)
     WHEN STARTS_WITH(outcome, "expected/") THEN CONCAT("✅", SUBSTR(outcome, 10))
+    WHEN STARTS_WITH(outcome, "content/blockpage") THEN CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "content") THEN CONCAT("❓", outcome)
     ELSE CONCAT("❗️", outcome)
   END
 );
@@ -75,6 +78,7 @@ SELECT
     CASE
         WHEN (STARTS_WITH(outcome, "✅")) THEN 0
         WHEN (STARTS_WITH(outcome, "❗️")) THEN count
+        WHEN (STARTS_WITH(outcome, "❓")) THEN count
         WHEN (STARTS_WITH(outcome, "❔")) THEN NULL
     END AS unexpected_count
     FROM Grouped
