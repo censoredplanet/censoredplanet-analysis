@@ -133,6 +133,23 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
 );
 
 
+# When some roundtrips in the DNS scans fail they retry.
+# These retried are identified in bigquery by having the same measurement id
+# Once a roundtrip succeeds we stop retrying
+# To avoid overcounting retries (ex: measuring x4 timeouts on failure but only x1 success when succeeding)
+# We only want to include the last retry in any set
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids`
+# More correctly this would be by source, but we can't partition on strings
+PARTITION BY date
+AS (
+  SELECT date,
+         measurement_id,
+         MAX(retry) AS retry
+  FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
+  GROUP BY date, measurement_id
+);
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -153,7 +170,7 @@ OPTIONS (
 AS (
 WITH Grouped AS (
     SELECT
-        date,
+        a.date AS date,
 
         # As per https://docs.censoredplanet.org/dns.html#id2, some resolvers are named `special` instead of the real hostname.
         IF(resolver_name="special","special",NET.REG_DOMAIN(resolver_name)) as reg_hostname,
@@ -168,13 +185,16 @@ WITH Grouped AS (
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
         
         COUNT(1) AS count
-    FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
+    FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
+    # Only include the last measurement in any set of retries
+    JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
+      ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
           AND NOT BadResolver(resolver_connect_error_rate,
                               resolver_invalid_cert_rate,
                               resolver_non_zero_rcode_rate)
-    GROUP BY date, hostname, country_code, network, subnetwork, outcome, domain, category
+    GROUP BY a.date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "setup/")
 )
@@ -196,6 +216,7 @@ SELECT
     WHERE country_code IS NOT NULL
 );
 
+DROP TABLE `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids`;
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
