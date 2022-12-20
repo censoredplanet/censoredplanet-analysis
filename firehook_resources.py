@@ -17,10 +17,8 @@ PROD_PROJECT_NAME = 'censoredplanet-analysisv1'
 DEV_PROJECT_NAME = 'firehook-censoredplanet'
 
 # Buckets that store scanfiles
-U_MICH_BUCKET = 'censoredplanetscanspublic'
-TARRED_BUCKET = 'firehook-censoredplanetscanspublic'
-UNTARRED_BUCKET = 'firehook-scans'
-INPUT_BUCKET = f'gs://{UNTARRED_BUCKET}/'
+SCAN_BUCKET = 'censoredplanetscanspublic'
+INPUT_BUCKET = f'gs://{SCAN_BUCKET}/'
 
 # Buckets that store METADATA information
 # TODO change this bucket name to something metadata related.
