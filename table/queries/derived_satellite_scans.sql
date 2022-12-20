@@ -34,7 +34,7 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN REGEXP_CONTAINS(error, '"Err": {}') THEN "❓read/udp.timeout"
     WHEN REGEXP_CONTAINS(error, '"Err": 90') THEN "❗️read/dns.msgsize"
     WHEN REGEXP_CONTAINS(error, '"Err": 111') THEN "❗️read/udp.refused"
-    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "❗️read/ip.host_no_route"
+    WHEN REGEXP_CONTAINS(error, '"Err": 113') THEN "❔read/ip.host_no_route"
     WHEN REGEXP_CONTAINS(error, '"Err": 24') THEN "❔setup/system_failure" # Too many open files
     WHEN error = "{}" THEN "❗️dns/unknown" # TODO figure out origin
     WHEN error = "no_answer" THEN "❗️dns/answer:no_answer"
@@ -42,7 +42,7 @@ CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
     WHEN ENDS_WITH(error, "i/o timeout") THEN "❓read/udp.timeout"
     WHEN ENDS_WITH(error, "message too long") THEN "❗️read/dns.msgsize"
     WHEN ENDS_WITH(error, "connection refused") THEN "❗️read/udp.refused"
-    WHEN ENDS_WITH(error, "no route to host") THEN "❗️read/ip.host_no_route"
+    WHEN ENDS_WITH(error, "no route to host") THEN "❔read/ip.host_no_route"
     WHEN ENDS_WITH(error, "short read") THEN "❗️read/dns.msgsize"
     WHEN ENDS_WITH(error, "read: protocol error") THEN "❗️read/protocol_error"
     WHEN ENDS_WITH(error, "socket: too many open files") THEN "❔setup/system_failure"
