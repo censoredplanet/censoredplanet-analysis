@@ -4,6 +4,8 @@ apache-beam[gcp]==2.38.0
 geoip2==4.1.0
 # Imports GCS client needed for beam
 google-apitools==0.5.31
+# Setting core to avoid version conflict
+google-api-core==1.33.2
 google-api-python-client==1.12.8
 google-api-python-client-stubs==0.3.0
 google-cloud-bigquery==1.28.0
