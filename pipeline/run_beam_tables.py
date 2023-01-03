@@ -101,17 +101,22 @@ def get_beam_pipeline_runner(
   # importing here to avoid beam pickling issues
   import firehook_resources  # pylint: disable=import-outside-toplevel
 
-  metadata_chooser_factory = IpMetadataChooserFactory(
-      firehook_resources.CAIDA_FILE_LOCATION,
-      firehook_resources.MAXMIND_FILE_LOCATION,
-      firehook_resources.DBIP_FILE_LOCATION)
-
   if env in ('dev', 'user'):
+    metadata_chooser_factory = IpMetadataChooserFactory(
+        firehook_resources.DEV_CAIDA_FILE_LOCATION,
+        firehook_resources.DEV_MAXMIND_FILE_LOCATION,
+        firehook_resources.DEV_DBIP_FILE_LOCATION)
+
     project_name = firehook_resources.DEV_PROJECT_NAME
     staging_location = firehook_resources.DEV_BEAM_STAGING_LOCATION
     temp_location = firehook_resources.DEV_BEAM_TEMP_LOCATION
     output_bucket = firehook_resources.DEV_OUTPUT_BUCKET
   if env == 'prod':
+    metadata_chooser_factory = IpMetadataChooserFactory(
+        firehook_resources.PROD_CAIDA_FILE_LOCATION,
+        firehook_resources.PROD_MAXMIND_FILE_LOCATION,
+        firehook_resources.PROD_DBIP_FILE_LOCATION)
+
     project_name = firehook_resources.PROD_PROJECT_NAME
     staging_location = firehook_resources.PROD_BEAM_STAGING_LOCATION
     temp_location = firehook_resources.PROD_BEAM_TEMP_LOCATION

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Bulk importer for CAIDA routeview files."""
 
+import argparse
 import datetime
 import urllib.request
 
@@ -78,12 +79,30 @@ def download_days_routeview(bucket: storage.bucket.Bucket,
         raise ex
 
 
-def download_manual_routeviews_firehook() -> None:
+def download_manual_routeviews_firehook(env: str) -> None:
+  """Download routeviews for a given project
+
+  Args:
+    env: one of 'dev' or 'prod', which gcloud project env to use.
+  """
   client = storage.Client()
-  bucket = client.get_bucket(firehook_resources.METADATA_BUCKET)
+  if env == 'dev':
+    bucket = client.get_bucket(firehook_resources.DEV_METADATA_BUCKET)
+  if env == 'prod':
+    bucket = client.get_bucket(firehook_resources.PROD_METADATA_BUCKET)
 
   download_manual_routeviews(bucket)
 
 
 if __name__ == "__main__":
-  download_manual_routeviews_firehook()
+  parser = argparse.ArgumentParser(
+      description='Manually download routeview files for project.')
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to write to prod or dev gcloud project')
+  args = parser.parse_args()
+
+  download_manual_routeviews_firehook(args.env)

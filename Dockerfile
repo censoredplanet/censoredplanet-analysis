@@ -18,6 +18,9 @@ FROM python:3.8-buster
 # Allow statements and log messages to immediately appear in the Knative logs
 ENV PYTHONUNBUFFERED True
 
+# Define env variable to be passed in by deploy.sh
+ENV PIPELINE_ENV change_me
+
 # Copy local code to the container image.
 ENV APP_HOME /app
 WORKDIR $APP_HOME
@@ -25,4 +28,4 @@ COPY . ./
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT python3 schedule_pipeline.py
+ENTRYPOINT python3 schedule_pipeline.py --env=${PIPELINE_ENV}

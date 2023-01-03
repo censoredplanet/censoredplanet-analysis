@@ -16,6 +16,7 @@
 This script is means to be run on a GCE machine.
 To deploy to GCE use the deploy.sh script.
 """
+import argparse
 import subprocess
 import sys
 import time
@@ -29,10 +30,14 @@ from table.run_queries import rebuild_all_tables
 import firehook_resources
 
 
-def run_pipeline() -> None:
-  """Steps of the pipeline to run nightly."""
+def run_pipeline(env: str) -> None:
+  """Steps of the pipeline to run nightly.
+
+  Args:
+    env: one of 'dev' or 'prod', which gcloud project env to use.
+  """
   try:
-    get_firehook_routeview_mirror().sync()
+    get_firehook_routeview_mirror(env).sync()
     get_censoredplanet_mirror().sync()
 
     # This is a very weird hack.
@@ -43,24 +48,31 @@ def run_pipeline() -> None:
     # which in our case requires packaging up many google cloud packages
     # which is slow (hangs basic worker machines) and wasteful.
     subprocess.run([
-        sys.executable, '-m', 'pipeline.run_beam_tables', '--env=dev',
+        sys.executable, '-m', 'pipeline.run_beam_tables', f'--env={env}',
         '--scan_type=all'
     ],
                    check=True,
                    stdout=subprocess.PIPE)
 
-    # TODO update this to prod once we move the queries from the dev project.
-    rebuild_all_tables(firehook_resources.DEV_PROJECT_NAME)
+    if env == 'dev':
+      rebuild_all_tables(firehook_resources.DEV_PROJECT_NAME)
+    if env == 'prod':
+      rebuild_all_tables(firehook_resources.PROD_PROJECT_NAME)
   except Exception:
     # If something goes wrong also log to GCP error console.
     error_reporting.Client().report_exception()
     raise
 
 
-def run() -> None:
-  run_pipeline()  # run once when starting to catch new errors when deploying
+def run(env: str) -> None:
+  """Steps of the pipeline to run nightly.
 
-  schedule.every().day.at('04:00').do(run_pipeline)
+  Args:
+    env: one of 'dev' or 'prod', which gcloud project env to use.
+  """
+  run_pipeline(env)  # run once when starting to catch new errors when deploying
+
+  schedule.every().day.at('04:00').do(run_pipeline, env)
 
   while True:
     schedule.run_pending()
@@ -70,4 +82,14 @@ def run() -> None:
 
 
 if __name__ == '__main__':
-  run()
+  parser = argparse.ArgumentParser(
+      description='Schedule a nightly pipeline run.')
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to write to prod or dev gcloud project')
+  args = parser.parse_args()
+
+  run(args.env)

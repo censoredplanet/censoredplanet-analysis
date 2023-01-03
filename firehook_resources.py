@@ -16,17 +16,22 @@
 PROD_PROJECT_NAME = 'censoredplanet-analysisv1'
 DEV_PROJECT_NAME = 'firehook-censoredplanet'
 
-# Buckets that store scanfiles
+# Bucket that stores scanfiles
 SCAN_BUCKET = 'censoredplanetscanspublic'
 INPUT_BUCKET = f'gs://{SCAN_BUCKET}/'
 
-# Buckets that store METADATA information
-# TODO change this bucket name to something metadata related.
-METADATA_BUCKET = 'censoredplanet_geolocation'
 ROUTEVIEW_PATH = 'caida/routeviews/'
-CAIDA_FILE_LOCATION = f'gs://{METADATA_BUCKET}/caida/'
-MAXMIND_FILE_LOCATION = f'gs://{METADATA_BUCKET}/maxmind/'
-DBIP_FILE_LOCATION = f'gs://{METADATA_BUCKET}/dbip/'
+
+# Buckets that store METADATA information
+DEV_METADATA_BUCKET = 'censoredplanet_geolocation'
+DEV_CAIDA_FILE_LOCATION = f'gs://{DEV_METADATA_BUCKET}/caida/'
+DEV_MAXMIND_FILE_LOCATION = f'gs://{DEV_METADATA_BUCKET}/maxmind/'
+DEV_DBIP_FILE_LOCATION = f'gs://{DEV_METADATA_BUCKET}/dbip/'
+
+PROD_METADATA_BUCKET = 'censoredplanet_ip_metadata'
+PROD_CAIDA_FILE_LOCATION = f'gs://{PROD_METADATA_BUCKET}/caida/'
+PROD_MAXMIND_FILE_LOCATION = f'gs://{PROD_METADATA_BUCKET}/maxmind/'
+PROD_DBIP_FILE_LOCATION = f'gs://{PROD_METADATA_BUCKET}/dbip/'
 
 # Output GCS Buckets
 DEV_OUTPUT_BUCKET = 'firehook-test'
