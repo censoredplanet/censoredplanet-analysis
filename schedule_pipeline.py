@@ -23,7 +23,6 @@ import time
 from google.cloud import error_reporting  # type: ignore
 import schedule
 
-from mirror.untar_files.sync_files import get_firehook_scanfile_mirror
 from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from mirror.internal.sync import get_censoredplanet_mirror
 from table.run_queries import rebuild_all_tables
@@ -33,7 +32,6 @@ import firehook_resources
 def run_pipeline() -> None:
   """Steps of the pipeline to run nightly."""
   try:
-    get_firehook_scanfile_mirror().sync()
     get_firehook_routeview_mirror().sync()
     get_censoredplanet_mirror().sync()
 
