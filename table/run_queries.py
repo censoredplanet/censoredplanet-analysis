@@ -60,7 +60,7 @@ def rebuild_all_tables(project_name: str,
   """
   client = cloud_bigquery.Client(project=project_name)
 
-  for filepath in glob.glob('table/queries/*.sql'):
+  for filepath in glob.glob('table/queries/merged_reduced_scans.sql'):
     try:
       _run_query(client, filepath, project_name, base_dataset, derived_dataset)
     except Exception as ex:

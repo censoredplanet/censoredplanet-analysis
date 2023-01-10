@@ -29,7 +29,7 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_with_mids`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
@@ -61,11 +61,12 @@ WITH AllScans AS (
         AddOutcomeEmoji(outcome) AS outcome,
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IFNULL(domain_category, "Uncategorized") AS category,
+        IF(domain_is_control OR domain = 'example.com', ARRAY<STRING>[], ARRAY_AGG(DISTINCT measurement_id IGNORE NULLS)) as measurement_ids,
         COUNT(*) AS count
     FROM AllScans
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, outcome, domain_is_control, domain, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "❔setup/")
 )
