@@ -333,12 +333,14 @@ class FakeCaidaIpMetadata(CaidaIpMetadata):
 
 
 def get_firehook_caida_ip_metadata_db(
+    env: str,
     date: datetime.date,
     allow_previous_day: bool = False,
 ) -> CaidaIpMetadata:
   """Factory to return an CaidaIpMetadata object which reads in firehook files.
 
   Args:
+    env: one of 'dev' or 'prod' which gcloud project env to use.
     date: a date to initialize the asn database to
     allow_previous_day: If the given date's routeview file doesn't exist, allow
       the one from the previous day instead. This is useful when processing very
@@ -349,5 +351,9 @@ def get_firehook_caida_ip_metadata_db(
   """
   # import here to avoid beam pickling issues
   import firehook_resources  # pylint: disable=import-outside-toplevel
-  return CaidaIpMetadata(date, firehook_resources.CAIDA_FILE_LOCATION,
-                         allow_previous_day)
+  if env == 'dev':
+    file_location = firehook_resources.DEV_CAIDA_FILE_LOCATION
+  if env == 'prod':
+    file_location = firehook_resources.DEV_CAIDA_FILE_LOCATION
+
+  return CaidaIpMetadata(date, file_location, allow_previous_day)

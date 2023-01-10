@@ -13,6 +13,7 @@
 # limitations under the License.
 """Mirror the latest CAIDA routeview files into a cloud bucket."""
 
+import argparse
 import os
 import pathlib
 from pprint import pprint
@@ -110,14 +111,31 @@ class RouteviewMirror():
       pprint(("transferred file: ", new_file))
 
 
-def get_firehook_routeview_mirror() -> RouteviewMirror:
-  """Factory function to get a RouteviewUpdater with our project values."""
+def get_firehook_routeview_mirror(env: str) -> RouteviewMirror:
+  """Factory function to get a RouteviewUpdater with our project values.
+
+  Args:
+    env: one of 'dev' or 'prod' which gcloud project env to use.
+  """
   client = storage.Client()
-  bucket = client.get_bucket(firehook_resources.METADATA_BUCKET)
+  if env == 'dev':
+    bucket = client.get_bucket(firehook_resources.DEV_METADATA_BUCKET)
+  if env == 'prod':
+    bucket = client.get_bucket(firehook_resources.PROD_METADATA_BUCKET)
 
   return RouteviewMirror(bucket, firehook_resources.ROUTEVIEW_PATH)
 
 
 if __name__ == "__main__":
   # Called manually when running a backfill.
-  get_firehook_routeview_mirror().sync()
+  parser = argparse.ArgumentParser(
+      description='Download latest routeview files.')
+  parser.add_argument(
+      '--env',
+      type=str,
+      default='dev',
+      choices=['dev', 'prod'],
+      help='Whether to write to prod or dev gcloud project')
+  args = parser.parse_args()
+
+  get_firehook_routeview_mirror(args.env).sync()

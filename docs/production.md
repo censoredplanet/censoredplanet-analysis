@@ -11,24 +11,32 @@ There are two main top-level pieces of the pipeline
 This sets up a daily data transfer job to copy scan files from the Censored
 Planet cloud bucket to an internal bucket.
 
- `python -m schedule_pipeline`
+ `python -m schedule_pipeline --env=dev`
 
 This does some additional daily data processing and schedules a daily
 incremental Apache Beam pipeline over the data. It expects to be run via a
 Docker container on a GCE machine.
 
- `./deploy.sh dev`
+ `./deploy.sh deploy prod`
 
 Will deploy the main pipeline loop to a GCE machine. If the machine does not
 exist it will be created, if it does exist it will be updated.
+
+To deploy to the dev project run
+
+ `./deploy.sh deploy dev`
 
 ## Turning off the Automated Pipeline
 
 So stop running the automated pipeline run
 
- `./deploy.sh delete`
+ `./deploy.sh delete prod`
 
 Which will delete the GCE machine
+
+To stop running the dev project run
+
+ `./deploy.sh delete dev`
 
 ## Running Manually
 
@@ -89,15 +97,20 @@ fail because of a schema mismatch.
 Here are the steps to run a backfill:
 
 *    Checkout master and make sure you're synced to the latest changes.
-*    `./deploy.sh delete` turn off the nightly pipeline so it doesn't conflict
-     with the backfill
+*    `./deploy.sh delete dev` and `./deploy.sh delete prod` turn off the nightly
+     pipeline so it doesn't conflict with the backfill.
 *    `python -m pipeline.run_beam_tables --env=dev --scan_type=all --full` to
      run manual backfill jobs, this can take several hours.
 *    Make sure a job is running for each scan type in dataflow. If some scan
      types didn't take then re-run them by hand.
 *    Check if the backfill worked the next day
-*    if so run `./deploy.sh dev` at head to turn the pipeline back on with
-     the new code
+*    If so copy the new base tables from dev to prod by running:
+*    ```bq mk --transfer_config --project_id=669508427087 \
+     --data_source=cross_region_copy --target_dataset=base \
+     --display_name="base tables" \
+     --params='{"source_dataset_id":"base","source_project_id":"firehook-censoredplanet","overwrite_destination_table":"true"}'```
+*    Redeploy `./deploy.sh deploy dev` and `./deploy.sh deploy prod` at head
+     to turn the pipeline back on with the new code.
 
 ## Access
 

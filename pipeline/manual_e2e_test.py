@@ -669,7 +669,7 @@ class PipelineManualE2eTest(unittest.TestCase):
   def test_ipmetadata_init(self) -> None:
     """Test getting getting routeview metadata from prod."""
     caida_ip_metadata_db = caida_ip_metadata.get_firehook_caida_ip_metadata_db(
-        datetime.date(2018, 7, 27))
+        'dev', datetime.date(2018, 7, 27))
 
     metadata = caida_ip_metadata_db.lookup('1.1.1.1')
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET',
@@ -690,7 +690,7 @@ class PipelineManualE2eTest(unittest.TestCase):
   def test_maxmind_init(self) -> None:
     """Test getting maxmind metadata from prod."""
     maxmind_db = maxmind.MaxmindIpMetadata(
-        firehook_resources.MAXMIND_FILE_LOCATION)
+        firehook_resources.DEV_MAXMIND_FILE_LOCATION)
 
     metadata = maxmind_db.lookup('1.1.1.1')
     self.assertEqual(metadata, ('1.1.1.0/24', 13335, 'CLOUDFLARENET', 'AU'))
@@ -705,7 +705,7 @@ class PipelineManualE2eTest(unittest.TestCase):
 
   def test_dbip_init(self) -> None:
     """Test DBIP database access from prod."""
-    dbip_data = dbip.DbipMetadata(firehook_resources.DBIP_FILE_LOCATION)
+    dbip_data = dbip.DbipMetadata(firehook_resources.DEV_DBIP_FILE_LOCATION)
 
     (org, asn) = dbip_data.lookup('1.211.95.160')
     self.assertEqual(org, "Boranet")
