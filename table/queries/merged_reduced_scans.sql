@@ -20,8 +20,9 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
     WHEN STARTS_WITH(outcome, "read/system") THEN CONCAT("❔", outcome)
     WHEN STARTS_WITH(outcome, "expected/") THEN CONCAT("✅", SUBSTR(outcome, 10))
     WHEN STARTS_WITH(outcome, "content/blockpage") THEN CONCAT("❗️", outcome)
-    WHEN STARTS_WITH(outcome, "content") THEN CONCAT("❓", outcome)
-    ELSE CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "read/") THEN CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "write/") THEN CONCAT("❗️", outcome)
+    ELSE CONCAT("❓", outcome)
   END
 );
 
