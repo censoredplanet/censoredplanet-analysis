@@ -96,7 +96,10 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                                    rcode INTEGER,
                                    answers ANY TYPE) AS (
     CASE 
-        WHEN dns_error is NOT NULL AND dns_error != "" AND dns_error != "null" THEN ClassifySatelliteError(dns_error)
+        WHEN (dns_error is NOT NULL
+              AND dns_error != ""
+              AND dns_error != "null"
+              AND dns_error != "SERVFAIL") THEN ClassifySatelliteError(dns_error)
         # TODO fix -1 rcodes in v1 data in the pipeline
         WHEN rcode = -1 THEN "⚠️read/udp.timeout"
         WHEN rcode != 0 THEN ClassifySatelliteRCode(rcode)
