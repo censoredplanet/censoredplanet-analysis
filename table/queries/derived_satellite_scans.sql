@@ -154,10 +154,10 @@ AS (
 
 
 # Get all domains that have even a single valid HTTPS certificate resolution per scan
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.https_capable_domains`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
 AS (
   SELECT domain, source
-  FROM `firehook-censoredplanet.base.satellite_scan`,
+  FROM `PROJECT_NAME.base.satellite_scan`,
        UNNEST(answers) as a
   WHERE a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
   GROUP BY domain, source
@@ -172,7 +172,7 @@ AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_only_vetted_all`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -200,7 +200,7 @@ WITH Grouped AS (
         
         COUNT(1) AS count
     FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
-         INNER JOIN `firehook-censoredplanet.DERIVED_DATASET.https_capable_domains`
+         INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
          USING (domain, source)
     # Only include the last measurement in any set of retries
     JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
@@ -233,6 +233,7 @@ SELECT
 );
 
 DROP TABLE `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids`;
+DROP TABLE `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`;
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
