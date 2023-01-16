@@ -16,8 +16,13 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   CASE
     WHEN STARTS_WITH(outcome, "setup/") THEN CONCAT("❔", outcome)
     WHEN STARTS_WITH(outcome, "unknown/") THEN CONCAT("❔", outcome)
+    WHEN STARTS_WITH(outcome, "dial/") THEN CONCAT("❔", outcome)
+    WHEN STARTS_WITH(outcome, "read/system") THEN CONCAT("❔", outcome)
     WHEN STARTS_WITH(outcome, "expected/") THEN CONCAT("✅", SUBSTR(outcome, 10))
-    ELSE CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "content/blockpage") THEN CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "read/") THEN CONCAT("❗️", outcome)
+    WHEN STARTS_WITH(outcome, "write/") THEN CONCAT("❗️", outcome)
+    ELSE CONCAT("❓", outcome)
   END
 );
 
@@ -67,7 +72,8 @@ WITH AllScans AS (
     WHERE NOT controls_failed
     GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
-    HAVING NOT STARTS_WITH(outcome, "❔setup/")
+    HAVING (NOT STARTS_WITH(outcome, "❔setup/")
+            AND NOT outcome = "❔read/system")
 )
 SELECT
     Grouped.* EXCEPT (country_code),
@@ -75,6 +81,7 @@ SELECT
     CASE
         WHEN (STARTS_WITH(outcome, "✅")) THEN 0
         WHEN (STARTS_WITH(outcome, "❗️")) THEN count
+        WHEN (STARTS_WITH(outcome, "❓")) THEN count
         WHEN (STARTS_WITH(outcome, "❔")) THEN NULL
     END AS unexpected_count
     FROM Grouped
