@@ -60,14 +60,12 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
     for scan_type in scan_types:
       table_name = None
       gcs_folder = None
-      if export_gcs:
-        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
-                                                runner.output_bucket)
-        job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
-      else:
-        table_name = beam_tables.get_table_name(dataset, scan_type,
-                                                beam_tables.BASE_TABLE_NAME)
-        job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
+      
+      table_name = beam_tables.get_table_name(dataset, scan_type,
+                                              beam_tables.BASE_TABLE_NAME)
+      gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                              runner.output_bucket)
+      job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
                            incremental_load, job_name, table_name, gcs_folder,
