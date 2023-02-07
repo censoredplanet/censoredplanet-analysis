@@ -63,12 +63,13 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       
       table_name = beam_tables.get_table_name(dataset, scan_type,
                                               beam_tables.BASE_TABLE_NAME)
+      table_job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
       gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
                                               runner.output_bucket)
-      job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+      gcs_job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
-                           incremental_load, job_name, table_name, gcs_folder,
+                           incremental_load, table_job_name, table_name, gcs_folder,
                            start_date, end_date, export_gcs)
       futures.append(future)
 
@@ -147,7 +148,7 @@ def main(parsed_args: argparse.Namespace) -> None:
     run_parallel_pipelines(pipeline_runner, parsed_args.user_dataset,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs)
+                           parsed_args.export_gcs, )
   elif parsed_args.env in ('dev', 'prod'):
     run_parallel_pipelines(pipeline_runner, beam_tables.BASE_DATASET_NAME,
                            selected_scan_types, incremental,
@@ -198,6 +199,11 @@ def parse_args() -> argparse.Namespace:
       action='store_true',
       default=False,
       help='Export to Google Cloud Storage instead of BigQuery')
+  parser.add_argument(
+      '--bq_and_gcs',
+      action='store_true',
+      default=False,
+      help='Export to BigQuery and Google Cloud Storage')
   parsed_args = parser.parse_args()
 
   if (parsed_args.env == 'user' and parsed_args.user_dataset is None):

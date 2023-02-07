@@ -37,7 +37,6 @@ from pipeline.metadata import satellite
 from pipeline.metadata.add_metadata import MetadataAdder
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 from pipeline.metadata import sink
-import sys
 
 # Tables have names like 'echo_scan' and 'http_scan
 BASE_TABLE_NAME = 'scan'
@@ -549,7 +548,8 @@ class ScanDataBeamPipelineRunner():
                         gcs_folder: Optional[str],
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date],
-                        export_gcs: bool) -> None:
+                        export_gcs: bool,
+                        bq_and_gcs: bool) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
@@ -577,13 +577,15 @@ class ScanDataBeamPipelineRunner():
       raise Exception('gcs_folder argument required when writing to GCS.')
     if not export_gcs and not table_name:
       raise Exception('table_name argument required when writing to BigQuery.')
+    if bq_and_gcs and not gcs_folder and not table_name:
+      raise Exception('table_name and gcs_folder arguments required when writing to BigQuery and GCS.')
 
     pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
 
     new_filenames = self._data_to_load(gcs, scan_type, incremental_load,
                                        table_name, gcs_folder, start_date,
-                                       end_date)              
+                                       end_date)
     if not new_filenames:
       logging.info('No new files to load')
       return
@@ -604,7 +606,10 @@ class ScanDataBeamPipelineRunner():
 
       # TODO: Eventually we want to be able to run both exports simultaneously
       # so that we can reuse the pipeline output.
-      if export_gcs and gcs_folder is not None:
+      if bq_and_gcs:
+        self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
+        self._write_to_gcs(scan_type, rows, gcs_folder)
+      elif export_gcs and gcs_folder is not None:
         self._write_to_gcs(scan_type, rows, gcs_folder)
       elif table_name is not None:
         self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
