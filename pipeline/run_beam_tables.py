@@ -32,7 +32,8 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
                            incremental_load: bool,
                            start_date: Optional[datetime.date],
                            end_date: Optional[datetime.date],
-                           export_gcs: bool) -> bool:
+                           export_gcs: bool,
+                           bq_and_gcs: bool) -> bool:
   """Runs beam pipelines for different scan types in parallel.
 
   Args:
@@ -61,16 +62,28 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       table_name = None
       gcs_folder = None
       
-      table_name = beam_tables.get_table_name(dataset, scan_type,
+      if bq_and_gcs:
+        # Maybe create a new job name for this option?
+        table_name = beam_tables.get_table_name(dataset, scan_type,
                                               beam_tables.BASE_TABLE_NAME)
-      table_job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
-      gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
-                                              runner.output_bucket)
-      gcs_job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+        #table_job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
+        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                runner.output_bucket)
+        #gcs_job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+        job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+      else:
+        if export_gcs:
+          gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+                                                  runner.output_bucket)
+          job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+        else:
+          table_name = beam_tables.get_table_name(dataset, scan_type,
+                                                  beam_tables.BASE_TABLE_NAME)
+          job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
-                           incremental_load, table_job_name, table_name, gcs_folder,
-                           start_date, end_date, export_gcs)
+                           incremental_load, job_name, table_name, gcs_folder,
+                           start_date, end_date, export_gcs, bq_and_gcs)
       futures.append(future)
 
     finished, pending = concurrent.futures.wait(
@@ -148,12 +161,12 @@ def main(parsed_args: argparse.Namespace) -> None:
     run_parallel_pipelines(pipeline_runner, parsed_args.user_dataset,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs, )
+                           parsed_args.export_gcs, parsed_args.bq_and_gcs)
   elif parsed_args.env in ('dev', 'prod'):
     run_parallel_pipelines(pipeline_runner, beam_tables.BASE_DATASET_NAME,
                            selected_scan_types, incremental,
                            parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs)
+                           parsed_args.export_gcs, parsed_args.bq_and_gcs)
 
 
 def parse_args() -> argparse.Namespace:
