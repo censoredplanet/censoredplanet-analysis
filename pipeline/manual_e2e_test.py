@@ -512,11 +512,19 @@ class PipelineManualE2eTest(unittest.TestCase):
       written_rows = get_bq_rows(client, bq_table_names)
       self.assertEqual(len(written_rows), 57)
 
+      run_queries.rebuild_hyperquack_table(firehook_resources.DEV_PROJECT_NAME,
+                                           BEAM_TEST_BASE_DATASET,
+                                           BEAM_TEST_BASE_DATASET)
+
       for scan_type in HYPERQUACK_SCAN_TYPES:
         run_local_pipeline(scan_type, True)
 
       written_rows = get_bq_rows(client, bq_table_names)
       self.assertEqual(len(written_rows), 110)
+
+      run_queries.append_hyperquack_table(firehook_resources.DEV_PROJECT_NAME,
+                                          BEAM_TEST_BASE_DATASET,
+                                          BEAM_TEST_BASE_DATASET)
 
       # Domain appear different numbers of times in the test table depending on
       # how their measurement succeeded/failed.
@@ -570,19 +578,6 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
 
-      client = cloud_bigquery.Client(
-          project=firehook_resources.DEV_PROJECT_NAME)
-      # pylint: disable=protected-access
-      # Write derived table
-      run_queries._run_query(
-          client,
-          'table/queries/merged_reduced_scans.sql',
-          firehook_resources.DEV_PROJECT_NAME,
-          BEAM_TEST_BASE_DATASET,
-          BEAM_TEST_BASE_DATASET,
-      )
-      # pylint: enable=protected-access
-
       written_derived_rows = get_bq_rows(client, [derived_table_name])
       self.assertEqual(len(written_derived_rows), 53)
       expected_domains = (['CONTROL'] + expected_single_domains +
@@ -605,8 +600,17 @@ class PipelineManualE2eTest(unittest.TestCase):
 
     try:
       run_local_pipeline_satellite_v1()
+
+      run_queries.rebuild_satellite_table(firehook_resources.DEV_PROJECT_NAME,
+                                          BEAM_TEST_BASE_DATASET,
+                                          BEAM_TEST_BASE_DATASET)
+
       # contains v2p1 and v2p2
       run_local_pipeline_satellite_v2()
+
+      run_queries.append_satellite_table(firehook_resources.DEV_PROJECT_NAME,
+                                         BEAM_TEST_BASE_DATASET,
+                                         BEAM_TEST_BASE_DATASET)
 
       written_rows = get_bq_rows(client,
                                  [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
@@ -634,19 +638,6 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       self.assertListEqual(
           sorted(written_domains), sorted(all_expected_domains))
-
-      client = cloud_bigquery.Client(
-          project=firehook_resources.DEV_PROJECT_NAME)
-      # pylint: disable=protected-access
-      # Write derived table
-      run_queries._run_query(
-          client,
-          'table/queries/derived_satellite_scans.sql',
-          firehook_resources.DEV_PROJECT_NAME,
-          BEAM_TEST_BASE_DATASET,
-          BEAM_TEST_BASE_DATASET,
-      )
-      # pylint: enable=protected-access
 
       written_derived_rows = get_bq_rows(client, [derived_table_name])
       self.assertEqual(len(written_derived_rows), 1)
