@@ -403,17 +403,22 @@ class ScanDataBeamPipelineRunner():
                                                         self.project)
         gcs_existing_sources = _get_existing_gcs_datasources(
             gcs_folder, self.project)
+        table_set = set(table_existing_sources)
+        gcs_set = set(gcs_existing_sources)
+        if table_set != gcs_set:
+          raise Exception('Files in the dataset table and the GCS folder differ, aborting')
+        existing_sources = table_existing_sources
+      elif table_name:
+        full_table_name = self._get_full_table_name(table_name)
+        existing_sources = _get_existing_bq_datasources(full_table_name,
+                                                        self.project)
+      elif gcs_folder:
+        existing_sources = _get_existing_gcs_datasources(
+            gcs_folder, self.project)
       else:
-        raise Exception('Both table_name and gcs_folder arguments are required.')
+        raise Exception('Either table_name or gcs_folder argument is required.')
     else:
       existing_sources = []
-
-    table_set = set(table_existing_sources)
-    gcs_set = set(gcs_existing_sources)
-    if table_set != gcs_set:
-      raise Exception('Files in the dataset table and the GCS folder differ, aborting')
-    
-    existing_sources = table_existing_sources
 
     if scan_type == schema.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES

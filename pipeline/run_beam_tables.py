@@ -48,6 +48,8 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       Mostly only used during development.
     export_gcs: boolean. If true, write to Google Cloud Storage, if false
       write to BigQuery.
+    bq_and_gcs: boolean. If true, write to BigQuery and Google Cloud Storage, if 
+      false check export_gcs flag.
 
   Returns:
     True on success
@@ -63,13 +65,10 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       gcs_folder = None
       
       if bq_and_gcs:
-        # Maybe create a new job name for this option?
         table_name = beam_tables.get_table_name(dataset, scan_type,
                                               beam_tables.BASE_TABLE_NAME)
-        #table_job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
         gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
                                                 runner.output_bucket)
-        #gcs_job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:
         if export_gcs:
