@@ -19,6 +19,7 @@ python3 -m table.run_queries
 """
 
 import argparse
+import datetime
 from pprint import pprint
 from typing import List, Optional
 
@@ -38,7 +39,7 @@ DEFAULT_DERIVED_DATASET = 'derived'
 def _run_query(
     client: cloud_bigquery.Client, filepath: str, project_name: str,
     base_dataset: str, derived_dataset: str,
-    earliest_date: Optional[str]) -> cloud_bigquery.table.RowIterator:
+    earliest_date: Optional[datetime.date]) -> cloud_bigquery.table.RowIterator:
   with open(filepath, encoding='utf-8') as sql:
     query = sql.read()
 
@@ -46,7 +47,7 @@ def _run_query(
     query = query.replace(BASE_PLACEHOLDER, base_dataset)
     query = query.replace(DERIVED_PLACEHOLDER, derived_dataset)
     if earliest_date:
-      query = query.replace(EARLIEST_DATE_PLACEHOLDER, earliest_date)
+      query = query.replace(EARLIEST_DATE_PLACEHOLDER, earliest_date.isoformat())
 
     query_job = client.query(query)
   return query_job.result()
@@ -54,7 +55,7 @@ def _run_query(
 
 def _run_scripts(script_filepaths: List[str], project_name: str,
                  base_dataset: str, derived_dataset: str,
-                 earliest_date: Optional[str]) -> None:
+                 earliest_date: Optional[datetime.date]) -> None:
   """Rebuild all the derived bigquery tables from the base table data.
 
   Args:
@@ -104,13 +105,15 @@ def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
   derived_table_name = f'{project_name}.{derived_dataset}.merged_reduced_scans_v2'
   derived_table_dates = _get_all_dates(project_name, derived_table_name)
 
-  missing_dates = list(set(derived_table_dates) - set(all_base_table_dates))
+  missing_dates = list(set(all_base_table_dates) - set(derived_table_dates))
 
   if not missing_dates:
     pprint("Base dates")
     pprint(all_base_table_dates)
     pprint("Derived dates")
     pprint(derived_table_dates)
+    pprint("Missing dates")
+    pprint(missing_dates)
     raise Exception(
         f"All the dates in the base tables at {base_dataset_prefix} already exist in the derived table {derived_table_name}"
     )
