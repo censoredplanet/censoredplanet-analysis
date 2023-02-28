@@ -75,7 +75,7 @@ def _run_scripts(script_filepaths: List[str], project_name: str,
 
 def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
                                           derived_dataset: str) -> str:
-  """Find the earliest date which exists in the base tables but not the derived tables. 
+  """Find the earliest date which exists in the base tables but not the derived tables.
 
   Args:
     project_name: name of gcloud project
@@ -104,9 +104,13 @@ def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
   derived_table_name = f'{project_name}.{derived_dataset}.merged_reduced_scans_v2'
   derived_table_dates = _get_all_dates(project_name, derived_table_name)
 
-  missing_dates = List(set(derived_table_dates) - set(all_base_table_dates))
+  missing_dates = list(set(derived_table_dates) - set(all_base_table_dates))
 
   if not missing_dates:
+    pprint("Base dates")
+    pprint(all_base_table_dates)
+    pprint("Derived dates")
+    pprint(derived_table_dates)
     raise Exception(
         f"All the dates in the base tables at {base_dataset_prefix} already exist in the derived table {derived_table_name}"
     )
@@ -120,6 +124,12 @@ def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
   pprint(earliest_date)
 
   return earliest_date
+
+
+def _get_earliest_missing_date_satellite(project_name: str, base_dataset: str,
+                                         derived_dataset: str) -> str:
+  #TODO fix
+  return "2023-01-01"
 
 
 def _get_all_dates(project_name: str, table_name: str) -> List[str]:
