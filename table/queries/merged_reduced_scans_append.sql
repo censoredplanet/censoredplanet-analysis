@@ -30,23 +30,23 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
 # which will be replaced when running the query
 
 INSERT INTO `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
-AS (
+(
 WITH AllScans AS (
   SELECT * EXCEPT (source), "DISCARD" AS source
   FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
-  WHERE date >= EARLIEST_DATE
+  WHERE date >= 'EARLIEST_DATE'
   UNION ALL
   SELECT * EXCEPT (source), "ECHO" AS source
   FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
-  WHERE date >= EARLIEST_DATE
+  WHERE date >= 'EARLIEST_DATE'
   UNION ALL
   SELECT * EXCEPT (source), "HTTP" AS source
   FROM `PROJECT_NAME.BASE_DATASET.http_scan`
-  WHERE date >= EARLIEST_DATE
+  WHERE date >= 'EARLIEST_DATE'
   UNION ALL
   SELECT * EXCEPT (source), "HTTPS" AS source
   FROM `PROJECT_NAME.BASE_DATASET.https_scan`
-  WHERE date >= EARLIEST_DATE
+  WHERE date >= 'EARLIEST_DATE'
 ), Grouped AS (
     SELECT
         date,

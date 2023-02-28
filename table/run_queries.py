@@ -75,7 +75,7 @@ def _run_scripts(script_filepaths: List[str], project_name: str,
 
 
 def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
-                                          derived_dataset: str) -> str:
+                                          derived_dataset: str) -> datetime.date:
   """Find the earliest date which exists in the base tables but not the derived tables.
 
   Args:
@@ -125,17 +125,18 @@ def _get_earliest_missing_date_hyperquack(project_name: str, base_dataset: str,
 
   pprint("Earliest missing date:")
   pprint(earliest_date)
+  pprint(earliest_date.isoformat())
 
   return earliest_date
 
 
 def _get_earliest_missing_date_satellite(project_name: str, base_dataset: str,
-                                         derived_dataset: str) -> str:
+                                         derived_dataset: str) -> datetime.date:
   #TODO fix
-  return "2023-01-01"
+  return datetime.date(2023, 1, 1)
 
 
-def _get_all_dates(project_name: str, table_name: str) -> List[str]:
+def _get_all_dates(project_name: str, table_name: str) -> List[datetime.date]:
   client = cloud_bigquery.Client(project=project_name)
 
   query = f'SELECT DISTINCT(date) AS date FROM `{table_name}`'
