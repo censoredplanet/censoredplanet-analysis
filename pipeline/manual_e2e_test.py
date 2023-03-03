@@ -141,9 +141,9 @@ def get_local_data_function(scan_type: str,
   Returns: a function which takes arbitrary args and returns a list of files.
   """
   if incremental:
-    scan_file = f'pipeline/e2e_test_data/Quack-{scan_type}_v1/{scan_type}_results_v1.json'
-  else:
     scan_file = f'pipeline/e2e_test_data/Quack-{scan_type}_v2/{scan_type}_results_v2.json'
+  else:
+    scan_file = f'pipeline/e2e_test_data/Quack-{scan_type}_v1/{scan_type}_results_v1.json'
 
   return lambda *_: [scan_file]
 
@@ -510,7 +510,7 @@ class PipelineManualE2eTest(unittest.TestCase):
         run_local_pipeline(scan_type, False)
 
       written_rows = get_bq_rows(client, bq_table_names)
-      self.assertEqual(len(written_rows), 57)
+      self.assertEqual(len(written_rows), 53)
 
       run_queries.rebuild_hyperquack_table(firehook_resources.DEV_PROJECT_NAME,
                                            BEAM_TEST_BASE_DATASET,
