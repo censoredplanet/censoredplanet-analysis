@@ -97,19 +97,19 @@ class RunBeamTablesTest(unittest.TestCase):
           start_date=None,
           end_date=None,
           export_gcs=False,
-          export_bq=False)
+          export_bq=True)
       run_beam_tables.main(args)
 
       call1 = call('echo', True, 'append-base-echo-scan', 'base.echo_scan',
-                   None, None, None, False, False)
+                   None, None, None, False, True)
       call2 = call('discard', True, 'append-base-discard-scan',
-                   'base.discard_scan', None, None, None, False, False)
+                   'base.discard_scan', None, None, None, False, True)
       call3 = call('http', True, 'append-base-http-scan', 'base.http_scan',
-                   None, None, None, False, False)
+                   None, None, None, False, True)
       call4 = call('https', True, 'append-base-https-scan', 'base.https_scan',
-                   None, None, None, False, False)
+                   None, None, None, False, True)
       call5 = call('satellite', True, 'append-base-satellite-scan',
-                   'base.satellite_scan', None, None, None, False, False)
+                   'base.satellite_scan', None, None, None, False, True)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call1, call2, call3, call4, call5], any_order=True)
       # No extra calls
@@ -157,12 +157,12 @@ class RunBeamTablesTest(unittest.TestCase):
           start_date=datetime.date(2021, 1, 8),
           end_date=datetime.date(2021, 1, 15),
           export_gcs=False,
-          export_bq=False)
+          export_bq=True)
       run_beam_tables.main(args)
 
       call1 = call('echo', True, 'append-laplante-echo-scan',
                    'laplante.echo_scan', None, datetime.date(2021, 1, 8),
-                   datetime.date(2021, 1, 15), False, False)
+                   datetime.date(2021, 1, 15), False, True)
       mock_runner.run_beam_pipeline.assert_has_calls([call1])
       self.assertEqual(1, mock_runner.run_beam_pipeline.call_count)
 
