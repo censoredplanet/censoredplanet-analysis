@@ -374,6 +374,22 @@ class ScanDataBeamPipelineRunner():
     """
     return self.project + ':' + table_name
 
+  def _compare_sets(self, table_set: set, gcs_set: set) -> None:
+    if table_set != gcs_set:
+      table_diff = table_set.difference(gcs_set)
+      diff_exception = ''
+      if table_diff:
+        diff_exception += '\nThe following files are missing in BigQuery:\n'
+        missing_files = ('\n').join(sorted(table_diff))
+        diff_exception += missing_files
+      gcs_diff = gcs_set.difference(table_set)
+      if gcs_diff:
+        diff_exception += '\nThe following files are missing in the GCS folder:\n'
+        missing_files = ('\n').join(sorted(gcs_diff))
+        diff_exception += missing_files
+      if table_diff or gcs_diff:
+        raise Exception(diff_exception)
+
   def _data_to_load(self,
                     gcs: GCSFileSystem,
                     scan_type: str,
@@ -407,20 +423,7 @@ class ScanDataBeamPipelineRunner():
             gcs_folder, self.project)
         table_set = set(table_existing_sources)
         gcs_set = set(gcs_existing_sources)
-        if table_set != gcs_set:
-          table_diff = table_set.difference(gcs_set)
-          diff_exception = ''
-          if table_diff:
-            diff_exception += '\nThe following files are missing in BigQuery:\n'
-            missing_files = ('\n').join(sorted(table_diff))
-            diff_exception += missing_files
-          gcs_diff = gcs_set.difference(table_set)
-          if gcs_diff:
-            diff_exception += '\nThe following files are missing in the GCS folder:\n'
-            missing_files = ('\n').join(sorted(gcs_diff))
-            diff_exception += missing_files
-          if table_diff or gcs_diff:
-            raise Exception(diff_exception)
+        self._compare_sets(table_set, gcs_set)
         existing_sources = table_existing_sources
       elif table_name:
         full_table_name = self._get_full_table_name(table_name)
