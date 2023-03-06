@@ -226,7 +226,8 @@ def run_local_pipeline(scan_type: str, incremental: bool) -> None:
   pipeline_name = f'test_{scan_type}'
   dataset_table_name = get_beam_base_table_name(scan_type)
   test_runner.run_beam_pipeline(pipeline_name, incremental, JOB_NAME,
-                                dataset_table_name, None, None, None, False, False)
+                                dataset_table_name, None, None, None, False,
+                                False)
   # pylint: enable=protected-access
 
 

@@ -27,12 +27,10 @@ from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
-                           dataset: str,
-                           scan_types: List[str],
+                           dataset: str, scan_types: List[str],
                            incremental_load: bool,
                            start_date: Optional[datetime.date],
-                           end_date: Optional[datetime.date],
-                           export_gcs: bool,
+                           end_date: Optional[datetime.date], export_gcs: bool,
                            export_bq: bool) -> bool:
   """Runs beam pipelines for different scan types in parallel.
 
@@ -61,12 +59,12 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       print(scan_type)
       table_name = None
       gcs_folder = None
-      
+
       if export_bq and export_gcs:
         table_name = beam_tables.get_table_name(dataset, scan_type,
-                                              beam_tables.BASE_TABLE_NAME)
-        gcs_folder = beam_tables.get_gcs_folder(beam_tables.BASE_GCS_NAME, scan_type,
-                                                runner.output_bucket)
+                                                beam_tables.BASE_TABLE_NAME)
+        gcs_folder = beam_tables.get_gcs_folder(beam_tables.BASE_GCS_NAME,
+                                                scan_type, runner.output_bucket)
         print(gcs_folder)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:

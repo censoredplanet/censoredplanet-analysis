@@ -401,8 +401,8 @@ class ScanDataBeamPipelineRunner():
     if incremental_load:
       if table_name and gcs_folder:
         full_table_name = self._get_full_table_name(table_name)
-        table_existing_sources = _get_existing_bq_datasources(full_table_name,
-                                                        self.project)
+        table_existing_sources = _get_existing_bq_datasources(
+            full_table_name, self.project)
         gcs_existing_sources = _get_existing_gcs_datasources(
             gcs_folder, self.project)
         table_set = set(table_existing_sources)
@@ -416,7 +416,7 @@ class ScanDataBeamPipelineRunner():
             diff_exception += missing_files
           gcs_diff = gcs_set.difference(table_set)
           if gcs_diff:
-            diff_exception += '\nThe following files are missing in the GCS folder:\n' 
+            diff_exception += '\nThe following files are missing in the GCS folder:\n'
             missing_files = ('\n').join(sorted(gcs_diff))
             diff_exception += missing_files
           if table_diff or gcs_diff:
@@ -432,7 +432,7 @@ class ScanDataBeamPipelineRunner():
       else:
         raise Exception('Either table_name or gcs_folder argument is required.')
     else:
-      existing_sources = [] 
+      existing_sources = []
     if scan_type == schema.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES
     else:
@@ -534,10 +534,9 @@ class ScanDataBeamPipelineRunner():
         file_naming=_custom_file_naming(suffix='.json.gz')))
 
   def _write_to_bq_and_gcs(self, scan_type: str,
-                    rows: beam.pvalue.PCollection[BigqueryRow],
-                    table_name: str, 
-                    incremental_load: bool,
-                    gcs_folder: str) -> None:
+                           rows: beam.pvalue.PCollection[BigqueryRow],
+                           table_name: str, incremental_load: bool,
+                           gcs_folder: str) -> None:
     """Write out rows to BiqQuery and GCS folder.
 
     Args:
@@ -561,11 +560,11 @@ class ScanDataBeamPipelineRunner():
       write_mode = beam.io.BigQueryDisposition.WRITE_APPEND
     else:
       write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
-    
+
     dict_rows = (
         rows | f'dataclass to dicts {scan_type}' >> beam.Map(
             schema.flatten_to_dict).with_output_types(Dict[str, Any]))
-    
+
     json_rows = (
         dict_rows | 'dicts to json' >>
         beam.Map(dict_to_gcs_json_string).with_output_types(str))
@@ -576,7 +575,7 @@ class ScanDataBeamPipelineRunner():
         create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         write_disposition=write_mode,
         additional_bq_parameters=_get_partition_params(scan_type)))
-    
+
     (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
         path=gcs_folder,
         destination=_get_destination,
@@ -617,8 +616,7 @@ class ScanDataBeamPipelineRunner():
                         job_name: str, table_name: Optional[str],
                         gcs_folder: Optional[str],
                         start_date: Optional[datetime.date],
-                        end_date: Optional[datetime.date],
-                        export_gcs: bool,
+                        end_date: Optional[datetime.date], export_gcs: bool,
                         export_bq: bool) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 

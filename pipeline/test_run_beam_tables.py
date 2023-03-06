@@ -36,20 +36,20 @@ class RunBeamTablesTest(unittest.TestCase):
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
                                            datetime.date(2020, 1, 1),
-                                           datetime.date(2020, 1, 2), 
-                                           False, False)
+                                           datetime.date(2020, 1, 2), False,
+                                           False)
 
     mock_runner.run_beam_pipeline.assert_called_with('echo', True,
                                                      'append-base-echo-scan',
                                                      'base.echo_scan', None,
                                                      datetime.date(2020, 1, 1),
-                                                     datetime.date(2020, 1, 2), 
-                                                                   False, False)
+                                                     datetime.date(2020, 1, 2),
+                                                     False, False)
 
     run_beam_tables.run_parallel_pipelines(mock_runner, 'base', ['echo'], True,
                                            datetime.date(2020, 1, 1),
-                                           datetime.date(2020, 1, 2), 
-                                           True, False)
+                                           datetime.date(2020, 1, 2), True,
+                                           False)
 
     mock_runner.run_beam_pipeline.assert_called_with(
         'echo', True, 'append-gs-firehook-test-base-echo', None,
@@ -128,14 +128,14 @@ class RunBeamTablesTest(unittest.TestCase):
       call6 = call('echo', True, 'append-gs-firehook-test-base-echo', None,
                    'gs://firehook-test/base/echo', None, None, True, False)
       call7 = call('discard', True, 'append-gs-firehook-test-base-discard',
-                   None, 'gs://firehook-test/base/discard', None, None, True, 
+                   None, 'gs://firehook-test/base/discard', None, None, True,
                    False)
       call8 = call('http', True, 'append-gs-firehook-test-base-http', None,
                    'gs://firehook-test/base/http', None, None, True, False)
       call9 = call('https', True, 'append-gs-firehook-test-base-https', None,
                    'gs://firehook-test/base/https', None, None, True, False)
       call10 = call('satellite', True, 'append-gs-firehook-test-base-satellite',
-                    None, 'gs://firehook-test/base/satellite', None, None, True, 
+                    None, 'gs://firehook-test/base/satellite', None, None, True,
                     False)
       mock_runner.run_beam_pipeline.assert_has_calls(
           [call6, call7, call8, call9, call10], any_order=True)
@@ -179,8 +179,8 @@ class RunBeamTablesTest(unittest.TestCase):
 
       call2 = call('echo', True, 'append-gs-firehook-test-laplante-echo',
                    None, 'gs://firehook-test/laplante/echo',
-                   datetime.date(2021, 1, 8), datetime.date(2021, 1, 15), True, 
-                   False)
+                   datetime.date(2021, 1, 8), datetime.date(2021, 1,
+                                                            15), True, False)
       mock_runner.run_beam_pipeline.assert_has_calls([call2])
       self.assertEqual(2, mock_runner.run_beam_pipeline.call_count)
 
