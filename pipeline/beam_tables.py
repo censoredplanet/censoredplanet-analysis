@@ -43,6 +43,8 @@ BASE_TABLE_NAME = 'scan'
 # Prod and dev data goes in the `firehook-censoredplanet:base' dataset
 BASE_DATASET_NAME = 'base'
 
+BASE_GCS_NAME = 'scans'
+
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.
 SCAN_TYPES_TO_ZONES = {
@@ -406,7 +408,19 @@ class ScanDataBeamPipelineRunner():
         table_set = set(table_existing_sources)
         gcs_set = set(gcs_existing_sources)
         if table_set != gcs_set:
-          raise Exception('Files in the dataset table and the GCS folder differ, aborting')
+          table_diff = table_set.difference(gcs_set)
+          diff_exception = ''
+          if table_diff:
+            diff_exception += '\nThe following files are missing in BigQuery:\n'
+            missing_files = ('\n').join(sorted(table_diff))
+            diff_exception += missing_files
+          gcs_diff = gcs_set.difference(table_set)
+          if gcs_diff:
+            diff_exception += '\nThe following files are missing in the GCS folder:\n' 
+            missing_files = ('\n').join(sorted(gcs_diff))
+            diff_exception += missing_files
+          if table_diff or gcs_diff:
+            raise Exception(diff_exception)
         existing_sources = table_existing_sources
       elif table_name:
         full_table_name = self._get_full_table_name(table_name)
@@ -418,8 +432,7 @@ class ScanDataBeamPipelineRunner():
       else:
         raise Exception('Either table_name or gcs_folder argument is required.')
     else:
-      existing_sources = []
-
+      existing_sources = [] 
     if scan_type == schema.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES
     else:
@@ -520,6 +533,58 @@ class ScanDataBeamPipelineRunner():
         max_writers_per_bundle=0,
         file_naming=_custom_file_naming(suffix='.json.gz')))
 
+  def _write_to_bq_and_gcs(self, scan_type: str,
+                    rows: beam.pvalue.PCollection[BigqueryRow],
+                    table_name: str, 
+                    incremental_load: bool,
+                    gcs_folder: str) -> None:
+    """Write out rows to BiqQuery and GCS folder.
+
+    Args:
+      scan_type: one of 'echo', 'discard', 'http', 'https',
+        or 'satellite'
+      rows: PCollection[BigqueryRow] of data to write.
+      gcs_folder: GCS folder gs://bucket/folder/... like
+        'gs://firehook-test/scans/echo' to write output files to.
+      table_name: dataset.table name like 'base.echo_scan' determines which
+        tables to write to.
+      incremental_load: boolean. If true, only load the latest new data, if
+        false reload all data.
+
+    Raises:
+      Exception: if any arguments are invalid.
+    """
+    bq_schema = schema.get_beam_bigquery_schema(
+        schema.get_bigquery_schema(scan_type))
+
+    if incremental_load:
+      write_mode = beam.io.BigQueryDisposition.WRITE_APPEND
+    else:
+      write_mode = beam.io.BigQueryDisposition.WRITE_TRUNCATE
+    
+    dict_rows = (
+        rows | f'dataclass to dicts {scan_type}' >> beam.Map(
+            schema.flatten_to_dict).with_output_types(Dict[str, Any]))
+    
+    json_rows = (
+        dict_rows | 'dicts to json' >>
+        beam.Map(dict_to_gcs_json_string).with_output_types(str))
+
+    (dict_rows | f'Write {scan_type}' >> beam.io.WriteToBigQuery(  # pylint: disable=expression-not-assigned
+        self._get_full_table_name(table_name),
+        schema=bq_schema,
+        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+        write_disposition=write_mode,
+        additional_bq_parameters=_get_partition_params(scan_type)))
+    
+    (json_rows | 'Write to GCS files' >> WriteToFiles(  # pylint: disable=expression-not-assigned
+        path=gcs_folder,
+        destination=_get_destination,
+        sink=lambda dest: sink.JsonGzSink(),
+        shards=1,
+        max_writers_per_bundle=0,
+        file_naming=_custom_file_naming(suffix='.json.gz')))
+
   def _get_pipeline_options(self, scan_type: str,
                             job_name: str) -> PipelineOptions:
     """Sets up pipeline options for a beam pipeline.
@@ -554,7 +619,7 @@ class ScanDataBeamPipelineRunner():
                         start_date: Optional[datetime.date],
                         end_date: Optional[datetime.date],
                         export_gcs: bool,
-                        bq_and_gcs: bool) -> None:
+                        export_bq: bool) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
@@ -570,8 +635,8 @@ class ScanDataBeamPipelineRunner():
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
         Mostly only used during development.
-      export_gcs: boolean. If true, write to Google Cloud Storage, if false
-        write to BigQuery.
+      export_gcs: boolean. If true, write to Google Cloud Storage.
+      export_bq: boolean. If true, write to BigQuery.
 
     Raises:
       Exception: if any arguments are invalid or the pipeline fails.
@@ -580,10 +645,8 @@ class ScanDataBeamPipelineRunner():
 
     if export_gcs and not gcs_folder:
       raise Exception('gcs_folder argument required when writing to GCS.')
-    if not export_gcs and not table_name:
+    if export_bq and not table_name:
       raise Exception('table_name argument required when writing to BigQuery.')
-    if bq_and_gcs and not gcs_folder and not table_name:
-      raise Exception('table_name and gcs_folder arguments required when writing to BigQuery and GCS.')
 
     pipeline_options = self._get_pipeline_options(scan_type, job_name)
     gcs = GCSFileSystem(pipeline_options)
@@ -609,11 +672,9 @@ class ScanDataBeamPipelineRunner():
 
       _raise_error_if_collection_empty(rows)
 
-      # TODO: Eventually we want to be able to run both exports simultaneously
-      # so that we can reuse the pipeline output.
-      if bq_and_gcs:
-        self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
-        self._write_to_gcs(scan_type, rows, gcs_folder)
+      if export_gcs and export_bq:
+        self._write_to_bq_and_gcs(scan_type, rows, table_name, incremental_load, 
+                                  gcs_folder)
       elif export_gcs and gcs_folder is not None:
         self._write_to_gcs(scan_type, rows, gcs_folder)
       elif table_name is not None:
