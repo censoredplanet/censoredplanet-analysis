@@ -672,8 +672,8 @@ class ScanDataBeamPipelineRunner():
 
       _raise_error_if_collection_empty(rows)
 
-      if export_gcs and export_bq:
-        self._write_to_bq_and_gcs(scan_type, rows, table_name, incremental_load, 
+      if export_gcs and export_bq and table_name is not None and gcs_folder is not None:
+        self._write_to_bq_and_gcs(scan_type, rows, table_name, incremental_load,
                                   gcs_folder)
       elif export_gcs and gcs_folder is not None:
         self._write_to_gcs(scan_type, rows, gcs_folder)
