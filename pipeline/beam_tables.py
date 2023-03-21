@@ -585,6 +585,12 @@ class ScanDataBeamPipelineRunner():
       # PCollection[Tuple[filename,line]]
       lines = _read_scan_text(p, new_filenames)
 
+      # Reshuffle to break fusion on long files
+      # PCollection[Tuple[filename,line]]
+      lines = (
+          lines |
+          'reshuffle' >> beam.Reshuffle().with_output_types(Tuple[str, str]))
+
       if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
         rows = satellite.process_satellite_lines(lines, self.metadata_adder)
