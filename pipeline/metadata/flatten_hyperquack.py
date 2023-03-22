@@ -5,10 +5,13 @@ from __future__ import absolute_import
 import re
 from typing import Optional, Any, Iterator
 
+from apache_beam.metrics.metric import Metrics
+
 from pipeline.metadata import flatten_base
 from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
+from pipeline.metadata.metrics import METRIC_NAMESPACE, NUM_LINES_METRIC_NAME, NUM_ROWS_METRIC_NAME
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -73,6 +76,8 @@ class HyperquackFlattener():
     Yields:
       Rows
     """
+    Metrics.counter(METRIC_NAMESPACE, NUM_LINES_METRIC_NAME).inc()
+
     if 'Server' in scan:
       yield from self._process_hyperquack_v1(filename, scan, measurement_id)
     elif 'vp' in scan:
@@ -138,6 +143,7 @@ class HyperquackFlattener():
       if 'Error' in result:
         row.error = result['Error']
 
+      Metrics.counter(METRIC_NAMESPACE, NUM_ROWS_METRIC_NAME).inc()
       yield row
 
   def _process_hyperquack_v2(self, filename: str, scan: Any,
@@ -191,6 +197,7 @@ class HyperquackFlattener():
       if 'error' in response:
         row.error = response['error']
 
+      Metrics.counter(METRIC_NAMESPACE, NUM_ROWS_METRIC_NAME).inc()
       yield row
       if not is_control:
         retry_index += 1
