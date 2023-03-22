@@ -20,6 +20,7 @@ However it does do a full write to bigquery.
 The local pipeline runs twice, once for a full load, and once incrementally.
 """
 
+import csv
 import datetime
 from typing import List, Any, Callable
 import unittest
@@ -722,6 +723,27 @@ class PipelineManualE2eTest(unittest.TestCase):
     (org, asn) = dbip_data.lookup('not-an-ip')
     self.assertEqual(org, None)
     self.assertEqual(asn, None)
+
+  def sanity_check_single_base_table(self, scan_type: str) -> None:
+    """Check that the # of lines in the raw files matches the mids in dev."""
+    with open(
+        f'pipeline/e2e_test_data/expected_raw_data_sizes/{scan_type}.csv',
+        encoding='utf-8') as csvfile:
+      size_reader = csv.reader(csvfile, delimiter=',')
+      expected_sizes = {row[0]: int(row[1]) for row in size_reader}
+
+    project_name = firehook_resources.DEV_PROJECT_NAME
+    client = cloud_bigquery.Client(project=project_name)
+    query = f"select distinct source, count(distinct measurement_id) from {project_name}.base.{scan_type}_scan where source like \"%CP_Quack-{scan_type}-%\" group by source order by source"
+    query_job = client.query(query)
+    results = dict(query_job.result())
+
+    self.assertDictContainsSubset(expected_sizes, results)
+
+  def test_sanity_check_base_table_content(self) -> None:
+    """Check the measurement id counts in the base table against expected values."""
+    self.sanity_check_single_base_table('http')
+    self.sanity_check_single_base_table('https')
 
 
 # This test is not run by default in unittest because it takes about a minute
