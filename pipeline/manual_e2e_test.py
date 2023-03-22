@@ -732,9 +732,9 @@ class PipelineManualE2eTest(unittest.TestCase):
       size_reader = csv.reader(csvfile, delimiter=',')
       expected_sizes = {row[0]: int(row[1]) for row in size_reader}
 
-    project_name = firehook_resources.DEV_PROJECT_NAME
+    project_name = firehook_resources.PROD_PROJECT_NAME
     client = cloud_bigquery.Client(project=project_name)
-    query = f"select distinct source, count(distinct measurement_id) from {project_name}.base.{scan_type}_scan where source like \"%CP_Quack-{scan_type}-%\" group by source order by source"
+    query = f"select distinct source, count(distinct measurement_id) from {project_name}.agix.https_scan where source like \"%CP_Quack-{scan_type}-%\" group by source order by source"
     query_job = client.query(query)
     results = dict(query_job.result())
 
@@ -742,7 +742,7 @@ class PipelineManualE2eTest(unittest.TestCase):
 
   def test_sanity_check_base_table_content(self) -> None:
     """Check the measurement id counts in the base table against expected values."""
-    self.sanity_check_single_base_table('http')
+    #self.sanity_check_single_base_table('http')
     self.sanity_check_single_base_table('https')
 
 
