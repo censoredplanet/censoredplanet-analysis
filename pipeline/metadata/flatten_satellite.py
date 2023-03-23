@@ -16,6 +16,7 @@ from pipeline.metadata import flatten_base
 from pipeline.metadata.schema import SatelliteRow, PageFetchRow, SatelliteAnswer, IpMetadata, MatchesControl
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
+from pipeline.metadata.metrics import MEASUREMENT_LINES_COUNTER, ROWS_FLATTENED_COUNTER
 
 # Type definition for input responses, TODO make actual type stricter
 ResponsesEntry = Any
@@ -104,6 +105,7 @@ def _annotate_received_ips_v1(
     all_received.append(received_answer)
   base_response.received = all_received
 
+  ROWS_FLATTENED_COUNTER.inc()
   yield base_response
 
 
@@ -179,6 +181,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     base_response.received = []
     empty_observation = deepcopy(base_response)
     empty_observation.retry = 0
+    ROWS_FLATTENED_COUNTER.inc()
     yield empty_observation
     return
 
@@ -211,6 +214,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     # -1 rcodes corrospond to the error messages in order.
     if rcode == -1:
       failed_observation.error = errors.pop(0) if errors else None
+    ROWS_FLATTENED_COUNTER.inc()
     yield failed_observation
     retry_index += 1
 
@@ -221,6 +225,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     error_observation.rcode = -1
     error_observation.retry = retry_index
     error_observation.error = error
+    ROWS_FLATTENED_COUNTER.inc()
     yield error_observation
     retry_index += 1
 
@@ -236,6 +241,7 @@ def _process_satellite_v2p1(base_response: SatelliteRow,
     success_observation.received = all_received
     success_observation.rcode = successful_test_rcode[0]
     success_observation.retry = retry_index
+    ROWS_FLATTENED_COUNTER.inc()
     yield success_observation
 
 
@@ -259,6 +265,8 @@ class SatelliteFlattener():
     Yields:
       SatelliteRow
     """
+    MEASUREMENT_LINES_COUNTER.inc()
+
     date = re.findall(r'\d\d\d\d-\d\d-\d\d', filepath)[0]
     filename = get_filename(filepath)
 
@@ -414,6 +422,7 @@ class SatelliteFlattener():
       answers: Dict[str, Dict[str, Any]] = roundtrip['response']
       # confidence only corresponds to fields with received ips
       if len(answers) == 0:
+        ROWS_FLATTENED_COUNTER.inc()
         yield roundtrip_row
       else:
         roundtrip_row.average_confidence = responses_entry.get(
@@ -442,6 +451,7 @@ class SatelliteFlattener():
             received.matches_control = _make_matches_control(matched)
           all_received.append(received)
         roundtrip_row.received = all_received
+        ROWS_FLATTENED_COUNTER.inc()
         yield roundtrip_row
 
       if not is_control_domain:
@@ -496,6 +506,7 @@ class SatelliteFlattener():
       received_ips = response['response']
 
       if not received_ips:
+        ROWS_FLATTENED_COUNTER.inc()
         yield row
 
       else:
@@ -505,6 +516,7 @@ class SatelliteFlattener():
           all_received.append(received)
         row.received = all_received
 
+        ROWS_FLATTENED_COUNTER.inc()
         yield row
 
       if not is_control_domain:
