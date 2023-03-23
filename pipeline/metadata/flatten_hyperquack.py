@@ -9,6 +9,7 @@ from pipeline.metadata import flatten_base
 from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
+from pipeline.metadata.metrics import MEASUREMENT_LINES_COUNTER, ROWS_FLATTENED_COUNTER
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -73,6 +74,8 @@ class HyperquackFlattener():
     Yields:
       Rows
     """
+    MEASUREMENT_LINES_COUNTER.inc()
+
     if 'Server' in scan:
       yield from self._process_hyperquack_v1(filename, scan, measurement_id)
     elif 'vp' in scan:
@@ -138,6 +141,7 @@ class HyperquackFlattener():
       if 'Error' in result:
         row.error = result['Error']
 
+      ROWS_FLATTENED_COUNTER.inc()
       yield row
 
   def _process_hyperquack_v2(self, filename: str, scan: Any,
@@ -191,6 +195,7 @@ class HyperquackFlattener():
       if 'error' in response:
         row.error = response['error']
 
+      ROWS_FLATTENED_COUNTER.inc()
       yield row
       if not is_control:
         retry_index += 1
