@@ -1,7 +1,8 @@
 """Names for global pipeline metrics."""
 
-METRIC_NAMESPACE = 'namespace'
-NUM_JSON_ERRORS_NAME = 'num_json_parse_errors'
-NUM_LINES_METRIC_NAME = 'num_lines'
-NUM_ROWS_METRIC_NAME = 'num_flattened_rows'
-NUM_ROWS_WITH_METADATA = 'num_rows_with_metadata'
+NAMESPACE = 'censoredplanet'
+
+JSON_MEASUREMENT_PARSE_ERRORS = 'json_measurement_parse_errors'  # Number of json lines that we fail to parse due to json errors
+MEASUREMENT_LINES = 'measurement_lines'  # Number of (successfully parsed) json lines we read in
+ROWS_FLATTENED = 'rows_flattened'  # Number of roundtrip rows output from the flattening stage
+ROWS_WITH_METADATA = 'rows_with_metadata'  # Number of roundtrips rows output after the metadata addition stage

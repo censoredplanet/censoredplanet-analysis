@@ -11,7 +11,7 @@ from pipeline.metadata import flatten_base
 from pipeline.metadata.schema import HyperquackRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
-from pipeline.metadata.metrics import METRIC_NAMESPACE, NUM_LINES_METRIC_NAME, NUM_ROWS_METRIC_NAME
+from pipeline.metadata.metrics import NAMESPACE, MEASUREMENT_LINES, ROWS_FLATTENED
 
 # For Hyperquack v1
 # echo/discard domain and url content
@@ -76,7 +76,7 @@ class HyperquackFlattener():
     Yields:
       Rows
     """
-    Metrics.counter(METRIC_NAMESPACE, NUM_LINES_METRIC_NAME).inc()
+    Metrics.counter(NAMESPACE, MEASUREMENT_LINES).inc()
 
     if 'Server' in scan:
       yield from self._process_hyperquack_v1(filename, scan, measurement_id)
@@ -99,6 +99,8 @@ class HyperquackFlattener():
     Yields:
       Rows
     """
+    counter = Metrics.counter(NAMESPACE, ROWS_FLATTENED)
+
     for index, result in enumerate(scan.get('Results', [])):
       date = result['StartTime'][:10]
 
@@ -143,7 +145,7 @@ class HyperquackFlattener():
       if 'Error' in result:
         row.error = result['Error']
 
-      Metrics.counter(METRIC_NAMESPACE, NUM_ROWS_METRIC_NAME).inc()
+      counter.inc()
       yield row
 
   def _process_hyperquack_v2(self, filename: str, scan: Any,
@@ -163,6 +165,7 @@ class HyperquackFlattener():
     # Retries don't include controls,
     # which can come at the beginning and end of measurements
     retry_index = 0
+    counter = Metrics.counter(NAMESPACE, ROWS_FLATTENED)
 
     for response in scan.get('response', []):
       date = response['start_time'][:10]
@@ -197,7 +200,7 @@ class HyperquackFlattener():
       if 'error' in response:
         row.error = response['error']
 
-      Metrics.counter(METRIC_NAMESPACE, NUM_ROWS_METRIC_NAME).inc()
+      counter.inc()
       yield row
       if not is_control:
         retry_index += 1

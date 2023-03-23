@@ -15,7 +15,7 @@ from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
 from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
-from pipeline.metadata.metrics import METRIC_NAMESPACE, NUM_JSON_ERRORS_NAME
+from pipeline.metadata.metrics import NAMESPACE, JSON_MEASUREMENT_PARSE_ERRORS
 
 # UUID used as a namespace for generating further UUIDs
 CENSORED_PLANET_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "censoredplanet.org")
@@ -59,7 +59,7 @@ class FlattenMeasurement(beam.DoFn):
     try:
       scan = json.loads(line)
     except json.decoder.JSONDecodeError as e:
-      Metrics.counter(METRIC_NAMESPACE, NUM_JSON_ERRORS_NAME).inc()
+      Metrics.counter(NAMESPACE, JSON_MEASUREMENT_PARSE_ERRORS).inc()
       logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
                       line)
       return
