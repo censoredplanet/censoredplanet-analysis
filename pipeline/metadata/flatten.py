@@ -8,14 +8,13 @@ from typing import Tuple, Iterator
 import uuid
 
 import apache_beam as beam
-from apache_beam.metrics.metric import Metrics
 
 from pipeline.metadata.schema import BigqueryRow
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.domain_categories import DomainCategoryMatcher
 from pipeline.metadata.flatten_satellite import SatelliteFlattener, SATELLITE_PATH_COMPONENT
 from pipeline.metadata.flatten_hyperquack import HyperquackFlattener
-from pipeline.metadata.metrics import NAMESPACE, JSON_MEASUREMENT_PARSE_ERRORS
+from pipeline.metadata.metrics import MEASUREMENT_JSON_PARSE_ERRORS_COUNTER
 
 # UUID used as a namespace for generating further UUIDs
 CENSORED_PLANET_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "censoredplanet.org")
@@ -59,7 +58,7 @@ class FlattenMeasurement(beam.DoFn):
     try:
       scan = json.loads(line)
     except json.decoder.JSONDecodeError as e:
-      Metrics.counter(NAMESPACE, JSON_MEASUREMENT_PARSE_ERRORS).inc()
+      MEASUREMENT_JSON_PARSE_ERRORS_COUNTER.inc()
       logging.warning('JSONDecodeError: %s\nFilename: %s\n%s\n', e, filename,
                       line)
       return

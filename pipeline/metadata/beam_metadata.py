@@ -4,10 +4,8 @@ from __future__ import absolute_import
 
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
-from apache_beam.metrics.metric import Metrics
-
 from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithDateKey, IpMetadataWithSourceKey, SatelliteAnswer, SatelliteAnswerWithSourceKey, SatelliteAnswerWithAnyKey, merge_ip_metadata, merge_satellite_answers
-from pipeline.metadata.metrics import NAMESPACE, ROWS_WITH_METADATA
+from pipeline.metadata.metrics import ROWS_WITH_METADATA_COUNTER
 
 # A key containing a date and IP
 # ex: ('2020-01-01', '1.2.3.4')
@@ -85,12 +83,10 @@ def merge_metadata_with_rows(  # pylint: disable=unused-argument
     ip_metadatas = []
   rows: List[BigqueryRow] = value[ROWS_PCOLLECION_NAME]  # type: ignore
 
-  counter = Metrics.counter(NAMESPACE, ROWS_WITH_METADATA)
-
   for row in rows:
     for ip_metadata in ip_metadatas:
       merge_ip_metadata(row.ip_metadata, ip_metadata)
-    counter.inc()
+    ROWS_WITH_METADATA_COUNTER.inc()
     yield row
 
 
