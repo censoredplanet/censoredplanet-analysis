@@ -4,6 +4,8 @@ from __future__ import absolute_import
 
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
+import apache_beam as beam
+
 from pipeline.metadata.schema import BigqueryRow, SatelliteRow, PageFetchRow, IpMetadataWithDateKey, IpMetadataWithSourceKey, SatelliteAnswer, SatelliteAnswerWithSourceKey, SatelliteAnswerWithAnyKey, merge_ip_metadata, merge_satellite_answers
 from pipeline.metadata.metrics import ROWS_WITH_METADATA_COUNTER
 
@@ -56,6 +58,9 @@ def make_source_domain_key(row: SatelliteRow) -> SourceDomainKey:
   return (row.source or '', row.domain or '')
 
 
+# We had to remove the beam type hint here
+# So subsequent operations can take either HyperquackRow or SatelliteRow
+@beam.typehints.no_annotations
 def merge_metadata_with_rows(  # pylint: disable=unused-argument
     key: DateIpKey,
     value: Dict[str,
