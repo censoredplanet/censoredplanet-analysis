@@ -11,6 +11,7 @@ import apache_beam as beam
 from pipeline.metadata.beam_metadata import DateIpKey, IP_METADATA_PCOLLECTION_NAME, ROWS_PCOLLECION_NAME, RECEIVED_IPS_PCOLLECTION_NAME, make_date_ip_key, merge_metadata_with_rows, merge_tagged_answers_with_rows, merge_satellite_metadata_with_answers
 from pipeline.metadata.schema import BigqueryRow, IpMetadataWithDateKey, SatelliteRow, SatelliteAnswer, SatelliteAnswerWithDateKey
 from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
+from pipeline.metadata.metrics import countPCollection
 
 
 def set_random_roundtrip_id(row: SatelliteRow) -> Tuple[str, SatelliteRow]:
@@ -83,6 +84,8 @@ class MetadataAdder():
         # pylint: disable=no-value-for-parameter
         ips_and_dates | 'dedup' >> beam.Distinct().with_output_types(DateIpKey))
 
+    countPCollection(deduped_ips_and_dates, "deduped_ips_and_dates")
+
     # PCollection[Tuple[date,List[ip]]]
     grouped_ips_by_dates = (
         deduped_ips_and_dates | 'group by date' >>
@@ -93,6 +96,8 @@ class MetadataAdder():
         grouped_ips_by_dates | 'get ip metadata' >> beam.FlatMapTuple(
             self._annotate_ips).with_output_types(Tuple[DateIpKey,
                                                         IpMetadataWithDateKey]))
+
+    countPCollection(ips_with_metadata, "ips_with_metadata")
 
     # PCollection[Tuple[Tuple[date,ip],Dict[input_name_key,List[BigqueryRow|IpMetadataWithDateKey]]]]
     grouped_metadata_and_rows = (({

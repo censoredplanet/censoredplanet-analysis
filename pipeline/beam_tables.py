@@ -302,7 +302,7 @@ def _raise_exception_if_zero(num: int) -> None:
 def _raise_error_if_collection_empty(
     rows: beam.pvalue.PCollection[BigqueryRow]) -> beam.pvalue.PCollection:
   count_collection = (
-      rows | "Count" >> beam.combiners.Count.Globally() |
+      rows | "Count final rows" >> beam.combiners.Count.Globally() |
       "Error if empty" >> beam.Map(_raise_exception_if_zero))
   return count_collection
 
