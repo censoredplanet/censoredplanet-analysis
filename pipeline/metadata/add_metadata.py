@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import datetime
+import logging
 from typing import List, Tuple, Iterator, Iterable
 import uuid
 
@@ -200,6 +201,9 @@ class MetadataAdder():
     Yields:
       Tuples (DateIpKey, IpMetadataWithDateKey)
     """
+    logging.info(
+        f'Instantiating metadata tables for {date} to classify {len(ips)} IPs')
+
     ip_metadata_chooser = self.metadata_chooser_factory.make_chooser(
         datetime.date.fromisoformat(date))
 
