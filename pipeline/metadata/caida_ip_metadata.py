@@ -23,6 +23,8 @@ import apache_beam.io.filesystem as apache_filesystem
 import apache_beam.io.filesystems as apache_filesystems
 import pyasn
 
+CAIDA_STALE_DAYS_ALLOWED = 5
+
 # These are the latest CAIDA files stored in CLOUD_DATA_LOCATION
 # TODO: Add a feature to update.py that updates these files automatically
 #       and get the latest file here instead.
@@ -200,22 +202,22 @@ class CaidaIpMetadata():
       self,
       date: datetime.date,
       cloud_data_location: str,
-      allow_previous_day: bool,
+      stale_days_allowed: int,
   ) -> None:
     """Create an CAIDA IP Metadata object by reading/parsing all needed data.
 
     Args:
       date: a date to initialize the asn database to
       cloud_data_location: GCS bucket folder name like "gs://bucket/folder/"
-      allow_previous_day: If the given date's routeview file doesn't exist,
-        allow the one from the previous day instead. This is useful when
+      stale_days_allowed: If the given date's routeview file doesn't exist,
+        allow the one from the previous N days instead. This is useful when
         processing very recent data where the newest file may not yet exist.
     """
     self.cloud_data_location = cloud_data_location
 
     self.as_to_org_map = self._get_asn2org_map()
     self.as_to_type_map = self._get_asn2type_map()
-    self.asn_db = self._get_asn_db(date, allow_previous_day)
+    self.asn_db = self._get_asn_db(date, stale_days_allowed)
 
   def lookup(self, ip: str) -> CaidaReturnValues:
     """Lookup metadata infomation about an IP.
@@ -264,12 +266,12 @@ class CaidaIpMetadata():
     return _parse_as_to_type_map(as_to_type_file)
 
   def _get_asn_db(self, date: datetime.date,
-                  allow_previous_day: bool) -> pyasn.pyasn:
+                  stale_days_allowed: int) -> pyasn.pyasn:
     """Return an ASN database object.
 
     Args:
       date: a date to initialize the asn database to
-      allow_previous_day: allow using previous routeview file
+      stale_days_allowed: how many days stale the routeview file may be
 
     Returns:
       pyasn database
@@ -281,11 +283,10 @@ class CaidaIpMetadata():
       self.date = date
       return self._get_dated_asn_db(self.date)
     except FileNotFoundError as ex:
-      if allow_previous_day:
-        self.date = date - datetime.timedelta(days=1)
-        return self._get_dated_asn_db(self.date)
-
-      raise ex
+      if stale_days_allowed == 0:
+        raise ex
+      self.date = date - datetime.timedelta(days=1)
+      return self._get_asn_db(self.date, stale_days_allowed - 1)
 
   def _get_dated_asn_db(self, date: datetime.date) -> pyasn.pyasn:
     """Finds the right routeview file for a given date and returns an ASN DB.
@@ -335,7 +336,7 @@ class FakeCaidaIpMetadata(CaidaIpMetadata):
 def get_firehook_caida_ip_metadata_db(
     env: str,
     date: datetime.date,
-    allow_previous_day: bool = False,
+    stale_days_allowed: int = 5,
 ) -> CaidaIpMetadata:
   """Factory to return an CaidaIpMetadata object which reads in firehook files.
 
@@ -356,4 +357,4 @@ def get_firehook_caida_ip_metadata_db(
   if env == 'prod':
     file_location = firehook_resources.DEV_CAIDA_FILE_LOCATION
 
-  return CaidaIpMetadata(date, file_location, allow_previous_day)
+  return CaidaIpMetadata(date, file_location, stale_days_allowed)
