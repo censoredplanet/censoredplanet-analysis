@@ -326,3 +326,18 @@ class FlattenBaseTest(unittest.TestCase):
                              '2022-06-06T09:43:51', '2022-08-29T09:43:50',
                              ['*.apis.google.com', 'apis.google.com'], True)
     self.assertEqual(parsed, expected)
+
+  def test_parsing_signal_cert(self) -> None:
+    """Test parsing the certificate for signal."""
+    # yapf: disable
+    cert_str = "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"
+    # yapf: enable
+    parsed = flatten_base.parse_cert(cert_str, 'signal.org')
+    expected: Tuple[Optional[str], Optional[str], Optional[str], Optional[str],
+                    List[str],
+                    bool] = ('www.signal.org', 'Amazon RSA 2048 M01',
+                             '2023-02-24T00:00:00', '2023-07-09T23:59:59', [
+                                 'www.signal.org', 'www.signal.art',
+                                 'signal.art', 'signal.org'
+                             ], True)
+    self.assertEqual(parsed, expected)
