@@ -379,13 +379,13 @@ class ScanDataBeamPipelineRunner():
     """Compare if resource lists are equal.
 
     Args:
-      table_existing_sources:  List of Biq Query data sources. 
+      table_existing_sources:  List of Biq Query data sources.
         ex ['CP_Quack-echo-2020-08-23-06-01-02']
-      gcs_existing_sources:  List of GCS data sources. 
+      gcs_existing_sources:  List of GCS data sources.
         ex ['CP_Quack-echo-2020-08-23-06-01-02']
 
     Raises:
-      Exception: if files are missing. 
+      Exception: if files are missing.
     """
     table_set = set(table_existing_sources)
     gcs_set = set(gcs_existing_sources)
