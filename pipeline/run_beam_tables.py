@@ -27,8 +27,8 @@ from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
-                           dataset: str, scan_types: List[str],
-                           incremental_load: bool,
+                           dataset_bq: str, dataset_gcs: str,
+                           scan_types: List[str], incremental_load: bool,
                            start_date: Optional[datetime.date],
                            end_date: Optional[datetime.date], export_gcs: bool,
                            export_bq: bool) -> bool:
@@ -36,7 +36,8 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
 
   Args:
     runner: ScanDataBeamPipelineRunner to run pipelines
-    dataset: dataset name to write to like 'prod' or 'laplante
+    dataset_bq: big query dataset name to write to like 'prod' or 'laplante
+    dataset_gcs: gcs dataset name to write to like 'prod' or 'laplante
     scan_types: list of scan types to run ['echo' 'http']
     incremental_load: boolean. If true, only load the latest new data, if false
       reload all data.
@@ -60,18 +61,18 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       gcs_folder = None
 
       if export_bq and export_gcs:
-        table_name = beam_tables.get_table_name(dataset, scan_type,
+        table_name = beam_tables.get_table_name(dataset_bq, scan_type,
                                                 beam_tables.BASE_TABLE_NAME)
-        gcs_folder = beam_tables.get_gcs_folder(beam_tables.BASE_GCS_NAME,
-                                                scan_type, runner.output_bucket)
+        gcs_folder = beam_tables.get_gcs_folder(dataset_gcs, scan_type,
+                                                runner.output_bucket)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:
         if export_gcs:
-          gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+          gcs_folder = beam_tables.get_gcs_folder(dataset_gcs, scan_type,
                                                   runner.output_bucket)
           job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
         else:
-          table_name = beam_tables.get_table_name(dataset, scan_type,
+          table_name = beam_tables.get_table_name(dataset_bq, scan_type,
                                                   beam_tables.BASE_TABLE_NAME)
           job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
 
@@ -154,14 +155,16 @@ def main(parsed_args: argparse.Namespace) -> None:
   pipeline_runner = get_beam_pipeline_runner(parsed_args.env)
   if parsed_args.env == 'user':
     run_parallel_pipelines(pipeline_runner, parsed_args.user_dataset,
-                           selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs, parsed_args.export_bq)
+                           parsed_args.user_dataset, selected_scan_types,
+                           incremental, parsed_args.start_date,
+                           parsed_args.end_date, parsed_args.export_gcs,
+                           parsed_args.export_bq)
   elif parsed_args.env in ('dev', 'prod'):
     run_parallel_pipelines(pipeline_runner, beam_tables.BASE_DATASET_NAME,
-                           selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs, parsed_args.export_bq)
+                           beam_tables.BASE_GCS_NAME, selected_scan_types,
+                           incremental, parsed_args.start_date,
+                           parsed_args.end_date, parsed_args.export_gcs,
+                           parsed_args.export_bq)
 
 
 def parse_args() -> argparse.Namespace:
