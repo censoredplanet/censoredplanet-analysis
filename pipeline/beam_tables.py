@@ -43,6 +43,8 @@ BASE_TABLE_NAME = 'scan'
 # Prod and dev data goes in the `firehook-censoredplanet:base' dataset
 BASE_DATASET_NAME = 'base'
 
+BASE_GCS_NAME = 'scans'
+
 # Mapping of each scan type to the zone to run its pipeline in.
 # This adds more parallelization when running all pipelines.
 SCAN_TYPES_TO_ZONES = {
@@ -372,6 +374,36 @@ class ScanDataBeamPipelineRunner():
     """
     return self.project + ':' + table_name
 
+  def _compare_lists(self, table_existing_sources: List[str],
+                     gcs_existing_sources: List[str]) -> None:
+    """Compare if resource lists are equal.
+
+    Args:
+      table_existing_sources:  List of Biq Query data sources.
+        ex ['CP_Quack-echo-2020-08-23-06-01-02']
+      gcs_existing_sources:  List of GCS data sources.
+        ex ['CP_Quack-echo-2020-08-23-06-01-02']
+
+    Raises:
+      Exception: if files are missing.
+    """
+    table_set = set(table_existing_sources)
+    gcs_set = set(gcs_existing_sources)
+    if table_set != gcs_set:
+      table_diff = table_set.difference(gcs_set)
+      diff_exception = ''
+      if table_diff:
+        diff_exception += '\nThe following files are missing in GCS folder:\n'
+        missing_files = ('\n').join(sorted(table_diff))
+        diff_exception += missing_files
+      gcs_diff = gcs_set.difference(table_set)
+      if gcs_diff:
+        diff_exception += '\nThe following files are missing in the BigQuery:\n'
+        missing_files = ('\n').join(sorted(gcs_diff))
+        diff_exception += missing_files
+      if table_diff or gcs_diff:
+        raise Exception(diff_exception)
+
   def _data_to_load(self,
                     gcs: GCSFileSystem,
                     scan_type: str,
@@ -397,7 +429,15 @@ class ScanDataBeamPipelineRunner():
         'gs://firehook-scans/echo/CP_Quack-echo-2020-08-23-06-01-02/results.json']
     """
     if incremental_load:
-      if table_name:
+      if table_name and gcs_folder:
+        full_table_name = self._get_full_table_name(table_name)
+        table_existing_sources = _get_existing_bq_datasources(
+            full_table_name, self.project)
+        gcs_existing_sources = _get_existing_gcs_datasources(
+            gcs_folder, self.project)
+        self._compare_lists(table_existing_sources, gcs_existing_sources)
+        existing_sources = table_existing_sources
+      elif table_name:
         full_table_name = self._get_full_table_name(table_name)
         existing_sources = _get_existing_bq_datasources(full_table_name,
                                                         self.project)
@@ -408,7 +448,6 @@ class ScanDataBeamPipelineRunner():
         raise Exception('Either table_name or gcs_folder argument is required.')
     else:
       existing_sources = []
-
     if scan_type == schema.SCAN_TYPE_SATELLITE:
       files_to_load = satellite.SATELLITE_FILES
     else:
@@ -424,7 +463,6 @@ class ScanDataBeamPipelineRunner():
     if scan_type == 'satellite':
       if start_date is None or start_date < DONT_READ_SATELLITE_DATA_BEFORE:
         start_date = DONT_READ_SATELLITE_DATA_BEFORE
-
     filtered_filenames = [
         filepath for (filepath, file_size) in zip(filepaths, file_sizes)
         if (_between_dates(filepath, start_date, end_date) and
@@ -432,7 +470,6 @@ class ScanDataBeamPipelineRunner():
             flatten_base.source_from_filename(filepath) not in existing_sources
             and file_size > EMPTY_GZIPPED_FILE_SIZE)
     ]
-
     return filtered_filenames
 
   def _write_to_bigquery(self, scan_type: str,
@@ -541,8 +578,8 @@ class ScanDataBeamPipelineRunner():
                         job_name: str, table_name: Optional[str],
                         gcs_folder: Optional[str],
                         start_date: Optional[datetime.date],
-                        end_date: Optional[datetime.date],
-                        export_gcs: bool) -> None:
+                        end_date: Optional[datetime.date], export_gcs: bool,
+                        export_bq: bool) -> None:
     """Run a single apache beam pipeline to load json data into bigquery.
 
     Args:
@@ -558,8 +595,8 @@ class ScanDataBeamPipelineRunner():
         Mostly only used during development.
       end_date: date object, only files at or before this date will be read.
         Mostly only used during development.
-      export_gcs: boolean. If true, write to Google Cloud Storage, if false
-        write to BigQuery.
+      export_gcs: boolean. If true, write to Google Cloud Storage.
+      export_bq: boolean. If true, write to BigQuery.
 
     Raises:
       Exception: if any arguments are invalid or the pipeline fails.
@@ -568,7 +605,7 @@ class ScanDataBeamPipelineRunner():
 
     if export_gcs and not gcs_folder:
       raise Exception('gcs_folder argument required when writing to GCS.')
-    if not export_gcs and not table_name:
+    if export_bq and not table_name:
       raise Exception('table_name argument required when writing to BigQuery.')
 
     pipeline_options = self._get_pipeline_options(scan_type, job_name)
@@ -601,9 +638,10 @@ class ScanDataBeamPipelineRunner():
 
       _raise_error_if_collection_empty(rows)
 
-      # TODO: Eventually we want to be able to run both exports simultaneously
-      # so that we can reuse the pipeline output.
-      if export_gcs and gcs_folder is not None:
+      if export_gcs and export_bq and table_name is not None and gcs_folder is not None:
+        self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
+        self._write_to_gcs(scan_type, rows, gcs_folder)
+      elif export_gcs and gcs_folder is not None:
         self._write_to_gcs(scan_type, rows, gcs_folder)
       elif table_name is not None:
         self._write_to_bigquery(scan_type, rows, table_name, incremental_load)

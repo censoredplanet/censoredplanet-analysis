@@ -49,7 +49,7 @@ def run_pipeline(env: str) -> None:
     # which is slow (hangs basic worker machines) and wasteful.
     subprocess.run([
         sys.executable, '-m', 'pipeline.run_beam_tables', f'--env={env}',
-        '--scan_type=all'
+        '--scan_type=all', '--export_bq'
     ],
                    check=True,
                    stdout=subprocess.PIPE)

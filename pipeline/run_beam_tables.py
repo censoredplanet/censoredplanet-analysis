@@ -17,7 +17,6 @@ To re-run the full beam pipeline manually (and blow away any old tables) run
 
 python -m pipeline.run_beam_tables --env=prod --incremental=False
 """
-
 import argparse
 import concurrent.futures
 import datetime
@@ -28,16 +27,17 @@ from pipeline.metadata.ip_metadata_chooser import IpMetadataChooserFactory
 
 
 def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
-                           dataset: str, scan_types: List[str],
-                           incremental_load: bool,
+                           dataset_bq: str, dataset_gcs: str,
+                           scan_types: List[str], incremental_load: bool,
                            start_date: Optional[datetime.date],
-                           end_date: Optional[datetime.date],
-                           export_gcs: bool) -> bool:
+                           end_date: Optional[datetime.date], export_gcs: bool,
+                           export_bq: bool) -> bool:
   """Runs beam pipelines for different scan types in parallel.
 
   Args:
     runner: ScanDataBeamPipelineRunner to run pipelines
-    dataset: dataset name to write to like 'prod' or 'laplante
+    dataset_bq: big query dataset name to write to like 'prod' or 'laplante
+    dataset_gcs: gcs dataset name to write to like 'prod' or 'laplante
     scan_types: list of scan types to run ['echo' 'http']
     incremental_load: boolean. If true, only load the latest new data, if false
       reload all data.
@@ -45,8 +45,8 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
       Mostly only used during development.
     end_date: date object, only files at or before this date will be read.
       Mostly only used during development.
-    export_gcs: boolean. If true, write to Google Cloud Storage, if false
-      write to BigQuery.
+    export_gcs: boolean. If true, write to Google Cloud Storage.
+    export_bq: boolean. If true, write to BigQuery.
 
   Returns:
     True on success
@@ -54,24 +54,31 @@ def run_parallel_pipelines(runner: beam_tables.ScanDataBeamPipelineRunner,
   Raises:
     Exception: if any of the pipelines fail or don't finish.
   """
-
   with concurrent.futures.ThreadPoolExecutor() as pool:
     futures = []
     for scan_type in scan_types:
       table_name = None
       gcs_folder = None
-      if export_gcs:
-        gcs_folder = beam_tables.get_gcs_folder(dataset, scan_type,
+
+      if export_bq and export_gcs:
+        table_name = beam_tables.get_table_name(dataset_bq, scan_type,
+                                                beam_tables.BASE_TABLE_NAME)
+        gcs_folder = beam_tables.get_gcs_folder(dataset_gcs, scan_type,
                                                 runner.output_bucket)
         job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
       else:
-        table_name = beam_tables.get_table_name(dataset, scan_type,
-                                                beam_tables.BASE_TABLE_NAME)
-        job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
+        if export_gcs:
+          gcs_folder = beam_tables.get_gcs_folder(dataset_gcs, scan_type,
+                                                  runner.output_bucket)
+          job_name = beam_tables.get_gcs_job_name(gcs_folder, incremental_load)
+        else:
+          table_name = beam_tables.get_table_name(dataset_bq, scan_type,
+                                                  beam_tables.BASE_TABLE_NAME)
+          job_name = beam_tables.get_bq_job_name(table_name, incremental_load)
 
       future = pool.submit(runner.run_beam_pipeline, scan_type,
                            incremental_load, job_name, table_name, gcs_folder,
-                           start_date, end_date, export_gcs)
+                           start_date, end_date, export_gcs, export_bq)
       futures.append(future)
 
     finished, pending = concurrent.futures.wait(
@@ -137,6 +144,8 @@ def main(parsed_args: argparse.Namespace) -> None:
       with 'full', 'env' 'project', and 'scan_type' args.
   """
   incremental = not parsed_args.full
+  if not parsed_args.export_gcs and not parsed_args.export_bq:
+    raise Exception('Provide at least export_gcs or export_bq')
 
   if parsed_args.scan_type == 'all':
     selected_scan_types = list(beam_tables.ALL_SCAN_TYPES)
@@ -144,17 +153,18 @@ def main(parsed_args: argparse.Namespace) -> None:
     selected_scan_types = [parsed_args.scan_type]
 
   pipeline_runner = get_beam_pipeline_runner(parsed_args.env)
-
   if parsed_args.env == 'user':
     run_parallel_pipelines(pipeline_runner, parsed_args.user_dataset,
-                           selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs)
+                           parsed_args.user_dataset, selected_scan_types,
+                           incremental, parsed_args.start_date,
+                           parsed_args.end_date, parsed_args.export_gcs,
+                           parsed_args.export_bq)
   elif parsed_args.env in ('dev', 'prod'):
     run_parallel_pipelines(pipeline_runner, beam_tables.BASE_DATASET_NAME,
-                           selected_scan_types, incremental,
-                           parsed_args.start_date, parsed_args.end_date,
-                           parsed_args.export_gcs)
+                           beam_tables.BASE_GCS_NAME, selected_scan_types,
+                           incremental, parsed_args.start_date,
+                           parsed_args.end_date, parsed_args.export_gcs,
+                           parsed_args.export_bq)
 
 
 def parse_args() -> argparse.Namespace:
@@ -199,7 +209,12 @@ def parse_args() -> argparse.Namespace:
       '--export_gcs',
       action='store_true',
       default=False,
-      help='Export to Google Cloud Storage instead of BigQuery')
+      help='Export to Google Cloud Storage')
+  parser.add_argument(
+      '--export_bq',
+      action='store_true',
+      default=False,
+      help='Export to BigQuery')
   parsed_args = parser.parse_args()
 
   if (parsed_args.env == 'user' and parsed_args.user_dataset is None):
