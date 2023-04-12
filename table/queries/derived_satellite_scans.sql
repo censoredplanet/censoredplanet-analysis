@@ -172,7 +172,7 @@ AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_only_vetted_all`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_only_vetted_all_2`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
@@ -200,8 +200,8 @@ WITH Grouped AS (
         
         COUNT(1) AS count
     FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
-         INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
-         USING (domain, source)
+         INNER JOIN `PROJECT_NAME.laplante.resolvable_curl_domains`
+         USING (domain)
     # Only include the last measurement in any set of retries
     JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
       ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
