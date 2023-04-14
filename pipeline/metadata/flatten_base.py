@@ -102,6 +102,10 @@ def cert_matches_domain(cert: x509.Certificate, domain: str) -> bool:
       'subjectAltName': alts
   }
 
+  from pprint import pprint
+  pprint("reformatted cert")
+  pprint(reformatted_cert)
+
   try:
     # https://docs.python.org/3/library/ssl.html#ssl.match_hostname
     # is deprecated in favor of openssl
@@ -110,7 +114,8 @@ def cert_matches_domain(cert: x509.Certificate, domain: str) -> bool:
     ssl.match_hostname(reformatted_cert, domain)  # type: ignore
     # pylint: enable=deprecated-method
     return True
-  except ssl.SSLCertVerificationError:
+  except ssl.SSLCertVerificationError as e:
+    pprint(e)
     return False
 
 

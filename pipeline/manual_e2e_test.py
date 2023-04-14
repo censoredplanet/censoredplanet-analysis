@@ -199,10 +199,12 @@ def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
   return PipelineOptions(
-      runner='DirectRunner',
+      runner='DataflowRunner',
       job_name=JOB_NAME,
       project=firehook_resources.DEV_PROJECT_NAME,
-      temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION)
+      temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION,
+      staging_location=firehook_resources.DEV_BEAM_STAGING_LOCATION,
+      setup_file='./pipeline/setup.py')
 
 
 def run_local_pipeline(scan_type: str, incremental: bool) -> None:
@@ -657,9 +659,10 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertEqual(set(written_derived_domains), set(expected_domains))
 
     finally:
-      clean_up_bq_tables(
-          client,
-          [get_bq_base_table_name(SATELLITE_SCAN_TYPE), derived_table_name])
+      pass
+      #clean_up_bq_tables(
+      #    client,
+      #    [get_bq_base_table_name(SATELLITE_SCAN_TYPE), derived_table_name])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
