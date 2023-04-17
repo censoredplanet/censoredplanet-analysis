@@ -586,6 +586,4 @@ class FlattenBlockpages(beam.DoFn):
           self.blockpage_matcher, received, domain, 'satellite', True)
       https_row.received.tls_cert_has_trusted_ca = blockpage_entry.get(
           'trusted_cert', None)
-      https_row.received.tls_cert_matches_domain = blockpage_entry.get(
-          'cert_hostname_match', None)
     yield https_row
