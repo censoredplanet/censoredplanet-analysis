@@ -1503,3 +1503,76 @@ class FlattenSatelliteTest(unittest.TestCase):
     flattener = get_blockpage_flattener()
     rows = flattener.process((filename, json.dumps(line)))
     self.assertEqual(list(rows), expected_rows)
+
+  def test_flattenmeasurement_blockpage_with_signal_cert(self) -> None:
+    """Test parsing a signal blockpage with multiple certificates"""
+
+    # yapf: disable
+    line = {
+        "ip": "54.192.18.30",
+        "keyword": "signal.org",
+        "http": {
+            "status_line": "301 Moved Permanently",
+            "body": "<html>\r\n<head><title>301 Moved Permanently</title></head>\r\n<body>\r\n<center><h1>301 Moved Permanently</h1></center>\r\n<hr><center>CloudFront</center>\r\n</body>\r\n</html>\r\n"
+        },
+        "https": {
+            "status_line": "200 OK",
+            "body": "test",
+            "TlsVersion": 771,
+            "CipherSuite": 49199,
+            "Certificate": [
+              "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",
+              "MIIEXjCCA0agAwIBAgITB3MSOAudZoijOx7Zv5zNpo4ODzANBgkqhkiG9w0BAQsFADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6b24gUm9vdCBDQSAxMB4XDTIyMDgyMzIyMjEyOFoXDTMwMDgyMzIyMjEyOFowPDELMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEcMBoGA1UEAxMTQW1hem9uIFJTQSAyMDQ4IE0wMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOtxLKnLH4gokjIwr4pXD3i3NyWVVYesZ1yX0yLI2qIUZ2t88Gfa4gMqs1YSXca1R/lnCKeTepWSGA+0+fkQNpp/L4C2T7oTTsddUx7g3ZYzByDTlrwS5HRQQqEFE3O1T5tEJP4tf+28IoXsNiEzl3UGzicYgtzj2cWCB41eJgEmJmcf2T8TzzK6a614ZPyq/w4CPAffnAV4coz96nW3AyiE2uhuB4zQUIXvgVSycW7sbWLvj5TDXunEpNCRwC4kkZjK7roljtT2cbb7W2s4Bkg3R42G3PLqBvt2N32e/0JOTViCk8/iccJ4sXqrS1uUN4iB5NmvJK74csVl+0u0UecCAwEAAaOCAVowggFWMBIGA1UdEwEB/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjAdBgNVHQ4EFgQUgbgOY4qJEhjl+js7UJWf5uWQE4UwHwYDVR0jBBgwFoAUhBjMhTTsvAyUlC4IWZzHshBOCggwewYIKwYBBQUHAQEEbzBtMC8GCCsGAQUFBzABhiNodHRwOi8vb2NzcC5yb290Y2ExLmFtYXpvbnRydXN0LmNvbTA6BggrBgEFBQcwAoYuaHR0cDovL2NydC5yb290Y2ExLmFtYXpvbnRydXN0LmNvbS9yb290Y2ExLmNlcjA/BgNVHR8EODA2MDSgMqAwhi5odHRwOi8vY3JsLnJvb3RjYTEuYW1hem9udHJ1c3QuY29tL3Jvb3RjYTEuY3JsMBMGA1UdIAQMMAowCAYGZ4EMAQIBMA0GCSqGSIb3DQEBCwUAA4IBAQCtAN4CBSMuBjJitGuxlBbkEUDeK/pZwTXv4KqPK0G50fOHOQAd8j21p0cMBgbGkfMHVwLU7b0XwZCav0h1ogdPMN1KakK1DT0VwA/+hFvGPJnMV1Kx2G4S1ZaSk0uU5QfoiYIIano01J5k4T2HapKQmmOhS/iPtuo00wW+IMLeBuKMn3OLn005hcrOGTadhcmeyfhQP7Z+iKHvyoQGi1C0ClymHETx/chhQGDyYSWqB/THwnN15AwLQo0E5V9ESJlbe4mBlqeInUsNYugExNf+tOiybcrswBy8OFsd34XOW3rjSUtsuafd9AWySa3hxRRrwszrzX/WWGm6wyB+f7C4",
+              "MIIEkjCCA3qgAwIBAgITBn+USionzfP6wq4rAfkI7rnExjANBgkqhkiG9w0BAQsFADCBmDELMAkGA1UEBhMCVVMxEDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoTHFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xOzA5BgNVBAMTMlN0YXJmaWVsZCBTZXJ2aWNlcyBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTE1MDUyNTEyMDAwMFoXDTM3MTIzMTAxMDAwMFowOTELMAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEZMBcGA1UEAxMQQW1hem9uIFJvb3QgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALJ4gHHKeNXjca9HgFB0fW7Y14h29Jlo91ghYPl0hAEvrAIthtOgQ3pOsqTQNroBvo3bSMgHFzZM9O6II8c+6zf1tRn4SWiw3te5djgdYZ6k/oI2peVKVuRF4fn9tBb6dNqcmzU5L/qwIFAGbHrQgLKm+a/sRxmPUDgH3KKHOVj4utWp+UhnMJbulHheb4mjUcAwhmahRWa6VOujw5H5SNz/0egwLX0tdHA114gk957EWW67c4cX8jJGKLhD+rcdqsq08p8kDi1L93FcXmn/6pUCyziKrlA4b9v7LWIbxcceVOF34GfID5yHI9Y/QCB/IIDEgEw+OyQmjgSubJrIqg0CAwEAAaOCATEwggEtMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgGGMB0GA1UdDgQWBBSEGMyFNOy8DJSULghZnMeyEE4KCDAfBgNVHSMEGDAWgBScXwDfqgHXMCs4iKK4bUqc8hGRgzB4BggrBgEFBQcBAQRsMGowLgYIKwYBBQUHMAGGImh0dHA6Ly9vY3NwLnJvb3RnMi5hbWF6b250cnVzdC5jb20wOAYIKwYBBQUHMAKGLGh0dHA6Ly9jcnQucm9vdGcyLmFtYXpvbnRydXN0LmNvbS9yb290ZzIuY2VyMD0GA1UdHwQ2MDQwMqAwoC6GLGh0dHA6Ly9jcmwucm9vdGcyLmFtYXpvbnRydXN0LmNvbS9yb290ZzIuY3JsMBEGA1UdIAQKMAgwBgYEVR0gADANBgkqhkiG9w0BAQsFAAOCAQEAYjdCXLwQtT6LLOkMm2xF4gcAevnFWAu5CIw+7bMlPLVvUOTNNWqnkzSWMiGpSESrnO09tKpzbeR/FoCJbM8oAxiDR3mjEH4wW6w7sGDgd9QIpuEdfF7Au/maeyKdpwAJfqxGF4PcnCZXmTA5YpaP7dreqsXMGz7KQ2hsVxa81Q4gLv7/wmpdLqBKbRRYh5TmOTFffHPLkIhqhBGWJ6bt2YFGpn6jcgAKUj6DiAdjd4lpFw85hdKrCEVN0FE6/V1dN2RMfjCyVSRCnTawXZwXgWHxyvkQAiSr6w10kY17RSlQOYiypok1JR4UakcjMS9cmvqtmg5iUaQqqcT5NJ0hGA==",
+              "MIIEdTCCA12gAwIBAgIJAKcOSkw0grd/MA0GCSqGSIb3DQEBCwUAMGgxCzAJBgNVBAYTAlVTMSUwIwYDVQQKExxTdGFyZmllbGQgVGVjaG5vbG9naWVzLCBJbmMuMTIwMAYDVQQLEylTdGFyZmllbGQgQ2xhc3MgMiBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTAeFw0wOTA5MDIwMDAwMDBaFw0zNDA2MjgxNzM5MTZaMIGYMQswCQYDVQQGEwJVUzEQMA4GA1UECBMHQXJpem9uYTETMBEGA1UEBxMKU2NvdHRzZGFsZTElMCMGA1UEChMcU3RhcmZpZWxkIFRlY2hub2xvZ2llcywgSW5jLjE7MDkGA1UEAxMyU3RhcmZpZWxkIFNlcnZpY2VzIFJvb3QgQ2VydGlmaWNhdGUgQXV0aG9yaXR5IC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDVDDrEKvlO4vW+GZdfjohTsR8/y8+fIBNtKTrID30892t2OGPZNmCom15cAICyL1l/9of5JUOG52kbUpqQ4XHj2C0NTm/2yEnZtvMaVq4rtnQU68/7JuMauh2WLmo7WJSJR1b/JaCTcFOD2oR0FMNnngRoOt+OQFodSk7PQ5E751bWAHDLUu57fa4657wx+UX2wmDPE1kCK4DMNEffud6QZW0CzyyRpqbn3oUYSXxmTqM6bam17jQuug0DuDPfR+uxa40l2ZvOgdFFRjKWcIfeAg5JQ4W2bHO7ZOphQazJ1FTfhy/HIrImzJ9ZVGif/L4qL8RVHHVAYBeFAlU5i38FAgMBAAGjgfAwge0wDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0OBBYEFJxfAN+qAdcwKziIorhtSpzyEZGDMB8GA1UdIwQYMBaAFL9ft9HO3R+G9FtVrNzXEMIOqYjnME8GCCsGAQUFBwEBBEMwQTAcBggrBgEFBQcwAYYQaHR0cDovL28uc3MyLnVzLzAhBggrBgEFBQcwAoYVaHR0cDovL3guc3MyLnVzL3guY2VyMCYGA1UdHwQfMB0wG6AZoBeGFWh0dHA6Ly9zLnNzMi51cy9yLmNybDARBgNVHSAECjAIMAYGBFUdIAAwDQYJKoZIhvcNAQELBQADggEBACMd44pXyn3pF3lM8R5V/cxTbj5HD9/GVfKyBDbtgB9TxF00KGu+x1X8Z+rLP3+QsjPNG1gQggL4+C/1E2DUBc7xgQjB3ad1l08YuW3e95ORCLp+QCztweq7dp4zBncdDQh/U90bZKuCJ/Fp1U1ervShw3WnWEQt8jxwmKy6abaVd38PMV4s/KCHOkdp8Hlf9BRUpJVeEXgSYCfOn8J3/yNTd126/+pZ59vPr5KW7ySaNRB6nJHGDn2Z9j8Z3/VyVOEVqQdZe4O/Ui5GjLIAZHYcSNPYeehuVsyuLAOQ1xk4meTKCRlb/weWsKh/NEnfVqn3sF/tM+2MR7cwA130A4w="
+            ]
+        },
+        "fetched": True,
+        "start_time": "2023-03-05 12:38:20.552810959 -0500 EST m=+45438.852453238",
+        "end_time": "2023-03-05 12:38:22.239915361 -0500 EST m=+45440.539557726",
+        "trusted_cert": True,
+        "cert_hostname_match": False
+    }
+    # yapf: enable
+
+    filename = 'gs://firehook-scans/satellite/CP-Satellite-2021-09-16-12-00-01/blockpages.json'
+
+    expected_rows = [
+      PageFetchRow(received=HttpsResponse(status='301 Moved Permanently',),
+               domain='signal.org',
+               ip='54.192.18.30',
+               date='2023-03-05',
+               start_time='2023-03-05T12:38:20.552810959-05:00',
+               end_time='2023-03-05T12:38:22.239915361-05:00',
+               success=True,
+               https=False,
+               source='CP-Satellite-2021-09-16-12-00-01'
+               ),
+      PageFetchRow(received=HttpsResponse(status='200 OK',
+                                      tls_version=771,
+                                      tls_cipher_suite=49199,
+                                      tls_cert='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',
+                                      tls_cert_common_name='www.signal.org',
+                                      tls_cert_issuer='Amazon RSA 2048 M01',
+                                      tls_cert_start_date='2023-02-24T00:00:00',
+                                      tls_cert_end_date='2023-07-09T23:59:59',
+                                      tls_cert_alternative_names=['www.signal.org',
+                                                                  'www.signal.art',
+                                                                  'signal.art',
+                                                                  'signal.org'],
+                                      tls_cert_has_trusted_ca=True,
+                                      tls_cert_matches_domain=True,
+                                      headers=[]),
+               domain='signal.org',
+               ip='54.192.18.30',
+               date='2023-03-05',
+               start_time='2023-03-05T12:38:20.552810959-05:00',
+               end_time='2023-03-05T12:38:22.239915361-05:00',
+               success=True,
+               https=True,
+               source='CP-Satellite-2021-09-16-12-00-01'
+               )]
+
+    flattener = get_blockpage_flattener()
+    rows = flattener.process((filename, json.dumps(line)))
+    self.assertEqual(list(rows), expected_rows)
