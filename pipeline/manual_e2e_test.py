@@ -199,7 +199,7 @@ def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
   return PipelineOptions(
-      runner='DataflowRunner',
+      runner='DirectRunner',
       job_name=JOB_NAME,
       project=firehook_resources.DEV_PROJECT_NAME,
       temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION,
