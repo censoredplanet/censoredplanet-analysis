@@ -35,6 +35,7 @@ SATELLITE_TAGGED_RESOLVERS_FILE = 'tagged_resolvers.json'  # v2.1
 SATELLITE_TAGGED_RESPONSES = 'tagged_responses.json'  # v2.1
 
 SATELLITE_BLOCKPAGES_FILE = 'blockpages.json'  # v2.2
+SATELLITE_CONTROL_BLOCKPAGES_FILE = 'control_pages.json'  # v2.2 from 2022.06.26
 
 # Files containing metadata for satellite DNS resolvers
 SATELLITE_RESOLVER_TAG_FILES = [
@@ -58,9 +59,14 @@ SATELLITE_OBSERVATION_FILES = [
     SATELLITE_ANSWERS_ERR_FILE
 ]
 
+# Files containing satellite ppage fetches
+SATELLITE_PAGE_FETCH_FILES = [
+  SATELLITE_BLOCKPAGES_FILE, SATELLITE_CONTROL_BLOCKPAGES_FILE
+]
+
 # All satellite files
 SATELLITE_FILES = (
-    SATELLITE_TAG_FILES + [SATELLITE_BLOCKPAGES_FILE] +
+    SATELLITE_TAG_FILES + SATELLITE_PAGE_FETCH_FILES +
     SATELLITE_OBSERVATION_FILES)
 
 CDN_REGEX = re.compile("AMAZON|Akamai|OPENDNS|CLOUDFLARENET|GOOGLE")
@@ -740,7 +746,7 @@ def partition_satellite_input(
     return 0
   if filename in SATELLITE_RESOLVER_TAG_FILES:
     return 1
-  if filename == SATELLITE_BLOCKPAGES_FILE:
+  if filename in SATELLITE_PAGE_FETCH_FILES:
     return 2
   if filename in SATELLITE_OBSERVATION_FILES:
     return 3
