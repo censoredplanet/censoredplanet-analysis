@@ -172,7 +172,7 @@ AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_only_vetted_all_3`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
