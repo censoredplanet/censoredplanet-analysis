@@ -148,16 +148,16 @@ AS (
   SELECT date,
          measurement_id,
          MAX(retry) AS retry
-  FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
+  FROM `PROJECT_NAME.laplante.satellite_scan`
   GROUP BY date, measurement_id
 );
 
 
 # Get all domains that have even a single valid HTTPS certificate resolution per scan
-CREATE OR REPLACE TABLE `firehook-censoredplanet.DERIVED_DATASET.https_capable_domains`
+CREATE OR REPLACE TABLE `firehook-censoredplanet.laplante.https_capable_domains`
 AS (
   SELECT domain, source
-  FROM `firehook-censoredplanet.base.satellite_scan`,
+  FROM `firehook-censoredplanet.laplante.satellite_scan`,
        UNNEST(answers) as a
   WHERE a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
   GROUP BY domain, source
@@ -199,8 +199,8 @@ WITH Grouped AS (
         OutcomeString(domain, received_error, received_rcode, answers) as outcome,
         
         COUNT(1) AS count
-    FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
-         INNER JOIN `firehook-censoredplanet.DERIVED_DATASET.https_capable_domains`
+    FROM `PROJECT_NAME.laplante.satellite_scan` AS a
+         INNER JOIN `firehook-censoredplanet.laplante.https_capable_domains`
          USING (domain, source)
     # Only include the last measurement in any set of retries
     JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
