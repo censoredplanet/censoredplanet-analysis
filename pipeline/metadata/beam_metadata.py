@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import logging
 from typing import Tuple, Dict, List, Iterator, Union, Iterable
 
 import apache_beam as beam
@@ -243,8 +244,11 @@ def merge_page_fetches_with_answers(
   ]
 
   if len(https_page_fetches) > 1 or len(http_page_fetches) > 1:
-    raise Exception(
-        f"Unexpected blockpages. Expected <= 1 HTTPS and HTTP: {page_fetches}")
+    # Sometimes there are duplicate pages between
+    # blockpages.json and control_pages.json
+    logging.info(
+        f'Duplicate page fetches found. Domain: {page_fetches[0].domain}, IP: {page_fetches[0].ip}'
+    )
 
   for (roundtrip_id, answer) in answers:
     if https_page_fetches:
