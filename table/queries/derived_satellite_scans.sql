@@ -153,6 +153,7 @@ AS (
 );
 
 
+# TODO move this to the pipeline instead of the query
 # Get all domains that have even a single valid HTTPS certificate resolution per scan
 CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
 AS (
