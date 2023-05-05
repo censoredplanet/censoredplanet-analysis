@@ -153,6 +153,18 @@ AS (
 );
 
 
+# TODO move this to the pipeline instead of the query
+# Get all domains that have even a single valid HTTPS certificate resolution per scan
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
+AS (
+  SELECT domain, source
+  FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`,
+       UNNEST(answers) as a
+  WHERE a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
+  GROUP BY domain, source
+);
+
+
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
 
@@ -191,12 +203,15 @@ WITH Grouped AS (
     FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
     # Only include the last measurement in any set of retries
     JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
-      ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
+        ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
+    INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
+        USING (domain, source)
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE domain_controls_failed = FALSE
           AND NOT BadResolver(resolver_connect_error_rate,
                               resolver_invalid_cert_rate,
                               resolver_non_zero_rcode_rate)
+
     GROUP BY a.date, hostname, country_code, network, subnetwork, outcome, domain, category
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING NOT STARTS_WITH(outcome, "❔setup/")
@@ -220,6 +235,7 @@ SELECT
 );
 
 DROP TABLE `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids`;
+DROP TABLE `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`;
 
 # Drop the temp function before creating the view
 # Since any temp functions in scope block view creation.
