@@ -129,10 +129,11 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
                       FROM UNNEST(answers) answer)
                       THEN "✅answer:matches_asn"
-                WHEN (SELECT LOGICAL_OR(NOT a.https_response_body IS NULL)
+                # TODO: delete, this case is covered by all the cert cases above
+                WHEN (SELECT LOGICAL_OR(NOT (a.https_response_status IS NULL))
                       FROM UNNEST(answers) a)
                       THEN CONCAT("❗️answer:unvalidated_https_connection:", AnswersSignature(answers))
-                WHEN (SELECT LOGICAL_OR(NOT a.http_response_body IS NULL)
+                WHEN (SELECT LOGICAL_OR(NOT (a.http_response_status IS NULL))
                       FROM UNNEST(answers) a)
                       THEN CONCAT("❗️answer:unvalidated_http_connection:", AnswersSignature(answers))
                 # We only reach this point if we weren't able to connect to the answer IP over either HTTPS or HTTP
