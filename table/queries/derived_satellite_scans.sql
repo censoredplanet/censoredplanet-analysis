@@ -28,6 +28,66 @@ CREATE TEMP FUNCTION ClassifySatelliteRCode(rcode INTEGER) AS (
   END
 );
 
+# Classify all page fetch errors into a small set of enums
+#
+# Output is a string of the format "stage/outcome"
+# Documentation of this enum is at
+# https://github.com/censoredplanet/censoredplanet-analysis/blob/master/docs/tables.md#outcome-classification
+CREATE TEMP FUNCTION ClassifyPageFetchError(error STRING) AS (
+  CASE
+    # System failures
+    WHEN ENDS_WITH(error, "address already in use") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol error") THEN "setup/system_failure"
+    WHEN ENDS_WITH(error, "protocol not available") THEN "setup/system_failure" # ipv4 vs 6 error
+    WHEN ENDS_WITH(error, "too many open files") THEN "setup/system_failure"
+
+    # Dial failures
+    WHEN ENDS_WITH(error, "network is unreachable") THEN "dial/ip.network_unreachable"
+    WHEN ENDS_WITH(error, "no route to host") THEN "dial/ip.host_no_route"
+    WHEN ENDS_WITH(error, "connection refused") THEN "dial/tcp.refused"
+    WHEN ENDS_WITH(error, "context deadline exceeded") THEN "dial/timeout"
+    WHEN ENDS_WITH(error, "connect: connection timed out") THEN "dial/timeout"
+    WHEN STARTS_WITH(error, "connection reset by peer") THEN "dial/tcp.reset" #no read: or write: prefix in error
+    WHEN ENDS_WITH(error, "connect: connection reset by peer") THEN "dial/tcp.reset"
+    WHEN ENDS_WITH(error, "getsockopt: connection reset by peer") THEN "dial/tcp.reset"
+
+    # TLS failures
+    WHEN REGEXP_CONTAINS(error, "tls:") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "remote error:") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "local error:") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "readLoopPeekFailLocked: <nil>") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "missing ServerKeyExchange message") THEN "tls/tls.failed"
+    WHEN ENDS_WITH(error, "no mutual cipher suite") THEN "tls/tls.failed"
+    WHEN REGEXP_CONTAINS(error, "TLS handshake timeout") THEN "tls/timeout"
+
+    # Write failures
+    WHEN ENDS_WITH(error, "write: connection reset by peer") THEN "write/tcp.reset"
+    WHEN ENDS_WITH(error, "write: broken pipe") THEN "write/system"
+
+    # Read failures
+    WHEN REGEXP_CONTAINS(error, "request canceled") THEN "read/timeout"
+    WHEN ENDS_WITH(error, "i/o timeout") THEN "read/timeout"
+    WHEN ENDS_WITH(error, "shutdown: transport endpoint is not connected") THEN "read/system"
+    # TODO: for HTTPS this error could potentially also be SNI blocking in the tls stage
+    # find a way to diffentiate this case.
+    WHEN REGEXP_CONTAINS(error, "read: connection reset by peer") THEN "read/tcp.reset"
+
+    # HTTP content verification failures
+    WHEN REGEXP_CONTAINS(error, "unexpected EOF") THEN "read/http.truncated_response"
+    WHEN REGEXP_CONTAINS(error, "EOF") THEN "read/http.empty"
+    WHEN REGEXP_CONTAINS(error, "http: server closed idle connection") THEN "read/http.truncated_response"
+    WHEN ENDS_WITH(error, "trailer header without chunked transfer encoding") THEN "http/http.invalid"
+    WHEN ENDS_WITH(error, "response missing Location header") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "bad Content-Length") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "failed to parse Location header") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "malformed HTTP") THEN "http/http.invalid"
+    WHEN REGEXP_CONTAINS(error, "malformed MIME") THEN "http/http.invalid"
+
+    # Unknown errors
+    ELSE "unknown/unknown"
+  END
+);
+
 CREATE TEMP FUNCTION ClassifySatelliteError(error STRING) AS (
   CASE
     # Satellite v1
@@ -127,7 +187,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                       FROM UNNEST(answers) answer)
                       THEN "✅answer:matches_asn"
                 # We only reach this point if we weren't able to connect to the answer IP over HTTPS
-                ELSE CONCAT("❓answer:no_tcp_connection:", AnswersSignature(answers))
+                ELSE CONCAT("❓answer:no_tcp_connection:", ClassifyPageFetchError(answers[OFFSET(0)].https_error), ":", AnswersSignature(answers))
             END
         )
     END
