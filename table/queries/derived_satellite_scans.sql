@@ -119,9 +119,6 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_AND(NOT a.https_tls_cert_matches_domain)
                       FROM UNNEST(answers) a)
                       THEN CONCAT("❗️answer:cert_not_for_domain:", answers[OFFSET(0)].https_tls_cert_common_name)
-                WHEN (SELECT LOGICAL_OR(answer.http_analysis_is_known_blockpage)
-                      FROM UNNEST(answers) answer)
-                      THEN CONCAT("❗️page:http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
                 WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
                       FROM UNNEST(answers) answer)
                       THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
@@ -129,14 +126,7 @@ CREATE TEMP FUNCTION OutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
                       FROM UNNEST(answers) answer)
                       THEN "✅answer:matches_asn"
-                # TODO: delete, this case is covered by all the cert cases above
-                WHEN (SELECT LOGICAL_OR(NOT (a.https_response_status IS NULL))
-                      FROM UNNEST(answers) a)
-                      THEN CONCAT("❗️answer:unvalidated_https_connection:", AnswersSignature(answers))
-                WHEN (SELECT LOGICAL_OR(NOT (a.http_response_status IS NULL))
-                      FROM UNNEST(answers) a)
-                      THEN CONCAT("❗️answer:unvalidated_http_connection:", AnswersSignature(answers))
-                # We only reach this point if we weren't able to connect to the answer IP over either HTTPS or HTTP
+                # We only reach this point if we weren't able to connect to the answer IP over HTTPS
                 ELSE CONCAT("❓answer:no_tcp_connection:", AnswersSignature(answers))
             END
         )
@@ -181,7 +171,7 @@ AS (
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans_vN
 # if you would like to see a clear breakage when there's a backwards-incompatible change.
 # Old table versions will be deleted.
-CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_v1`
+CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_no_http_blockpages`
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
