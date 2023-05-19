@@ -162,6 +162,7 @@ CREATE TEMP FUNCTION SatelliteOutcomeString(domain_name STRING,
     END
 );
 
+
 # When some roundtrips in the DNS scans fail they retry.
 # These retried are identified in bigquery by having the same measurement id
 # Once a roundtrip succeeds we stop retrying
@@ -208,23 +209,82 @@ OPTIONS (
 )
 AS (
 WITH AllScans AS (
-  SELECT * EXCEPT (source), "DISCARD" AS source
+  SELECT "DISCARD" AS source,
+         date,
+         server_country,
+         server_as_full_name,
+         NULL AS server_name,
+         domain_is_control,
+         domain,
+         outcome,
+         server_asn,
+         server_organization,
+         domain_category,
+         received_error,
+         NULL as received_rcode,
+         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
+    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
+    WHERE NOT controls_failed
   UNION ALL
-  SELECT * EXCEPT (source), "ECHO" AS source
+  SELECT "ECHO" AS source,
+         date,
+         server_country,
+         server_as_full_name,
+         NULL AS server_name,
+         domain_is_control,
+         domain,
+         outcome,
+         server_asn,
+         server_organization,
+         domain_category,
+         received_error,
+         NULL as received_rcode,
+         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
+    WHERE NOT controls_failed
   UNION ALL
-  SELECT * EXCEPT (source), "HTTP" AS source
+  SELECT "HTTP" AS source,
+         date,
+         server_country,
+         server_as_full_name,
+         NULL AS server_name,
+         domain_is_control,
+         domain,
+         outcome,
+         server_asn,
+         server_organization,
+         domain_category,
+         received_error,
+         NULL as received_rcode,
+         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.http_scan`
+    WHERE NOT controls_failed
   UNION ALL
-  SELECT * EXCEPT (source), "HTTPS" AS source
+  SELECT "HTTPS" AS source,
+         date,
+         server_country,
+         server_as_full_name,
+         NULL AS server_name,
+         domain_is_control,
+         domain,
+         outcome,
+         server_asn,
+         server_organization,
+         domain_category,
+         received_error,
+         NULL as received_rcode,
+         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.https_scan`
+    WHERE NOT controls_failed
   UNION ALL
-  SELECT date,
-         "DNS" AS source
+  SELECT "DNS" AS source,
+         a.date,
          resolver_country as server_country,
-         resolver_as_full_name as server_full_name,
-         domain_is_control, domain,
+         resolver_as_full_name as server_as_full_name,
+         resolver_name AS server_name,
+         domain_is_control,
+         domain,
          NULL as outcome,
          resolver_asn as server_asn,
          resolver_organization as server_organization,
@@ -249,8 +309,8 @@ WITH AllScans AS (
         source,
         server_country AS country_code,
         # As per https://docs.censoredplanet.org/dns.html#id2, some resolvers are named `special` instead of the real hostname.
-        IF(resolver_name="special","special",NET.REG_DOMAIN(resolver_name)) as reg_hostname,
-        resolver_name as hostname,
+        IF(server_name="special","special",NET.REG_DOMAIN(server_name)) as reg_hostname,
+        server_name as hostname,
         server_as_full_name AS network,
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IF(domain_is_control, "CONTROL", domain) AS domain,
@@ -258,9 +318,7 @@ WITH AllScans AS (
         IF(outcome IS NULL, SatelliteOutcomeString(domain, received_error, received_rcode, answers), AddHyperquackOutcomeEmoji(outcome)) AS outcome,
         COUNT(*) AS count
     FROM AllScans
-    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE NOT controls_failed
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork
+    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork, server_name
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING (NOT STARTS_WITH(outcome, "❔setup/")
             AND NOT outcome = "❔read/system")
@@ -292,6 +350,7 @@ DROP FUNCTION ClassifySatelliteError;
 DROP FUNCTION SatelliteOutcomeString;
 DROP FUNCTION InvalidIpType;
 DROP FUNCTION AnswersSignature;
+DROP FUNCTION BadResolver;
 
 # This view is the stable name for the table above.
 # Rely on the table name firehook-censoredplanet.derived.merged_reduced_scans
