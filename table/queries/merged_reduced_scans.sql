@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Only process a year's worth of the hyperquack data for costs savings purposes
+# TODO remove this once we are able to run appending queries instead.
+# Not needed for satellite since we already output restricted data from the pipeline
 DECLARE earliest_date DATE;
 SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR);
 
