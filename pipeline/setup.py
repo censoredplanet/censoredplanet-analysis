@@ -18,7 +18,7 @@ import setuptools
 setuptools.setup(
     name='censoredplanet-analysis',
     version='0.0.1',
-    install_requires=['cryptography==39.0.1', 'geoip2==4.1.0', 'pyasn==1.6.1'],
+    install_requires=['cryptography==41.0.0', 'geoip2==4.1.0', 'pyasn==1.6.1'],
     # Add a prefix so absolute import succeeds on workers.
     packages=['pipeline', 'pipeline.metadata'],
     package_dir={
