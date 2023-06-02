@@ -214,15 +214,13 @@ WITH AllScans AS (
          server_country,
          server_as_full_name,
          NULL AS server_name,
+         NULL AS reg_server_hostname,
          domain_is_control,
          domain,
-         outcome,
+         AddHyperquackOutcomeEmoji(outcome) as outcome,
          server_asn,
          server_organization,
          domain_category,
-         received_error,
-         NULL as received_rcode,
-         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
     WHERE NOT controls_failed
@@ -232,15 +230,13 @@ WITH AllScans AS (
          server_country,
          server_as_full_name,
          NULL AS server_name,
+         NULL AS reg_server_hostname,
          domain_is_control,
          domain,
-         outcome,
+         AddHyperquackOutcomeEmoji(outcome) as outcome,
          server_asn,
          server_organization,
          domain_category,
-         received_error,
-         NULL as received_rcode,
-         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
     WHERE NOT controls_failed
   UNION ALL
@@ -249,15 +245,13 @@ WITH AllScans AS (
          server_country,
          server_as_full_name,
          NULL AS server_name,
+         NULL AS reg_server_hostname,
          domain_is_control,
          domain,
-         outcome,
+         AddHyperquackOutcomeEmoji(outcome) as outcome,
          server_asn,
          server_organization,
          domain_category,
-         received_error,
-         NULL as received_rcode,
-         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.http_scan`
     WHERE NOT controls_failed
   UNION ALL
@@ -266,15 +260,13 @@ WITH AllScans AS (
          server_country,
          server_as_full_name,
          NULL AS server_name,
+         NULL AS reg_server_hostname,
          domain_is_control,
          domain,
-         outcome,
+         AddHyperquackOutcomeEmoji(outcome) as outcome,
          server_asn,
          server_organization,
          domain_category,
-         received_error,
-         NULL as received_rcode,
-         [] as answers
   FROM `PROJECT_NAME.BASE_DATASET.https_scan`
     WHERE NOT controls_failed
   UNION ALL
@@ -283,15 +275,14 @@ WITH AllScans AS (
          resolver_country as server_country,
          resolver_as_full_name as server_as_full_name,
          resolver_name AS server_name,
+         # As per https://docs.censoredplanet.org/dns.html#id2, some resolvers are named `special` instead of the real hostname.
+         IF(resolver_name="special","special",NET.REG_DOMAIN(resolver_name)) as reg_server_hostname,
          domain_is_control,
          domain,
-         NULL as outcome,
+         SatelliteOutcomeString(domain, received_error, received_rcode, answers) as outcome,
          resolver_asn as server_asn,
          resolver_organization as server_organization,
          domain_category,
-         received_error,
-         received_rcode,
-         answers
   FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
     # Only include the last measurement in any set of retries
     JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
@@ -308,17 +299,16 @@ WITH AllScans AS (
         date,
         source,
         server_country AS country_code,
-        # As per https://docs.censoredplanet.org/dns.html#id2, some resolvers are named `special` instead of the real hostname.
-        IF(server_name="special","special",NET.REG_DOMAIN(server_name)) as reg_hostname,
         server_name as hostname,
+        reg_server_hostname AS reg_hostname,
         server_as_full_name AS network,
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IF(domain_is_control, "CONTROL", domain) AS domain,
         IFNULL(domain_category, "Uncategorized") AS category,
-        IF(outcome IS NULL, SatelliteOutcomeString(domain, received_error, received_rcode, answers), AddHyperquackOutcomeEmoji(outcome)) AS outcome,
+        outcome,
         COUNT(*) AS count
     FROM AllScans
-    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork, server_name
+    GROUP BY date, source, country_code, network, outcome, domain, category, subnetwork, hostname, reg_hostname
     # Filter it here so that we don't need to load the outcome to apply the report filtering on every filter.
     HAVING (NOT STARTS_WITH(outcome, "❔setup/")
             AND NOT outcome = "❔read/system")
