@@ -208,7 +208,27 @@ OPTIONS (
   description="Filtered and pre-aggregated table of scans to use with the Censored Planed Dashboard"
 )
 AS (
-WITH AllScans AS (
+WITH 
+  FilteredDiscard AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.discard_scan` WHERE NOT controls_failed),
+  FilteredEcho AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.echo_scan` WHERE NOT controls_failed),
+  FilteredHTTP AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.http_scan` WHERE NOT controls_failed),
+  FilteredHTTPS AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.https_scan` WHERE NOT controls_failed),
+  FilteredSatellite AS (
+    SELECT * EXCEPT (date), 
+           a.date AS date
+    FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
+    # Only include the last measurement in any set of retries
+    JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
+        ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
+    INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
+        USING (domain, source)
+    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
+    WHERE domain_controls_failed = FALSE
+          AND NOT BadResolver(resolver_connect_error_rate,
+                              resolver_invalid_cert_rate,
+                              resolver_non_zero_rcode_rate)
+  ),
+  AllScans AS (
   SELECT "DISCARD" AS source,
          date,
          server_country,
@@ -221,9 +241,7 @@ WITH AllScans AS (
          server_asn,
          server_organization,
          domain_category,
-  FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
-    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE NOT controls_failed
+  FROM FilteredDiscard
   UNION ALL
   SELECT "ECHO" AS source,
          date,
@@ -237,8 +255,7 @@ WITH AllScans AS (
          server_asn,
          server_organization,
          domain_category,
-  FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
-    WHERE NOT controls_failed
+  FROM FilteredEcho
   UNION ALL
   SELECT "HTTP" AS source,
          date,
@@ -252,8 +269,7 @@ WITH AllScans AS (
          server_asn,
          server_organization,
          domain_category,
-  FROM `PROJECT_NAME.BASE_DATASET.http_scan`
-    WHERE NOT controls_failed
+  FROM FilteredHTTP
   UNION ALL
   SELECT "HTTPS" AS source,
          date,
@@ -267,11 +283,10 @@ WITH AllScans AS (
          server_asn,
          server_organization,
          domain_category,
-  FROM `PROJECT_NAME.BASE_DATASET.https_scan`
-    WHERE NOT controls_failed
+  FROM FilteredHTTPS
   UNION ALL
   SELECT "DNS" AS source,
-         a.date,
+         date,
          resolver_country as server_country,
          resolver_as_full_name as server_as_full_name,
          resolver_name AS server_name,
@@ -283,17 +298,7 @@ WITH AllScans AS (
          resolver_asn as server_asn,
          resolver_organization as server_organization,
          domain_category,
-  FROM `PROJECT_NAME.BASE_DATASET.satellite_scan` AS a
-    # Only include the last measurement in any set of retries
-    JOIN `PROJECT_NAME.DERIVED_DATASET.satellite_last_measurement_ids` AS b
-        ON (a.date = b.date AND a.measurement_id = b.measurement_id AND (a.retry = b.retry OR a.retry IS NULL))
-    INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
-        USING (domain, source)
-    # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE domain_controls_failed = FALSE
-          AND NOT BadResolver(resolver_connect_error_rate,
-                              resolver_invalid_cert_rate,
-                              resolver_non_zero_rcode_rate)
+  FROM FilteredSatellite
 ), Grouped AS (
     SELECT
         date,
