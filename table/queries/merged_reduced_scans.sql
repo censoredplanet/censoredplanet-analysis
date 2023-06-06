@@ -38,7 +38,7 @@ CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.merged_reduced_scans_v2`
 PARTITION BY date
 # Columns `source` and `country_name` are always used for filtering and must come first.
 # `network` and `domain` are useful for filtering and grouping.
-CLUSTER BY source, country_name, network, domain
+CLUSTER BY source, country_name, domain, network
 OPTIONS (
   friendly_name="Reduced Scans",
   description="Filtered and pre-aggregated table of scans to use with the Censored Planed Dashboard"

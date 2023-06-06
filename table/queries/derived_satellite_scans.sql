@@ -177,7 +177,7 @@ CREATE OR REPLACE TABLE `PROJECT_NAME.DERIVED_DATASET.reduced_satellite_scans_v1
 PARTITION BY date
 # Column `country_name` is always used for filtering and must come first.
 # `network`, `subnetwork`, and `domain` are useful for filtering and grouping.
-CLUSTER BY country_name, network, subnetwork, domain
+CLUSTER BY country_name, domain, network, subnetwork
 OPTIONS (
   friendly_name="Reduced Satellite Scans",
   description="Filtered and pre-aggregated table of Satellite scans to use with the Censored Planed Dashboard"
