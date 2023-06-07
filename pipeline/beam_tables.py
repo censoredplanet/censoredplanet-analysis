@@ -574,10 +574,17 @@ class ScanDataBeamPipelineRunner():
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
 
-  def derive_dashboard_rows(rows: beam.PCollection[schema.HyperquackRow]) -> beam.PCollection[DashboardRow]:
-    sql_query = open('table/queries/merge_hyperquack.sql').read()
+  def derive_dashboard_rows(self, rows: beam.PCollection[schema.HyperquackRow]) -> beam.PCollection[DashboardRow]:
+    from pprint import pprint
 
-    dash_rows = (rows | 'derive dashboard rows' >> beam.transform.sql.SqlTransform(sql_query))
+    sql_query = ''.join(open('table/queries/merge_hyperquack.sql').read())
+
+    pprint(sql_query)
+
+    dash_rows = (rows | 'derive dashboard rows' >> beam.transforms.sql.SqlTransform(sql_query))
+    
+    pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    pprint(dash_rows)
 
     return dash_rows
 
