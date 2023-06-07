@@ -29,7 +29,7 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.schema import BigqueryRow, dict_to_gcs_json_string
+from pipeline.metadata.schema import BigqueryRow, DashboardRow, dict_to_gcs_json_string
 from pipeline.metadata import hyperquack
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
@@ -473,7 +473,7 @@ class ScanDataBeamPipelineRunner():
     return filtered_filenames
 
   def _write_to_bigquery(self, scan_type: str,
-                         rows: beam.pvalue.PCollection[BigqueryRow],
+                         rows: beam.pvalue.PCollection[BigqueryRow|DashboardRow],
                          table_name: str, incremental_load: bool) -> None:
     """Write out row to a bigquery table.
 
@@ -574,6 +574,14 @@ class ScanDataBeamPipelineRunner():
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
 
+  def derive_dashboard_rows(rows: beam.PCollection[schema.HyperquackRow]) -> beam.PCollection[DashboardRow]:
+    sql_query = open('table/queries/merge_hyperquack.sql').read()
+
+    dash_rows = (rows | 'derive dashboard rows' >> beam.transform.sql.SqlTransform(sql_query))
+
+    return dash_rows
+
+
   def run_beam_pipeline(self, scan_type: str, incremental_load: bool,
                         job_name: str, table_name: Optional[str],
                         gcs_folder: Optional[str],
@@ -645,3 +653,12 @@ class ScanDataBeamPipelineRunner():
         self._write_to_gcs(scan_type, rows, gcs_folder)
       elif table_name is not None:
         self._write_to_bigquery(scan_type, rows, table_name, incremental_load)
+
+      # also calculate the derived rows in-pipeline
+      # and write to their own table
+      dashboard_rows = self.derive_dashboard_rows(rows)
+
+      self._write_to_bigquery('dashboard', dashboard_rows, 'firehook-censoredplanet.derived.merged_reduced_scans_v3', False)
+
+      
+

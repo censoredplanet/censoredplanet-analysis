@@ -248,6 +248,21 @@ class PageFetchRow():
   error: Optional[str] = None
 
 
+@dataclass
+class DashboardRow():
+  """A row in the dashboard table"""
+  date: Optional[str] = None
+  source: Optional[str] = None
+  country_name: Optional[str] = None
+  network: Optional[str] = None
+  subnetwork: Optional[str] = None
+  domain: Optional[str] = None
+  domain_category: Optional[str] = None
+  outcome: Optional[str] = None
+  unexpected_count: Optional[int] = None
+  count: Optional[int] = None
+
+
 def flatten_to_dict(row: Union[BigqueryRow, PageFetchRow]) -> Dict[str, Any]:
   if isinstance(row, HyperquackRow):
     return flatten_to_dict_hyperquack(row)
