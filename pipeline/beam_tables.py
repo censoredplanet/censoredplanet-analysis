@@ -27,6 +27,8 @@ from apache_beam.io.gcp.gcsfilesystem import GCSFileSystem
 from apache_beam.io.fileio import WriteToFiles
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
+# SQL transform must be imported here since it is run through a java JAR expansion
+from apache_beam.transforms.sql import SqlTransform
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
 from pipeline.metadata.schema import BigqueryRow, DashboardRow, dict_to_gcs_json_string
@@ -581,7 +583,7 @@ class ScanDataBeamPipelineRunner():
 
     pprint(sql_query)
 
-    dash_rows = (rows | 'derive dashboard rows' >> beam.transforms.sql.SqlTransform(sql_query))
+    dash_rows = (rows | 'derive dashboard rows' >> SqlTransform(sql_query))
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     pprint(dash_rows)
