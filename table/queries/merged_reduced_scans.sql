@@ -16,7 +16,7 @@
 # TODO remove this once we are able to run appending queries instead.
 # Not needed for satellite since we already output restricted data from the pipeline
 DECLARE earliest_date DATE;
-SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR);
+SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 2 YEAR);
 
 CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   CASE
