@@ -1,17 +1,3 @@
-CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
-  CASE
-    WHEN STARTS_WITH(outcome, "setup/") THEN CONCAT("❔", outcome)
-    WHEN STARTS_WITH(outcome, "unknown/") THEN CONCAT("❔", outcome)
-    WHEN STARTS_WITH(outcome, "dial/") THEN CONCAT("❔", outcome)
-    WHEN STARTS_WITH(outcome, "read/system") THEN CONCAT("❔", outcome)
-    WHEN STARTS_WITH(outcome, "expected/") THEN CONCAT("✅", SUBSTR(outcome, 10))
-    WHEN STARTS_WITH(outcome, "content/blockpage") THEN CONCAT("❗️", outcome)
-    WHEN STARTS_WITH(outcome, "read/") THEN CONCAT("❗️", outcome)
-    WHEN STARTS_WITH(outcome, "write/") THEN CONCAT("❗️", outcome)
-    ELSE CONCAT("❓", outcome)
-  END
-);
-
 WITH 
 AllScans AS (
   SELECT * EXCEPT (source), "DISCARD" AS source
@@ -33,7 +19,7 @@ Grouped AS (
         server_country AS country_code,
         server_as_full_name AS network,
         IF(domain_is_control, "CONTROL", domain) AS domain,
-        AddOutcomeEmoji(outcome) AS outcome,
+        outcome AS outcome,
         CONCAT("AS", server_asn, IF(server_organization IS NOT NULL, CONCAT(" - ", server_organization), "")) AS subnetwork,
         IFNULL(domain_category, "Uncategorized") AS category,
         COUNT(*) AS count

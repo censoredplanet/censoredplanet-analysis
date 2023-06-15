@@ -579,7 +579,7 @@ class ScanDataBeamPipelineRunner():
   def derive_dashboard_rows(self, rows: beam.PCollection[schema.HyperquackRow]) -> beam.PCollection[DashboardRow]:
     from pprint import pprint
 
-    sql_query = ''.join(open('table/queries/merge_hyperquack.sql').read())
+    sql_query = ''.join(open('table/queries/fake.sql').read())
 
     coder_rows = (rows | 'convert rows' >>
                    beam.Map(convert_byperquack_row_to_bq_row_format).with_output_types(BigqueryInputRow))

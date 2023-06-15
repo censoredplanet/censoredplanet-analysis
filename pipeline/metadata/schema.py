@@ -224,7 +224,7 @@ BigqueryInputRow = NamedTuple(
   [('domain', str),
    ('category', str),
    ('ip', str),
-   ('date', str),
+   ('ddate', str),
    ('state_time', str),
    ('end_time', str),
    ('retry', int),
@@ -266,7 +266,7 @@ def convert_byperquack_row_to_bq_row_format(row: HyperquackRow) -> BigqueryInput
 
 BigqueryOutputRow = NamedTuple(
   'BigqueryOutputRow',
-  [('date', str),
+  [('ddate', str),
    ('source', str),
    ('country_name', str),
    ('network', str),
