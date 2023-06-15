@@ -583,7 +583,7 @@ class ScanDataBeamPipelineRunner():
 
     pprint(sql_query)
 
-    dash_rows = (rows | 'derive dashboard rows' >> SqlTransform(sql_query))
+    dash_rows = (rows | 'derive dashboard rows' >> SqlTransform(sql_query)).with_output_types(beam.Row)
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     pprint(dash_rows)
