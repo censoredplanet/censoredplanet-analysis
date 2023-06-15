@@ -6,9 +6,10 @@ from __future__ import annotations  # required to use class as a type inside the
 import dataclasses
 import json
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, NamedTuple
 
 from apache_beam.io.gcp.internal.clients import bigquery as beam_bigquery
+from apache_beam import coders
 
 # pylint: disable=too-many-instance-attributes
 
@@ -216,6 +217,69 @@ class HyperquackRow(BigqueryRow):
   received: HttpsResponse = dataclasses.field(default_factory=HttpsResponse)
   stateful_block: Optional[bool] = None
   outcome: Optional[str] = None
+
+
+BigqueryInputRow = NamedTuple(
+  'BigqueryInputRow',
+  [('domain', str),
+   ('category', str),
+   ('ip', str),
+   ('date', str),
+   ('state_time', str),
+   ('end_time', str),
+   ('retry', int),
+   ('error', str),
+   ('anomaly', bool),
+   ('success', bool),
+   ('is_control', bool),
+   ('controls_failed', bool),
+   ('stateful_block', bool),
+   ('measurement_id', str),
+   ('source', str),
+   ('outcome', str)
+   ]
+  )
+coders.registry.register_coder(BigqueryInputRow, coders.RowCoder)
+
+
+def convert_byperquack_row_to_bq_row_format(row: HyperquackRow) -> BigqueryInputRow:
+  return BigqueryInputRow(
+    row.domain, 
+    row.category,
+    row.ip,
+    row.date,
+    row.start_time,
+    row.end_time,
+    row.retry,
+    row.error,
+    row.anomaly,
+    row.success,
+    row.is_control,
+    row.controls_failed,
+    row.stateful_block,
+    row.measurement_id,
+    row.source,
+    row.outcome
+  )
+
+
+
+BigqueryOutputRow = NamedTuple(
+  'BigqueryOutputRow',
+  [('date', str),
+   ('source', str),
+   ('country_name', str),
+   ('network', str),
+   ('domain', str),
+   ('outcome', str),
+   ('subnetwork', str),
+   ('category', str),
+   ('count', int),
+   ('unexpected_count', int)
+   ]
+  )
+coders.registry.register_coder(BigqueryOutputRow, coders.RowCoder)
+
 
 
 @dataclass

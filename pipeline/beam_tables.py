@@ -31,7 +31,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.transforms.sql import SqlTransform
 from google.cloud import bigquery as cloud_bigquery  # type: ignore
 
-from pipeline.metadata.schema import BigqueryRow, DashboardRow, dict_to_gcs_json_string
+from pipeline.metadata.schema import BigqueryRow, DashboardRow, BigqueryOutputRow, BigqueryInputRow, dict_to_gcs_json_string, convert_byperquack_row_to_bq_row_format
 from pipeline.metadata import hyperquack
 from pipeline.metadata import schema
 from pipeline.metadata import flatten_base
@@ -581,9 +581,16 @@ class ScanDataBeamPipelineRunner():
 
     sql_query = ''.join(open('table/queries/merge_hyperquack.sql').read())
 
+    coder_rows = (rows | 'convert rows' >>
+                   beam.Map(convert_byperquack_row_to_bq_row_format).with_output_types(BigqueryInputRow))
+
     pprint(sql_query)
 
-    dash_rows = (rows | 'derive dashboard rows' >> SqlTransform(sql_query)).with_output_types(beam.Row)
+    pprint(coder_rows)
+    pprint(dir(coder_rows))
+    pprint(coder_rows.element_type)
+
+    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query).with_output_types(BigqueryOutputRow))
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     pprint(dash_rows)
@@ -645,13 +652,13 @@ class ScanDataBeamPipelineRunner():
           lines |
           'reshuffle' >> beam.Reshuffle().with_output_types(Tuple[str, str]))
 
-      if scan_type == schema.SCAN_TYPE_SATELLITE:
+      #if scan_type == schema.SCAN_TYPE_SATELLITE:
         # PCollection[SatelliteRow]
-        rows = satellite.process_satellite_lines(lines, self.metadata_adder)
+      #  rows = satellite.process_satellite_lines(lines, self.metadata_adder)
 
-      else:  # Hyperquack scans
+      #else:  # Hyperquack scans
         # PCollection[HyperquackRow]
-        rows = hyperquack.process_hyperquack_lines(lines, self.metadata_adder)
+      rows = hyperquack.process_hyperquack_lines(lines, self.metadata_adder)
 
       _raise_error_if_collection_empty(rows)
 
