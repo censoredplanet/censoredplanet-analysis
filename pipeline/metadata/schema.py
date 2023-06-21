@@ -236,7 +236,12 @@ BigqueryInputRow = NamedTuple(
    ('stateful_block', bool),
    ('measurement_id', str),
    ('source', str),
-   ('outcome', str)
+   ('outcome', str),
+   ('server_country', str),
+   ('server_as_full_name', str),
+   ('server_asn', str),
+   ('server_organization', str),
+   ('domain_category', str)
    ]
   )
 coders.registry.register_coder(BigqueryInputRow, coders.RowCoder)
@@ -259,7 +264,12 @@ def convert_byperquack_row_to_bq_row_format(row: HyperquackRow) -> BigqueryInput
     row.stateful_block,
     row.measurement_id,
     row.source,
-    row.outcome
+    row.outcome,
+    row.ip_metadata.country,
+    row.ip_metadata.as_full_name,
+    row.ip_metadata.server_asn,
+    row.ip_metadata.server_organization,
+    row.category
   )
 
 
