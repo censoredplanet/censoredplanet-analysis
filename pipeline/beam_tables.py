@@ -590,7 +590,8 @@ class ScanDataBeamPipelineRunner():
     pprint(dir(coder_rows))
     pprint(coder_rows.element_type)
 
-    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query).with_output_types(BigqueryOutputRow))
+    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query))
+                 #.with_output_types(BigqueryOutputRow))
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     pprint(dash_rows)
