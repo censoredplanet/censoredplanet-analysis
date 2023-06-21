@@ -7,7 +7,7 @@ SELECT
         outcome AS outcome,
         server_asn AS subnetwork,
         COALESCE(domain_category, 'Uncategorized') AS category,
-        COUNT(*) AS c,
+        COUNT(*) AS `count`,
         1 AS unexpected_count
     FROM PCOLLECTION
     WHERE NOT controls_failed
