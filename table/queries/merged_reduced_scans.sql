@@ -149,9 +149,6 @@ CREATE TEMP FUNCTION SatelliteOutcomeString(domain_name STRING,
                 WHEN (SELECT LOGICAL_OR(answer.http_analysis_is_known_blockpage)
                       FROM UNNEST(answers) answer)
                       THEN CONCAT("❗️page:http_blockpage:", answers[OFFSET(0)].http_analysis_page_signature)
-                WHEN (SELECT LOGICAL_OR(answer.https_analysis_is_known_blockpage)
-                      FROM UNNEST(answers) answer)
-                      THEN CONCAT("❗️page:https_blockpage:", answers[OFFSET(0)].https_analysis_page_signature)
                 -- We check AS after cert/blockpage because we've seen (rare) cases of blockpages hosted on the ISP that also hosts Akamai servers.
                 WHEN (SELECT LOGICAL_OR(answer.matches_control.asn)
                       FROM UNNEST(answers) answer)
