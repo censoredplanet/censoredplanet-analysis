@@ -26,7 +26,7 @@ import schedule
 
 from mirror.routeviews.sync_routeviews import get_firehook_routeview_mirror
 from mirror.internal.sync import get_censoredplanet_mirror
-from table.run_queries import rebuild_all_tables
+from table.run_queries import append_all_tables, DEFAULT_BASE_DATASET, DEFAULT_DERIVED_DATASET
 import firehook_resources
 
 
@@ -55,9 +55,11 @@ def run_pipeline(env: str) -> None:
                    stdout=subprocess.PIPE)
 
     if env == 'dev':
-      rebuild_all_tables(firehook_resources.DEV_PROJECT_NAME)
+      append_all_tables(firehook_resources.DEV_PROJECT_NAME,
+                        DEFAULT_BASE_DATASET, DEFAULT_DERIVED_DATASET)
     if env == 'prod':
-      rebuild_all_tables(firehook_resources.PROD_PROJECT_NAME)
+      append_all_tables(firehook_resources.PROD_PROJECT_NAME,
+                        DEFAULT_BASE_DATASET, DEFAULT_DERIVED_DATASET)
   except Exception:
     # If something goes wrong also log to GCP error console.
     error_reporting.Client().report_exception()
