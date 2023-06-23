@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Only process a year's worth of the data for costs savings purposes
+# TODO remove this once we are able to run appending queries instead.
+DECLARE earliest_date DATE;
+SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR);
+
+
 CREATE TEMP FUNCTION AddHyperquackOutcomeEmoji(outcome STRING) AS (
   CASE
     WHEN STARTS_WITH(outcome, "setup/") THEN CONCAT("❔", outcome)
@@ -173,6 +179,7 @@ AS (
          measurement_id,
          MAX(retry) AS retry
   FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
+  WHERE date >= earliest_date
   GROUP BY date, measurement_id
 );
 
@@ -183,7 +190,8 @@ AS (
   SELECT domain, source
   FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`,
        UNNEST(answers) as a
-  WHERE a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
+  WHERE date >= earliest_date
+        AND a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
   GROUP BY domain, source
 );
 
@@ -206,10 +214,10 @@ OPTIONS (
 )
 AS (
 WITH 
-  FilteredDiscard AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.discard_scan` WHERE NOT controls_failed),
-  FilteredEcho AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.echo_scan` WHERE NOT controls_failed),
-  FilteredHTTP AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.http_scan` WHERE NOT controls_failed),
-  FilteredHTTPS AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.https_scan` WHERE NOT controls_failed),
+  FilteredDiscard AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.discard_scan` WHERE date >= earliest_date AND NOT controls_failed),
+  FilteredEcho AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.echo_scan` WHERE date >= earliest_date AND NOT controls_failed),
+  FilteredHTTP AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.http_scan` WHERE date >= earliest_date AND NOT controls_failed),
+  FilteredHTTPS AS (SELECT * FROM `PROJECT_NAME.BASE_DATASET.https_scan` WHERE date >= earliest_date AND NOT controls_failed),
   FilteredSatellite AS (
     SELECT * EXCEPT (date), 
            a.date AS date
@@ -220,7 +228,7 @@ WITH
     INNER JOIN `PROJECT_NAME.DERIVED_DATASET.https_capable_domains`
         USING (domain, source)
     # Filter on controls_failed to potentially reduce the number of output rows (less dimensions to group by).
-    WHERE domain_controls_failed = FALSE
+    WHERE a.date >= earliest_date AND domain_controls_failed = FALSE
           AND NOT BadResolver(resolver_connect_error_rate,
                               resolver_invalid_cert_rate,
                               resolver_non_zero_rcode_rate)
