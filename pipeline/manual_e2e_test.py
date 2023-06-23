@@ -198,11 +198,15 @@ def get_gs_formatted_gcs_folder(scan_type: str) -> str:
 def get_local_pipeline_options(*_: List[Any]) -> PipelineOptions:
   # This method is used to monkey patch the get_pipeline_options method in
   # beam_tables in order to run a local pipeline.
-  return PipelineOptions(
+  pipeline_options = PipelineOptions(
       runner='DirectRunner',
       job_name=JOB_NAME,
       project=firehook_resources.DEV_PROJECT_NAME,
-      temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION)
+      temp_location=firehook_resources.DEV_BEAM_TEMP_LOCATION,
+      planner_name='org.apache.beam.sdk.extensions.sql.zetasql.ZetaSQLQueryPlanner'
+      )
+  #pipeline_options.set_planner_name('org.apache.beam.sdk.extensions.sql.zetasql.ZetaSQLQueryPlanner')
+  return pipeline_options
 
 
 def run_local_pipeline(scan_type: str, incremental: bool) -> None:

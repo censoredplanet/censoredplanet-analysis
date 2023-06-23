@@ -272,7 +272,7 @@ BigqueryOutputRow = NamedTuple(
    ('outcome', str),
    ('subnetwork', str),
    ('category', str),
-   ('c', int),
+   ('count', int),
    ('unexpected_count', int)
    ]
   )
