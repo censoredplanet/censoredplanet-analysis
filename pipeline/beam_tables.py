@@ -573,12 +573,6 @@ class ScanDataBeamPipelineRunner():
         ],
         dataflow_service_options=['enable_prime'],
         setup_file='./pipeline/setup.py')
-    pipeline_options.set_planner_name('org.apache.beam.sdk.extensions.sql.zetasql.ZetaSQLQueryPlanner')
-
-    from pprint import pprint
-    pprint("printing pipeline options")
-    pprint(pipeline_options)
-
     pipeline_options.view_as(SetupOptions).save_main_session = True
     return pipeline_options
 
@@ -596,7 +590,9 @@ class ScanDataBeamPipelineRunner():
     pprint(dir(coder_rows))
     pprint(coder_rows.element_type)
 
-    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query) )
+    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(
+      sql_query, 
+      dialect='org.apache.beam.sdk.extensions.sql.zetasql.ZetaSQLQueryPlanner') )
                  #.with_output_types(BigqueryOutputRow))
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
