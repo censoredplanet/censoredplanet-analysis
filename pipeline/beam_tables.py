@@ -590,7 +590,9 @@ class ScanDataBeamPipelineRunner():
     pprint(dir(coder_rows))
     pprint(coder_rows.element_type)
 
-    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query, dialect='zetasql'))
+    dash_rows = (coder_rows | 'derive dashboard rows' >> SqlTransform(sql_query, 
+                                                                      dialect='zetasql'
+                                                                      ))
     
     pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     pprint(dash_rows)
