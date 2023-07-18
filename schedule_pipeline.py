@@ -72,7 +72,7 @@ def run(env: str) -> None:
   """
   run_pipeline(env)  # run once when starting to catch new errors when deploying
 
-  schedule.every().monday.at('04:00').do(run_pipeline, env)
+  schedule.every().day.at('04:00').do(run_pipeline, env)
 
   while True:
     schedule.run_pending()
