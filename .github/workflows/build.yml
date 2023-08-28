@@ -17,7 +17,7 @@ jobs:
       run: |
 
         python -m pip install --upgrade pip
-        pip install mypy yapf pylint -r requirements.txt
+        pip install mypy==1.0.0 yapf pylint -r requirements.txt
     - name: Check types with mypy
       # Get all files with find because ** doesn't expand correctly.
       # Run mypy twice, once to find missing stub packeges, then again after installing them.
