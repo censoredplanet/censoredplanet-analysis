@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+DECLARE earliest_date DATE;
+SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 2 YEAR);
+
 CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   CASE
     WHEN STARTS_WITH(outcome, "setup/") THEN CONCAT("❔", outcome)
@@ -25,6 +28,7 @@ CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
     ELSE CONCAT("❓", outcome)
   END
 );
+
 
 # BASE_DATASET and DERIVED_DATASET are reserved dataset placeholder names
 # which will be replaced when running the query
@@ -47,15 +51,19 @@ AS (
 WITH AllScans AS (
   SELECT * EXCEPT (source), "DISCARD" AS source
   FROM `PROJECT_NAME.BASE_DATASET.discard_scan`
+  WHERE date >= earliest_date
   UNION ALL
   SELECT * EXCEPT (source), "ECHO" AS source
   FROM `PROJECT_NAME.BASE_DATASET.echo_scan`
+  WHERE date >= earliest_date
   UNION ALL
   SELECT * EXCEPT (source), "HTTP" AS source
   FROM `PROJECT_NAME.BASE_DATASET.http_scan`
+  WHERE date >= earliest_date
   UNION ALL
   SELECT * EXCEPT (source), "HTTPS" AS source
   FROM `PROJECT_NAME.BASE_DATASET.https_scan`
+  WHERE date >= earliest_date
 ), Grouped AS (
     SELECT
         date,
