@@ -13,7 +13,7 @@
 # limitations under the License.
 
 DECLARE earliest_date DATE;
-SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR);
+SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 2 YEAR);
 
 CREATE TEMP FUNCTION AddOutcomeEmoji(outcome STRING) AS (
   CASE
