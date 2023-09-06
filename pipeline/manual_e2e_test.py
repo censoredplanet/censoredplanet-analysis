@@ -449,7 +449,7 @@ class PipelineManualE2eTest(unittest.TestCase):
         # This string must stay updated to match the query string.
         query_text = query_file.read()
         fixed_query_text = query_text.replace(
-            'SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 2 YEAR);',
+            'SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR);',
             'SET earliest_date = \'2018-01-01\';')
 
         # pylint: disable=protected-access
