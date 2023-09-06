@@ -37,14 +37,21 @@ DEFAULT_DERIVED_DATASET = 'derived'
 def _run_query(client: cloud_bigquery.Client, filepath: str, project_name: str,
                base_dataset: str,
                derived_dataset: str) -> cloud_bigquery.table.RowIterator:
-  with open(filepath, encoding='utf-8') as sql:
-    query = sql.read()
+  with open(filepath, encoding='utf-8') as sql_file:
+    query_text = sql_file.read()
+    return _run_query_text(client, query_text, project_name, base_dataset,
+                           derived_dataset)
 
-    query = query.replace(PROJECT_NAME_PLACEHOLDER, project_name)
-    query = query.replace(BASE_PLACEHOLDER, base_dataset)
-    query = query.replace(DERIVED_PLACEHOLDER, derived_dataset)
 
-    query_job = client.query(query)
+# This is used to patch the query for E2E testing
+def _run_query_text(client: cloud_bigquery.Client, query: str,
+                    project_name: str, base_dataset: str,
+                    derived_dataset: str) -> cloud_bigquery.table.RowIterator:
+  query = query.replace(PROJECT_NAME_PLACEHOLDER, project_name)
+  query = query.replace(BASE_PLACEHOLDER, base_dataset)
+  query = query.replace(DERIVED_PLACEHOLDER, derived_dataset)
+
+  query_job = client.query(query)
   return query_job.result()
 
 

@@ -440,19 +440,31 @@ class PipelineManualE2eTest(unittest.TestCase):
 
       client = cloud_bigquery.Client(
           project=firehook_resources.DEV_PROJECT_NAME)
-      # pylint: disable=protected-access
-      # Write derived table
-      run_queries._run_query(
-          client,
+
+      with open(
           'table/queries/merged_reduced_scans.sql',
-          firehook_resources.DEV_PROJECT_NAME,
-          BEAM_TEST_BASE_DATASET,
-          BEAM_TEST_BASE_DATASET,
-      )
-      # pylint: enable=protected-access
+          encoding='utf-8') as query_file:
+        # Replace the year restriction in the query with a predefined date
+        # so the query will continue to work with the e2e test data.
+        # This string must stay updated to match the query string.
+        query_text = query_file.read()
+        fixed_query_text = query_text.replace(
+            'SET earliest_date = DATE_SUB(CURRENT_DATE, INTERVAL 2 YEAR);',
+            'SET earliest_date = \'2018-01-01\';')
+
+        # pylint: disable=protected-access
+        # Write derived table
+        run_queries._run_query_text(
+            client,
+            fixed_query_text,
+            firehook_resources.DEV_PROJECT_NAME,
+            BEAM_TEST_BASE_DATASET,
+            BEAM_TEST_BASE_DATASET,
+        )
+        # pylint: enable=protected-access
 
       written_derived_rows = get_bq_rows(client, [derived_table_name])
-      self.assertEqual(len(written_derived_rows), 53)
+      self.assertEqual(len(written_derived_rows), 55)
 
       expected_domains = [
           'CONTROL', 'mos.ru', 'scribd.com', 'www.89.com', 'secondlife.com',
