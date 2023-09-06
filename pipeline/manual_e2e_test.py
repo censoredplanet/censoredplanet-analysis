@@ -42,8 +42,7 @@ from table import run_queries
 # The test table is written into the <project>:test dataset
 BEAM_TEST_BASE_DATASET = 'test'
 BEAM_TEST_BASE_TABLE_SUFFIX = '_scan'
-DERIVED_TABLE_NAME_HYPERQUACK = 'merged_reduced_scans_v2'
-DERIVED_TABLE_NAME_SATELLITE = 'reduced_satellite_scans_v1'
+DERIVED_TABLE_NAME = 'merged_reduced_scans_v3'
 
 BEAM_TEST_GCS_BUCKET = 'firehook-test'
 BEAM_TEST_GCS_FOLDER = 'e2e-test'
@@ -183,12 +182,8 @@ def get_bq_blockpage_table_name(scan_type: str) -> str:
   return get_blockpage_table_name(get_bq_base_table_name(scan_type), scan_type)
 
 
-def get_bq_derived_table_name_hyperquack() -> str:
-  return f'{firehook_resources.DEV_PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_HYPERQUACK}'
-
-
-def get_bq_derived_table_name_satellite() -> str:
-  return f'{firehook_resources.DEV_PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME_SATELLITE}'
+def get_bq_derived_table_name() -> str:
+  return f'{firehook_resources.DEV_PROJECT_NAME}.{BEAM_TEST_BASE_DATASET}.{DERIVED_TABLE_NAME}'
 
 
 def get_gs_formatted_gcs_folder(scan_type: str) -> str:
@@ -356,6 +351,124 @@ def get_bq_rows(client: cloud_bigquery.Client, table_names: List[str]) -> List:
 class PipelineManualE2eTest(unittest.TestCase):
   """Manual tests that require access to cloud project resources."""
 
+  def test_pipeline_e2e(self) -> None:
+    """Test the full pipeline by running it twice locally on a few files."""
+    # Suppress some unittest socket warnings in beam code we don't control
+    warnings.simplefilter('ignore', ResourceWarning)
+    client = cloud_bigquery.Client()
+
+    derived_table_name = get_bq_derived_table_name()
+
+    try:
+      bq_table_names = [
+          get_bq_base_table_name(scan_type)
+          for scan_type in HYPERQUACK_SCAN_TYPES + [SATELLITE_SCAN_TYPE]
+      ]
+
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline(scan_type, False)
+      run_local_pipeline_satellite_v1()
+
+      written_rows = get_bq_rows(client, bq_table_names)
+      self.assertEqual(len(written_rows), 57 + 8)
+
+      for scan_type in HYPERQUACK_SCAN_TYPES:
+        run_local_pipeline(scan_type, True)
+      # contains v2p1 and v2p2
+      run_local_pipeline_satellite_v2()
+
+      written_rows = get_bq_rows(client, bq_table_names)
+      self.assertEqual(len(written_rows), 110 + 44)
+
+      # Domain appear different numbers of times in the test table depending on
+      # how their measurement succeeded/failed.
+      expected_single_domains = [
+          'boingboing.net',
+          'box.com',
+          'google.com.ua',
+          'mos.ru',
+          'scribd.com',
+          'uploaded.to',
+          'www.blubster.com',
+          'www.orthodoxconvert.info',
+          '1688.com',
+          '1337x.to',
+      ]
+      expected_single_control_domains = [
+          'control-28f3538a12dcd07e.com', 'control-2aed3d1eae675e01.com',
+          'control-2e116cc633eb1fbd.com', 'control-2fa1129e0ced3941.com',
+          'control-3346cfc3f6ba4d5e.com', 'control-5e01baa8e02fd6cf.com',
+          'control-7d00e0a5b4f9ebac.com', 'control-871d61ac277df48c.com',
+          'control-8a43da6690421398.com', 'control-8c258f2d90e104.com',
+          'control-97b36316feffeed9.com', 'control-9e1c7dca7bd10e0a.com',
+          'control-a3fa2c2977b9c77.com', 'control-a459b35b8d53c7eb.com',
+          'control-ad88d13fb7c5b656.com', 'control-b2849cd760ca4fca.com',
+          'control-be2b77e1cde11c02.com', 'control-d29fb22f62c2bd40.com',
+          'control-db579422b821f74b.com', 'control-dd8e504254d52549.com',
+          'control-e1c5ab5ba568f444.com', 'control-e243174b2299d39e.com',
+          'control-ec72f7d094d37572.com'
+      ]
+      expected_double_domains = [
+          '1922.gov.tw', '9gag.com', 'custhelp.com', 'www.unwatch.org',
+          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
+          'www.usacasino.com'
+      ]
+      expected_triple_domains = ['www.arabhra.org', '11st.co.kr']
+      expected_triple_control_domains = ['rtyutgyhefdafioasfjhjhi.com']
+      expected_quad_domains = [
+          '123rf.com', '1337x.to', 'www.youporn.com', 'xhamster.com',
+          'ajax.aspnetcdn.com', 'alipay.com', 'www.americorps.gov',
+          'www.mainichi.co.jp'
+      ]
+      expected_quad_control_domains = ['example5718349450314.com']
+      expected_quintuple_domains = [
+          'discover.com', 'peacefire.org', 'secondlife.com', 'www.epa.gov',
+          'www.sex.com', 'www.89.com', 'www.casinotropez.com'
+      ]
+      expected_six_control_domains = ['a.root-servers.net']
+      expected_19_domain = ['104.com.tw']
+      all_expected_domains = (
+          expected_single_domains + expected_single_control_domains +
+          expected_double_domains * 2 + expected_triple_domains * 3 +
+          expected_triple_control_domains * 3 + expected_quad_domains * 4 +
+          expected_quad_control_domains * 4 + expected_quintuple_domains * 5 +
+          expected_six_control_domains * 6 + expected_19_domain * 19)
+
+      written_domains = [row[0] for row in written_rows]
+      self.assertListEqual(
+          sorted(written_domains), sorted(all_expected_domains))
+
+      client = cloud_bigquery.Client(
+          project=firehook_resources.DEV_PROJECT_NAME)
+      # pylint: disable=protected-access
+      # Write derived table
+      run_queries._run_query(
+          client,
+          'table/queries/merged_reduced_scans.sql',
+          firehook_resources.DEV_PROJECT_NAME,
+          BEAM_TEST_BASE_DATASET,
+          BEAM_TEST_BASE_DATASET,
+      )
+      # pylint: enable=protected-access
+
+      written_derived_rows = get_bq_rows(client, [derived_table_name])
+      self.assertEqual(len(written_derived_rows), 53)
+
+      expected_domains = [
+          'CONTROL', 'mos.ru', 'scribd.com', 'www.89.com', 'secondlife.com',
+          'www.arabhra.org', 'www.sex.com', 'www.blubster.com', 'box.com',
+          'www.orthodoxconvert.info', 'www.epa.gov', 'www.casinotropez.com',
+          'xhamster.com', 'boingboing.net', 'uploaded.to', 'peacefire.org',
+          'www.youporn.com', '104.com.tw', '123rf.com', 'google.com.ua',
+          'discover.com', '1337x.to'
+      ]
+      written_derived_domains = [row[6] for row in written_derived_rows]
+
+      self.assertEqual(set(written_derived_domains), set(expected_domains))
+
+    finally:
+      clean_up_bq_tables(client, bq_table_names + [derived_table_name])
+
   def test_hyperquack_gcs_pipeline_e2e(self) -> None:
     """Test the full pipeline on local files writing output files to GCS."""
     warnings.simplefilter('ignore', ResourceWarning)
@@ -493,174 +606,6 @@ class PipelineManualE2eTest(unittest.TestCase):
       self.assertEqual(len(written_rows), 44)
     finally:
       clean_up_gcs_folder(client, BEAM_TEST_GCS_BUCKET, BEAM_TEST_GCS_FOLDER)
-
-  def test_hyperquack_pipeline_e2e(self) -> None:
-    """Test the full pipeline by running it twice locally on a few files."""
-    # Suppress some unittest socket warnings in beam code we don't control
-    warnings.simplefilter('ignore', ResourceWarning)
-    client = cloud_bigquery.Client()
-
-    derived_table_name = get_bq_derived_table_name_hyperquack()
-
-    try:
-      bq_table_names = [
-          get_bq_base_table_name(scan_type)
-          for scan_type in HYPERQUACK_SCAN_TYPES
-      ]
-
-      for scan_type in HYPERQUACK_SCAN_TYPES:
-        run_local_pipeline(scan_type, False)
-
-      written_rows = get_bq_rows(client, bq_table_names)
-      self.assertEqual(len(written_rows), 57)
-
-      for scan_type in HYPERQUACK_SCAN_TYPES:
-        run_local_pipeline(scan_type, True)
-
-      written_rows = get_bq_rows(client, bq_table_names)
-      self.assertEqual(len(written_rows), 110)
-
-      # Domain appear different numbers of times in the test table depending on
-      # how their measurement succeeded/failed.
-      expected_single_domains = [
-          'boingboing.net',
-          'box.com',
-          'google.com.ua',
-          'mos.ru',
-          'scribd.com',
-          'uploaded.to',
-          'www.blubster.com',
-          'www.orthodoxconvert.info',
-      ]
-      expected_single_control_domains = [
-          'control-28f3538a12dcd07e.com', 'control-2aed3d1eae675e01.com',
-          'control-2e116cc633eb1fbd.com', 'control-2fa1129e0ced3941.com',
-          'control-3346cfc3f6ba4d5e.com', 'control-5e01baa8e02fd6cf.com',
-          'control-7d00e0a5b4f9ebac.com', 'control-871d61ac277df48c.com',
-          'control-8a43da6690421398.com', 'control-8c258f2d90e104.com',
-          'control-97b36316feffeed9.com', 'control-9e1c7dca7bd10e0a.com',
-          'control-a3fa2c2977b9c77.com', 'control-a459b35b8d53c7eb.com',
-          'control-ad88d13fb7c5b656.com', 'control-b2849cd760ca4fca.com',
-          'control-be2b77e1cde11c02.com', 'control-d29fb22f62c2bd40.com',
-          'control-db579422b821f74b.com', 'control-dd8e504254d52549.com',
-          'control-e1c5ab5ba568f444.com', 'control-e243174b2299d39e.com',
-          'control-ec72f7d094d37572.com'
-      ]
-      expected_triple_domains = [
-          'www.arabhra.org',
-      ]
-      expected_triple_control_domains = ['rtyutgyhefdafioasfjhjhi.com']
-      expected_quad_domains = [
-          '123rf.com',
-          '1337x.to',
-          'www.youporn.com',
-          'xhamster.com',
-      ]
-      expected_quad_control_domains = ['example5718349450314.com']
-      expected_quintuple_domains = [
-          'discover.com', 'peacefire.org', 'secondlife.com', 'www.epa.gov',
-          'www.sex.com', 'www.89.com', 'www.casinotropez.com'
-      ]
-      expected_18_domain = ['104.com.tw']
-      all_expected_domains = (
-          expected_single_domains + expected_single_control_domains +
-          expected_triple_domains * 3 + expected_triple_control_domains * 3 +
-          expected_quad_domains * 4 + expected_quad_control_domains * 4 +
-          expected_quintuple_domains * 5 + expected_18_domain * 18)
-
-      written_domains = [row[0] for row in written_rows]
-      self.assertListEqual(
-          sorted(written_domains), sorted(all_expected_domains))
-
-      client = cloud_bigquery.Client(
-          project=firehook_resources.DEV_PROJECT_NAME)
-      # pylint: disable=protected-access
-      # Write derived table
-      run_queries._run_query(
-          client,
-          'table/queries/merged_reduced_scans.sql',
-          firehook_resources.DEV_PROJECT_NAME,
-          BEAM_TEST_BASE_DATASET,
-          BEAM_TEST_BASE_DATASET,
-      )
-      # pylint: enable=protected-access
-
-      written_derived_rows = get_bq_rows(client, [derived_table_name])
-      self.assertEqual(len(written_derived_rows), 53)
-      expected_domains = (['CONTROL'] + expected_single_domains +
-                          expected_triple_domains + expected_quad_domains +
-                          expected_quintuple_domains + expected_18_domain)
-
-      written_derived_domains = [row[3] for row in written_derived_rows]
-      self.assertEqual(set(written_derived_domains), set(expected_domains))
-
-    finally:
-      clean_up_bq_tables(client, bq_table_names + [derived_table_name])
-
-  def test_satellite_pipeline_e2e(self) -> None:
-    """Test the satellite pipeline by running it locally."""
-    # Suppress some unittest socket warnings in beam code we don't control
-    warnings.simplefilter('ignore', ResourceWarning)
-    client = cloud_bigquery.Client()
-
-    derived_table_name = get_bq_derived_table_name_satellite()
-
-    try:
-      run_local_pipeline_satellite_v1()
-      # contains v2p1 and v2p2
-      run_local_pipeline_satellite_v2()
-
-      written_rows = get_bq_rows(client,
-                                 [get_bq_base_table_name(SATELLITE_SCAN_TYPE)])
-      self.assertEqual(len(written_rows), 44)
-
-      expected_single_domains = ['1688.com', '1337x.to', '104.com.tw']
-      expected_double_domains = [
-          '1922.gov.tw', '9gag.com', 'custhelp.com', 'www.unwatch.org',
-          'biblegateway.com', 'ar.m.wikipedia.org', 'www.ecequality.org',
-          'www.usacasino.com'
-      ]
-      expected_triple_domains = ['11st.co.kr']
-      expected_quad_domains = [
-          'ajax.aspnetcdn.com', 'alipay.com', 'www.americorps.gov',
-          'www.mainichi.co.jp'
-      ]
-      expected_six_domains = ['a.root-servers.net']
-
-      all_expected_domains = (
-          expected_single_domains + expected_double_domains * 2 +
-          expected_triple_domains * 3 + expected_quad_domains * 4 +
-          expected_six_domains * 6)
-
-      written_domains = [row[0] for row in written_rows]
-
-      self.assertListEqual(
-          sorted(written_domains), sorted(all_expected_domains))
-
-      client = cloud_bigquery.Client(
-          project=firehook_resources.DEV_PROJECT_NAME)
-      # pylint: disable=protected-access
-      # Write derived table
-      run_queries._run_query(
-          client,
-          'table/queries/derived_satellite_scans.sql',
-          firehook_resources.DEV_PROJECT_NAME,
-          BEAM_TEST_BASE_DATASET,
-          BEAM_TEST_BASE_DATASET,
-      )
-      # pylint: enable=protected-access
-
-      written_derived_rows = get_bq_rows(client, [derived_table_name])
-      self.assertEqual(len(written_derived_rows), 1)
-      expected_domains = ['11st.co.kr']
-
-      written_derived_domains = [row[5] for row in written_derived_rows]
-      self.assertEqual(set(written_derived_domains), set(expected_domains))
-
-    finally:
-      clean_up_bq_tables(
-          client,
-          [get_bq_base_table_name(SATELLITE_SCAN_TYPE), derived_table_name])
 
   def test_invalid_pipeline(self) -> None:
     with self.assertRaises(Exception) as context:
