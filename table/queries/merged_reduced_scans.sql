@@ -176,6 +176,7 @@ AS (
          measurement_id,
          MAX(retry) AS retry
   FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`
+  WHERE date >= earliest_date
   GROUP BY date, measurement_id
 );
 
@@ -186,7 +187,8 @@ AS (
   SELECT domain, source
   FROM `PROJECT_NAME.BASE_DATASET.satellite_scan`,
        UNNEST(answers) as a
-  WHERE a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
+  WHERE date >= earliest_date
+        AND a.https_tls_cert_matches_domain AND a.https_tls_cert_has_trusted_ca
   GROUP BY domain, source
 );
 
