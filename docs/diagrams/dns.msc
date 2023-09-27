@@ -1,0 +1,15 @@
+msc {
+  probe,remote;
+
+  probe box probe [label="Initial Test Setup"];
+  probe=>remote [ label = "Write DNS Query over UDP" ];
+  probe<=remote [ label = "Read Response" ];
+  probe box probe [label="Validate IP Match"];
+  probe=>remote [ label = "Query Non-matching IPs for Domain over HTTPS" ];
+  probe<=remote [ label = "Read Responses" ];
+  probe box probe [label="Validate response certificate for domain"];
+  probe=>remote [ label = "Query Non-matching IPs for Domain over HTTP" ];
+  probe<=remote [ label = "Read Responses" ];
+  probe box probe [label="Check response content"];
+  probe box probe [label="Test Complete"];
+}

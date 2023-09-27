@@ -1,12 +1,12 @@
 # Reduced Table
 
-The table `firehook-censoredplanet.derived.merged_reduced_scans_vN` (where N is a version number)
+The table `censoredplanet-analysisv1.derived.merged_reduced_scans_vN` (where N is a version number)
 contains filtered and pre-aggregated data to be used in the Censored Planet dashboard.
 
 This table is evolving and will change in backwards incompatible ways. When a backwards-incompatible
 change happens the version number will increment. Older version of the table will be deleted.
 
-The view `firehook-censoredplanet.derived.merged_reduced_scans` points to the latest version of
+The view `censoredplanet-analysisv1.derived.merged_reduced_scans` points to the latest version of
 the table above. If you would like to deal with backwards-incompatible changes yourself rely on
 this view instead of the table directly.
 
@@ -38,4 +38,5 @@ Reduced Scans
 | outcome          | STRING  | What was the [outcome](outcome.md) of the individual measurement eg `read/timeout` |
 | count            | INTEGER | How many measurements fit the exact pattern of this row? |
 | unexpected_count | INTEGER | Count of measurements with an unexpected outcome |
-
+| hostname         | STRING  | The domain name of the DNS resolver. (Only used in DNS) eg. `ns1.uts.ae` |
+| reg_hostname     | STRING  | The domain name of the DNS resolver without subdomains. (Only used in DNS) eg. `uts.ae` |
