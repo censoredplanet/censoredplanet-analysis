@@ -16,8 +16,7 @@
 import argparse
 import datetime
 import urllib.request
-
-import requests
+from urllib.error import HTTPError
 
 from google.cloud import storage  # type: ignore
 
@@ -74,8 +73,8 @@ def download_days_routeview(bucket: storage.bucket.Bucket,
 
       blob = bucket.blob(cloud_filepath)
       blob.upload_from_string(content)
-    except requests.exceptions.HTTPError as ex:
-      if ex.response.status_code != 404:
+    except HTTPError as ex:
+      if ex.code != 404:
         raise ex
 
 
