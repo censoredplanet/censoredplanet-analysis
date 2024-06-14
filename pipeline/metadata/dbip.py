@@ -8,7 +8,7 @@ import geoip2.database
 
 from pipeline.metadata.mmdb_reader import mmdb_reader
 
-DBIP_ISP = 'dbip-isp-2023-08.mmdb'
+DBIP_ISP = 'dbip-isp-2023-09.mmdb'
 
 # Tuple(organization_name, asn)
 # ex: ("Boranet", 3786)
