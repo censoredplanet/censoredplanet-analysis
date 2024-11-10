@@ -1,0 +1,9 @@
+msc {
+  probe,remote;
+
+  probe box probe [label="Initial Test Setup"];
+  probe=>remote [ label = "Write DNS Query over UDP" ];
+  probe<=remote [ label = "Read Response" ];
+  probe box probe [label="Validate response content"];
+  probe box probe [label="Test Complete"];
+}
