@@ -345,6 +345,12 @@ class SatelliteFlattener():
     """
     is_control_domain = flatten_base.is_control_url(responses_entry['test_url'])
     date = responses_entry['start_time'][:10]
+    # Skip rows where start_time or end_time is empty—this was
+    # causing format_timestamp() to blow up with an IndexError.
+    start = responses_entry.get('start_time', '').strip()
+    end = responses_entry.get('end_time', '').strip()
+    if not start or not end:
+      return
 
     row = SatelliteRow(
         domain=responses_entry['test_url'],
