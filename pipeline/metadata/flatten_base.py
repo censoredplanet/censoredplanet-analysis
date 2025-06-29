@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any, Union, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.x509.base import InvalidVersion
 
 from pipeline.metadata.blockpage import BlockpageMatcher
 from pipeline.metadata.schema import HttpsResponse
@@ -141,8 +142,10 @@ def parse_cert(
     cert_end_date = cert.not_valid_after.isoformat()
     cert_alternative_names = get_alternative_names(cert)
     cert_match_domain = cert_matches_domain(cert, domain)
-  except ValueError as e:
-    logging.warning('ValueError: %s\nCert: %s\n', e, cert_str)
+  except (ValueError, InvalidVersion) as e:
+    logging.warning('Could not parse certificate (skipping): %s\nCert: %s\n', e,
+                    cert_str)
+
   return (cert_common_name, cert_issuer, cert_start_date, cert_end_date,
           cert_alternative_names, cert_match_domain)
 
@@ -295,8 +298,8 @@ def parse_received_data(blockpage_matcher: BlockpageMatcher,
     row.tls_cipher_suite = received['CipherSuite']
     if isinstance(received['Certificate'], str):
       row.tls_cert = received['Certificate']
-    elif isinstance(received['Certificate'], List) and len(
-        received['Certificate']) > 0:
+    elif isinstance(received['Certificate'],
+                    List) and len(received['Certificate']) > 0:
       row.tls_cert = received['Certificate'][0]
 
   # Parse certificate fields
