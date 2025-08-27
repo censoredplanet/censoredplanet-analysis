@@ -289,7 +289,8 @@ class SchemaTest(unittest.TestCase):
       'controls_failed': False,
       'stateful_block': False,
       'measurement_id': '81e2a76dafe04131bc38fc6ec7bbddca',
-      'source': 'CP_Quack-https-2020-11-06-15-15-31'
+      'source': 'CP_Quack-https-2020-11-06-15-15-31',
+      'outcome': 'content/status_mismatch:302'
     }
     # yapf: disable
     gcs_dict = schema.dict_to_gcs_dict_hyperquack(schema.flatten_to_dict(row))

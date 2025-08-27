@@ -407,7 +407,6 @@ def dict_to_gcs_dict_hyperquack(
   measurement_dict.pop('domain_category')
   measurement_dict.pop('is_known_blockpage')
   measurement_dict.pop('page_signature')
-  measurement_dict.pop('outcome')
   measurement_dict.pop('received_tls_cert_matches_domain')
   return measurement_dict
 
